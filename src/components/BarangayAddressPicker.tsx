@@ -73,6 +73,15 @@ export function BarangayAddressPicker({
   // resolved value the dropdown owns) so both survive independently.
   const [campusQuery, setCampusQuery] = useState('')
   const [campusOpen, setCampusOpen] = useState(false)
+  // Whether the campus place on screen is this person's answer or the app's
+  // guess. They arrive the same way — as addressDetail — but they do not mean
+  // the same thing: a place reverse-geocoded from a GPS fix is a suggestion,
+  // often a near-miss ("Experimental Farms" for a spot at the edge of the
+  // campus), and showing it as a filled-in answer invites people to accept it
+  // without reading. Until it is chosen here it is drawn as placeholder text,
+  // which is what a suggestion looks like. It still stands as the address if
+  // nobody changes it — dropping it would be worse than offering it quietly.
+  const [campusPicked, setCampusPicked] = useState(false)
   // Matched on the place and on its group, so "food" finds the canteens
   // without anyone having to know what each one is called.
   const campusMatches = (() => {
@@ -254,7 +263,7 @@ export function BarangayAddressPicker({
               demanding it. */}
           <div className="relative">
             <input
-              value={campusOpen ? campusQuery : addressDetail}
+              value={campusOpen ? campusQuery : campusPicked ? addressDetail : ''}
               onChange={(e) => {
                 setCampusQuery(e.target.value)
                 setCampusOpen(true)
@@ -280,10 +289,15 @@ export function BarangayAddressPicker({
                 if (e.key === 'Enter' && campusOpen && campusMatches.length > 0) {
                   e.preventDefault()
                   setAddressDetail(campusMatches[0].place)
+                  setCampusPicked(true)
                   setCampusOpen(false)
                 }
               }}
-              placeholder="Type to search a place on campus — Library, Gym, CBAA…"
+              placeholder={
+                !campusPicked && addressDetail
+                  ? `${addressDetail} — tap to change`
+                  : 'I-type ang lugar — Library, Gym, CBAA…'
+              }
               aria-label="Place on campus"
               autoComplete="off"
               className={`w-full rounded-lg border px-3 py-2 text-sm ${
@@ -304,6 +318,7 @@ export function BarangayAddressPicker({
                       onMouseDown={(e) => {
                         e.preventDefault()
                         setAddressDetail(m.place)
+                        setCampusPicked(true)
                         setCampusOpen(false)
                         setMissing(null)
                       }}

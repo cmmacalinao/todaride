@@ -1050,9 +1050,16 @@ export function SimulatorPage() {
           mode keeps every pane at a real handset width; if the window
           cannot fit all of them at that width, this scrolls sideways
           instead of shrinking them into uselessness. */}
+      {/* Phone panes snap. On a real phone the row is wider than the screen
+          by design — that is what makes it a row of handsets — so swiping
+          sideways used to stop wherever the finger let go, leaving two half
+          panes on screen and neither of them readable. snap-mandatory lands
+          every swipe on one whole pane. */}
       <div
         ref={paneRowRef}
-        className={`flex gap-2 overflow-x-auto pb-1 ${paneMode === 'phone' ? 'justify-center' : ''}`}
+        className={`flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 sm:snap-none ${
+          paneMode === 'phone' ? 'justify-center' : ''
+        }`}
       >
         {[
           { key: 'left', role: leftRole, id: leftId },
@@ -1063,16 +1070,26 @@ export function SimulatorPage() {
         ].map((pane) => (
           <div
             key={pane.key}
-            className={`flex flex-col overflow-hidden rounded-xl border bg-white shadow-sm ${
+            // One pane per screen on a phone, whatever the mode.
+            //
+            // Both modes used to divide the window instead: phone mode fixed
+            // each pane at 390px, which is wider than a 375px handset, and
+            // responsive mode split the width between them — five panes on a
+            // phone came out 180px each, so you were always looking at two
+            // half-screens and could read neither. Below sm every pane is the
+            // full width of the window and the row snaps to it; from sm up,
+            // where there is room to compare panes side by side, the original
+            // rules take over.
+            className={`flex w-full shrink-0 snap-center flex-col overflow-hidden rounded-xl border bg-white shadow-sm ${
               paneMode === 'phone'
-                ? 'w-[390px] shrink-0 border-slate-400 shadow-md'
+                ? 'max-w-[390px] border-slate-400 shadow-md'
                 : paneCount === 5
-                  ? 'min-w-[180px] flex-1 basis-0 border-slate-300'
+                  ? 'sm:w-auto sm:min-w-[180px] sm:shrink sm:flex-1 sm:basis-0 border-slate-300'
                   : paneCount === 4
-                    ? 'min-w-[220px] flex-1 basis-0 border-slate-300'
+                    ? 'sm:w-auto sm:min-w-[220px] sm:shrink sm:flex-1 sm:basis-0 border-slate-300'
                     : paneCount === 3
-                      ? 'min-w-[280px] flex-1 basis-0 border-slate-300'
-                      : 'min-w-[360px] flex-1 border-slate-300'
+                      ? 'sm:w-auto sm:min-w-[280px] sm:shrink sm:flex-1 sm:basis-0 border-slate-300'
+                      : 'sm:w-auto sm:min-w-[360px] sm:shrink sm:flex-1 border-slate-300'
             }`}
           >
             <div className="border-b border-slate-200 bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600">

@@ -725,7 +725,15 @@ export function SimulatorPage() {
           below it, the same "always at the top" default the app's own
           header already uses — so the reload/reset commands stay reachable
           without hunting for them while scrolled into a tall pane. */}
-      <section className="sticky top-[46px] z-10 flex flex-wrap items-center gap-x-1.5 gap-y-1 rounded-xl border border-slate-200 bg-white px-2 py-1.5 shadow-sm">
+      {/* Two rows on a phone, wrapping freely above sm.
+          //
+          Sixteen controls wrapped onto five lines on a handset — half the
+          screen spent on a toolbar, above panes that are the actual subject.
+          Filling exactly two rows column by column (grid-flow-col with
+          grid-rows-2) and scrolling sideways spends two lines instead, and
+          the controls stay in the same order. A laptop has the width to wrap
+          them properly, so above sm nothing changes. */}
+      <section className="sticky top-[46px] z-10 grid auto-cols-max grid-flow-col grid-rows-2 items-center gap-x-1.5 gap-y-1 overflow-x-auto rounded-xl border border-slate-200 bg-white px-2 py-1.5 shadow-sm sm:flex sm:flex-wrap sm:grid-rows-1 sm:overflow-x-visible">
         {/* The saved scenario, one tap away regardless of whatever the pax
             dropdown below is currently set to: Celeste rides the terminal's
             full 3 km leg, Lola Nena pumaras 1 km in and rides on with her,

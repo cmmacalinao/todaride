@@ -59,7 +59,14 @@ export function AdminSectionTabs() {
     // edges of the screen: a strip that scrolls should look like it runs off
     // the side, not stop short of it.
     <div
-      className="sticky z-10 -mx-4 flex snap-x items-center gap-1 overflow-x-auto bg-slate-100 px-4 py-1 sm:mx-0 sm:rounded-lg sm:px-1"
+      // Two rows on a phone, one on anything wider.
+      //
+      // Ten sections in a single row is a long sideways scroll for the ones
+      // at the end; four wrapped rows was 118px of screen before any content.
+      // Two rows filled column by column — which is what grid-flow-col with
+      // grid-rows-2 does — halves the scrolling distance and still costs only
+      // two lines. From sm up there is room for the plain row again.
+      className="sticky z-10 -mx-4 grid snap-x auto-cols-max grid-flow-col grid-rows-2 gap-1 overflow-x-auto bg-slate-100 px-4 py-1 sm:mx-0 sm:flex sm:grid-rows-1 sm:items-center sm:rounded-lg sm:px-1"
       style={{ top: 'var(--app-header-h, 0px)' }}
     >
       {ADMIN_TABS.map((tab) => (

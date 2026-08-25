@@ -34,6 +34,7 @@ import {
 } from '../lib/tracking'
 import {
   DROPOFF_PROXIMITY_METERS,
+  AUTO_START_METERS,
   formatKm,
   simulatedDriverOrigin,
   PICKUP_PROXIMITY_METERS,
@@ -1563,6 +1564,40 @@ function ActiveTripCard({
   // cannot start until the goods are actually in the sidecar. On a plain ride
   // there is nothing to buy, so nothing to wait for.
   const shoppingDone = !isErrandRide || shoppingList.length === 0 || allBought
+
+  // The trip starts itself when the tricycle reaches the passenger.
+  //
+  // Arriving and picking someone up is one act, not two, and the second half
+  // of it was a button — so the fare began whenever the driver next looked at
+  // their phone, which is not when the passenger got on. Both ends paid for
+  // that: the passenger's trip appeared to start late, and the driver got
+  // nagged about a step they were in the middle of performing.
+  //
+  // Measured against the passenger's own position where they are sharing it,
+  // the pickup pin otherwise (see getPassengerMapGps) — "the driver and the
+  // passenger are in the same place" is the real condition, and the pin is
+  // only ever a stand-in for the person.
+  //
+  // The button stays exactly where it was. A driver who is holding the phone
+  // can still start the trip themselves, and must be able to: GPS can be off,
+  // refused, or simply wrong, and this must never be the only way in.
+  const metersFromPassenger =
+    driverGpsForPickup && passengerGpsInfo?.gps
+      ? Math.round(haversineDistanceMeters(driverGpsForPickup, passengerGpsInfo.gps))
+      : null
+  const autoStartRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!ride || ride.status !== 'driver_arriving') return
+    // An errand's shopping list still has to be finished first — starting the
+    // ride mid-list would strand the items the passenger is paying for.
+    if (!shoppingDone) return
+    if (metersFromPassenger === null || metersFromPassenger > AUTO_START_METERS) return
+    // Once per ride. Without this the effect re-fires on every position tick
+    // between arriving and the status actually changing.
+    if (autoStartRef.current === ride.id) return
+    autoStartRef.current = ride.id
+    onStart()
+  }, [ride, metersFromPassenger, shoppingDone, onStart])
   // Defensive: a MockLocation from before `gps` existed (stale localStorage)
   // has no real coordinate to plot — skip that point rather than crash.
   const mapPoints: MapPoint[] = [
@@ -1772,23 +1807,12 @@ function ActiveTripCard({
         </div>
       )}
 
-      {ride.status === 'driver_arriving' && forgotStart.show && (
-        <button
-          type="button"
-          onClick={onStart}
-          className="w-full animate-pulse rounded-lg border-2 border-amber-500 bg-amber-100 px-3 py-2.5 text-left text-xs font-semibold text-amber-900 hover:bg-amber-200"
-        >
-          <span className="block text-sm">🔔 Did you forget to start the trip?</span>
-          <span className="mt-0.5 block font-normal">
-            {/* movedAway is only ever true with a real distance behind it
-                (see forgotToStartTrip), so the fallback is unreachable — it is
-                here because the type cannot say so. */}
-            {forgotStart.movedAway
-              ? `You're ${formatKm(forgotStart.metersAway ?? 0)} from ${formatAddressLine(ride.pickup.label)} and the trip still hasn't started — tap here to start it now.`
-              : `${ride.passengerName} is waiting to be marked on board — tap here to start the trip.`}
-          </span>
-        </button>
-      )}
+      {/* The "did you forget to start the trip?" prompt used to live here.
+          It was the right answer to a trip that only started when someone
+          pressed a button; now that arriving starts it, the question no
+          longer has a case to describe. forgotToStartTrip stays in use below,
+          where it still does its other job: keeping the button pressable for
+          a driver who has already moved on past the pickup. */}
       {ride.status === 'driver_arriving' && (
         <>
           <button

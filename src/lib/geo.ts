@@ -120,3 +120,12 @@ export function simulatedDriverOrigin(pickup: GeoCoords, seed: string): GeoCoord
   const bearing = (hash >>> 8) % 360
   return offsetMeters(pickup, meters, bearing)
 }
+
+// How close the tricycle has to be to the passenger before the trip starts
+// itself. Tighter than PICKUP_PROXIMITY_METERS on purpose: that one guards a
+// button a driver chooses to press, and 100m of slack is a kindness when a
+// pin sits on the wrong side of a building. This one spends the passenger's
+// money without being asked, so it waits until the two really are in the same
+// spot — 15m is inside the noise of two consumer GPS fixes standing together,
+// and outside the distance at which the driver is still visibly approaching.
+export const AUTO_START_METERS = 15

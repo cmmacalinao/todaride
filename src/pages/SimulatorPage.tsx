@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { sharedRideScenario, type ScenarioContext, type ScenarioStep } from '../lib/scenarios'
 import { createCustomLocation } from '../lib/customLocation'
+import { simulatedDriverOrigin } from '../lib/geo'
 import { getClsuPlaceGps, getTerminalGps } from '../mock/data'
 import { TerminalQuickPanel } from '../components/TerminalQuickPanel'
 import { TodaBoundariesPanel } from '../components/TodaBoundariesPanel'
@@ -522,14 +523,24 @@ export function SimulatorPage() {
     if (!driver || cast.length < riderCount) return null
     const org = todaOrganizations.find((o) => o.id === driver.todaOrgId) ?? null
     const terminal = terminals.find((t) => t.id === driver.homeTerminalId)
-    const driverGps = terminal?.gps ?? getTerminalGps(org)
+    // The terminal is where the places are measured from — the first
+    // passenger boards at it, and every destination is walked out along a
+    // bearing that starts there.
+    const terminalGps = terminal?.gps ?? getTerminalGps(org)
+    // The driver, though, starts a short way off it rather than standing
+    // exactly on the pickup. A run that begins with driver and passenger at
+    // the same coordinate never exercises the approach, the arrival, or the
+    // proximity check that guards "Start trip" — which is the part of a
+    // pickup most worth rehearsing. 20-30m out (see simulatedDriverOrigin)
+    // covers all three in a few seconds.
+    const driverGps = terminalGps ? simulatedDriverOrigin(terminalGps, driver.id) : null
     const clsu = { province: 'Nueva Ecija', city: 'Science City of Muñoz', barangay: 'CLSU' }
     const place = (name: string) => createCustomLocation(`${name}, CLSU, Muñoz`, getClsuPlaceGps(name), clsu)
     // The first passenger boards right at the terminal — not a campus
     // landmark near it, the terminal itself — and rides to the nearer of the
     // two stops. Named rather than jittered, since a passenger's own pickup
     // being off by a few hundred meters would be the wrong kind of realism.
-    const terminalStop = driverGps ? createCustomLocation(terminal?.name ?? 'Terminal', driverGps, clsu) : place('Main Gate')
+    const terminalStop = terminalGps ? createCustomLocation(terminal?.name ?? 'Terminal', terminalGps, clsu) : place('Main Gate')
     // The whole trip, and the "Pumara" flag-down partway through it, at real
     // distances rather than jittered campus points — bearing taken towards
     // Old Market (the same road used elsewhere), then walked out to exact
@@ -541,14 +552,14 @@ export function SimulatorPage() {
     // the same instant would never hand a pane to a later rider at all.
     const bearingTowards = getClsuPlaceGps('Old Market')
     const destinationAt = (meters: number, label: string) =>
-      driverGps ? pointAtDistance(driverGps, bearingTowards, meters, label) : place('Old Market')
+      terminalGps ? pointAtDistance(terminalGps, bearingTowards, meters, label) : place('Old Market')
     const destinations = [
       destinationAt(3000, 'Poblacion, Muñoz'),
       destinationAt(4500, 'Bantug, Muñoz'),
       destinationAt(6000, 'Bagong Sikat, Muñoz'),
       destinationAt(7500, 'Villa Cuiz, Muñoz'),
     ]
-    const midway = driverGps ? pointAtDistance(driverGps, bearingTowards, 1000, 'Crossing, Muñoz') : place('CBAA')
+    const midway = terminalGps ? pointAtDistance(terminalGps, bearingTowards, 1000, 'Crossing, Muñoz') : place('CBAA')
     return {
       rides,
       driverId: driver.id,

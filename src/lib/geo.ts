@@ -73,3 +73,50 @@ export function formatKm(meters: number): string {
   const km = meters / 1000
   return `${km < 1 ? km.toFixed(2) : km.toFixed(1)} km`
 }
+
+// A point a given distance and compass bearing away from another. Standard
+// destination-point formula on a sphere — at the tens-of-metres scale this
+// works at, the earth being an ellipsoid does not show.
+export function offsetMeters(from: GeoCoords, meters: number, bearingDegrees: number): GeoCoords {
+  const angular = meters / EARTH_RADIUS_METERS
+  const bearing = (bearingDegrees * Math.PI) / 180
+  const lat1 = (from.lat * Math.PI) / 180
+  const lng1 = (from.lng * Math.PI) / 180
+  const lat2 = Math.asin(
+    Math.sin(lat1) * Math.cos(angular) + Math.cos(lat1) * Math.sin(angular) * Math.cos(bearing),
+  )
+  const lng2 =
+    lng1 +
+    Math.atan2(
+      Math.sin(bearing) * Math.sin(angular) * Math.cos(lat1),
+      Math.cos(angular) - Math.sin(lat1) * Math.sin(lat2),
+    )
+  return { lat: (lat2 * 180) / Math.PI, lng: (lng2 * 180) / Math.PI }
+}
+
+// How far a simulated driver stands from the pickup when they take a job.
+//
+// A pilot tester needs the drive-to-pickup leg to be over in seconds so they
+// can get to the part they are actually testing: the arrival, the GPS
+// proximity check, and the passenger getting on. Starting them at their TODA
+// terminal is the honest answer for a real driver and a useless one for a
+// rehearsal — it is kilometres, every single run.
+//
+// 20-30m is deliberately just outside touching distance and well inside
+// PICKUP_PROXIMITY_METERS, so "Start trip" unlocks immediately while the
+// tricycle still visibly approaches from somewhere rather than materialising
+// on top of the passenger.
+export const SIMULATED_DRIVER_MIN_METERS = 20
+export const SIMULATED_DRIVER_MAX_METERS = 30
+
+// Same ride, same spot, on every device and every re-render — the position is
+// derived from the ride's own id rather than drawn at random, so the driver
+// does not teleport around the pickup each time the state syncs.
+export function simulatedDriverOrigin(pickup: GeoCoords, seed: string): GeoCoords {
+  let hash = 0
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0
+  const spread = SIMULATED_DRIVER_MAX_METERS - SIMULATED_DRIVER_MIN_METERS
+  const meters = SIMULATED_DRIVER_MIN_METERS + (hash % (spread + 1))
+  const bearing = (hash >>> 8) % 360
+  return offsetMeters(pickup, meters, bearing)
+}

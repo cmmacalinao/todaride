@@ -35,6 +35,7 @@ import {
 import {
   DROPOFF_PROXIMITY_METERS,
   formatKm,
+  simulatedDriverOrigin,
   PICKUP_PROXIMITY_METERS,
   TERMINAL_PROXIMITY_METERS,
   getCurrentGeoPosition,
@@ -240,6 +241,28 @@ export function DriverPage() {
   // when no device position is available.
   const myTerminalOrg = todaOrganizations.find((o) => o.id === driver.todaOrgId)
   const myOriginGps = myLiveGps ?? getTerminalGps(myTerminalOrg) ?? null
+
+  // Where this driver is taken to be standing for THIS job.
+  //
+  // A real position always wins: shared GPS if the phone is giving it, the
+  // terminal otherwise, which is where a driver waiting for work genuinely
+  // is. But with movement simulation on, nobody is driving anywhere — the
+  // terminal is kilometres from most pickups, so every rehearsal opened with
+  // a leg that had to be waited out before the part being tested could even
+  // begin. Simulated runs start 20-30m out instead: close enough that the
+  // proximity check passes at once, far enough that the tricycle still
+  // arrives rather than appearing on top of the passenger.
+  //
+  // Turning simulation OFF (Super Admin's real-GPS mode) restores the honest
+  // answer, which is the whole point of that switch — a road test must not be
+  // handed a position nobody is standing at.
+  function originGpsForRide(ride: Ride | undefined): GeoCoords | null {
+    if (myLiveGps) return myLiveGps
+    if (simulateMovementEnabled && ride?.pickup.gps) {
+      return simulatedDriverOrigin(ride.pickup.gps, ride.id)
+    }
+    return myOriginGps
+  }
   const myActiveRides = rides
     .filter((r) => r.driverId === currentDriverId && (r.status === 'driver_arriving' || r.status === 'ongoing'))
     // Oldest first: the trip the driver is actually driving owns the map, the
@@ -797,7 +820,7 @@ export function DriverPage() {
           <NearbyRequestsBoard
             requests={nearbyRequests}
             onAccept={(rideId) => {
-              driverProposeAccept(rideId, driver.id, myOriginGps)
+              driverProposeAccept(rideId, driver.id, originGpsForRide(rides.find((r) => r.id === rideId)))
               goToSection('current')
             }}
             onDecline={(rideId) => declineRide(rideId, driver.id)}
@@ -1085,7 +1108,7 @@ export function DriverPage() {
                       <div className="mt-3 flex gap-2">
                         <button
                           onClick={() => {
-                            driverProposeAccept(r.id, driver.id, myOriginGps)
+                            driverProposeAccept(r.id, driver.id, originGpsForRide(r))
                             setShowRequests(false)
                           }}
                           className="flex-1 rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
@@ -1172,7 +1195,7 @@ export function DriverPage() {
                 <div className="mt-1.5 grid grid-cols-2 gap-1.5">
                   <button
                     type="button"
-                    onClick={() => driverProposeAccept(request.ride.id, driver.id, myOriginGps)}
+                    onClick={() => driverProposeAccept(request.ride.id, driver.id, originGpsForRide(request.ride))}
                     className="rounded-lg bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-700"
                   >
                     Sakay din

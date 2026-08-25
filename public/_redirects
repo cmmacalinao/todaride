@@ -1,0 +1,7 @@
+# Single-page app: every path is drawn by React Router in the browser, and
+# only index.html exists on disk. Without this, a static host answers 404 to
+# anything that is not the root — which is exactly what a QR sticker leads
+# to, since /scan/<driverId> is opened cold from a phone camera rather than
+# navigated to from inside the app. 200, not 301: the URL must stay as typed
+# so the router can read the driver id out of it.
+/*    /index.html   200

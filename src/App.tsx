@@ -174,6 +174,12 @@ function AppShell() {
               points for end users. */}
           <Route path="/book/start" element={<RiderStartPage />} />
           <Route path="/book" element={<BookPage />} />
+          {/* Recording a ride you are already sitting in — its own screen
+              rather than a panel unrolled beneath the booking form. Same
+              component, because it shares that form's pickup, destination
+              and map; the route is what makes it a place you can be, with a
+              back button and a history entry of its own. */}
+          <Route path="/book/terminal" element={<BookPage />} />
           {/* Booking the pickup ride for a medicine order the pharmacy has
               already confirmed and set aside. */}
           <Route path="/book/meds/:orderId" element={<MedsRideBookingPage />} />

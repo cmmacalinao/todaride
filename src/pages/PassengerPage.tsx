@@ -239,10 +239,6 @@ export function PassengerPage() {
   // controls which address form shows below the map, so only one is on
   // screen at a time instead of both stacked.
   const [mapTarget, setMapTarget] = useState<'pickup' | 'dropoff'>('pickup')
-  // Sakay sa Terminal and Group Ride used to be their own pages; now they're
-  // collapsible sections on this one, so tapping either banner toggles one
-  // of these instead of navigating away.
-  const [terminalOpen, setTerminalOpen] = useState(false)
   const [groupRideOpen, setGroupRideOpen] = useState(false)
   const [groupRiders, setGroupRiders] = useState<GroupRiderEntry[]>([])
   const [groupPaySplit, setGroupPaySplit] = useState<'separate' | 'booker'>('separate')
@@ -284,6 +280,19 @@ export function PassengerPage() {
   const [searchParams] = useSearchParams()
   const location = useLocation()
   const navigate = useNavigate()
+
+  // Sakay sa Terminal has its own address again (/book/terminal). It shares
+  // this page's state — the same pickup, the same destination, the same one
+  // map instance — so it stays this component rather than a second one that
+  // would have to rebuild all of it. What the route buys is that it behaves
+  // like the screen it is: a back button that works, a history entry, and a
+  // link that can be sent to someone.
+  //
+  // Group Ride is still a panel on this page; it is a variation on booking
+  // rather than a different thing to be doing.
+  const terminalOpen = location.pathname === '/book/terminal'
+  const setTerminalOpen = (open: boolean) => navigate(open ? '/book/terminal' : '/book')
+
   // Lets the landing page's "💊 Buy a Medicine" button link straight into
   // the Medicine flow (/book?service=buy_medicine) instead of dropping the
   // passenger on the collapsed "Ready to head out?" prompt.
@@ -1166,6 +1175,32 @@ export function PassengerPage() {
     </div>
   )
 
+  // Sakay sa Terminal, as its own screen.
+  //
+  // It used to unroll beneath the booking form, which left both on screen at
+  // once: two sets of address boxes, a map that had moved but looked
+  // duplicated, and a form asking where you want to go above a panel for a
+  // ride you are already taking. They are two different jobs. This is the
+  // second one, alone, with the way back stated at the top.
+  //
+  // Everything it needs — pickup, destination, the single map instance — is
+  // still this component's, computed above and handed straight over.
+  if (terminalOpen) {
+    return (
+      <div className="mx-auto flex min-h-[calc(100vh-70px)] max-w-lg flex-col space-y-2 px-4 pb-[72px] pt-1">
+        <button
+          type="button"
+          onClick={() => setTerminalOpen(false)}
+          className="flex items-center gap-1.5 self-start rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+        >
+          <span aria-hidden className="text-sm leading-none">‹</span>
+          Bumalik sa booking
+        </button>
+        <TerminalBoardingPanel onClose={() => setTerminalOpen(false)} mapSlot={sharedMap} />
+      </div>
+    )
+  }
+
   return (
     // min-h + flex-col is what lets the ad box claim the leftover screen:
     // mt-auto pushes it to the bottom and flex-1 lets it grow, so on a tall
@@ -1452,7 +1487,7 @@ export function PassengerPage() {
                 type="button"
                 onClick={() => {
                   setGroupRideOpen(false)
-                  setTerminalOpen((v) => !v)
+                  setTerminalOpen(!terminalOpen)
                 }}
                 aria-expanded={terminalOpen}
                 className="flex min-w-0 flex-[4] items-center gap-1.5 rounded-lg bg-[#ffe066] px-2.5 py-1.5 text-left shadow-sm transition hover:bg-[#ffd633]"
@@ -1474,11 +1509,6 @@ export function PassengerPage() {
                   Group
                 </span>
               </button>
-            </div>
-          )}
-          {terminalOpen && (
-            <div className="mt-1.5">
-              <TerminalBoardingPanel onClose={() => setTerminalOpen(false)} mapSlot={sharedMap} />
             </div>
           )}
           {groupRideOpen && (

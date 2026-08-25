@@ -15,9 +15,9 @@ interface GoogleLiveMapProps {
   // when the Google Maps script fails to load (bad key, network block, CSP)
   // instead of rendering nothing.
   onFailed?: () => void
-  // See RealLiveMap's refitOnMove — re-fits on any coordinate change, not
-  // just when points are added/removed.
-  refitOnMove?: boolean
+  // See RealLiveMap's followAll — keeps every trip participant framed as
+  // they move, terminals excluded.
+  followAll?: boolean
   // See RealLiveMap's refitSignal — a trip moment worth re-framing for.
   refitSignal?: string
   // See RealLiveMap's fitPointIds — which markers the viewport frames.
@@ -35,7 +35,7 @@ interface GoogleLiveMapProps {
 // markers/polyline in place) rather than pulling in a React wrapper library
 // — matches the dependency-free pattern already used for the Google
 // geocoding/routing swap in geocode.ts/routing.ts.
-export function GoogleLiveMap({ points, routeLine, routeIsReal, routeVariant, onMapClick, onPointClick, onFailed, refitOnMove, refitSignal, fitPointIds, frozen, height = '220px' }: GoogleLiveMapProps) {
+export function GoogleLiveMap({ points, routeLine, routeIsReal, routeVariant, onMapClick, onPointClick, onFailed, refitSignal, followAll, fitPointIds, frozen, height = '220px' }: GoogleLiveMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<GoogleMap | null>(null)
   const markersRef = useRef<Map<string, GoogleMarker>>(new Map())
@@ -193,11 +193,8 @@ export function GoogleLiveMap({ points, routeLine, routeIsReal, routeVariant, on
       polylineRef.current = null
     }
 
-    // Only re-fit the viewport when the *set* of points changes (e.g. a
-    // driver marker appears) — not on every tiny GPS tick, so live tracking
-    // doesn't jump-recenter the view each update. Callers that want a re-fit
-    // on every coordinate change too (the address picker) opt in via
-    // refitOnMove.
+    // Re-fit only when the *set* of points changes (e.g. a driver marker
+    // appears). A marker that merely moves never re-frames the map.
     // Applied on every pass, not just at creation: a map built while moving
     // has to be freezable later.
     map.setOptions({
@@ -208,10 +205,16 @@ export function GoogleLiveMap({ points, routeLine, routeIsReal, routeVariant, on
       keyboardShortcuts: !frozen,
     })
 
-    const requested = fitPointIds ? points.filter((p) => fitPointIds.includes(p.id)) : points
+    const requested = followAll
+      ? points.filter((p) => p.icon !== 'terminal')
+      : fitPointIds
+        ? points.filter((p) => fitPointIds.includes(p.id))
+        : points
     const framed = requested.length > 0 ? requested : points
-    const fitKey = refitOnMove
-      ? framed.map((p) => `${p.id}:${p.gps.lat.toFixed(5)},${p.gps.lng.toFixed(5)}`).join('|')
+    // Identity only — a marker that moves never re-frames the map — except
+    // while following a trip, where movement is the point.
+    const fitKey = followAll
+      ? framed.map((p) => `${p.id}:${p.gps.lat.toFixed(4)},${p.gps.lng.toFixed(4)}`).join('|')
       : framed.map((p) => p.id).join(',')
     // Same rule as the Leaflet map: frame everything until the reader takes
     // the viewport over, then leave it alone.
@@ -226,7 +229,7 @@ export function GoogleLiveMap({ points, routeLine, routeIsReal, routeVariant, on
         map.fitBounds(bounds, 30)
       }
     }
-  }, [points, routeLine, routeIsReal, routeVariant, status, refitOnMove, refitSignal, fitPointIds, frozen])
+  }, [points, routeLine, routeIsReal, routeVariant, status, refitSignal, followAll, fitPointIds, frozen])
 
   if (status === 'failed') return null
   return <div ref={containerRef} style={{ height, width: '100%', cursor: onMapClick ? 'crosshair' : undefined }} />

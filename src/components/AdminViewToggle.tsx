@@ -29,7 +29,7 @@ export function AdminViewToggle() {
           <span aria-hidden className="text-xs leading-none">
             {o.icon}
           </span>
-          {o.label}
+          <span className="hidden sm:inline">{o.label}</span>
         </button>
       ))}
     </div>

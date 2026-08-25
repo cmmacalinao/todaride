@@ -1,4 +1,4 @@
-import { haversineDistanceMeters } from '../lib/geo'
+import { formatKm, haversineDistanceMeters } from '../lib/geo'
 import { driverDispatchGps, estimateOutOfAreaBreakdown, getTerminalGps } from '../mock/data'
 import type { Driver, GeoCoords, Ride, Terminal, TodaOrganization } from '../types'
 
@@ -66,8 +66,7 @@ export function buildNearbyDrivers(
 
 function formatDistance(meters: number | null): string {
   if (meters === null) return 'Distance unknown'
-  if (meters < 1000) return `${meters} m away`
-  return `${(meters / 1000).toFixed(1)} km away`
+  return `${formatKm(meters)} away`
 }
 
 interface NearbyDriversPickerProps {

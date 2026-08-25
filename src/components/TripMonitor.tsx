@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ETA_SECONDS_PER_LEG, useRides } from '../context/RideContext'
 import { DRIVER_BASE_GPS, MOCK_DRIVERS, PAYMENT_METHODS } from '../mock/data'
-import { showInMiddle, showInMiddleWhenSettled, keepInView } from '../lib/showInMiddle'
+import { showInMiddle, showInMiddleWhenSettled } from '../lib/showInMiddle'
 import { StatusBadge } from './StatusBadge'
 import { BarangayAddressPicker } from './BarangayAddressPicker'
 import { resolvePhAddress, type PhAddressTags } from '../lib/customLocation'
@@ -126,15 +126,6 @@ export function TripMonitor({
   useEffect(() => {
     if (movingWithoutDestination) setAskDestination(true)
   }, [movingWithoutDestination])
-  // Keep the tricycle on screen while it travels.
-  //
-  // Deliberately not a periodic re-centre: a passenger who scrolls down to
-  // read the fare, or up to hit SOS, must not have the page yanked back
-  // under their thumb every few seconds. This only acts when the map has
-  // gone completely out of view — which is the case it is actually for, a
-  // phone left on some other part of the card while the trip runs.
-  const moving = ride.status === 'driver_arriving' || ride.status === 'ongoing'
-  useEffect(() => keepInView(mapSectionRef.current, moving), [moving])
   const tripJustStarted = ride.status === 'ongoing'
   useEffect(() => {
     if (!tripJustStarted) return
@@ -562,11 +553,18 @@ export function TripMonitor({
           </p>
           {/* The notice tells them to book again; this is the booking. A
               stranded passenger should not have to find their own way back
-              to the form. */}
+              to the form.
+
+              Yellow on purpose, and not the `gold` token: gold is themed, and
+              the Royal Blue theme remaps it to a cool steel-grey. That is the
+              right call for the quiet accents it was chosen for, but it made
+              the one button a stranded passenger needs read as disabled. This
+              is the way out of a cancelled trip, so it stays yellow in every
+              theme, and only goes grey when it genuinely cannot be pressed. */}
           <button
             type="button"
             onClick={() => (onDismiss ? onDismiss() : navigate('/book'))}
-            className="mt-2 flex w-full items-center gap-2 rounded-lg bg-gold-400 px-3 py-2 text-left shadow-sm transition hover:bg-gold-500"
+            className="mt-2 flex w-full items-center gap-2 rounded-lg bg-gold-400 px-3 py-2 text-left shadow-sm transition hover:bg-gold-500 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
           >
             <span aria-hidden className="text-lg leading-none">🛵</span>
             <span className="min-w-0 flex-1">
@@ -741,9 +739,9 @@ export function TripMonitor({
             routeIsReal={!!route}
             routeVariant={ride.status === 'driver_arriving' ? 'pickup' : 'trip'}
             refitSignal={framing.phase}
+            followAll={framing.followAll}
             fitPointIds={fitPointIds}
             frozen={framing.frozen}
-            refitOnMove={framing.refitOnMove}
           />
           {needsDestination && (
             <button

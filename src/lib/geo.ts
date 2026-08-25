@@ -59,3 +59,17 @@ export function getCurrentGeoPosition(): Promise<GeoCoords> {
     )
   })
 }
+
+// Distances are shown in kilometres, everywhere, whatever their size.
+//
+// The app used to switch units on the reader: metres up to a kilometre, then
+// km. Two units in one list means two numbers that cannot be compared at a
+// glance — "800 m" against "1.2 km" is a puzzle, and a driver reading it at a
+// terminal should not have to solve one. Precision does the adapting instead:
+// two decimals below a kilometre, so 85 m is still a real number (0.09 km)
+// rather than a rounded-away zero, and one above it, where a second decimal
+// is noise.
+export function formatKm(meters: number): string {
+  const km = meters / 1000
+  return `${km < 1 ? km.toFixed(2) : km.toFixed(1)} km`
+}

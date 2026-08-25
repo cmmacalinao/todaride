@@ -31,7 +31,13 @@ import {
 } from '../mock/data'
 import { getCurrentGeoPosition } from '../lib/geo'
 import { isWithinRetentionDays } from '../lib/tracking'
-import { resolvePhAddress, resolveNearbyPublicMarket, type PhAddressTags } from '../lib/customLocation'
+import {
+  createCustomLocation,
+  resolvePhAddress,
+  resolveNearbyPublicMarket,
+  reverseGeocodeToPhAddress,
+  type PhAddressTags,
+} from '../lib/customLocation'
 import { StatusBadge } from '../components/StatusBadge'
 import { ReceiptCard } from '../components/ReceiptCard'
 import { StarRating } from '../components/StarRating'
@@ -907,7 +913,7 @@ export function PassengerPage() {
   // re-fits its map), but Ride/Pabili have no list to filter, so this jumps
   // the one point that represents "where I'm starting from" (pickup for a
   // Ride, "Buy near to" for a Pabili errand) to a resolved point in the
-  // chosen city and lets the map's own refitOnMove pan there — same
+  // chosen city and lets the map's own refitSignal pan there — same
   // public-market-search proxy already used as "the passenger's rough area"
   // elsewhere in this file (see handleSelectPabili). Destination/"Deliver
   // to" is left alone since that's a free choice, not a "where am I" field.
@@ -962,12 +968,33 @@ export function PassengerPage() {
     handleDropoffQuickPick(CLSU_MAIN_GATE_LOCATION)
   }
 
-  async function handleUseMyGps() {
+  // "My location" used to register the coordinate and nothing else: the map
+  // knew where you were, and the address box above it stayed empty, so the
+  // next thing you had to do was type out the address of the spot you were
+  // standing on. It now goes through exactly what tapping the map does —
+  // reverse-geocode the fix, name the place, and fill the field — because
+  // that path already existed and already fills the box (see
+  // LocationMapPicker's placePin).
+  //
+  // Which box gets filled follows the chip: this row is rendered against the
+  // pickup on a ride and the delivery address on an errand.
+  async function handleUseMyGps(target: 'pickup' | 'dropoff' = 'pickup') {
     setGpsStatus('locating')
     setGpsError('')
     try {
       const coords = await getCurrentGeoPosition()
-      setPickupGps(coords)
+      if (target === 'pickup') setPickupGps(coords)
+      const { label, guess } = await reverseGeocodeToPhAddress(coords)
+      const location = createCustomLocation(
+        // A fix with no street to its name is still a usable pickup — the
+        // driver has the pin. Falling back to the coordinates keeps the field
+        // filled with something true rather than leaving it blank.
+        label ?? `My location (${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)})`,
+        coords,
+        guess ?? undefined,
+      )
+      if (target === 'pickup') handlePinPickup(location, guess)
+      else handlePinDropoff(location, guess)
       setGpsStatus('done')
     } catch (err) {
       setGpsStatus('error')
@@ -990,7 +1017,7 @@ export function PassengerPage() {
       <div className="-mx-1 flex flex-nowrap gap-1 overflow-x-auto px-1 pb-0.5">
         <button
           type="button"
-          onClick={() => void handleUseMyGps()}
+          onClick={() => void handleUseMyGps(target)}
           disabled={gpsStatus === 'locating'}
           title={`Set ${fieldName} to where I am right now`}
           className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold transition disabled:opacity-60 ${

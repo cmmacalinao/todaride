@@ -61,23 +61,10 @@ export function scrollViewToTopWhenSettled(el: HTMLElement | null, forMs = 900):
     clearTimeout(stop)
   }
 }
-
-// Keeps a live map on screen for as long as something is moving on it.
-//
-// Checked on a timer rather than re-centred on one: a rider reading the fare
-// or reaching for SOS must not have the page pulled back under their thumb
-// every few seconds. It acts only once most of the element has left the
-// viewport — the case it is actually for, a phone parked on some other part
-// of the card while the trip runs.
-export function keepInView(el: HTMLElement | null, active: boolean, everyMs = 3000): () => void {
-  if (!el || !active) return () => {}
-  const id = setInterval(() => {
-    const box = el.getBoundingClientRect()
-    const viewport = el.ownerDocument.documentElement.clientHeight
-    const visible = Math.max(0, Math.min(box.bottom, viewport) - Math.max(box.top, 0))
-    // Less than a third of the map showing is not "on screen" in any sense a
-    // passenger would recognise.
-    if (visible < box.height / 3) showInMiddle(el)
-  }, everyMs)
-  return () => clearInterval(id)
-}
+// NOTE: keepInView used to live here — a 3-second timer that scrolled a
+// moving map back to the middle of the screen whenever it drifted out of
+// view. It was removed along with the maps' automatic re-zoom: between them
+// they meant the page could not be left alone. It also made the driver's
+// cancellation note impossible to fill in, since opening the keyboard pushed
+// the map off screen and the timer hauled the page back three seconds later,
+// taking the text field with it.

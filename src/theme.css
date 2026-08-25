@@ -30,11 +30,11 @@
   --mint-200: 214 239 231;
   --mint-300: 185 227 214;
 
-  --gold-50: 246 248 250;
-  --gold-100: 226 232 240;
-  --gold-400: 148 163 184;
-  --gold-500: 100 116 139;
-  --gold-600: 71 85 105;
+  --gold-50: 255 252 239;
+  --gold-100: 255 243 204;
+  --gold-400: 255 195 0;
+  --gold-500: 230 175 0;
+  --gold-600: 198 150 0;
 
   --navy-700: 23 53 106;
   --navy-800: 19 42 82;
@@ -118,13 +118,16 @@
   --mint-200: 214 239 231;
   --mint-300: 185 227 214;
 
-  /* Cool steel-grey stands in for the warm gold — same role (CTA fills,
-     banner accents), a "professional" read instead of "warm/playful". */
-  --gold-50: 246 248 250;
-  --gold-100: 226 232 240;
-  --gold-400: 148 163 184;
-  --gold-500: 100 116 139;
-  --gold-600: 71 85 105;
+  /* Gold, and actually gold. This theme originally swapped it for a cool
+     steel-grey, which reads as "professional" in isolation but made every
+     control wearing it — the Sakay sa Terminal banner, the book-again button
+     after a cancellation — look disabled next to the blue. The wordmark is
+     yellow; its accents match it. */
+  --gold-50: 255 252 239;
+  --gold-100: 255 243 204;
+  --gold-400: 255 195 0;
+  --gold-500: 230 175 0;
+  --gold-600: 198 150 0;
 
   --navy-700: 23 53 106;
   --navy-800: 19 42 82;

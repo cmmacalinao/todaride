@@ -1557,7 +1557,7 @@ export function getBarangaysForCity(province: string, city: string): string[] {
 // Still not real security: these strings ship inside the JavaScript bundle
 // and anyone willing to open devtools can read them. It is the difference
 // between a door that is closed and a door with the key taped to it.
-export const APP_ADMIN_CREDENTIALS = { username: 'admin', password: 'toda-admin-4417' }
+export const APP_ADMIN_CREDENTIALS = { username: 'admin', password: 'admin321' }
 
 // A second accepted identity for the same single App Admin/Super Admin
 // role — lets the operator log in with their real email instead of the
@@ -1577,7 +1577,7 @@ export const APP_SUPER_ADMIN_EMAIL = 'cmmacalinao@gmail.com'
 // a different support mailbox.
 export const APP_SUPPORT_EMAIL = 'support@todasaferide.ph'
 
-export const APP_SUPER_ADMIN_CREDENTIALS = { username: 'superadmin', password: 'toda-super-9382' }
+export const APP_SUPER_ADMIN_CREDENTIALS = { username: 'superadmin', password: 'super321' }
 // Who that email belongs to — shown on the login screen and the Accounting
 // allowlist so the Founder's access reads as a named person rather than an
 // anonymous address.

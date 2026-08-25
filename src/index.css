@@ -62,3 +62,34 @@ body {
 :root {
   --asset-revision: 2;
 }
+
+/* The map's pan toggle, docked under Leaflet's +/- pair (see RealLiveMap's
+   PanLockControl). Leaflet already sizes and borders every .leaflet-bar
+   button; this only says which state it is in — plain while the map is
+   locked and a swipe passes through it, brand-filled while the map has the
+   gestures. */
+/* Leaflet's stock control button is 30px square, which is a lot of furniture
+   on a phone map that is only 220px tall to begin with. 26px stays inside the
+   44px touch target once the surrounding padding is counted, and gives the
+   map back a row of pixels. */
+.leaflet-bar a,
+.leaflet-bar a:hover,
+.leaflet-touch .leaflet-bar a,
+.leaflet-touch .leaflet-bar a:hover {
+  width: 26px;
+  height: 26px;
+  line-height: 26px;
+  font-size: 17px;
+}
+
+.leaflet-bar a.toda-pan-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgb(var(--navy-900));
+}
+.leaflet-bar a.toda-pan-toggle.is-unlocked,
+.leaflet-bar a.toda-pan-toggle.is-unlocked:hover {
+  background: rgb(var(--brand-600));
+  color: #ffffff;
+}

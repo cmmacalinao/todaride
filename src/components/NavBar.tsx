@@ -484,9 +484,15 @@ export function NavBar() {
   // card under the header everywhere else, and up inside the header on the
   // simulator, where it takes the ad strip’s place. Two panes and a toolbar
   // leave no room for a row of house advertising.
+  //
+  // One row, always. flex-wrap put each tab on its own line as soon as the
+  // labels stopped fitting — which on a phone is immediately, so the five
+  // roles came out as a vertical strip down the side of the screen. They
+  // shrink and their labels truncate instead, and if a narrow enough screen
+  // still cannot hold them the row scrolls sideways rather than folding.
   const tabRow = (
         <nav
-          className={`flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-white shadow-sm ${
+          className={`flex flex-nowrap gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm ${
             isSimulatorPage ? 'p-1' : 'p-1.5'
           }`}
         >
@@ -515,7 +521,7 @@ export function NavBar() {
               <span className={`leading-none ${isSimulatorPage ? 'text-xs' : 'text-base'}`}>
                 {tab.restricted ? '🔒' : tab.icon}
               </span>
-              <span className={`leading-tight ${isSimulatorPage ? 'truncate' : 'w-full'}`}>{tab.label}</span>
+              <span className="w-full truncate leading-tight">{tab.label}</span>
             </NavLink>
           ))}
         </nav>
@@ -560,12 +566,21 @@ export function NavBar() {
             />
           </Link>
         </div>
-        {isSimulatorPage ? <div className="min-w-0 flex-1">{tabRow}</div> : <AdBanner />}
+        {isSimulatorPage ? (
+          <div className="min-w-0 flex-1">{tabRow}</div>
+        ) : (
+          // Hidden on a phone. It is the one thing in this header that is not
+          // a control, and keeping it was pushing the account badge, Log out
+          // and the width toggle off the right edge of the screen.
+          <div className="hidden min-w-0 flex-1 sm:block">
+            <AdBanner />
+          </div>
+        )}
         <div
           className={
             isSimulatorPage
               ? 'flex shrink-0 items-center gap-1.5'
-              : 'flex shrink-0 flex-col items-end gap-1'
+              : 'flex min-w-0 flex-col items-end gap-1'
           }
         >
           {/* This is the internal/ops view (only an Admin account reaches

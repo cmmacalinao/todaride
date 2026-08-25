@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useRides } from '../context/RideContext'
 import { useSession } from '../context/SessionContext'
 import { useWatchPosition } from '../lib/liveTracking'
-import { haversineDistanceMeters } from '../lib/geo'
+import { formatKm, haversineDistanceMeters } from '../lib/geo'
 import { createCustomLocation } from '../lib/customLocation'
 import { CLSU_GPS, driverDispatchGps } from '../mock/data'
 import { terminalRideIsFree } from '../lib/terminalFee'
@@ -207,7 +207,7 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
                         </span>
                       </span>
                       <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
-                        {meters} m
+                        {formatKm(meters)}
                       </span>
                     </button>
                   )

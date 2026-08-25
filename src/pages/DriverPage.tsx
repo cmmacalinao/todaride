@@ -1,6 +1,6 @@
 import { formatAddressLine } from '../lib/addressFormat'
 import { formatTripRoute } from '../lib/addressFormat'
-import { showInMiddle, showInMiddleWhenSettled, scrollViewToTop, keepInView } from '../lib/showInMiddle'
+import { showInMiddle, showInMiddleWhenSettled, scrollViewToTop } from '../lib/showInMiddle'
 import { DriverFooterNav } from '../components/DriverFooterNav'
 import { PlatformFeeSoa, buildSoa } from '../components/PlatformFeeSoa'
 import { DriverPilaPage } from '../components/DriverPilaPage'
@@ -34,6 +34,7 @@ import {
 } from '../lib/tracking'
 import {
   DROPOFF_PROXIMITY_METERS,
+  formatKm,
   PICKUP_PROXIMITY_METERS,
   TERMINAL_PROXIMITY_METERS,
   getCurrentGeoPosition,
@@ -558,7 +559,7 @@ export function DriverPage() {
       } else {
         setQueueNotice({
           title: "You're not at the terminal yet",
-          body: `You are about ${Math.round(distance)} m from ${nearest ? nearest.name : `${homeToda.name}'s terminal`}. The Pila is for drivers actually waiting there, so you need to be within ${TERMINAL_PROXIMITY_METERS} m of it to take a place in line. Drive over and try again.`,
+          body: `You are about ${formatKm(distance)} from ${nearest ? nearest.name : `${homeToda.name}'s terminal`}. The Pila is for drivers actually waiting there, so you need to be within ${formatKm(TERMINAL_PROXIMITY_METERS)} of it to take a place in line. Drive over and try again.`,
         })
       }
     } catch {
@@ -1118,14 +1119,6 @@ export function DriverPage() {
             rideId={myActiveRide.id}
             onStart={() => startRide(myActiveRide.id)}
             onComplete={(paidMethod) => completeRide(myActiveRide.id, paidMethod)}
-            // Holding one map on screen is a kindness to a driver with a phone
-            // in a handlebar bracket. Carrying two passengers it becomes a
-            // fight: two cards do not fit a phone at once, so the map is
-            // almost never a third visible, and the page is dragged back every
-            // three seconds — which is what the flickering was. With more than
-            // one trip aboard the driver scrolls between them and the page
-            // stays where they put it.
-            keepMapInView={myActiveRides.length === 1}
             extraPoints={sharedStopPoints}
             hintLine={sharedHintLine}
           />
@@ -1144,7 +1137,6 @@ export function DriverPage() {
           onStart={() => startRide(extra.id)}
           onComplete={(paidMethod) => completeRide(extra.id, paidMethod)}
           showMap={false}
-          keepMapInView={false}
         />
       ))}
 
@@ -1168,7 +1160,7 @@ export function DriverPage() {
                 <p className="text-xs font-bold text-slate-800">{request.ride.passengerName}</p>
                 <p className="text-[11px] text-slate-600">{formatTripRoute(request.ride.pickup.label, request.ride.dropoff.label)}</p>
                 <p className="mt-0.5 text-[11px] font-semibold text-emerald-700">
-                  +₱{request.takeHome} sa iyo · {offRouteMeters} m mula sa ruta · +{detourMeters} m na liko
+                  +₱{request.takeHome} sa iyo · {formatKm(offRouteMeters)} mula sa ruta · +{formatKm(detourMeters)} na liko
                   {request.ride.passengerCount > 1 && ` · ${request.ride.passengerCount} sasakay`}
                 </p>
                 {beyondCurrentDropoff && (
@@ -1335,7 +1327,7 @@ export function DriverPage() {
               </p>
               {r.actualDropoff && (
                 <p className="text-[11px] text-amber-700">
-                  🚩 Got out {r.actualDropoff.metersShort} m short of {formatAddressLine(r.dropoff.label)}
+                  🚩 Got out {formatKm(r.actualDropoff.metersShort)} short of {formatAddressLine(r.dropoff.label)}
                 </p>
               )}
               <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
@@ -1365,7 +1357,6 @@ function ActiveTripCard({
   extraPoints,
   hintLine,
   showMap = true,
-  keepMapInView = true,
 }: {
   rideId: string
   onStart: () => void
@@ -1376,11 +1367,6 @@ function ActiveTripCard({
   extraPoints?: MapPoint[]
   hintLine?: GeoCoords[]
   showMap?: boolean
-  // Only one card may pull the screen to itself. With two passengers aboard
-  // there are two of these on the page, and two of them scrolling their own
-  // map into the middle every few seconds shove each other off it — which
-  // reads as the map flickering back and forth for the whole ride.
-  keepMapInView?: boolean
 }) {
   const {
     rides,
@@ -1422,8 +1408,6 @@ function ActiveTripCard({
   const effectiveShareGps = gpsSharingLocked || shareLiveGps
   const { position: liveDriverGps, error: liveGpsError } = useWatchPosition(effectiveShareGps)
   const ride = rides.find((r) => r.id === rideId)
-  const rideMoving = ride ? ride.status === 'driver_arriving' || ride.status === 'ongoing' : false
-  useEffect(() => keepInView(tripMapRef.current, rideMoving && keepMapInView), [rideMoving, keepMapInView])
   // Card settles at checkout; everything else is money that physically has to
   // reach the driver, so the driver is the one who confirms it arrived.
   const needsDriverPaymentCheck = ride ? ride.paymentMethod !== 'card' : false
@@ -1689,13 +1673,13 @@ function ActiveTripCard({
             hintLine={hintLine && hintLine.length > 1 ? hintLine : undefined}
             routeVariant={legRide?.status === 'driver_arriving' ? 'pickup' : 'trip'}
             refitSignal={framing.phase}
+            followAll={framing.followAll}
             fitPointIds={
               extraPoints && extraPoints.length > 0 && framing.fitPointIds
                 ? [...framing.fitPointIds, ...extraPoints.map((p) => p.id)]
                 : framing.fitPointIds
             }
             frozen={framing.frozen}
-            refitOnMove={framing.refitOnMove}
           />
         </div>
       )}
@@ -1773,8 +1757,11 @@ function ActiveTripCard({
         >
           <span className="block text-sm">🔔 Did you forget to start the trip?</span>
           <span className="mt-0.5 block font-normal">
+            {/* movedAway is only ever true with a real distance behind it
+                (see forgotToStartTrip), so the fallback is unreachable — it is
+                here because the type cannot say so. */}
             {forgotStart.movedAway
-              ? `You're ${forgotStart.metersAway} m from ${formatAddressLine(ride.pickup.label)} and the trip still hasn't started — tap here to start it now.`
+              ? `You're ${formatKm(forgotStart.metersAway ?? 0)} from ${formatAddressLine(ride.pickup.label)} and the trip still hasn't started — tap here to start it now.`
               : `${ride.passengerName} is waiting to be marked on board — tap here to start the trip.`}
           </span>
         </button>
@@ -1790,11 +1777,11 @@ function ActiveTripCard({
               ? `Buy all ${shoppingList.length} item(s) first — ${boughtCount} done`
               : atPickup || forgotStart.movedAway
                 ? 'Start trip'
-                : `Drive to the pickup to start — ${metersFromPickup} m away`}
+                : `Drive to the pickup to start — ${formatKm(metersFromPickup)} away`}
           </button>
           {!atPickup && !forgotStart.movedAway && (
             <p className="text-center text-[11px] text-slate-500">
-              Starts the fare, so it unlocks within {PICKUP_PROXIMITY_METERS} m of {formatAddressLine(ride.pickup.label)}.
+              Starts the fare, so it unlocks within {formatKm(PICKUP_PROXIMITY_METERS)} of {formatAddressLine(ride.pickup.label)}.
             </p>
           )}
         </>
@@ -1869,7 +1856,7 @@ function ActiveTripCard({
           {!atDropoff && !ride.passengerArrivedAt && !pickingWhoGetsOff && (
             <p className="text-center text-[11px] text-slate-400">
               {metersFromDropoff !== null
-                ? `Nasa ${metersFromDropoff} m ka pa mula sa ${formatAddressLine(ride.dropoff.label)} — bubukas ito`
+                ? `Nasa ${formatKm(metersFromDropoff)} ka pa mula sa ${formatAddressLine(ride.dropoff.label)} — bubukas ito`
                 : 'Bubukas ito'}{' '}
               paglapit sa babaan, o kapag sinabi ng pasahero na dito na siya bababa.
             </p>
@@ -1888,7 +1875,7 @@ function ActiveTripCard({
           {ride.actualDropoff && (
             <p className="rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-[11px] text-amber-900">
               🚩 Got out early at <span className="font-semibold">{ride.actualDropoff.label}</span> —{' '}
-              {ride.actualDropoff.metersShort} m short of {formatAddressLine(ride.dropoff.label)}. This is what the trip record will
+              {formatKm(ride.actualDropoff.metersShort)} short of {formatAddressLine(ride.dropoff.label)}. This is what the trip record will
               show.
             </p>
           )}

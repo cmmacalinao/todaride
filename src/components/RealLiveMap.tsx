@@ -59,18 +59,19 @@ interface RealLiveMapProps {
   // where the map is the whole point (the driver's home view) passes its own
   // so the map fills what is left of the phone instead of being a strip.
   height?: string
-  // Re-fits the viewport whenever an existing point's coordinates change,
-  // not just when points are added/removed — used by the booking-flow
-  // address picker so choosing a new barangay (or dropping a pin) pans the
-  // map there. Left off for live-tracking views (TripMonitor, driver maps),
-  // where re-centering on every GPS tick would fight the viewer's own
-  // pan/zoom.
-  refitOnMove?: boolean
   // Callers that already label the pins right below the map (see
   // LocationMapPicker's Pickup/Destination summary) can drop this legend
   // rather than print the same two addresses twice. Defaults to showing it:
   // everywhere else it is the only thing naming what the dots mean.
   hideLegend?: boolean
+  // Keeps every participant in view for the length of a trip: the frame is
+  // rebuilt as the markers move, rather than fitted once and left behind by
+  // the one marker that travels. Terminal pins are excluded — they are on
+  // every map and never move, and fitting them zooms the trip out to nothing.
+  //
+  // It still yields the instant the reader takes the map over (see
+  // FitBounds), and re-locking the map hands the frame back.
+  followAll?: boolean
   // A trip moment worth re-framing for — pass a value that changes at that
   // moment (arrival at the pickup point) and the map fits everything again,
   // even if the viewer had panned away. Arrival ends one leg and begins
@@ -148,10 +149,11 @@ function dotIcon(color: string, pulse?: boolean, icon?: 'tricycle' | 'pharmacy' 
 }
 
 // Fits the map to all current points once, then only re-fits if the *set* of
-// points changes (e.g. a driver marker appears) — not on every tiny GPS
-// update, so live tracking doesn't jump-recenter the view each tick. Callers
-// that want a re-fit on every coordinate change too (the address picker) opt
-// in via `refitOnMove`.
+// points changes (e.g. a driver marker appears). A marker MOVING never
+// re-fits: a tricycle crossing town would otherwise re-zoom the map every
+// tick of the trip, which is the whole complaint about maps that will not
+// hold still. Only an explicit refitSignal — arriving at the pickup, picking
+// a different destination — asks for the frame back.
 // Frames every marker — pickup, destination, and the tricycle among them — so
 // the whole trip is visible the moment the map opens, and keeps framing it as
 // markers come and go.
@@ -162,14 +164,14 @@ function dotIcon(color: string, pulse?: boolean, icon?: 'tricycle' | 'pharmacy' 
 // zoom, the viewport is theirs and nothing here touches it again.
 function FitBounds({
   points,
-  refitOnMove,
   refitSignal,
   fitPointIds,
+  followAll,
 }: {
   points: MapPoint[]
-  refitOnMove?: boolean
   refitSignal?: string
   fitPointIds?: string[]
+  followAll?: boolean
 }) {
   const map = useMap()
   const userMovedRef = useRef(false)
@@ -204,11 +206,18 @@ function FitBounds({
 
   // Falls back to every point when the named ones are not on the map (yet) —
   // an empty frame is worse than a wide one.
-  const requested = fitPointIds ? points.filter((p) => fitPointIds.includes(p.id)) : points
+  const requested = followAll
+    ? points.filter((p) => p.icon !== 'terminal')
+    : fitPointIds
+      ? points.filter((p) => fitPointIds.includes(p.id))
+      : points
   const framed = requested.length > 0 ? requested : points
 
-  const fitKey = refitOnMove
-    ? framed.map((p) => `${p.id}:${p.gps.lat.toFixed(5)},${p.gps.lng.toFixed(5)}`).join('|')
+  // Identity only, so a marker that merely moves leaves the viewport alone —
+  // except while following a trip, where movement is exactly the thing the
+  // frame has to keep up with.
+  const fitKey = followAll
+    ? framed.map((p) => `${p.id}:${p.gps.lat.toFixed(4)},${p.gps.lng.toFixed(4)}`).join('|')
     : framed.map((p) => p.id).join(',')
 
   useEffect(() => {
@@ -223,6 +232,70 @@ function FitBounds({
     map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, fitKey, refitSignal])
+
+  return null
+}
+
+// The pan toggle, built as a Leaflet control rather than a box floated over
+// the map.
+//
+// Leaflet stacks controls added to the same corner in the order they were
+// added, and styles every .leaflet-bar button identically — so this docks
+// directly beneath the +/- pair and is the same size as them by construction.
+// Positioning it by hand meant guessing the zoom control's height in pixels,
+// which is how it ended up half-hidden behind it.
+// An open palm — the hand you would put on a paper map to slide it. Reads as
+// "touch me and the map moves" without a word of instruction, which is the
+// whole job of a control a driver meets once, at speed, on a phone.
+const PAN_ICON =
+  '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M18 11V6a2 2 0 0 0-4 0"/>' +
+  '<path d="M14 10V4a2 2 0 0 0-4 0v2"/>' +
+  '<path d="M10 10.5V6a2 2 0 0 0-4 0v8"/>' +
+  '<path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.3l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15"/>' +
+  '</svg>'
+
+function PanLockControl({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => void }) {
+  const map = useMap()
+  // The control is created once; the handler must not be, or every toggle
+  // would tear the button out of the DOM and put a new one back.
+  const toggleRef = useRef(onToggle)
+  toggleRef.current = onToggle
+  const linkRef = useRef<HTMLAnchorElement | null>(null)
+
+  useEffect(() => {
+    const control = new L.Control({ position: 'topleft' })
+    control.onAdd = () => {
+      const bar = L.DomUtil.create('div', 'leaflet-bar leaflet-control')
+      const link = L.DomUtil.create('a', 'toda-pan-toggle', bar) as HTMLAnchorElement
+      link.href = '#'
+      link.role = 'button'
+      link.innerHTML = PAN_ICON
+      linkRef.current = link
+      L.DomEvent.on(link, 'click', (e) => {
+        L.DomEvent.stop(e)
+        toggleRef.current()
+      })
+      // Without this a tap on the button also reaches the map underneath.
+      L.DomEvent.disableClickPropagation(bar)
+      return bar
+    }
+    control.addTo(map)
+    return () => {
+      control.remove()
+      linkRef.current = null
+    }
+  }, [map])
+
+  // State lives on the existing element rather than in a re-created control.
+  useEffect(() => {
+    const link = linkRef.current
+    if (!link) return
+    link.title = unlocked ? 'Map unlocked — scroll the page to lock it' : 'Tap to move the map'
+    link.setAttribute('aria-label', link.title)
+    link.setAttribute('aria-pressed', String(unlocked))
+    link.classList.toggle('is-unlocked', unlocked)
+  }, [unlocked])
 
   return null
 }
@@ -260,7 +333,7 @@ function ClickHandler({ onMapClick }: { onMapClick: (gps: GeoCoords) => void }) 
 
 // The free, keyless renderer — OpenStreetMap tiles via Leaflet. Used
 // whenever no Google Maps API key is configured (see RealLiveMap below).
-function OsmLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitOnMove, refitSignal, fitPointIds, frozen, draggableIds, onPointDragEnd, height = '220px' }: RealLiveMapProps) {
+function OsmLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, frozen, draggableIds, onPointDragEnd, height = '220px', panLock }: RealLiveMapProps & { panLock?: { unlocked: boolean; onToggle: () => void } }) {
   const center: [number, number] = [points[0].gps.lat, points[0].gps.lng]
 
   return (
@@ -319,7 +392,8 @@ function OsmLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, on
         </Marker>
       ))}
       <FreezeView frozen={frozen} />
-      <FitBounds points={points} refitOnMove={refitOnMove} refitSignal={refitSignal} fitPointIds={fitPointIds} />
+      {panLock && <PanLockControl unlocked={panLock.unlocked} onToggle={panLock.onToggle} />}
+      <FitBounds points={points} refitSignal={refitSignal} fitPointIds={fitPointIds} followAll={followAll} />
     </MapContainer>
   )
 }
@@ -360,15 +434,80 @@ function spreadOverlappingPoints(points: MapPoint[]): MapPoint[] {
   })
 }
 
+// The map's own on/off switch for touch.
+//
+// A map inside a scrolling page is a trap on a phone: a finger dragged across
+// it pans the map instead of scrolling past it, so the page appears stuck.
+// Every map therefore starts locked — it draws, it can be read, and a swipe
+// goes straight through it to the page. Tapping this hands the map the
+// gestures on purpose, and the next scroll of the page hands them back.
+function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={unlocked}
+      aria-label={unlocked ? 'Lock the map' : 'Unlock the map to move it'}
+      title={unlocked ? 'Map unlocked — scroll the page to lock it again' : 'Tap to move the map'}
+      // Sits directly under Leaflet's +/- stack: that control is 10px from
+      // the top-left corner and two 30px buttons tall, so 78px clears it with
+      // a hair of breathing room. Same column, so the three map controls read
+      // as one group rather than two ideas at opposite corners.
+      //
+      // z-[1000] clears Leaflet's own panes and controls, which run to 1000
+      // inside the container's stacking context.
+      className={`absolute left-[10px] top-[78px] z-[1000] flex h-[30px] w-[30px] items-center justify-center rounded border shadow-md transition ${
+        unlocked
+          ? 'border-brand-700 bg-brand-600 text-white'
+          : 'border-slate-300 bg-white/95 text-slate-600 hover:bg-white'
+      }`}
+    >
+      {/* The same open palm as the Leaflet control's, drawn rather than typed
+          so it renders identically on every phone. */}
+      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M18 11V6a2 2 0 0 0-4 0" />
+        <path d="M14 10V4a2 2 0 0 0-4 0v2" />
+        <path d="M10 10.5V6a2 2 0 0 0-4 0v8" />
+        <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.3l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15" />
+      </svg>
+    </button>
+  )
+}
+
 // Picks the renderer — real Google Maps tiles/roads when
 // VITE_GOOGLE_MAPS_API_KEY is configured (see googleMapsLoader.ts), the free
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitOnMove, refitSignal, fitPointIds, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, height }: RealLiveMapProps) {
+export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, height }: RealLiveMapProps) {
   // If the Google script fails to load (bad key, network block, CSP), fall
   // back to the OSM/Leaflet canvas instead of showing an empty map.
   const [googleFailed, setGoogleFailed] = useState(false)
+  // Locked until asked otherwise — see PanLock.
+  const [unlocked, setUnlocked] = useState(false)
+  // Counts the times the map has gone back under glass. Feeding it into the
+  // framing signal is what makes re-locking resume automatic framing after a
+  // reader has panned away.
+  const [relocks, setRelocks] = useState(0)
+
+  // Scrolling the page puts the map back under glass. Someone who has moved
+  // on to read the fare or the driver's details is no longer working the map,
+  // and leaving it live means the next swipe that happens to land on it
+  // pans the map instead of the page.
+  //
+  // Capture, because scroll does not bubble: the page scrolls #root here and
+  // its own pane inside the split-screen simulator, and this has to catch
+  // both without knowing which.
+  useEffect(() => {
+    if (!unlocked) return
+    const relock = () => {
+      setUnlocked(false)
+      setRelocks((n) => n + 1)
+    }
+    document.addEventListener('scroll', relock, { capture: true, passive: true })
+    return () => document.removeEventListener('scroll', relock, { capture: true })
+  }, [unlocked])
+
   if (points.length === 0) return null
   const useGoogle = !!googleMapsApiKey() && !googleFailed
   const displayPoints = spreadOverlappingPoints(points)
@@ -378,6 +517,15 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
   // pickup, the drop-off and the tricycle — the things the viewer opened it
   // for — off the top of the key.
   const legendPoints = points.filter((p) => p.icon !== 'terminal')
+  // A caller that froze this map meant it — a finished trip is a picture, not
+  // a thing to explore, and no button should offer to move it.
+  const interactive = !frozen
+  const locked = frozen || !unlocked
+  // Re-locking the map is the reader saying they are done with it, so the
+  // frame comes back to the app: FitBounds treats a changed signal as
+  // permission to fit again, which is what clears the "reader has taken
+  // over" flag their first pan set.
+  const framingSignal = `${refitSignal ?? ''}|${relocks}`
   return (
     // relative z-0 makes this its own stacking context. Leaflet gives its
     // panes z-index 400 and its controls up to 1000, which beat the fixed
@@ -385,6 +533,17 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
     // them here fixes every map in the app at once, rather than escalating
     // the header z-index and losing the same race again later.
     <div className={`relative z-0 overflow-hidden rounded-lg border border-slate-200 ${frozen ? 'map-frozen' : ''}`}>
+      {interactive && useGoogle && (
+        <PanLock
+          unlocked={unlocked}
+          onToggle={() =>
+            setUnlocked((v) => {
+              if (v) setRelocks((n) => n + 1)
+              return !v
+            })
+          }
+        />
+      )}
       {/* Above the map: it names what the pins mean, and a key you meet
           after the picture is a key you have already tried to read without. */}
       {!hideLegend && legendPoints.length > 0 && (
@@ -405,10 +564,10 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
           routeVariant={routeVariant}
           onMapClick={onMapClick}
           onPointClick={onPointClick}
-          refitOnMove={refitOnMove}
-          refitSignal={refitSignal}
+          refitSignal={framingSignal}
           fitPointIds={fitPointIds}
-          frozen={frozen}
+          followAll={followAll}
+          frozen={locked}
           height={height}
           onFailed={() => setGoogleFailed(true)}
         />
@@ -422,11 +581,23 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
           routeVariant={routeVariant}
           onMapClick={onMapClick}
           onPointClick={onPointClick}
-          refitOnMove={refitOnMove}
-          refitSignal={refitSignal}
+          refitSignal={framingSignal}
           fitPointIds={fitPointIds}
-          frozen={frozen}
+          followAll={followAll}
+          frozen={locked}
           height={height}
+          panLock={
+            interactive
+              ? {
+                  unlocked,
+                  onToggle: () =>
+                    setUnlocked((v) => {
+                      if (v) setRelocks((n) => n + 1)
+                      return !v
+                    }),
+                }
+              : undefined
+          }
           draggableIds={draggableIds}
           onPointDragEnd={onPointDragEnd}
         />

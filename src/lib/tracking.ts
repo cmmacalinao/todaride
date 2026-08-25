@@ -71,8 +71,10 @@ export function forgotToStartTrip(
 export function tripMapFraming(status: RideStatus, legProgress: number): {
   phase: string
   fitPointIds?: string[]
+  // Keeps everyone in the trip inside the frame as they move — see
+  // RealLiveMap's followAll.
+  followAll?: boolean
   frozen: boolean
-  refitOnMove: boolean
 } {
   // Frame the journey, not the remaining stub of it: both ends of the trip,
   // so the passenger can see where they got on, where they are going, and
@@ -87,18 +89,23 @@ export function tripMapFraming(status: RideStatus, legProgress: number): {
   // than it looks: with no list the map fits *everything on it*, and the
   // tricycle marker is one of those things.
   //
-  // refitOnMove is on for both moving phases: the map keeps the tricycle
   // (alongside pickup/dropoff) centered on screen for the whole ride rather
   // than fitting once and leaving the viewer to hunt for a marker that has
   // drifted off to one side. FitBounds still yields to a reader who has
   // touched the map, so this is "keep it centered until they say otherwise",
   // not a forced camera.
-  if (status === 'ongoing') return { phase: 'ongoing', fitPointIds: ['pickup', 'dropoff'], frozen: false, refitOnMove: true }
+  // While the trip is running the frame holds everyone in it — the tricycle,
+  // every passenger aboard, and the pickup and drop-off dots at either end —
+  // and re-fits as they move. Naming pickup/dropoff alone was not enough: the
+  // tricycle is the thing actually travelling, and it kept sliding out of a
+  // frame built around two fixed points. Terminals are left out (see
+  // followAll): they are scenery, and fitting them drags the view across the
+  // province.
+  if (status === 'ongoing') return { phase: 'ongoing', followAll: true, frozen: false }
   if (status === 'driver_arriving' && legProgress >= 1)
-    return { phase: 'at-pickup', fitPointIds: ['pickup', 'dropoff'], frozen: false, refitOnMove: true }
-  if (status === 'driver_arriving')
-    return { phase: 'driver_arriving', fitPointIds: ['pickup', 'dropoff'], frozen: false, refitOnMove: true }
-  return { phase: status, frozen: false, refitOnMove: false }
+    return { phase: 'at-pickup', followAll: true, frozen: false }
+  if (status === 'driver_arriving') return { phase: 'driver_arriving', followAll: true, frozen: false }
+  return { phase: status, frozen: false }
 }
 
 export function getDriverMapGps(ride: Ride, route?: RouteInfo | null): { gps: GeoCoords; isLive: boolean } | null {

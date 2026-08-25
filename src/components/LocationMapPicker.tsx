@@ -220,7 +220,7 @@ export function LocationMapPicker({
           {target === 'pickup' ? pickupLabel : dropoffLabel}
         </span>
       </p>
-      <RealLiveMap points={points} onMapClick={placePin} refitOnMove hideLegend refitSignal={refitSignal} />
+      <RealLiveMap points={points} onMapClick={placePin} hideLegend refitSignal={refitSignal} />
       {/* Under the map: book on the left, how many are riding on the right. */}
       {(leadingAction || underMapAction) && (
         <div className="flex items-center gap-2">

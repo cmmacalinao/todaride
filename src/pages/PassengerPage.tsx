@@ -1470,47 +1470,6 @@ export function PassengerPage() {
               </span>
             </span>
           </button>
-          {/* Two ways to start a trip that aren't the address form above,
-              side by side so both fit without pushing the page down: Sakay
-              sa Terminal's title wraps to two lines rather than truncating
-              now that it doesn't have the full width to say it in. Sakay sa
-              Terminal gets most of the row (it's the more common tap, and
-              keeps its own fixed yellow — the app's original CTA colour —
-              rather than following `gold`, which a cooler theme concept can
-              turn into a grey that reads as disabled here); Group Ride is
-              the smaller, secondary option next to it. Both are collapsible
-              sections on this same page now, not separate pages — tapping
-              either opens a panel below instead of navigating away. */}
-          {!isErrand && (
-            <div className="mt-2 flex items-stretch gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setGroupRideOpen(false)
-                  setTerminalOpen(!terminalOpen)
-                }}
-                aria-expanded={terminalOpen}
-                className="flex min-w-0 flex-[4] items-center gap-1.5 rounded-lg bg-[#ffe066] px-2.5 py-1.5 text-left shadow-sm transition hover:bg-[#ffd633]"
-              >
-                <span aria-hidden className="shrink-0 text-sm leading-none">🚏</span>
-                <span className="min-w-0 flex-1 text-[10px] font-extrabold uppercase leading-tight tracking-wide text-navy-900">
-                  Sakay sa terminal o pumara? Tap to track
-                  {terminalTripIsFree && <span className="font-bold normal-case"> - walang app fee</span>}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={openGroupRide}
-                aria-expanded={groupRideOpen}
-                className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg border border-slate-300 bg-white px-1.5 py-1.5 text-center shadow-sm transition hover:bg-slate-50"
-              >
-                <span aria-hidden className="shrink-0 text-xs leading-none">👥</span>
-                <span className="min-w-0 text-[9px] font-extrabold uppercase leading-tight tracking-wide text-slate-700">
-                  Group
-                </span>
-              </button>
-            </div>
-          )}
           {groupRideOpen && (
             <div className="mt-1.5">
               <GroupRideInlinePanel
@@ -1552,6 +1511,50 @@ export function PassengerPage() {
               {isErrand && gpsStatus === 'error' && gpsError && (
                 <p className="text-[11px] text-amber-700">{gpsError}</p>
               )}
+            </div>
+          )}
+          {/* Two ways to start a trip that aren't the address form above,
+              side by side so both fit without pushing the page down: Sakay
+              sa Terminal's title wraps to two lines rather than truncating
+              now that it doesn't have the full width to say it in. Sakay sa
+              Terminal gets most of the row (it's the more common tap, and
+              keeps its own fixed yellow — the app's original CTA colour —
+              rather than following `gold`, which a cooler theme concept can
+              turn into a grey that reads as disabled here); Group Ride is
+              the smaller, secondary option next to it.
+
+              Below the whole address block, picker included. It used to sit
+              between the destination row and the picker that opens from it,
+              so expanding a destination split the two apart and pushed this
+              row into the middle of a form it has nothing to do with. */}
+          {!isErrand && (
+            <div className="mt-2 flex items-stretch gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setGroupRideOpen(false)
+                  setTerminalOpen(!terminalOpen)
+                }}
+                aria-expanded={terminalOpen}
+                className="flex min-w-0 flex-[4] items-center gap-1.5 rounded-lg bg-[#ffe066] px-2.5 py-1.5 text-left shadow-sm transition hover:bg-[#ffd633]"
+              >
+                <span aria-hidden className="shrink-0 text-sm leading-none">🚏</span>
+                <span className="min-w-0 flex-1 text-[10px] font-extrabold uppercase leading-tight tracking-wide text-navy-900">
+                  Sakay sa terminal o pumara? Tap to track
+                  {terminalTripIsFree && <span className="font-bold normal-case"> - walang app fee</span>}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={openGroupRide}
+                aria-expanded={groupRideOpen}
+                className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg border border-slate-300 bg-white px-1.5 py-1.5 text-center shadow-sm transition hover:bg-slate-50"
+              >
+                <span aria-hidden className="shrink-0 text-xs leading-none">👥</span>
+                <span className="min-w-0 text-[9px] font-extrabold uppercase leading-tight tracking-wide text-slate-700">
+                  Group
+                </span>
+              </button>
             </div>
           )}
           <button

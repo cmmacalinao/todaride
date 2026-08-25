@@ -180,6 +180,12 @@ function AppShell() {
               and map; the route is what makes it a place you can be, with a
               back button and a history entry of its own. */}
           <Route path="/book/terminal" element={<BookPage />} />
+          {/* Booking for several people at once — its own screen for the
+              same reason as the terminal one: it is a different job from
+              booking a single ride, and the two were competing for one
+              screen. Still BookPage, because it shares that page's pickup,
+              map and fare maths. */}
+          <Route path="/book/group" element={<BookPage />} />
           {/* Booking the pickup ride for a medicine order the pharmacy has
               already confirmed and set aside. */}
           <Route path="/book/meds/:orderId" element={<MedsRideBookingPage />} />

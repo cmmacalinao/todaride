@@ -239,7 +239,6 @@ export function PassengerPage() {
   // controls which address form shows below the map, so only one is on
   // screen at a time instead of both stacked.
   const [mapTarget, setMapTarget] = useState<'pickup' | 'dropoff'>('pickup')
-  const [groupRideOpen, setGroupRideOpen] = useState(false)
   const [groupRiders, setGroupRiders] = useState<GroupRiderEntry[]>([])
   const [groupPaySplit, setGroupPaySplit] = useState<'separate' | 'booker'>('separate')
   const [groupSubmitting, setGroupSubmitting] = useState(false)
@@ -292,6 +291,11 @@ export function PassengerPage() {
   // rather than a different thing to be doing.
   const terminalOpen = location.pathname === '/book/terminal'
   const setTerminalOpen = (open: boolean) => navigate(open ? '/book/terminal' : '/book')
+  // Group Ride, the same way. It needs the page's map as much as the
+  // terminal screen does — pinning each rider's own destination is done on
+  // it — so it also stays this component and takes the map with it.
+  const groupRideOpen = location.pathname === '/book/group'
+  const setGroupRideOpen = (open: boolean) => navigate(open ? '/book/group' : '/book')
 
   // Lets the landing page's "💊 Buy a Medicine" button link straight into
   // the Medicine flow (/book?service=buy_medicine) instead of dropping the
@@ -633,17 +637,16 @@ export function PassengerPage() {
     !activeRide.pendingApproval &&
     activeRide.passengerDeclinedFare === true
 
-  // Group Ride — inline, sharing this page's own pickup/map instead of a
-  // second page or a second map. Riders start as just the booker; opening
-  // the panel seeds that first row from the real account.
+  // Group Ride — its own screen, still sharing this page's pickup, map and
+  // fare maths rather than a second copy of any of them. Riders start as
+  // just the booker; opening seeds that first row from the real account.
   function openGroupRide() {
-    setTerminalOpen(false)
     if (groupRiders.length === 0) {
       setGroupRiders([
         { key: 'booker', passengerId: passenger.id, name: passenger.name, phone: passenger.phone, isGuest: false, destination: null },
       ])
     }
-    setGroupRideOpen((v) => !v)
+    setGroupRideOpen(!groupRideOpen)
   }
   function addGroupRider() {
     if (groupRiders.length >= 4) return
@@ -1201,6 +1204,42 @@ export function PassengerPage() {
     )
   }
 
+  // Group Ride, as its own screen. The map comes with it: setting each
+  // rider's destination is done by pinning on that same map, so a panel
+  // without it would be a form with no way to answer half its questions.
+  if (groupRideOpen) {
+    return (
+      <div className="mx-auto flex min-h-[calc(100vh-70px)] max-w-lg flex-col space-y-2 px-4 pb-[72px] pt-1">
+        <button
+          type="button"
+          onClick={() => setGroupRideOpen(false)}
+          className="flex items-center gap-1.5 self-start rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+        >
+          <span aria-hidden className="text-sm leading-none">‹</span>
+          Bumalik sa booking
+        </button>
+        <GroupRideInlinePanel
+          riders={groupRiders}
+          onAddRider={addGroupRider}
+          onRemoveRider={removeGroupRider}
+          onUpdateRider={updateGroupRider}
+          onPickDestination={handlePickGroupDestination}
+          pickingForRiderKey={pickingForGroupRiderKey}
+          paySplit={groupPaySplit}
+          onPaySplitChange={setGroupPaySplit}
+          fares={groupFares}
+          totalFare={groupTotalFare}
+          maxRiders={4}
+          hasActiveRide={!!activeRide}
+          canSubmit={groupCanSubmit}
+          onSubmit={submitGroupRide}
+          submitting={groupSubmitting}
+        />
+        {sharedMap}
+      </div>
+    )
+  }
+
   return (
     // min-h + flex-col is what lets the ad box claim the leftover screen:
     // mt-auto pushes it to the bottom and flex-1 lets it grow, so on a tall
@@ -1470,27 +1509,6 @@ export function PassengerPage() {
               </span>
             </span>
           </button>
-          {groupRideOpen && (
-            <div className="mt-1.5">
-              <GroupRideInlinePanel
-                riders={groupRiders}
-                onAddRider={addGroupRider}
-                onRemoveRider={removeGroupRider}
-                onUpdateRider={updateGroupRider}
-                onPickDestination={handlePickGroupDestination}
-                pickingForRiderKey={pickingForGroupRiderKey}
-                paySplit={groupPaySplit}
-                onPaySplitChange={setGroupPaySplit}
-                fares={groupFares}
-                totalFare={groupTotalFare}
-                maxRiders={4}
-                hasActiveRide={!!activeRide}
-                canSubmit={groupCanSubmit}
-                onSubmit={submitGroupRide}
-                submitting={groupSubmitting}
-              />
-            </div>
-          )}
           {openEnd === 'dropoff' && (
             <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
               {isErrand && quickPlaceChips('dropoff')}
@@ -1531,10 +1549,7 @@ export function PassengerPage() {
             <div className="mt-2 flex items-stretch gap-1.5">
               <button
                 type="button"
-                onClick={() => {
-                  setGroupRideOpen(false)
-                  setTerminalOpen(!terminalOpen)
-                }}
+                onClick={() => setTerminalOpen(!terminalOpen)}
                 aria-expanded={terminalOpen}
                 className="flex min-w-0 flex-[4] items-center gap-1.5 rounded-lg bg-[#ffe066] px-2.5 py-1.5 text-left shadow-sm transition hover:bg-[#ffd633]"
               >

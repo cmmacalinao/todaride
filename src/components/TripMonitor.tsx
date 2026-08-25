@@ -12,10 +12,10 @@ import { RealLiveMap, type MapPoint } from './RealLiveMap'
 import { AlertBanner } from './AlertBanner'
 import { PhotoCaptureButton } from './PhotoCaptureButton'
 import { PhotoGallery } from './PhotoGallery'
-import { buildTimeline, forgotToStartTrip, formatEta, getDispatchWindow, getLegInfo, getPassengerMapGps, primaryAboardRide, sharedDriverMapGps, tripMapFraming } from '../lib/tracking'
+import { buildTimeline, formatEta, getDispatchWindow, getLegInfo, getPassengerMapGps, primaryAboardRide, sharedDriverMapGps, tripMapFraming } from '../lib/tracking'
 import { haversineDistanceMeters } from '../lib/geo'
 import { reverseGeocodeToPhAddress } from '../lib/customLocation'
-import { useNow, useWatchPosition } from '../lib/liveTracking'
+import { useWatchPosition } from '../lib/liveTracking'
 import { useRoute } from '../lib/routing'
 import { RIDE_CANCELLATION_REASON_LABELS } from '../types'
 import type { Ride } from '../types'
@@ -86,7 +86,6 @@ export function TripMonitor({
   // asks for it can arrive while the passenger is scrolled somewhere else on
   // the page. It brings itself into view when it appears.
   const fareApprovalRef = useRef<HTMLDivElement | null>(null)
-  const forgotStartRef = useRef<HTMLDivElement | null>(null)
   const mapSectionRef = useRef<HTMLDivElement | null>(null)
   // Set when the rider taps "I've gotten off" — opens the safety check
   // asking whether they got out where they meant to, or need help.
@@ -218,19 +217,6 @@ export function TripMonitor({
   }
   const passengerGpsInfo = getPassengerMapGps(ride)
   const framing = tripMapFraming(ride.status, ride.legProgress)
-  const now = useNow(5000, ride.status === 'driver_arriving')
-  // Same rule, same shared timestamps, so the two apps agree on when this is
-  // true. The passenger only ever sees it — starting the trip is the driver's
-  // to do, and a button here that could not deliver would be worse than none.
-  const forgotStart = forgotToStartTrip(ride, driverGpsInfo?.gps ?? null, now)
-  // The one notification that arrives on its own timer rather than from a
-  // tap by either party — so it, too, comes to the middle when it appears.
-  useEffect(() => {
-    if (!forgotStart.show) return
-    const id = requestAnimationFrame(() => showInMiddle(forgotStartRef.current))
-    return () => cancelAnimationFrame(id)
-  }, [forgotStart.show])
-
   // The same shopping list the driver is ticking off, from the customer's
   // side — waiting for an errand is otherwise entirely blind, and "2 of 5
   // bought" is the difference between a driver who is working and one who
@@ -606,17 +592,11 @@ export function TripMonitor({
         </div>
       )}
 
-      {forgotStart.show && (
-        <div
-          ref={forgotStartRef} className="rounded-lg border-2 border-amber-400 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
-          <p className="text-sm font-semibold">🔔 Your trip hasn't been started yet</p>
-          <p className="mt-0.5">
-            {forgotStart.movedAway
-              ? `You're on your way, but ${ride.driverName ?? 'your driver'} hasn't tapped "Start trip" — this trip still shows as "driver arriving". Please remind them so it is recorded properly.`
-              : `${ride.driverName ?? 'Your driver'} has arrived but hasn't tapped "Start trip" yet. Remind them once you're on board so the trip is recorded.`}
-          </p>
-        </div>
-      )}
+      {/* "Your trip hasn't been started yet" used to sit here, asking the
+          passenger to remind their driver to press something. The trip now
+          starts itself when the tricycle reaches them (see DriverPage), so
+          the notice would be telling a passenger to chase a driver about a
+          step neither of them has to take. */}
 
       {hasDriver &&
         (driver ? (
@@ -804,6 +784,37 @@ export function TripMonitor({
               <span className="text-[11px] font-semibold">{openSos ? 'Sent' : 'SOS'}</span>
             </button>
           </div>
+
+        </div>
+      )}
+
+      {/* Directly under the map, and outside its block: the terminal flow
+          draws no map at all, and a passenger there needs the way out just
+          as much as one watching a tricycle approach.
+
+          It used to disappear the moment a driver accepted — the exact moment
+          a passenger is most likely to want it. Plans change, someone else
+          stops, the wait turns out longer than the walk. Leaving them no way
+          out taught them to stand the driver up instead, which costs the
+          driver more than a cancellation would.
+
+          It stops once the trip is underway: cancelling a ride you are
+          sitting in is not a cancellation, it is getting out, and the
+          drop-off flow handles that with a fare attached. */}
+      {showCancel && onCancel && (ride.status === 'requested' || ride.status === 'driver_arriving') && (
+        <div className="space-y-1">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="w-full rounded-lg border border-amber-300 bg-white py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
+          >
+            {ride.status === 'requested' ? 'Cancel request' : 'Cancel trip'}
+          </button>
+          {ride.status === 'driver_arriving' && (
+            <p className="text-center text-[11px] text-slate-500">
+              {ride.driverName ?? 'Your driver'} is already on the way — cancel only if you really cannot ride.
+            </p>
+          )}
         </div>
       )}
 
@@ -922,14 +933,6 @@ export function TripMonitor({
         ))}
       </div>
 
-      {showCancel && ride.status === 'requested' && onCancel && (
-        <button
-          onClick={onCancel}
-          className="w-full rounded-lg border border-amber-200 bg-white py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
-        >
-          Cancel request
-        </button>
-      )}
       {askDestination && needsDestination && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-3 sm:items-center"

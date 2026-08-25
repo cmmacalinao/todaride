@@ -71,6 +71,16 @@ export function BarangayAddressPicker({
   // landmark) — this is the extra free-text detail that combines with it
   // rather than replacing it. Kept separate from addressDetail (the actual
   // resolved value the dropdown owns) so both survive independently.
+  const [campusQuery, setCampusQuery] = useState('')
+  const [campusOpen, setCampusOpen] = useState(false)
+  // Matched on the place and on its group, so "food" finds the canteens
+  // without anyone having to know what each one is called.
+  const campusMatches = (() => {
+    const q = campusQuery.trim().toLowerCase()
+    const all = CLSU_LOCATION_GROUPS.flatMap((g) => g.places.map((place) => ({ group: g.group, place })))
+    if (!q) return all
+    return all.filter((m) => m.place.toLowerCase().includes(q) || m.group.toLowerCase().includes(q))
+  })()
   const [campusExtra, setCampusExtra] = useState('')
   // Which field the person still has to answer, set only when they press
   // Confirm — nothing goes red while they are still working down the form.
@@ -233,27 +243,82 @@ export function BarangayAddressPicker({
       </div>
       {barangay === 'CLSU' ? (
         <>
-          <select
-            value={addressDetail}
-            onChange={(e) => {
-              setAddressDetail(e.target.value)
-              setMissing(null)
-            }}
-            className={`w-full rounded-lg border px-3 py-2 text-sm ${
-              missing === 'detail' ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-300' : 'border-slate-300'
-            }`}
-          >
-            <option value="">Select a place on campus</option>
-            {CLSU_LOCATION_GROUPS.map((g) => (
-              <optgroup key={g.group} label={g.group}>
-                {g.places.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+          {/* Type-to-find rather than a dropdown to scroll.
+              //
+              The campus has dozens of named places across several groups, and
+              a plain select made finding one a hunt through a list whose
+              order only makes sense if you already know which group a
+              building belongs to. Someone going to the Library knows the word
+              "Library"; this lets them type it. The group is still shown
+              beside each match, so the list teaches the grouping instead of
+              demanding it. */}
+          <div className="relative">
+            <input
+              value={campusOpen ? campusQuery : addressDetail}
+              onChange={(e) => {
+                setCampusQuery(e.target.value)
+                setCampusOpen(true)
+                setMissing(null)
+              }}
+              onFocus={() => {
+                // Cleared on focus so the whole list is offered — the
+                // alternative, seeding it with the current choice, filters
+                // the list down to the thing you already picked.
+                setCampusQuery('')
+                setCampusOpen(true)
+              }}
+              // A click on an option is a mousedown followed by a blur, so
+              // closing immediately on blur would close the list before the
+              // click ever landed. The options select on mousedown for that
+              // reason, and this only has to outlast the same gesture.
+              onBlur={() => window.setTimeout(() => setCampusOpen(false), 120)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setCampusOpen(false)
+                  return
+                }
+                if (e.key === 'Enter' && campusOpen && campusMatches.length > 0) {
+                  e.preventDefault()
+                  setAddressDetail(campusMatches[0].place)
+                  setCampusOpen(false)
+                }
+              }}
+              placeholder="Type to search a place on campus — Library, Gym, CBAA…"
+              aria-label="Place on campus"
+              autoComplete="off"
+              className={`w-full rounded-lg border px-3 py-2 text-sm ${
+                missing === 'detail' ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-300' : 'border-slate-300'
+              }`}
+            />
+            {campusOpen && (
+              <div className="absolute inset-x-0 top-full z-30 mt-1 max-h-60 overflow-y-auto rounded-lg border border-slate-300 bg-white shadow-lg">
+                {campusMatches.length === 0 ? (
+                  <p className="px-3 py-2 text-xs text-slate-500">
+                    Walang tugma sa "{campusQuery}" — type it into the box below instead.
+                  </p>
+                ) : (
+                  campusMatches.map((m) => (
+                    <button
+                      key={`${m.group}-${m.place}`}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        setAddressDetail(m.place)
+                        setCampusOpen(false)
+                        setMissing(null)
+                      }}
+                      className={`flex w-full items-baseline justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-brand-50 ${
+                        m.place === addressDetail ? 'bg-brand-50 font-semibold text-brand-700' : 'text-slate-700'
+                      }`}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{m.place}</span>
+                      <span className="shrink-0 text-[10px] text-slate-400">{m.group}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
           <input
             value={campusExtra}
             onChange={(e) => setCampusExtra(e.target.value)}

@@ -68,6 +68,41 @@ export function forgotToStartTrip(
   return { show: movedAway || waited >= FORGOT_START_GRACE_SECONDS, movedAway, metersAway }
 }
 
+// How long past the estimate a driver has to be before the passenger is
+// offered a way out.
+//
+// Not zero: an estimate is an estimate, and a passenger told "your driver is
+// late" the second it lapses learns to distrust the number rather than the
+// driver. Three minutes is long enough that the ones who are merely slow have
+// arrived, and short enough to matter to someone standing on a road.
+export const DRIVER_LATE_GRACE_SECONDS = 180
+
+// Whether the driver who accepted this ride is now overdue at the pickup.
+//
+// The honest reasons a tricycle never turns up are mundane — no load to text
+// with, a dead battery, a chain that went, a road that closed — and none of
+// them produce a cancellation from the driver's side, because the phone that
+// would send it is the thing that failed. From the passenger's side it just
+// looks like waiting. This is what turns that wait into a decision they can
+// act on.
+//
+// Measured from acceptedAt against the estimate the app itself showed, so the
+// app is held to its own promise rather than to a number invented here.
+export function driverPickupOverdue(
+  ride: Ride,
+  expectedApproachSeconds: number | null,
+  now: number = Date.now(),
+): { late: boolean; waitedSeconds: number; expectedSeconds: number } {
+  const expected = (expectedApproachSeconds ?? ETA_SECONDS_PER_LEG) + DRIVER_LATE_GRACE_SECONDS
+  // Only while still being approached. Once the tricycle is there — or the
+  // trip has started, or it ended — there is nothing to be late for.
+  if (ride.status !== 'driver_arriving' || !ride.acceptedAt || ride.legProgress >= 1) {
+    return { late: false, waitedSeconds: 0, expectedSeconds: expected }
+  }
+  const waitedSeconds = Math.max(0, Math.round((now - new Date(ride.acceptedAt).getTime()) / 1000))
+  return { late: waitedSeconds > expected, waitedSeconds, expectedSeconds: expected }
+}
+
 export function tripMapFraming(status: RideStatus, legProgress: number): {
   phase: string
   fitPointIds?: string[]

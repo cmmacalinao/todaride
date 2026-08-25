@@ -12,10 +12,10 @@ import { RealLiveMap, type MapPoint } from './RealLiveMap'
 import { AlertBanner } from './AlertBanner'
 import { PhotoCaptureButton } from './PhotoCaptureButton'
 import { PhotoGallery } from './PhotoGallery'
-import { buildTimeline, formatEta, getDispatchWindow, getLegInfo, getPassengerMapGps, primaryAboardRide, sharedDriverMapGps, tripMapFraming } from '../lib/tracking'
+import { buildTimeline, driverPickupOverdue, formatEta, getDispatchWindow, getLegInfo, getPassengerMapGps, primaryAboardRide, sharedDriverMapGps, tripMapFraming } from '../lib/tracking'
 import { haversineDistanceMeters } from '../lib/geo'
 import { reverseGeocodeToPhAddress } from '../lib/customLocation'
-import { useWatchPosition } from '../lib/liveTracking'
+import { useNow, useWatchPosition } from '../lib/liveTracking'
 import { useRoute } from '../lib/routing'
 import { RIDE_CANCELLATION_REASON_LABELS } from '../types'
 import type { Ride } from '../types'
@@ -217,6 +217,13 @@ export function TripMonitor({
   }
   const passengerGpsInfo = getPassengerMapGps(ride)
   const framing = tripMapFraming(ride.status, ride.legProgress)
+  // Ticks while a driver is on the way, so "late" becomes true on its own
+  // rather than waiting for something else to redraw the screen.
+  const now = useNow(10000, ride.status === 'driver_arriving')
+  // Held to the estimate the app actually showed: the real road route where
+  // one resolved, the simulated leg otherwise.
+  const overdue = driverPickupOverdue(ride, route ? route.durationSeconds : null, now)
+  const [keepWaiting, setKeepWaiting] = useState(false)
   // The same shopping list the driver is ticking off, from the customer's
   // side — waiting for an errand is otherwise entirely blind, and "2 of 5
   // bought" is the difference between a driver who is working and one who
@@ -595,8 +602,42 @@ export function TripMonitor({
       {/* "Your trip hasn't been started yet" used to sit here, asking the
           passenger to remind their driver to press something. The trip now
           starts itself when the tricycle reaches them (see DriverPage), so
-          the notice would be telling a passenger to chase a driver about a
-          step neither of them has to take. */}
+          that notice would be telling a passenger to chase a driver about a
+          step neither of them has to take.
+
+          What replaces it is the one thing a waiting passenger genuinely
+          cannot resolve alone: a driver who is not coming. The reasons are
+          mundane — no load, a dead battery, a chain that went — and none of
+          them produce a cancellation from the driver's side, because the
+          phone that would send it is the thing that failed. */}
+      {overdue.late && !keepWaiting && showCancel && onCancel && (
+        <div className="space-y-2 rounded-lg border-2 border-amber-400 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
+          <p className="text-sm font-semibold">
+            🕒 {ride.driverName ?? 'Your driver'} is running late
+          </p>
+          <p>
+            Tinanggap nila ang biyahe {Math.round(overdue.waitedSeconds / 60)} minuto na ang nakalipas at wala pa
+            rin sila. Baka walang load, lowbat, o naipit sa daan — hindi nila kayang mag-cancel kung patay ang
+            phone.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-lg bg-amber-600 py-2 text-xs font-bold text-white transition hover:bg-amber-700"
+            >
+              Cancel · maghanap ng iba
+            </button>
+            <button
+              type="button"
+              onClick={() => setKeepWaiting(true)}
+              className="rounded-lg border border-amber-300 bg-white py-2 text-xs font-semibold text-amber-800 transition hover:bg-amber-100"
+            >
+              Hintayin ko pa
+            </button>
+          </div>
+        </div>
+      )}
 
       {hasDriver &&
         (driver ? (

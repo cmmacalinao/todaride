@@ -1,0 +1,77 @@
+import type { DrawerSection } from './NavDrawer'
+
+// The categories a driver actually moves between during a shift. This is the
+// same set the hamburger drawer lists, minus the account/settings items — a
+// footer is for the places you go back to twenty times an hour, not the ones
+// you visit once. Ordered the way a shift runs: check the board, take work,
+// drive it, see what it paid.
+const DRIVER_TABS: { section: DrawerSection; icon: string; label: string }[] = [
+  { section: 'home', icon: '🏠', label: 'Home' },
+  { section: 'requests', icon: '🚗', label: 'Requests' },
+  { section: 'current', icon: '📍', label: 'Trip' },
+  { section: 'queue', icon: '🚏', label: 'Pila' },
+  { section: 'earnings', icon: '💰', label: 'Earnings' },
+  { section: 'history', icon: '🧾', label: 'History' },
+]
+
+interface DriverFooterNavProps {
+  active: DrawerSection | null
+  onNavigate: (section: DrawerSection) => void
+  // Waiting requests, shown as a badge on the Requests tab. A driver looking
+  // at their earnings still needs to know work came in.
+  requestCount?: number
+  // A freelance driver belongs to no terminal, so there is no line to stand
+  // in — the tab is dropped rather than shown leading nowhere.
+  showQueue?: boolean
+  // Highlighted while a trip is live, for the same reason: it is the one
+  // place the driver needs to get back to in a hurry.
+  tripActive?: boolean
+}
+
+export function DriverFooterNav({
+  active,
+  onNavigate,
+  requestCount = 0,
+  showQueue = true,
+  tripActive = false,
+}: DriverFooterNavProps) {
+  const tabs = DRIVER_TABS.filter((t) => showQueue || t.section !== 'queue')
+  return (
+    <nav
+      aria-label="Driver sections"
+      // Fixed to the bottom edge of the screen, not to the end of the
+      // page — the safe-area inset keeps it above the home indicator on a
+      // real handset. The page below reserves room for it with pb-20.
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+    >
+      <div className="mx-auto flex max-w-lg items-stretch justify-between px-1 py-1">
+      {tabs.map((tab) => {
+        const isActive = tab.section === active
+        const badge = tab.section === 'requests' ? requestCount : 0
+        const pulse = tab.section === 'current' && tripActive
+        return (
+          <button
+            key={tab.section}
+            type="button"
+            onClick={() => onNavigate(tab.section)}
+            aria-current={isActive ? 'page' : undefined}
+            title={tab.label}
+            className={`relative flex flex-1 flex-col items-center gap-0.5 rounded-lg px-1 py-1 text-[10px] font-medium transition-colors ${
+              isActive ? 'bg-brand-50 text-brand-700' : 'text-slate-500 hover:bg-slate-50 active:bg-slate-100'
+            }`}
+          >
+            <span className={`text-lg leading-none ${pulse ? 'animate-pulse' : ''}`}>{tab.icon}</span>
+            <span className="leading-none">{tab.label}</span>
+            {badge > 0 && (
+              <span className="absolute right-1.5 top-0.5 min-w-[15px] rounded-full bg-amber-500 px-1 text-[9px] font-bold leading-[15px] text-white">
+                {badge > 9 ? '9+' : badge}
+              </span>
+            )}
+          </button>
+        )
+      })}
+      </div>
+    </nav>
+  )
+}

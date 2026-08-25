@@ -1,0 +1,47 @@
+[
+  {
+    "id": "CLSU-01",
+    "name": "CLSU Main Gate Terminal",
+    "type": "university",
+    "todaOrgId": "toda-nato-uts",
+    "gps": {
+      "lat": 15.73299,
+      "lng": 120.931426
+    },
+    "province": "Nueva Ecija",
+    "city": "Science City of Muñoz",
+    "barangay": "CLSU",
+    "addressDetail": "Main Gate, Maharlika Highway",
+    "isActive": true
+  },
+  {
+    "id": "CLSU-02",
+    "name": "CLSU Second Gate Terminal",
+    "type": "university",
+    "todaOrgId": "toda-nato-uts",
+    "gps": {
+      "lat": 15.738562,
+      "lng": 120.935011
+    },
+    "province": "Nueva Ecija",
+    "city": "Science City of Muñoz",
+    "barangay": "CLSU",
+    "addressDetail": "Second Gate, University Avenue",
+    "isActive": true
+  },
+  {
+    "id": "CLSU-03",
+    "name": "CLSU Old Market Terminal",
+    "type": "university",
+    "todaOrgId": "toda-nato-uts",
+    "gps": {
+      "lat": 15.733936,
+      "lng": 120.926342
+    },
+    "province": "Nueva Ecija",
+    "city": "Science City of Muñoz",
+    "barangay": "CLSU",
+    "addressDetail": "Old Market, inside campus",
+    "isActive": true
+  }
+]

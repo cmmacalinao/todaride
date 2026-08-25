@@ -1,0 +1,184 @@
+/* Theme variable sets. Each variable is "R G B" (space-separated, no
+   commas, no rgb() wrapper) so tailwind.config.js can compose it as
+   `rgb(var(--x) / <alpha-value>)` and still support opacity modifiers like
+   `bg-brand-600/50`.
+
+   `[data-theme="…"]` on <html> (see ThemeContext) picks which block below
+   is active. `:root` alone and `[data-theme='…']` alone both match <html>
+   with equal specificity — combining any theme into a comma-selector with
+   `:root` would make source order decide the winner against every other
+   theme regardless of which one is actually active, so each block below is
+   kept separate and self-contained instead. The bare `:root` block is only
+   the pre-mount fallback (same values as the CURRENT theme — see
+   ThemeProvider's default) so first paint matches before React ever runs;
+   every real switch, including back to the current theme, works entirely
+   through the `[data-theme]` blocks that follow it. */
+
+:root {
+  /* Kept identical to [data-theme='blue-royal'] below — see that block
+     for what each value is and why. */
+  --brand-50: 236 241 252;
+  --brand-100: 213 224 247;
+  --brand-200: 161 183 234;
+  --brand-500: 37 66 155;
+  --brand-600: 30 58 138;
+  --brand-700: 24 47 111;
+  --brand-900: 13 26 62;
+
+  --mint-50: 242 251 248;
+  --mint-100: 227 245 239;
+  --mint-200: 214 239 231;
+  --mint-300: 185 227 214;
+
+  --gold-50: 246 248 250;
+  --gold-100: 226 232 240;
+  --gold-400: 148 163 184;
+  --gold-500: 100 116 139;
+  --gold-600: 71 85 105;
+
+  --navy-700: 23 53 106;
+  --navy-800: 19 42 82;
+  --navy-900: 15 31 61;
+  --navy-950: 10 21 41;
+
+  --dest-fill: 220 38 38;
+  --dest-text: 255 255 255;
+  --dest-subtext: 255 255 255;
+  --dest-dot: 255 255 255;
+  --dest-accent: 220 38 38;
+
+  --pickup-accent: 15 118 110;
+}
+
+[data-theme='teal-gold'] {
+  /* Teal & Gold — the original TODA SafeRide look. */
+  --brand-50: 240 250 249;
+  --brand-100: 215 240 238;
+  --brand-200: 169 222 217;
+  --brand-500: 15 153 146;
+  --brand-600: 11 125 120;
+  --brand-700: 8 100 96;
+  --brand-900: 5 64 61;
+
+  --mint-50: 242 251 248;
+  --mint-100: 227 245 239;
+  --mint-200: 214 239 231;
+  --mint-300: 185 227 214;
+
+  --gold-50: 255 252 239;
+  --gold-100: 255 243 204;
+  --gold-400: 255 195 0;
+  --gold-500: 230 175 0;
+  --gold-600: 198 150 0;
+
+  --navy-700: 11 125 120;
+  --navy-800: 9 107 102;
+  --navy-900: 7 88 84;
+  --navy-950: 5 67 64;
+
+  /* Destination panel stays pale/quiet in this theme — identical to how it
+     already looked before theming existed. */
+  --dest-fill: 214 239 231; /* mint-200 */
+  --dest-text: 5 64 61; /* brand-900 */
+  --dest-subtext: 8 100 96; /* brand-700 */
+  --dest-dot: 11 125 120; /* brand-600 */
+  /* Unlike dest-fill above, dest-accent is for small solid badges/toggles
+     that always pair with white text (see LocationMapPicker's Pickup/
+     Destination tab) — it has to stay saturated even in this theme, where
+     dest-fill itself goes pale. The original rose (#be123c) this app
+     already used for the destination pin, kept as its own token instead of
+     inline hex so it can still move theme to theme. */
+  --dest-accent: 190 18 60;
+
+  --pickup-accent: 15 118 110; /* #0f766e — the same teal the Pickup panel already used */
+}
+
+[data-theme='blue-royal'] {
+  /* 1. Blue (Royal) — "Clean · Trustworthy · Professional". Primary moves
+     to the wordmark's own royal blue; the teal Pickup panel and neutral
+     grays are kept (they were never the brand colour, just supporting
+     cast); gold's warm yellow is dropped for a cool steel-grey that keeps
+     the same button role without fighting the new blue; Destination
+     becomes a bold red fill instead of a pale one. */
+  --brand-50: 236 241 252;
+  --brand-100: 213 224 247;
+  --brand-200: 161 183 234;
+  --brand-500: 37 66 155;
+  --brand-600: 30 58 138; /* #1e3a8a — the existing `royal` token's own blue */
+  --brand-700: 24 47 111; /* #182f6f */
+  --brand-900: 13 26 62;
+
+  /* Pickup panel is hardcoded teal in PassengerPage (not a `brand` class)
+     and is deliberately left alone — the reference concept keeps it teal
+     in this theme too. `mint` itself is unused once Destination moves to
+     `dest`, but kept close to its old pale-teal family for any other quiet
+     surface that still reaches for it. */
+  --mint-50: 242 251 248;
+  --mint-100: 227 245 239;
+  --mint-200: 214 239 231;
+  --mint-300: 185 227 214;
+
+  /* Cool steel-grey stands in for the warm gold — same role (CTA fills,
+     banner accents), a "professional" read instead of "warm/playful". */
+  --gold-50: 246 248 250;
+  --gold-100: 226 232 240;
+  --gold-400: 148 163 184;
+  --gold-500: 100 116 139;
+  --gold-600: 71 85 105;
+
+  --navy-700: 23 53 106;
+  --navy-800: 19 42 82;
+  --navy-900: 15 31 61;
+  --navy-950: 10 21 41;
+
+  --dest-fill: 220 38 38; /* solid crimson */
+  --dest-text: 255 255 255;
+  --dest-subtext: 255 255 255;
+  --dest-dot: 255 255 255;
+  --dest-accent: 220 38 38; /* same red — fill and accent coincide once the panel itself is already bold */
+
+  --pickup-accent: 15 118 110; /* #0f766e — kept teal, per the reference concept */
+}
+
+[data-theme='facebook-blue'] {
+  /* 1. Facebook Blue — a monochrome-blue concept: Pickup moves off its own
+     teal identity onto the same brand blue as everything else, Destination
+     becomes a lighter tint of that same blue instead of a contrasting hue,
+     and gold/navy follow the same cool, low-saturation treatment Blue Royal
+     established. The one theme so far where Pickup itself is themeable
+     rather than a fixed constant — see `pickup` in tailwind.config.js. */
+  --brand-50: 239 246 255;
+  --brand-100: 219 234 254;
+  --brand-200: 147 197 253;
+  --brand-500: 59 130 246;
+  --brand-600: 24 119 242; /* #1877F2 — Facebook's own blue */
+  --brand-700: 20 93 191;
+  --brand-900: 14 58 115;
+
+  --mint-50: 239 246 255;
+  --mint-100: 219 234 254;
+  --mint-200: 191 219 254;
+  --mint-300: 147 197 253;
+
+  --gold-50: 246 248 250;
+  --gold-100: 226 232 240;
+  --gold-400: 148 163 184;
+  --gold-500: 100 116 139;
+  --gold-600: 71 85 105;
+
+  --navy-700: 26 65 128;
+  --navy-800: 19 49 97;
+  --navy-900: 13 42 82;
+  --navy-950: 8 28 56;
+
+  /* A visibly lighter blue than brand-600/pickup-accent, not a different
+     hue — that's the whole point of "monochrome" — but still saturated
+     enough for the white text both Pickup and Destination always carry. */
+  --dest-fill: 74 144 226;
+  --dest-text: 255 255 255;
+  --dest-subtext: 255 255 255;
+  --dest-dot: 255 255 255;
+  --dest-accent: 74 144 226;
+
+  --pickup-accent: 24 119 242; /* same as brand-600 — Pickup is no longer a separate identity colour in this theme */
+}

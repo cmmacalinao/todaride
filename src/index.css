@@ -1,0 +1,53 @@
+@import './theme.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+  /* The hamburger drawer (NavDrawer.tsx) sits off-screen via
+     `-translate-x-full` on a `fixed left-0` element while closed — some
+     browsers still count that transformed position in the page's
+     scrollable width, which drags the viewport's scroll origin left and
+     shoves all the real (centered) content over to the right edge. This
+     is the standard fix: never let the page scroll horizontally at all. */
+  overflow-x: hidden;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900;
+}
+
+/* A frozen trip map keeps the frame it was given, so its zoom buttons would
+   be the one control still able to change it. Hidden rather than left there
+   doing nothing — a dead button reads as a broken map. */
+.map-frozen .leaflet-control-zoom {
+  display: none;
+}
+
+/* The label pinned to the tricycle a passenger is riding in. Leaflet's own
+   tooltip styling is a pale hover hint; this one has to be readable at a
+   glance on a moving road, so it is the app's navy on white with the arrow
+   recoloured to match. */
+.leaflet-tooltip.toda-callout {
+  background: #ffffff;
+  color: #0f2a6b;
+  border: 2px solid #0f2a6b;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 11px;
+  padding: 3px 8px;
+  box-shadow: 0 2px 8px rgb(15 42 107 / 0.25);
+  /* A tooltip is centred on its marker, so a long one runs off whichever edge
+     the tricycle is nearest — and the names it carries are the part that gets
+     cut. Cap it against the map's own width and trim with an ellipsis rather
+     than letting it spill: a clipped word looks like a rendering fault, an
+     ellipsis reads as "there is more". */
+  max-width: min(230px, 78vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.leaflet-tooltip.toda-callout::before {
+  border-top-color: #0f2a6b;
+}

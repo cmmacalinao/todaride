@@ -70,17 +70,40 @@ function showsRoleTabs(pathname: string): boolean {
   )
 }
 
+// Which query parameters mean "I already know who I am and what I came to
+// do" — every one of them is put there by the role chooser (see
+// RoleChooserPage's tiles) or by a role-scoped invite link.
+const ROLE_SCOPED_PARAMS = ['role', 'auth', 'mode', 'toda', 'student', 'invite']
+
 // Blocks the whole app until someone logs in or signs up — rendered by
 // App.tsx in place of NavBar/Routes whenever session.authedAccount is null.
 // Not itself a route, so it has no URL of its own.
-// The gate is now one field and one password (see UnifiedAuth). The
-// role-specific forms below are kept, not deleted: registration, TODA-admin
-// verification, pharmacy and operator sign-up all still live in them, and
-// they are still reachable from their own paths. What has gone is the row of
-// eight tabs that made every visitor answer "which kind of person are you?"
+//
+// Two doors, and which one opens depends on how the visitor arrived.
+//
+// Someone who simply hit a protected URL gets UnifiedAuth: one field, one
+// password, and the app works out whether they are a rider, driver, officer
+// or partner. That is the right greeting for a returning user, and it is
+// what replaced a row of eight tabs asking everyone to classify themselves
 // before they could type anything.
+//
+// But someone who came through the role chooser has ALREADY answered that
+// question — they picked "Parent", they pressed "Sign up", and the link they
+// followed says so ('/book?role=parent&auth=signup'). UnifiedAuth has no
+// registration form and no idea what those parameters mean, so sending them
+// there dropped them back on a login box for an account they had just said
+// they do not have. The registration forms were never removed; nothing
+// routed to them any more. This is that route.
 export function AuthGate() {
-  return <UnifiedAuth />
+  const [searchParams] = useSearchParams()
+  const roleScoped = ROLE_SCOPED_PARAMS.some((key) => searchParams.has(key))
+  // Keyed on the query string so a second trip through the role chooser
+  // actually lands on the second choice. Picking Passenger and then going
+  // back for Parent changes only the search params — same route, same
+  // element — so React keeps the mounted form and the role/mode it captured
+  // in useState the first time. The key forces a remount, which is exactly
+  // what "a different question was asked" should mean here.
+  return roleScoped ? <LegacyAuthGate key={searchParams.toString()} /> : <UnifiedAuth />
 }
 
 export function LegacyAuthGate() {
@@ -347,16 +370,10 @@ function AdminAuth() {
   return (
     <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
       <p className="text-xs text-slate-500">
-        Admin access isn't self-service, so there's no Sign up here. Demo credentials —{' '}
-        <span className="font-mono">
-          {APP_ADMIN_CREDENTIALS.username} / {APP_ADMIN_CREDENTIALS.password}
-        </span>{' '}
-        for day-to-day operations, or{' '}
-        <span className="font-mono">
-          {APP_SUPER_ADMIN_CREDENTIALS.username} / {APP_SUPER_ADMIN_CREDENTIALS.password}
-        </span>{' '}
-        for Super Admin (the Founder, {APP_SUPER_ADMIN_NAME}, can also use{' '}
-        <span className="font-mono">{APP_SUPER_ADMIN_EMAIL}</span> with the Super Admin password).
+        Admin access isn't self-service, so there's no Sign up here. Sign in as{' '}
+        <span className="font-mono">{APP_ADMIN_CREDENTIALS.username}</span> for day-to-day operations, or{' '}
+        <span className="font-mono">{APP_SUPER_ADMIN_CREDENTIALS.username}</span> for Super Admin (the Founder,{' '}
+        {APP_SUPER_ADMIN_NAME}, can also use <span className="font-mono">{APP_SUPER_ADMIN_EMAIL}</span>).
       </p>
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-500">Username</label>

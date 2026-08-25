@@ -51,3 +51,14 @@ body {
 .leaflet-tooltip.toda-callout::before {
   border-top-color: #0f2a6b;
 }
+
+
+/* Mints a new stylesheet URL. An early broken deploy served 662 bytes of
+   fallback HTML for the stylesheet path, and every browser that saw it cached
+   that instead of the CSS — leaving the app unstyled with no way to recover,
+   since the filename hash is content-derived and the content had not changed.
+   A custom property survives minification where a comment does not, so this
+   is what actually moves the hash. Bump the number if it ever happens again. */
+:root {
+  --asset-revision: 2;
+}

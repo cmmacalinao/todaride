@@ -16,7 +16,6 @@ import {
   type MatchedAccount,
   type RecoveryMatch,
 } from '../lib/unifiedLogin'
-import { APP_ADMIN_CREDENTIALS, APP_SUPER_ADMIN_CREDENTIALS } from '../mock/data'
 import { desktopOnlyMessage, isDesktopOnlyRole, isNativeApp } from '../lib/platform'
 import { ForgotPasswordFlow } from './ForgotPasswordFlow'
 import { OtpVerify } from './OtpVerify'
@@ -487,19 +486,11 @@ export function AppLoginForm() {
         .
       </p>
 
-      {/* The staff logins are left out on a phone — they are refused there
-          (see completeLogin), and printing a credential that cannot work
-          just teaches people the form is broken. */}
-      <p className="mt-2 px-1 text-center text-[10px] text-slate-400">
-        {isNativeApp() ? (
-          'Prototype · simulated data'
-        ) : (
-          <>
-            Prototype · admin {APP_ADMIN_CREDENTIALS.username}/{APP_ADMIN_CREDENTIALS.password} · super admin{' '}
-            {APP_SUPER_ADMIN_CREDENTIALS.username}/{APP_SUPER_ADMIN_CREDENTIALS.password}
-          </>
-        )}
-      </p>
+      {/* Says the data is simulated, and nothing more. The staff logins
+          used to be printed here for demo convenience; they came out when
+          the pilot moved to a shared database, where one visitor signing in
+          as Super Admin changes the world for every other tester. */}
+      <p className="mt-2 px-1 text-center text-[10px] text-slate-400">Prototype · simulated data</p>
 
       {showTerms && <TermsModal onClose={() => setShowTerms(false)} />}
       {showForgot && <ForgotPasswordFlow onClose={() => setShowForgot(false)} />}

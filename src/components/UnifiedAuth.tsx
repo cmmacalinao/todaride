@@ -243,15 +243,11 @@ export function UnifiedAuth() {
           .
         </p>
 
-        {/* Prototype only. This block is the first thing to delete before the
-            app meets a real passenger. The staff logins are omitted on a
-            phone — they do not work there (see the desktop-only check in
-            signIn), and printing credentials that are guaranteed to be
-            refused just teaches people the form is broken. */}
+        {/* Prototype only. The staff logins that used to be printed here
+            came out when the pilot moved to a shared database — see the note
+            beside APP_ADMIN_CREDENTIALS. */}
         <p className="px-2 text-center text-[11px] leading-relaxed text-slate-400">
-          {isNativeApp()
-            ? 'Prototype · simulated data'
-            : 'Prototype · admin admin/admin123 · super admin superadmin/super123'}
+          Prototype · simulated data
         </p>
       </div>
     </div>

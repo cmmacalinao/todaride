@@ -107,12 +107,12 @@ export function SuperAdminGate() {
           Sign in as Super Admin
         </button>
 
+        {/* The username stays — it tells an admin which account is being
+            asked for. The password does not: this screen is reachable by
+            anyone already signed in as Admin. */}
         <p className="text-[11px] text-slate-400">
-          Demo credential:{' '}
-          <span className="font-mono">
-            {APP_SUPER_ADMIN_CREDENTIALS.username} / {APP_SUPER_ADMIN_CREDENTIALS.password}
-          </span>{' '}
-          — or the Founder, {APP_SUPER_ADMIN_NAME} (<span className="font-mono">{APP_SUPER_ADMIN_EMAIL}</span>).
+          Sign in as <span className="font-mono">{APP_SUPER_ADMIN_CREDENTIALS.username}</span> — or the Founder,{' '}
+          {APP_SUPER_ADMIN_NAME} (<span className="font-mono">{APP_SUPER_ADMIN_EMAIL}</span>).
         </p>
 
         <button

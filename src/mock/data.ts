@@ -1545,9 +1545,19 @@ export function getBarangaysForCity(province: string, city: string): string[] {
 
 // App Admin isn't self-service (unlike Passenger/Parent/Driver, nobody
 // signs up as Admin) — this prototype has exactly one operator account,
-// provisioned here instead of through a registration flow. Shown directly
-// on the login screen since there's no other way to discover it in a demo.
-export const APP_ADMIN_CREDENTIALS = { username: 'admin', password: 'admin123' }
+// provisioned here instead of through a registration flow.
+//
+// No longer printed on the login screen. That was fine while every device
+// kept its own copy of the world: the worst a curious visitor could do was
+// rearrange their own demo. Since the pilot moved to one shared database,
+// the same click changes the service switches, tariffs and partner records
+// for every tester at once — so the credential has to be something you hand
+// out, not something the screen hands out.
+//
+// Still not real security: these strings ship inside the JavaScript bundle
+// and anyone willing to open devtools can read them. It is the difference
+// between a door that is closed and a door with the key taped to it.
+export const APP_ADMIN_CREDENTIALS = { username: 'admin', password: 'toda-admin-4417' }
 
 // A second accepted identity for the same single App Admin/Super Admin
 // role — lets the operator log in with their real email instead of the
@@ -1567,7 +1577,7 @@ export const APP_SUPER_ADMIN_EMAIL = 'cmmacalinao@gmail.com'
 // a different support mailbox.
 export const APP_SUPPORT_EMAIL = 'support@todasaferide.ph'
 
-export const APP_SUPER_ADMIN_CREDENTIALS = { username: 'superadmin', password: 'super123' }
+export const APP_SUPER_ADMIN_CREDENTIALS = { username: 'superadmin', password: 'toda-super-9382' }
 // Who that email belongs to — shown on the login screen and the Accounting
 // allowlist so the Founder's access reads as a named person rather than an
 // anonymous address.

@@ -105,8 +105,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'TodaRide — SaaS Model',
-        short_name: 'TodaRide SaaS',
+        // What appears under the icon once it is on a home screen, so it is
+        // the name the app is actually known by rather than the internal one.
+        name: 'TODA SafeRide',
+        short_name: 'SafeRide',
         description:
           'Safe Ride, Safe Arrival — on-demand tricycle booking with student safety tracking (TaaS/SaaS model — each TODA, Operator, and Franchise subscribes as its own licensed partner)',
         theme_color: '#1e3a8a',
@@ -123,6 +125,34 @@ export default defineConfig({
             src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
+          },
+        ],
+        // Long-press the home-screen icon and these are what the phone
+        // offers. Three jobs, because three is what Android shows: the two
+        // ways a passenger starts a trip, and the driver's own screen. Each
+        // lands on a real route — a shortcut into a page that does not exist
+        // is worse than no shortcut.
+        shortcuts: [
+          {
+            name: 'Book a ride',
+            short_name: 'Book',
+            description: 'Set your pickup and destination',
+            url: '/book',
+            icons: [{ src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' }],
+          },
+          {
+            name: 'Sakay sa terminal',
+            short_name: 'Terminal',
+            description: 'Record a ride you are already taking',
+            url: '/book/start',
+            icons: [{ src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' }],
+          },
+          {
+            name: 'Driver',
+            short_name: 'Drive',
+            description: 'Your requests, queue and earnings',
+            url: '/drive',
+            icons: [{ src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' }],
           },
         ],
       },

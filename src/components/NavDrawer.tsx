@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { InstallAppButton } from './InstallAppButton'
 import type { AccountPanelKind } from './AccountPanels'
 import { useRides } from '../context/RideContext'
 
@@ -292,6 +293,13 @@ export function NavDrawer({
             {verifiedLabel && <span className="block text-xs font-medium text-emerald-600">{verifiedLabel}</span>}
           </span>
         </button>
+
+        {/* Offered where someone already went looking for the app's own
+            controls, and only when the browser says an install is actually
+            available (see InstallAppButton — it renders nothing otherwise). */}
+        <div className="px-2 pt-2">
+          <InstallAppButton />
+        </div>
 
         <nav className="flex-1 space-y-0.5 p-2">
           {items.map((item) => {

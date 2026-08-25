@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
+import { InstallAppButton } from './InstallAppButton'
 import { EmergencyNumbersPanel } from './EmergencyNumbersPanel'
 import { ContactUsForm } from './ContactUsForm'
 import { THEME_OPTIONS, useTheme } from '../context/ThemeContext'
@@ -119,6 +120,14 @@ export function PublicHeader({ title = 'TODA SafeRide' }: { title?: string }) {
                 ×
               </button>
             </div>
+            {/* Offered before signing in as well as after. Installing is a
+                first-visit decision — by the time someone has an account they
+                have already decided how they reach the app — and the signed-in
+                drawer is the one place a logged-out visitor cannot get to. */}
+            <div className="px-2 pt-2">
+              <InstallAppButton />
+            </div>
+
             <nav className="p-2">
               {items.map((item) => (
                 <button

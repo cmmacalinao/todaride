@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAdminViewMode } from '../lib/adminViewMode'
 import { AdminViewToggle } from './AdminViewToggle'
 import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
@@ -480,6 +480,32 @@ export function NavBar() {
   // normally stacked collapses onto one row, halving the header.
   const isSimulatorPage = location.pathname === '/admin/simulator'
 
+  // How tall the frozen block actually is, measured and republished as a CSS
+  // variable. Two things need it and neither can know it in advance: the
+  // spacer that holds the page down below the fixed header, and any strip
+  // that wants to freeze directly underneath (see AdminSectionTabs). The
+  // height moves — the ad strip comes and goes, the toolbar rewraps, the role
+  // strip is absent on the simulator — so it is watched rather than sampled.
+  const headerRef = useRef<HTMLElement>(null)
+  const [headerHeight, setHeaderHeight] = useState(0)
+  useEffect(() => {
+    const el = headerRef.current
+    if (!el) return
+    const measure = () => {
+      const h = Math.round(el.getBoundingClientRect().height)
+      setHeaderHeight((prev) => (Math.abs(prev - h) > 1 ? h : prev))
+      document.documentElement.style.setProperty('--app-header-h', `${h}px`)
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    window.addEventListener('resize', measure)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [isSimulatorPage])
+
   // The role switcher, defined once and placed in one of two spots: its own
   // card under the header everywhere else, and up inside the header on the
   // simulator, where it takes the ad strip’s place. Two panes and a toolbar
@@ -529,7 +555,7 @@ export function NavBar() {
 
   return (
     <>
-    <header className="fixed inset-x-0 top-0 z-20 border-b border-brand-700 bg-brand-600">
+    <header ref={headerRef} className="fixed inset-x-0 top-0 z-20 border-b border-brand-700 bg-brand-600">
       <div
         className={`mx-auto flex items-center justify-between gap-2 px-4 py-1.5 ${
           isSimulatorPage ? 'max-w-none' : 'max-w-lg'
@@ -632,17 +658,19 @@ export function NavBar() {
           )}
         </div>
       </div>
+      {/* The role strip rides inside the fixed header rather than under it,
+          so the two freeze together as one block: the roles stay reachable
+          however far down the page you are, which is the point of a switcher.
+          It scrolls sideways on its own when the labels outgrow the screen. */}
+      {!isSimulatorPage && (
+        <div className={`mx-auto px-4 pb-1.5 ${adminContainerClass}`}>{tabRow}</div>
+      )}
     </header>
-    {/* The tab row sits below the header in its own card, not inside it. The
-        pt clears the fixed header, which is 102px tall now that the page-width
-        toggle sits under Log out — App.tsx leaves <main> unpadded for this
-        branch, so this card carries the whole offset. Re-measure if the
-        header gains or loses a row. */}
-    <div
-      className={`mx-auto px-4 ${isSimulatorPage ? 'max-w-none pt-[46px]' : `${adminContainerClass} pt-[106px]`}`}
-    >
-      {!isSimulatorPage && tabRow}
-    </div>
+    {/* Standing in for the fixed header's own height, measured rather than
+        guessed. The number used to be written here by hand and re-measured by
+        a person every time the header gained or lost a row — which is how it
+        ended up 4px out. */}
+    <div style={{ height: headerHeight }} aria-hidden />
     {adminHamburgerOverlay}
     </>
   )

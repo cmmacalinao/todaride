@@ -576,6 +576,14 @@ export function AdminPage() {
         </div>
       </section>
 
+      {/* Directly under the numbers they explain. These used to sit at the
+          bottom of Overview, which on a laptop is a scroll and on a phone is
+          2,400px — far enough down that the charts might as well not have
+          been built. The partner counts below are a different question
+          (how the business is structured, not how it is running), so they
+          are what got moved rather than what got read first. */}
+      <AdminInsights />
+
       <section>
         <h2 className="mb-2 text-sm font-semibold text-slate-700">TaaS partners</h2>
         <p className="mb-3 text-xs text-slate-500">
@@ -589,8 +597,6 @@ export function AdminPage() {
           <StatTile label="Estimated MRR" value={`₱${estimatedMonthlyRecurringRevenue}`} />
         </div>
       </section>
-
-      <AdminInsights />
       </>
       )}
 

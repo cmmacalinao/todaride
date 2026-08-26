@@ -4226,12 +4226,20 @@ function reducer(state: RideState, action: RideAction): RideState {
     case 'REGISTER_GUARDIAN_FOR_STUDENT': {
       const student = state.passengers.find((p) => p.id === action.studentPassengerId)
       if (!student || !action.name.trim() || !action.phone.trim()) return state
-      if (state.parentLinks.some((l) => l.studentPassengerId === student.id)) return state
       // One household, one parent record: a second child naming the same
       // number must join the existing parent rather than clone them.
       const digits = (v: string) => v.replace(/\D/g, '')
       const existing = state.parents.find((p) => digits(p.phone) === digits(action.phone))
       const parentId = existing?.id ?? action.parentId
+      // A student may name both parents — most have two — so the bar is one
+      // link per PARENT, not one per student. It still refuses the same
+      // person twice, which is what re-submitting a form would produce.
+      if (
+        existing &&
+        state.parentLinks.some((l) => l.studentPassengerId === student.id && l.parentId === existing.id)
+      ) {
+        return state
+      }
       const link: ParentLink = {
         parentId,
         studentPassengerId: student.id,
@@ -4265,8 +4273,16 @@ function reducer(state: RideState, action: RideAction): RideState {
     }
     case 'REGISTER_PARENT_WITH_CHILD': {
       if (action.childAge >= MINOR_AGE_LIMIT) return state
+      // One household, one parent record — the same rule
+      // REGISTER_GUARDIAN_FOR_STUDENT already keeps. It matters more now
+      // that a passenger can add several children in one sign-up: without
+      // it, three children produced three parents with the same name and
+      // number, and each child's trips answered to a different one.
+      const sameDigits = (a: string, b: string) => a.replace(/D/g, '') === b.replace(/D/g, '')
+      const existingParent = state.parents.find((p) => sameDigits(p.phone, action.parentPhone))
+      const parentId = existingParent?.id ?? action.parentId
       const parent: Parent = {
-        id: action.parentId,
+        id: parentId,
         name: action.parentName,
         phone: action.parentPhone,
         email: action.parentEmail,
@@ -4306,7 +4322,9 @@ function reducer(state: RideState, action: RideAction): RideState {
       }
       return {
         ...state,
-        parents: [...state.parents, parent],
+        // Only a genuinely new parent joins the list; a second child added by
+        // the same person joins the parent already there.
+        parents: existingParent ? state.parents : [...state.parents, parent],
         passengers: [...state.passengers, child],
         parentLinks: [...state.parentLinks, link],
       }

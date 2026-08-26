@@ -14,6 +14,9 @@ interface RoleTile {
   // DriverAuthGate (which reads ?mode=).
   loginTo: string
   signupTo: string
+  // Shown when choosing who is signing in, hidden when choosing what to
+  // create — there is nothing here to create any more.
+  loginOnly?: boolean
 }
 
 const ROLE_TILES: RoleTile[] = [
@@ -36,7 +39,13 @@ const ROLE_TILES: RoleTile[] = [
     label: 'Parent',
     blurb: "Book and track your child's rides",
     loginTo: '/book?role=parent&auth=login',
-    signupTo: '/book?role=parent&auth=signup',
+    // Signing up as a parent is no longer its own account. Adding a child is
+    // an option inside passenger registration, so a mother ends up with one
+    // login instead of two — see PassengerRegisterForm's dependants section.
+    // The tile stays for LOGIN, because parents registered under the old flow
+    // still have their own accounts to sign in to.
+    signupTo: '/book?role=passenger&auth=signup',
+    loginOnly: true,
   },
   {
     icon: '🛵',
@@ -93,7 +102,7 @@ export function RoleChooserPage() {
       </div>
 
       <div className="space-y-2.5">
-        {ROLE_TILES.map((tile) => (
+        {ROLE_TILES.filter((tile) => mode === 'login' || !tile.loginOnly).map((tile) => (
           <Link
             key={tile.label}
             to={mode === 'signup' ? tile.signupTo : tile.loginTo}

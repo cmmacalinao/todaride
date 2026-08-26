@@ -798,11 +798,21 @@ export function PassengerPage() {
     requestAnimationFrame(() => showInMiddle(endpointsRef.current))
   }
 
-  // The trip finishing is itself the signal to go back to booking — the
-  // receipt stays in Trip history, and the payment the driver recorded is
-  // already on it, so there is nothing on that card the passenger must do.
+  // The trip ending is itself the signal to go back to booking — the receipt
+  // stays in Trip history, and the payment the driver recorded is already on
+  // it, so there is nothing on that card the passenger must do.
+  //
+  // A trip the driver called off ends the same way. It used to be left on
+  // screen for the passenger to dismiss by hand, which meant the card sat
+  // over the booking form until they did — and, because a cancelled ride
+  // still counted as the passenger's current one, the Terminal screen went on
+  // refusing new trips with "may biyahe ka pa ngayon" for a ride nobody was
+  // taking. The reason it was cancelled is on the trip in Trip history.
   const finishedRideId = myRides.find(
-    (r) => r.status === 'completed' && !r.paymentAcknowledged && !dismissedRideIds.has(r.id),
+    (r) =>
+      !dismissedRideIds.has(r.id) &&
+      ((r.status === 'completed' && !r.paymentAcknowledged) ||
+        (r.status === 'cancelled' && r.cancelledBy === 'driver')),
   )?.id
   useEffect(() => {
     if (!finishedRideId) return

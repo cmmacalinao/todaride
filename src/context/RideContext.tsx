@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useReducer, type ReactNode, useRef } from 'react'
 import { BANNER_AD_SLOT_COUNT } from '../types'
+import { mergeIncomingRides } from '../lib/rideMerge'
 import type { RecoveryKind } from '../lib/unifiedLogin'
 import type {
   PabiliFareMode,
@@ -2844,7 +2845,12 @@ function reducer(state: RideState, action: RideAction): RideState {
         ),
       }
     case 'HYDRATE':
-      return action.state
+      // Everything from elsewhere is taken as newer — except an ending this
+      // device has already seen. See mergeIncomingRides: a cancelled or
+      // completed ride cannot be walked back by a client whose copy predates
+      // it, which is what made "Cancel trip" appear to do nothing while
+      // another phone kept ticking the same ride.
+      return { ...action.state, rides: mergeIncomingRides(state.rides, action.state.rides) }
     case 'SET_COMMISSION':
       return { ...state, commissionPerRide: Math.max(0, action.amount) }
     // One case for every account type rather than four near-identical

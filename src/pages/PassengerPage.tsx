@@ -641,13 +641,20 @@ export function PassengerPage() {
   // fare maths rather than a second copy of any of them. Riders start as
   // just the booker; opening seeds that first row from the real account.
   function openGroupRide() {
-    if (groupRiders.length === 0) {
-      setGroupRiders([
-        { key: 'booker', passengerId: passenger.id, name: passenger.name, phone: passenger.phone, isGuest: false, destination: null },
-      ])
-    }
     setGroupRideOpen(!groupRideOpen)
   }
+  // Seeding the booker's own row belongs to the screen, not to the button
+  // that used to open it. Now that Group Ride has an address it can be
+  // arrived at without pressing anything — a refresh, the back button, a
+  // link someone was sent — and every one of those landed on a group
+  // booking with nobody in it, including the person doing the booking.
+  useEffect(() => {
+    if (!groupRideOpen || groupRiders.length > 0) return
+    setGroupRiders([
+      { key: 'booker', passengerId: passenger.id, name: passenger.name, phone: passenger.phone, isGuest: false, destination: null },
+    ])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupRideOpen])
   function addGroupRider() {
     if (groupRiders.length >= 4) return
     setGroupRiders((prev) => [
@@ -1178,6 +1185,191 @@ export function PassengerPage() {
     </div>
   )
 
+  // The pickup/destination card, built once and shown on more than one
+  // screen.
+  //
+  // Group Ride needs it because the first rider is a rider: their pickup is
+  // where the whole group boards and their destination is their own, and
+  // once this card stayed behind on the booking form neither was reachable
+  // from the screen that books them.
+  //
+  // The Sakay/Group strip inside it is booking-form furniture, so the Group
+  // screen leaves it out — a way into Group Ride from inside Group Ride is a
+  // door to the room you are already standing in.
+  const addressCard = (showStrip: boolean) => (
+        <section
+          ref={addressSectionRef}
+          className="scroll-mt-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm"
+        >
+          <div className="mb-1.5 flex items-center gap-2 px-1">
+            <label
+              htmlFor="home-city"
+              className={`shrink-0 text-xs font-semibold uppercase tracking-wide ${
+                openEnd === 'dropoff' ? 'text-dest-accent' : 'text-pickup-accent'
+              }`}
+            >
+              City · {openEnd === 'dropoff' ? dropoffLabel : pickupLabel}
+            </label>
+            <select
+              id="home-city"
+              value={cityScope}
+              onChange={(e) => handleHomeCityChange(e.target.value)}
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
+            >
+              {getCitiesForProvince(DEFAULT_BOOKING_PROVINCE).map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="relative" ref={endpointsRef}>
+            <button
+              type="button"
+              onClick={() => openAddressPicker('pickup')}
+              className="flex w-full items-center gap-2.5 rounded-lg bg-pickup-accent px-3 py-2 pr-14 text-left shadow-sm filter transition hover:brightness-90"
+            >
+              <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full bg-white" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[9px] font-semibold uppercase tracking-wide text-white/75">{pickupLabel}</span>
+                <span className="block truncate text-sm font-semibold text-white">{formatAddressLine(pickup.label)}</span>
+                {!pickupChosen && <span className="block text-[10px] text-white/70">Suggested — tap to change</span>}
+              </span>
+            </button>
+            {openEnd === 'pickup' && (
+              <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
+              {!isErrand && quickPlaceChips('pickup')}
+              <BarangayAddressPicker
+                key={`from-${pickupPickerSeed.key}`}
+                label=""
+                hideRegionSelects
+                defaultProvince={pickupPickerSeed.province || DEFAULT_BOOKING_PROVINCE}
+                defaultCity={pickupPickerSeed.city || DEFAULT_BOOKING_CITY}
+                defaultBarangay={
+                  pickupPickerSeed.barangay ||
+                  defaultBarangayForCity(pickupPickerSeed.city || DEFAULT_BOOKING_CITY) ||
+                  DEFAULT_BOOKING_BARANGAY
+                }
+                defaultAddressDetail={pickupPickerSeed.addressDetail}
+                onResolve={handlePickupResolve}
+                onConfirm={() => setOpenEnd(null)}
+              />
+              {gpsStatus === 'error' && gpsError && <p className="text-[11px] text-amber-700">{gpsError}</p>}
+              </div>
+            )}
+            {/* The connector only makes sense while the two rows are touching —
+                with a picker open between them it would be a dotted line to
+                nowhere. */}
+            {!openEnd && (
+              <span
+                aria-hidden
+                className="absolute left-[1.16rem] top-[2.85rem] h-2 border-l-2 border-dotted border-slate-300"
+              />
+            )}
+            <button
+              type="button"
+              onClick={() => openAddressPicker('dropoff')}
+              className="mt-1.5 flex w-full items-center gap-2.5 rounded-lg bg-dest-fill px-3 py-2 pr-14 text-left shadow-sm filter transition hover:brightness-95"
+            >
+              {/* dest-fill is pale under dark teal text in the default theme,
+                  so the filled teal Pickup above is the one block carrying
+                  weight; a bold theme can instead make this a solid fill with
+                  white text — same four roles (fill/text/subtext/dot), theme
+                  decides which way they lean. See theme.css. */}
+              <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full bg-dest-dot" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[9px] font-semibold uppercase tracking-wide text-dest-subtext/70">{dropoffLabel}</span>
+                <span
+                  className={`block truncate text-sm ${
+                    hasDestination ? 'font-semibold text-dest-text' : 'font-normal text-dest-subtext/70'
+                  }`}
+                >
+                  {hasDestination ? formatAddressLine(dropoff.label) : isErrand ? 'Where should it go?' : 'Where are you going?'}
+                </span>
+              </span>
+            </button>
+            {openEnd === 'dropoff' && (
+              <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
+                {isErrand && quickPlaceChips('dropoff')}
+                <BarangayAddressPicker
+                  key={`to-${dropoffPickerSeed.key}`}
+                  label=""
+                  hideRegionSelects
+                  defaultProvince={dropoffPickerSeed.province || DEFAULT_BOOKING_PROVINCE}
+                  defaultCity={dropoffPickerSeed.city || DEFAULT_BOOKING_CITY}
+                  defaultBarangay={
+                    dropoffPickerSeed.barangay ||
+                    defaultBarangayForCity(dropoffPickerSeed.city || DEFAULT_BOOKING_CITY)
+                  }
+                  defaultAddressDetail={dropoffPickerSeed.addressDetail}
+                  onResolve={handleDropoffResolve}
+                  onConfirm={() => setOpenEnd(null)}
+                />
+                {isErrand && gpsStatus === 'error' && gpsError && (
+                  <p className="text-[11px] text-amber-700">{gpsError}</p>
+                )}
+              </div>
+            )}
+            {showStrip && (
+              <>
+              {/* Two ways to start a trip that aren't the address form above,
+                  side by side so both fit without pushing the page down: Sakay
+                  sa Terminal's title wraps to two lines rather than truncating
+                  now that it doesn't have the full width to say it in. Sakay sa
+                  Terminal gets most of the row (it's the more common tap, and
+                  keeps its own fixed yellow — the app's original CTA colour —
+                  rather than following `gold`, which a cooler theme concept can
+                  turn into a grey that reads as disabled here); Group Ride is
+                  the smaller, secondary option next to it.
+    
+                  Below the whole address block, picker included. It used to sit
+                  between the destination row and the picker that opens from it,
+                  so expanding a destination split the two apart and pushed this
+                  row into the middle of a form it has nothing to do with. */}
+              {!isErrand && (
+                <div className="mt-2 flex items-stretch gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setTerminalOpen(!terminalOpen)}
+                    aria-expanded={terminalOpen}
+                    className="flex min-w-0 flex-[4] items-center gap-1.5 rounded-lg bg-[#ffe066] px-2.5 py-1.5 text-left shadow-sm transition hover:bg-[#ffd633]"
+                  >
+                    <span aria-hidden className="shrink-0 text-sm leading-none">🚏</span>
+                    <span className="min-w-0 flex-1 text-[10px] font-extrabold uppercase leading-tight tracking-wide text-navy-900">
+                      Sakay sa terminal o pumara? Tap to track
+                      {terminalTripIsFree && <span className="font-bold normal-case"> - walang app fee</span>}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openGroupRide}
+                    aria-expanded={groupRideOpen}
+                    className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg border border-slate-300 bg-white px-1.5 py-1.5 text-center shadow-sm transition hover:bg-slate-50"
+                  >
+                    <span aria-hidden className="shrink-0 text-xs leading-none">👥</span>
+                    <span className="min-w-0 text-[9px] font-extrabold uppercase leading-tight tracking-wide text-slate-700">
+                      Group
+                    </span>
+                  </button>
+                </div>
+              )}
+              </>
+            )}
+            <button
+              type="button"
+              onClick={swapEndpoints}
+              aria-label="Swap From and Where to"
+              title="Swap From and Where to"
+              className={`absolute right-1.5 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-xs shadow-sm transition hover:bg-slate-50 ${
+                openEnd ? 'top-[1.25rem]' : 'top-1/2'
+              }`}
+            >
+              ⇅
+            </button>
+          </div>
+  
+        </section>
+  )
   // Sakay sa Terminal, as its own screen.
   //
   // It used to unroll beneath the booking form, which left both on screen at
@@ -1218,6 +1410,13 @@ export function PassengerPage() {
           <span aria-hidden className="text-sm leading-none">‹</span>
           Bumalik sa booking
         </button>
+        {/* Rider one is a rider. Their pickup is where the whole group
+            boards and their destination is their own — and with this card
+            left behind on the booking form, neither could be changed from
+            the screen that books them. Without the Sakay/Group strip: this
+            is Group Ride, so a button into Group Ride would be a door to
+            the room you are already standing in. */}
+        {addressCard(false)}
         <GroupRideInlinePanel
           riders={groupRiders}
           onAddRider={addGroupRider}
@@ -1418,174 +1617,7 @@ export function PassengerPage() {
           list and sub-address for that end; the city above drives both. Only
           on the booking tab — Rewards and Emergency have nothing to address. */}
       {pageTab === 'book' && !isBuyMedicine && (!isPabili || showErrandBooking) && (
-      <section
-        ref={addressSectionRef}
-        className="scroll-mt-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm"
-      >
-        <div className="mb-1.5 flex items-center gap-2 px-1">
-          <label
-            htmlFor="home-city"
-            className={`shrink-0 text-xs font-semibold uppercase tracking-wide ${
-              openEnd === 'dropoff' ? 'text-dest-accent' : 'text-pickup-accent'
-            }`}
-          >
-            City · {openEnd === 'dropoff' ? dropoffLabel : pickupLabel}
-          </label>
-          <select
-            id="home-city"
-            value={cityScope}
-            onChange={(e) => handleHomeCityChange(e.target.value)}
-            className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
-          >
-            {getCitiesForProvince(DEFAULT_BOOKING_PROVINCE).map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="relative" ref={endpointsRef}>
-          <button
-            type="button"
-            onClick={() => openAddressPicker('pickup')}
-            className="flex w-full items-center gap-2.5 rounded-lg bg-pickup-accent px-3 py-2 pr-14 text-left shadow-sm filter transition hover:brightness-90"
-          >
-            <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full bg-white" />
-            <span className="min-w-0 flex-1">
-              <span className="block text-[9px] font-semibold uppercase tracking-wide text-white/75">{pickupLabel}</span>
-              <span className="block truncate text-sm font-semibold text-white">{formatAddressLine(pickup.label)}</span>
-              {!pickupChosen && <span className="block text-[10px] text-white/70">Suggested — tap to change</span>}
-            </span>
-          </button>
-          {openEnd === 'pickup' && (
-            <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
-            {!isErrand && quickPlaceChips('pickup')}
-            <BarangayAddressPicker
-              key={`from-${pickupPickerSeed.key}`}
-              label=""
-              hideRegionSelects
-              defaultProvince={pickupPickerSeed.province || DEFAULT_BOOKING_PROVINCE}
-              defaultCity={pickupPickerSeed.city || DEFAULT_BOOKING_CITY}
-              defaultBarangay={
-                pickupPickerSeed.barangay ||
-                defaultBarangayForCity(pickupPickerSeed.city || DEFAULT_BOOKING_CITY) ||
-                DEFAULT_BOOKING_BARANGAY
-              }
-              defaultAddressDetail={pickupPickerSeed.addressDetail}
-              onResolve={handlePickupResolve}
-              onConfirm={() => setOpenEnd(null)}
-            />
-            {gpsStatus === 'error' && gpsError && <p className="text-[11px] text-amber-700">{gpsError}</p>}
-            </div>
-          )}
-          {/* The connector only makes sense while the two rows are touching —
-              with a picker open between them it would be a dotted line to
-              nowhere. */}
-          {!openEnd && (
-            <span
-              aria-hidden
-              className="absolute left-[1.16rem] top-[2.85rem] h-2 border-l-2 border-dotted border-slate-300"
-            />
-          )}
-          <button
-            type="button"
-            onClick={() => openAddressPicker('dropoff')}
-            className="mt-1.5 flex w-full items-center gap-2.5 rounded-lg bg-dest-fill px-3 py-2 pr-14 text-left shadow-sm filter transition hover:brightness-95"
-          >
-            {/* dest-fill is pale under dark teal text in the default theme,
-                so the filled teal Pickup above is the one block carrying
-                weight; a bold theme can instead make this a solid fill with
-                white text — same four roles (fill/text/subtext/dot), theme
-                decides which way they lean. See theme.css. */}
-            <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full bg-dest-dot" />
-            <span className="min-w-0 flex-1">
-              <span className="block text-[9px] font-semibold uppercase tracking-wide text-dest-subtext/70">{dropoffLabel}</span>
-              <span
-                className={`block truncate text-sm ${
-                  hasDestination ? 'font-semibold text-dest-text' : 'font-normal text-dest-subtext/70'
-                }`}
-              >
-                {hasDestination ? formatAddressLine(dropoff.label) : isErrand ? 'Where should it go?' : 'Where are you going?'}
-              </span>
-            </span>
-          </button>
-          {openEnd === 'dropoff' && (
-            <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
-              {isErrand && quickPlaceChips('dropoff')}
-              <BarangayAddressPicker
-                key={`to-${dropoffPickerSeed.key}`}
-                label=""
-                hideRegionSelects
-                defaultProvince={dropoffPickerSeed.province || DEFAULT_BOOKING_PROVINCE}
-                defaultCity={dropoffPickerSeed.city || DEFAULT_BOOKING_CITY}
-                defaultBarangay={
-                  dropoffPickerSeed.barangay ||
-                  defaultBarangayForCity(dropoffPickerSeed.city || DEFAULT_BOOKING_CITY)
-                }
-                defaultAddressDetail={dropoffPickerSeed.addressDetail}
-                onResolve={handleDropoffResolve}
-                onConfirm={() => setOpenEnd(null)}
-              />
-              {isErrand && gpsStatus === 'error' && gpsError && (
-                <p className="text-[11px] text-amber-700">{gpsError}</p>
-              )}
-            </div>
-          )}
-          {/* Two ways to start a trip that aren't the address form above,
-              side by side so both fit without pushing the page down: Sakay
-              sa Terminal's title wraps to two lines rather than truncating
-              now that it doesn't have the full width to say it in. Sakay sa
-              Terminal gets most of the row (it's the more common tap, and
-              keeps its own fixed yellow — the app's original CTA colour —
-              rather than following `gold`, which a cooler theme concept can
-              turn into a grey that reads as disabled here); Group Ride is
-              the smaller, secondary option next to it.
-
-              Below the whole address block, picker included. It used to sit
-              between the destination row and the picker that opens from it,
-              so expanding a destination split the two apart and pushed this
-              row into the middle of a form it has nothing to do with. */}
-          {!isErrand && (
-            <div className="mt-2 flex items-stretch gap-1.5">
-              <button
-                type="button"
-                onClick={() => setTerminalOpen(!terminalOpen)}
-                aria-expanded={terminalOpen}
-                className="flex min-w-0 flex-[4] items-center gap-1.5 rounded-lg bg-[#ffe066] px-2.5 py-1.5 text-left shadow-sm transition hover:bg-[#ffd633]"
-              >
-                <span aria-hidden className="shrink-0 text-sm leading-none">🚏</span>
-                <span className="min-w-0 flex-1 text-[10px] font-extrabold uppercase leading-tight tracking-wide text-navy-900">
-                  Sakay sa terminal o pumara? Tap to track
-                  {terminalTripIsFree && <span className="font-bold normal-case"> - walang app fee</span>}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={openGroupRide}
-                aria-expanded={groupRideOpen}
-                className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg border border-slate-300 bg-white px-1.5 py-1.5 text-center shadow-sm transition hover:bg-slate-50"
-              >
-                <span aria-hidden className="shrink-0 text-xs leading-none">👥</span>
-                <span className="min-w-0 text-[9px] font-extrabold uppercase leading-tight tracking-wide text-slate-700">
-                  Group
-                </span>
-              </button>
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={swapEndpoints}
-            aria-label="Swap From and Where to"
-            title="Swap From and Where to"
-            className={`absolute right-1.5 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-xs shadow-sm transition hover:bg-slate-50 ${
-              openEnd ? 'top-[1.25rem]' : 'top-1/2'
-            }`}
-          >
-            ⇅
-          </button>
-        </div>
-
-      </section>
+        addressCard(true)
       )}
 
       {foodHinted && pageTab === 'book' && (

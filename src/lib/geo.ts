@@ -129,3 +129,31 @@ export function simulatedDriverOrigin(pickup: GeoCoords, seed: string): GeoCoord
 // spot — 15m is inside the noise of two consumer GPS fixes standing together,
 // and outside the distance at which the driver is still visibly approaching.
 export const AUTO_START_METERS = 15
+
+// Past this, a passenger is told how far the nearest driver actually is
+// before the booking goes out.
+//
+// A tricycle is not a car: a kilometre is not "just around the corner", it is
+// several minutes of someone else's afternoon and the reason a passenger
+// stands wondering whether the app heard them. Booking is still theirs to
+// make — this only makes sure the wait is a thing they agreed to rather than
+// something they discover.
+export const FAR_DRIVER_METERS = 1000
+
+// A tricycle's honest working average through a town: junctions, tricycle
+// lanes, the odd passenger flagging it down. Not a highway speed, because
+// this is not a highway journey.
+export const TRICYCLE_KMH = 20
+
+export function minutesToCover(meters: number): number {
+  return Math.max(1, Math.round((meters / 1000 / TRICYCLE_KMH) * 60))
+}
+
+// "8 min" / "1 hr 5 min" — hours only appear once there are hours, so the
+// common case stays two words.
+export function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return rest === 0 ? `${hours} hr` : `${hours} hr ${rest} min`
+}

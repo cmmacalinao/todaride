@@ -629,6 +629,13 @@ export function PassengerPage() {
       (r.status !== 'completed' || !r.paymentAcknowledged) &&
       !dismissedRideIds.has(r.id),
   )
+  // A ride in one of its ending states: paid off, or called off. It still
+  // has a card to show — the receipt, or the reason the driver stopped —
+  // but it no longer owns the screen, because the passenger's next question
+  // is where they are going now.
+  const rideIsOver =
+    !!activeRide && (activeRide.status === 'completed' || activeRide.status === 'cancelled')
+
   // Once a driver has taken the ride there is nothing left to choose, so the
   // nearby-drivers panel closes itself. Until then it stays up, however many
   // drivers pass on it — the passenger is still picking.
@@ -1702,7 +1709,19 @@ export function PassengerPage() {
         </section>
       )}
 
-      {activeRide && !searchingAgain ? (
+      {/* A trip that is over stops standing in front of the next one.
+
+          The card used to replace the booking form outright, which is right
+          while a ride is running — you cannot book a second tricycle from
+          inside the first. But it stayed in place after the trip finished
+          and after a driver called it off, so the receipt (or the apology)
+          was the whole screen: no addresses, no map, and no way to book
+          again without first dismissing something.
+
+          Finished rides now sit above a working booking form instead. The
+          notice is still there to be read; the map and the address boxes
+          are there to be used. */}
+      {activeRide && !searchingAgain && (
         <div ref={currentRideSectionRef}>
         <ActiveRideCard
           rideId={activeRide.id}
@@ -1710,7 +1729,8 @@ export function PassengerPage() {
           onDismiss={returnToBooking}
         />
         </div>
-      ) : (
+      )}
+      {(!activeRide || searchingAgain || rideIsOver) && (
         <section className="space-y-2 rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm">
             <>
           {/* The Ride/Pabili/Medicine row that used to live here is gone: the

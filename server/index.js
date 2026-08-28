@@ -4,7 +4,13 @@ import cors from 'cors'
 
 const PORT = process.env.PORT ?? 4000
 const SEMAPHORE_API_KEY = process.env.SEMAPHORE_API_KEY
-const SEMAPHORE_SENDER_NAME = process.env.SEMAPHORE_SENDER_NAME ?? 'SEMAPHORE'
+// Left empty on purpose when unset. Semaphore rejects an unregistered
+// sender name outright ("The senderName supplied is not valid"), and every
+// account has its own approved list — so guessing a default sends nothing at
+// all. Omitting the field lets Semaphore use whatever the account is entitled
+// to, which is the only value guaranteed to work before someone registers a
+// name of their own.
+const SEMAPHORE_SENDER_NAME = process.env.SEMAPHORE_SENDER_NAME ?? ''
 
 const app = express()
 app.use(cors({ origin: /^http:\/\/localhost:\d+$/ }))
@@ -28,7 +34,8 @@ async function sendViaSemaphore(phone, code) {
       apikey: SEMAPHORE_API_KEY,
       number: phone,
       message,
-      sendername: SEMAPHORE_SENDER_NAME,
+      // Only sent when the account actually has a registered name.
+      ...(SEMAPHORE_SENDER_NAME ? { sendername: SEMAPHORE_SENDER_NAME } : {}),
     }),
   })
   const data = await res.json().catch(() => null)

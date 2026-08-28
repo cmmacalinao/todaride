@@ -20,19 +20,17 @@ interface RoleTile {
 }
 
 const ROLE_TILES: RoleTile[] = [
+  // Student used to be a tile of its own here. It was never a separate
+  // account — it opened this same form with the discount box pre-ticked — so
+  // it asked people to classify themselves on a screen where both answers
+  // led to the same place. The box is on the form, where someone can also
+  // change their mind about it.
   {
     icon: '🧑',
     label: 'Passenger',
-    blurb: 'Book tricycle rides for yourself',
+    blurb: 'Book tricycle rides for yourself — students get the discounted fare',
     loginTo: '/book?role=passenger&auth=login',
     signupTo: '/book?role=passenger&auth=signup',
-  },
-  {
-    icon: '🎓',
-    label: 'Student',
-    blurb: 'Book rides at the discounted student fare',
-    loginTo: '/book?role=passenger&auth=login',
-    signupTo: '/book?role=passenger&auth=signup&student=1',
   },
   {
     icon: '👪',

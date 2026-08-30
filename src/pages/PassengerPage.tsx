@@ -1655,6 +1655,27 @@ export function PassengerPage() {
           Bumalik sa booking
         </button>
 
+        {/* How far it is, once there is a destination to measure to.
+
+            A passenger recording a ride they flagged down has no quoted
+            fare and no booking screen to read one off — the distance is
+            what tells them whether the number the driver says at the end is
+            in the right range. Road distance where a route resolves, which
+            is the distance actually travelled rather than the straight line
+            through the fields beside it.
+
+            Silent until a destination is set: there is nothing honest to say
+            before that. */}
+        {dropoffChosen && plannedRoute && (
+          <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-xs text-slate-600 shadow-sm">
+            🛣️ <span className="font-semibold text-slate-800">{formatKm(plannedRoute.distanceMeters)}</span> papunta sa
+            destination mo
+            <span className="text-slate-400">
+              {' '}· mga {Math.max(1, Math.round(plannedRoute.durationSeconds / 60))} min
+            </span>
+          </p>
+        )}
+
         <TerminalBoardingPanel onClose={() => setTerminalOpen(false)} mapSlot={sharedMap} />
 
       </div>

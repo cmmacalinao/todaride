@@ -92,3 +92,30 @@ describe('reconciling accounts that arrive from another device', () => {
     expect(mergeById([], [])).toEqual([])
   })
 })
+
+describe('a ride never travels backwards', () => {
+  it('refuses to un-accept a ride a driver has taken', () => {
+    // The failure this exists for: a driver accepts, and a phone still
+    // holding "requested" saves its copy over the top. The acceptance
+    // vanishes, the passenger waits for an answer that already came, and the
+    // driver is on their way to someone who cannot see them.
+    const merged = mergeIncomingRides([ride('r1', 'driver_arriving')], [ride('r1', 'requested')])
+    expect(merged[0].status).toBe('driver_arriving')
+  })
+
+  it('refuses to rewind a trip that is already underway', () => {
+    expect(mergeIncomingRides([ride('r1', 'ongoing')], [ride('r1', 'accepted')])[0].status).toBe('ongoing')
+  })
+
+  it('still takes every step forward', () => {
+    expect(mergeIncomingRides([ride('r1', 'requested')], [ride('r1', 'accepted')])[0].status).toBe('accepted')
+    expect(mergeIncomingRides([ride('r1', 'accepted')], [ride('r1', 'ongoing')])[0].status).toBe('ongoing')
+  })
+
+  it('treats a decline as no progress, not as an ending', () => {
+    // A driver turning an offer down leaves the ride looking for someone
+    // else. It must not outrank a real acceptance that arrives after it.
+    const merged = mergeIncomingRides([ride('r1', 'driver_arriving')], [ride('r1', 'declined')])
+    expect(merged[0].status).toBe('driver_arriving')
+  })
+})

@@ -52,11 +52,39 @@ export function mergeById<T extends { id: string }>(local: T[], incoming: T[]): 
   return [...merged.values()]
 }
 
+// How far along a ride is. A trip only ever moves forward through these,
+// so a copy sitting at a lower rung is older than one further up —
+// whatever order the two writes happened to reach the database in.
+//
+// 'declined' shares a rung with 'requested': a driver turning an offer down
+// leaves the ride looking for someone else rather than advancing it.
+const LIFECYCLE_RANK: Record<RideStatus, number> = {
+  requested: 0,
+  declined: 0,
+  accepted: 1,
+  driver_arriving: 2,
+  ongoing: 3,
+  completed: 4,
+  cancelled: 4,
+}
+
 export function mergeIncomingRides(local: Ride[], incoming: Ride[]): Ride[] {
   const mine = new Map(local.map((r) => [r.id, r]))
   return incoming.map((theirs) => {
     const ours = mine.get(theirs.id)
-    if (ours && isFinishedRide(ours.status) && !isFinishedRide(theirs.status)) return ours
+    if (!ours) return theirs
+    // A ride never travels backwards.
+    //
+    // This began as a rule about endings — a cancelled trip that another
+    // phone kept ticking back to life. The same thing happens one rung
+    // down and is worse: a driver accepts, and a device still holding
+    // "requested" saves its copy over the top, so the acceptance vanishes
+    // and the passenger is left watching a request nobody answered while
+    // the driver is on their way to them.
+    //
+    // Every client refusing to adopt an older status means the world
+    // converges forwards instead of on whoever wrote last.
+    if (LIFECYCLE_RANK[ours.status] > LIFECYCLE_RANK[theirs.status]) return ours
     return theirs
   })
 }

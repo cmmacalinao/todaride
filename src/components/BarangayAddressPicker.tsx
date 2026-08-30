@@ -95,6 +95,9 @@ export function BarangayAddressPicker({
   // Confirm — nothing goes red while they are still working down the form.
   const [missing, setMissing] = useState<'barangay' | 'detail' | null>(null)
   const [status, setStatus] = useState<'idle' | 'locating' | 'done' | 'error'>(defaultBarangay ? 'done' : 'idle')
+  // The location came from the phone rather than from typing, so the
+  // exact point is already known.
+  const pinned = gpsOption?.status === 'done'
   // A pre-filled barangay means this mount was seeded from a location that's
   // already resolved (a Saved Place quick-pick, or a map-tap/GPS guess) —
   // skip resolving again while the fields still match exactly what they were
@@ -348,7 +351,7 @@ export function BarangayAddressPicker({
             setAddressDetail(e.target.value)
             setMissing(null)
           }}
-          placeholder="Street / house no., nearby landmark"
+          placeholder={pinned ? 'Street / house no., landmark (optional — pinned)' : 'Street / house no., nearby landmark'}
           className={`w-full rounded-lg border px-3 py-2 text-sm ${
             missing === 'detail' ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-300' : 'border-slate-300'
           }`}
@@ -365,7 +368,14 @@ export function BarangayAddressPicker({
                   setMissing('barangay')
                   return
                 }
-                if (!addressDetail.trim()) {
+                // Skipped once an exact GPS fix has been taken. The
+                // street and the landmark exist to tell a driver which
+                // spot on the barangay is meant — a question a pin has
+                // already answered, and answered better. Insisting on
+                // it there makes someone type a description of the
+                // place they are standing in, to locate a point the
+                // app is holding to five decimals.
+                if (!addressDetail.trim() && !pinned) {
                   setMissing('detail')
                   return
                 }

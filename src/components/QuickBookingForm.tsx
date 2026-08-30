@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { reverseGeocodeToPhAddress } from '../lib/customLocation'
 import { errandBaseFare, useRides } from '../context/RideContext'
 import {
   CLSU_MAIN_GATE_LOCATION,
@@ -277,6 +278,20 @@ export function QuickBookingForm({
       const coords = await getCurrentGeoPosition()
       setPickupGps(coords)
       setGpsStatus('done')
+      // A fix answers "which barangay?" too, so the dropdown is filled
+      // from it rather than left on whatever it defaulted to. Without
+      // this the pin and the address below it could disagree, and the
+      // passenger was asked to name a place the phone had just named.
+      const { guess } = await reverseGeocodeToPhAddress(coords)
+      if (guess) {
+        setPickupPickerSeed((prev) => ({
+          key: prev.key + 1,
+          province: guess.province,
+          city: guess.city,
+          barangay: guess.barangay,
+          addressDetail: guess.addressDetail,
+        }))
+      }
     } catch (err) {
       setGpsStatus('error')
       setGpsError(err instanceof Error ? err.message : 'Could not get your location.')

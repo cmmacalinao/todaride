@@ -223,11 +223,42 @@ class SupabaseAdapter implements PersistenceAdapter {
     }
     channel.subscribe()
 
+    // Coming back from the background is its own kind of change.
+    //
+    // A phone that is locked, switched away from, or off signal suspends
+    // its timers and usually loses the websocket. Whatever happened while
+    // it was away arrived at a socket nobody was listening to, and the
+    // subscription alone will never tell it. So it sat showing a world from
+    // whenever it last heard anything — a driver accepting, a fare being
+    // proposed, a ride being cancelled, none of it arriving until somebody
+    // thought to reload.
+    //
+    // Worse than looking stale: that device then SAVES its old world over
+    // the top of everyone else's, which is how a fresh sign-up or a
+    // driver's acceptance gets erased by a phone in a pocket.
+    //
+    // Re-reading on wake is cheap and makes the stale window a moment
+    // rather than an afternoon.
+    const onWake = () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+      refetch()
+    }
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onWake)
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', onWake)
+      window.addEventListener('online', onWake)
+    }
+
     // Same-browser tabs still talk through localStorage: it is instant, and
     // the split-screen simulator depends on it.
     const unsubLocal = this.local.subscribe(onRemote)
     return () => {
       if (timer) clearTimeout(timer)
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onWake)
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('focus', onWake)
+        window.removeEventListener('online', onWake)
+      }
       void db.removeChannel(channel)
       unsubLocal()
     }

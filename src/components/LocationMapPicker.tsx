@@ -26,6 +26,10 @@ export function LocationMapPicker({
   hasPickup = true,
   leadingAction,
   underMapAction,
+  // Rendered directly beneath the Pickup / Destination tabs, so an
+  // address form opens under the tab that asks for it rather than in a
+  // strip somewhere else on the page.
+  belowTabs,
   showGpsFor,
   terminals = [],
   extraPoints = [],
@@ -47,6 +51,7 @@ export function LocationMapPicker({
   // else first. Panning to look around should not cost you the automatic
   // framing for every choice you make afterwards.
   refitSignal?: string
+  belowTabs?: ReactNode
   // False while the passenger has not said where they are going. The pin is
   // withheld rather than drawn somewhere provisional: a marker on the map is
   // read as a decision, and this one has not been made yet.
@@ -93,9 +98,13 @@ export function LocationMapPicker({
   // which pin they're about to place, so the thing they need to see (and
   // tap) should be the thing in front of them, not still off past whatever
   // they'd scrolled down to.
+  // Switching ends changes which pin a tap moves. It does not move the
+  // page: this used to scroll the whole picker to the top of the screen,
+  // which yanked the map out from under whoever had just reached for a tab
+  // — and on Track my trip, where the map is being read rather than
+  // answered, that is the last thing it should do.
   function selectTarget(next: 'pickup' | 'dropoff') {
     onTargetChange(next)
-    containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   async function placePin(gps: GeoCoords) {
@@ -205,6 +214,7 @@ export function LocationMapPicker({
           </button>
         </div>
       </div>
+      {belowTabs}
       {showGpsFor === target && (
         <button
           type="button"

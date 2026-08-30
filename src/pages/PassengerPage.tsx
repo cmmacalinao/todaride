@@ -240,6 +240,11 @@ export function PassengerPage() {
   // controls which address form shows below the map, so only one is on
   // screen at a time instead of both stacked.
   const [mapTarget, setMapTarget] = useState<'pickup' | 'dropoff'>('pickup')
+  // Whether the destination boxes are showing on Track my trip. The
+  // Destination tab toggles them: tapping it opens the form, tapping it
+  // again folds it away, and confirming an address closes it too. Tapping
+  // FROM closes it, because that tab is asking about the other end.
+  const [terminalDestOpen, setTerminalDestOpen] = useState(false)
   const [groupRiders, setGroupRiders] = useState<GroupRiderEntry[]>([])
   const [groupPaySplit, setGroupPaySplit] = useState<'separate' | 'booker'>('separate')
   const [groupSubmitting, setGroupSubmitting] = useState(false)
@@ -1175,8 +1180,16 @@ export function PassengerPage() {
     const applyPlace = target === 'pickup' ? handlePickupQuickPick : handleDropoffQuickPick
     const current = target === 'pickup' ? pickup : dropoff
     const fieldName = target === 'pickup' ? pickupLabel : dropoffLabel
+    // "My location" means where I am standing, which is an answer to FROM
+    // and not to where you are going. On a destination row it offered to
+    // book a trip from a place to itself.
+    //
+    // An errand keeps it: Pabili's "Deliver to" is the customer's own
+    // address, so their current position is exactly the right answer there.
+    const offerMyLocation = target === 'pickup' || isErrand
     return (
       <div className="-mx-1 flex flex-nowrap gap-1 overflow-x-auto px-1 pb-0.5">
+        {offerMyLocation && (
         <button
           type="button"
           onClick={() => void handleUseMyGps(target)}
@@ -1190,6 +1203,7 @@ export function PassengerPage() {
         >
           {gpsStatus === 'locating' ? '📍 Locating…' : gpsStatus === 'done' ? '✓ My location' : '📍 My location'}
         </button>
+        )}
         {SAVED_LOCATION_LABELS.filter((label) => label !== 'Favorite').map((label) => {
           const saved = savedLocations.find((sl) => sl.label === label)
           return (
@@ -1220,13 +1234,42 @@ export function PassengerPage() {
   // with it there too, so they are swapped out while Terminal is open: that
   // flow submits through its own "Record my Trip" button and is always a
   // single rider, neither of which apply here.
+  // The destination boxes as they appear on Track my trip: folded until the
+  // Destination tab is chosen, gone again once the address is confirmed.
+  //
+  // There is no pickup half. On that screen the start is not a question —
+  // the app takes it from the phone the moment a trip records itself — so a
+  // box for it would invite somebody to answer something about to be
+  // answered better.
+  const terminalDestinationForm = terminalDestOpen && mapTarget === 'dropoff' && (
+    <div className="space-y-2 rounded-lg bg-slate-50/70 p-2">
+      {quickPlaceChips('dropoff')}
+      <BarangayAddressPicker
+        key={`terminal-to-${dropoffPickerSeed.key}`}
+        label=""
+        hideRegionSelects
+        defaultProvince={dropoffPickerSeed.province || DEFAULT_BOOKING_PROVINCE}
+        defaultCity={dropoffPickerSeed.city || cityScope || DEFAULT_BOOKING_CITY}
+        defaultBarangay={dropoffPickerSeed.barangay}
+        defaultAddressDetail={dropoffPickerSeed.addressDetail}
+        onResolve={handleDropoffResolve}
+        onConfirm={() => setTerminalDestOpen(false)}
+        pinned={!!dropoff.gps && dropoffChosen}
+      />
+    </div>
+  )
+
   const sharedMap = (
     <div ref={bookingMapRef} className="scroll-mt-24">
       <LocationMapPicker
         pickup={pickup}
         dropoff={dropoff}
         target={mapTarget}
-        onTargetChange={setMapTarget}
+        onTargetChange={(next) => {
+          setMapTarget(next)
+          if (!terminalOpen) return
+          setTerminalDestOpen(next === 'dropoff' ? mapTarget !== 'dropoff' || !terminalDestOpen : false)
+        }}
         onPinPickup={handlePinPickup}
         onPinDropoff={handlePinDropoff}
         pickupLabel={pickupLabel}
@@ -1247,6 +1290,11 @@ export function PassengerPage() {
         // opening a box swung the map, before the passenger had said
         // anything. Naming a city no longer picks an address either, so
         // there is nothing for the map to move to when it changes.
+        // On Track my trip the destination form opens under the tab that
+        // asks for it, rather than as a strip elsewhere on the page. The
+        // tab is the question; the boxes are the answer, and they belong
+        // together.
+        belowTabs={terminalOpen ? terminalDestinationForm : undefined}
         refitSignal={
           terminalOpen
             ? 'terminal'
@@ -1357,7 +1405,14 @@ export function PassengerPage() {
   // The Sakay/Group strip inside it is booking-form furniture, so the Group
   // screen leaves it out — a way into Group Ride from inside Group Ride is a
   // door to the room you are already standing in.
-  const addressCard = (showStrip: boolean) => (
+  // destinationOnly drops the FROM row, its picker and the swap control.
+  //
+  // On Track my trip the start is not a question: the app takes it from the
+  // phone the moment a trip records itself. Offering a box for it there
+  // invites somebody to answer something that is about to be answered
+  // better, and a Swap button between one real row and one about-to-be
+  // filled row swaps nothing worth swapping.
+  const addressCard = (showStrip: boolean, destinationOnly = false) => (
         <section
           ref={addressSectionRef}
           className="scroll-mt-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm"
@@ -1386,6 +1441,8 @@ export function PassengerPage() {
             </select>
           </div>
           <div className="relative" ref={endpointsRef}>
+            {!destinationOnly && (
+            <>
             <button
               type="button"
               onClick={() => openAddressPicker('pickup')}
@@ -1446,10 +1503,12 @@ export function PassengerPage() {
               )}
               </div>
             )}
+            </>
+            )}
             {/* The connector only makes sense while the two rows are touching —
                 with a picker open between them it would be a dotted line to
                 nowhere. */}
-            {!openEnd && (
+            {!openEnd && !destinationOnly && (
               <span
                 aria-hidden
                 className="absolute left-[1.16rem] top-[2.85rem] h-2 border-l-2 border-dotted border-slate-300"
@@ -1557,6 +1616,7 @@ export function PassengerPage() {
               )}
               </>
             )}
+            {!destinationOnly && (
             <button
               type="button"
               onClick={swapEndpoints}
@@ -1568,6 +1628,7 @@ export function PassengerPage() {
             >
               ⇅
             </button>
+            )}
           </div>
   
         </section>
@@ -1593,23 +1654,9 @@ export function PassengerPage() {
           <span aria-hidden className="text-sm leading-none">‹</span>
           Bumalik sa booking
         </button>
+
         <TerminalBoardingPanel onClose={() => setTerminalOpen(false)} mapSlot={sharedMap} />
 
-        {/* Folded away by default.
-
-            This screen exists to answer one question — which tricycle am I
-            in — and the app asks for the destination once the trip is
-            recorded and moving, because somebody who has just sat down is
-            not reading a form. But a passenger who already knows where they
-            are going should not have to wait to be asked, so the boxes are
-            here, shut, one tap away. */}
-        <details className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <summary className="cursor-pointer list-none px-3 py-2.5 text-xs font-semibold text-slate-700">
-            Alam mo na kung saan ka pupunta?
-            <span className="ml-1 font-normal text-slate-400">— ilagay na ang address</span>
-          </summary>
-          <div className="border-t border-slate-100 p-2">{addressCard(false)}</div>
-        </details>
       </div>
     )
   }

@@ -936,6 +936,13 @@ export function PassengerPage() {
         barangay: guess.barangay,
         addressDetail: guess.addressDetail,
       }))
+      // The City selector above the address rows is its own state, and it
+      // used to sit where it had been left while the pin moved to another
+      // town — so the header read "Science City of Munoz" over an address
+      // in San Jose, and the barangay list underneath was the wrong
+      // city's. A pin is a statement about where the passenger is; the
+      // city has to follow it rather than argue with it.
+      if (guess.city && guess.city !== cityScope) setCityScope(guess.city)
     }
   }
 
@@ -960,6 +967,9 @@ export function PassengerPage() {
         barangay: guess.barangay,
         addressDetail: guess.addressDetail,
       }))
+      // Same as the pickup: the City selector heads whichever row is open,
+      // so a destination pinned in another town has to move it too.
+      if (guess.city && guess.city !== cityScope && openEnd === 'dropoff') setCityScope(guess.city)
     }
   }
 

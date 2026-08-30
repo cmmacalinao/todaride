@@ -174,7 +174,9 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
     // The pickup is simply where they are. No barangay dropdown, no map tap —
     // the phone already knows, and asking would be theatre.
     const pickup: MockLocation = createCustomLocation('FROM', position)
-    setRequestedDriver(currentPassengerId, driver.id)
+    // Only a registered driver can be "requested" — an unregistered plate
+    // has no account to point at.
+    if (driver) setRequestedDriver(currentPassengerId, driver.id)
     requestRide({
       passengerId: currentPassengerId,
       passengerName: passengers.find((p) => p.id === currentPassengerId)?.name ?? 'Pasahero',

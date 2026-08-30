@@ -1,7 +1,10 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ]
+  // This used to be a solution-style stub — `{"files": [], "references": [...]}`
+  // — which meant `tsc --noEmit` compiled exactly zero files and reported
+  // success. Missing imports, undeclared state and invalid JSX all passed it,
+  // and were caught only by loading the page or by the deploy failing hours
+  // later. A typecheck that cannot fail is worse than none, because it is
+  // trusted. This config checks the app; `npm run typecheck` checks the app
+  // and the Vite config together, and the build runs it first.
+  "extends": "./tsconfig.app.json"
 }

@@ -1,0 +1,21 @@
+[build]
+  publish = "dist"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# The app calls /api/send-otp and /api/verify-otp — the same paths the local
+# Express server answers on, so one client works against both without knowing
+# which is behind it.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# Everything else is the single-page app. Must come last: a catch-all above
+# the API rule would swallow it.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -234,13 +234,7 @@ export function PassengerPage() {
   // chosen location (a Saved Place quick-pick) into a picker that otherwise
   // owns its own dropdown state, so the dropdowns don't keep showing
   // whatever they last had while pickupId/dropoffId already moved on.
-  const [pickupPickerSeed, setPickupPickerSeed] = useState({
-    key: 0,
-    province: CLSU_MAIN_GATE_LOCATION.province,
-    city: CLSU_MAIN_GATE_LOCATION.city,
-    barangay: CLSU_MAIN_GATE_LOCATION.barangay,
-    addressDetail: 'Main Gate',
-  })
+  const [pickupPickerSeed, setPickupPickerSeed] = useState({ key: 0, province: '', city: '', barangay: '', addressDetail: '' })
   const [dropoffPickerSeed, setDropoffPickerSeed] = useState({ key: 0, province: '', city: '', barangay: '', addressDetail: '' })
   // Which of Pickup/Destination the map picker's toggle is on — also
   // controls which address form shows below the map, so only one is on
@@ -431,6 +425,29 @@ export function PassengerPage() {
   ].filter((loc, i, arr) => arr.findIndex((l) => l.id === loc.id) === i)
   const pickup = allLocations.find((l) => l.id === pickupId)!
   const dropoff = allLocations.find((l) => l.id === dropoffId)!
+  // The city comes from the account, the address does not.
+  //
+  // A passenger almost always books from the city they live in, so making
+  // them name it every time is a question with a known answer -- and the
+  // city is what decides which barangays the picker offers, so getting it
+  // right up front saves the wrong list appearing. The barangay and the
+  // street stay empty: those change trip to trip, and a guess there is the
+  // one that sends a tricycle somewhere nobody asked for.
+  //
+  // Only ever fills a blank. Once someone picks a city themselves, or pins
+  // a location in another town, this stops having an opinion.
+  useEffect(() => {
+    if (cityScope || !passenger?.city) return
+    setCityScope(passenger.city)
+    setPickupPickerSeed((prev) => ({
+      key: prev.key + 1,
+      province: passenger.province || DEFAULT_BOOKING_PROVINCE,
+      city: passenger.city,
+      barangay: '',
+      addressDetail: '',
+    }))
+  }, [cityScope, passenger?.city, passenger?.province])
+
   const isPabili = serviceType === 'pabili'
   const isBuyMedicine = serviceType === 'buy_medicine'
   // Buy Medicine has its own self-contained flow (MedsBooking) with a
@@ -819,36 +836,14 @@ export function PassengerPage() {
       })
       return next
     })
-    // The address just confirmed carries into the next booking: the trip
-    // ended at the drop-off, so that is where they are standing and where
-    // the next ride starts from. Where to goes back to blank — nobody is
-    // standing at a destination they have not picked yet.
-    const justEnded = myRides.find((r) => r.status === 'completed' && !r.paymentAcknowledged)
-    // Only when the trip actually went somewhere.
+    // Nothing is carried into the next booking.
     //
-    // Carrying the last drop-off into the next pickup is right for an
-    // ordinary ride: you are standing where you got out. A recorded trip
-    // that was never given a destination has a drop-off that is only a copy
-    // of its own pickup, so this was seeding the next booking with the word
-    // the recorded pickup is named after -- an address field pre-filled with
-    // a label instead of a place, which the passenger then had to clear.
-    const endedSomewhere =
-      !!justEnded && !justEnded.destinationPending && justEnded.dropoff?.id !== justEnded.pickup?.id
-    if (justEnded && endedSomewhere) {
-      const arrivedAt = justEnded.actualDropoff
-        ? { ...justEnded.dropoff, label: justEnded.actualDropoff.label }
-        : justEnded.dropoff
-      setCustomLocations((prev) => (prev.some((l) => l.id === arrivedAt.id) ? prev : [...prev, arrivedAt]))
-      handlePickupChange(arrivedAt.id)
-      setPickupChosen(true)
-      setPickupPickerSeed((prev) => ({
-        key: prev.key + 1,
-        province: arrivedAt.province,
-        city: arrivedAt.city,
-        barangay: arrivedAt.barangay,
-        addressDetail: '',
-      }))
-    }
+    // Reusing the last dropoff as the next pickup reads well -- you are
+    // standing where you got out -- but it means opening Book a ride to find
+    // an address already in the box. Right often enough to be trusted,
+    // wrong often enough to matter: someone who booked home last night is
+    // not there this morning, and the fare and the driver are dispatched
+    // from whatever that box says.
     setDropoffChosen(false)
     requestAnimationFrame(() => showInMiddle(endpointsRef.current))
   }

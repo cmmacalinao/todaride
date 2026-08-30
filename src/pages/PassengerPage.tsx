@@ -2300,6 +2300,35 @@ export function PassengerPage() {
             </p>
           </div>
 
+          {/* A second way to book, above the payment row rather than only
+              at the top of the form.
+
+              Everything between the addresses and here — saved places, the
+              favourite driver, the special-trip box — is optional, so a
+              passenger who has answered the two questions that matter
+              scrolls past a screen of things they do not need in order to
+              reach the button. This puts it where they finish reading.
+
+              Same handler and the same disabled rule as the button above,
+              so the two can never disagree about whether a booking is
+              ready to send. */}
+          <button
+            type="button"
+            onClick={handleRequest}
+            disabled={!canSubmit}
+            className="w-full rounded-lg bg-[#ffe066] px-3 py-2 text-sm font-bold text-navy-900 shadow-sm transition hover:bg-[#ffd633] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+          >
+            <span className="block truncate">
+              {isPabili
+                ? isGuestBooking
+                  ? `Request Pabili for ${guestRider.otherName.trim() || 'them'}`
+                  : 'Request Pabili'
+                : isGuestBooking
+                  ? `Book a tricycle for ${guestRider.otherName.trim() || 'them'}`
+                  : 'Book a tricycle'}
+            </span>
+          </button>
+
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500">Payment method</label>
             <div className="grid grid-cols-4 gap-2">

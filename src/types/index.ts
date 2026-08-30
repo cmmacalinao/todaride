@@ -866,6 +866,12 @@ export interface Ride {
   // normally; the destination is asked for once they are moving, because a
   // passenger who has just sat down is not reading a form.
   destinationPending?: boolean
+  // Written by the app itself, not asked for. The passenger boarded off the
+  // street and the two GPS traces — theirs and the tricycle's — left
+  // together and stayed together, so the app recorded who they are riding
+  // with. It is a safety net rather than a booking: nobody was dispatched,
+  // nothing was matched, and no platform fee is charged for it.
+  safetyRecord?: boolean
   priorityQueueOfferedDriverId: string | null
   priorityQueueOfferedAt: string | null
   priorityQueueLog: QueueOfferLogEntry[]

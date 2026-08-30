@@ -398,6 +398,11 @@ type RideAction =
       requestedDriverId: string | null
       bookedAtTerminal: boolean
       destinationPending: boolean
+      // Set when the passenger is already aboard and already moving — the
+      // app watched their GPS leave with this tricycle's. The ride is
+      // created underway rather than requested, because there is nothing
+      // left to dispatch.
+      boardedWithDriverId: string | null
       prescriptionDataUrls: string[]
       seniorIdDataUrl: string | null
       otherDocDataUrl: string | null
@@ -2159,7 +2164,37 @@ function reducer(state: RideState, action: RideAction): RideState {
         cancellationNote: null,
         cancelledAt: null,
       }
-      return { ...state, rides: [ride, ...state.rides] }
+      // Already aboard, already moving. Putting this through 'requested'
+      // would ask a passenger halfway down the highway to wait for a driver
+      // to accept a ride he is currently giving them — and would show the
+      // family watching a tricycle setting out to fetch someone it is
+      // already carrying.
+      const boardedDriver = action.boardedWithDriverId
+        ? state.drivers.find((d) => d.id === action.boardedWithDriverId)
+        : null
+      const recorded: Ride = boardedDriver
+        ? {
+            ...ride,
+            status: 'ongoing' as RideStatus,
+            driverId: boardedDriver.id,
+            driverName: boardedDriver.name,
+            acceptedAt: new Date().toISOString(),
+            startedAt: new Date().toISOString(),
+            // Not on the way to the pickup — past it. The pickup is where
+            // they got in, which is behind them.
+            legProgress: 1,
+            safetyRecord: true,
+          }
+        : ride
+      return {
+        ...state,
+        rides: [recorded, ...state.rides],
+        // Driving, so no longer waiting in the terminal line — the same
+        // move ACCEPT_RIDE makes, for the same reason.
+        drivers: boardedDriver
+          ? state.drivers.map((d) => (d.id === boardedDriver.id ? { ...d, queueJoinedAt: null } : d))
+          : state.drivers,
+      }
     }
     case 'REQUEST_GROUP_RIDE': {
       const groupBookingId = `group-${Date.now()}`
@@ -2486,8 +2521,13 @@ function reducer(state: RideState, action: RideAction): RideState {
       // a tip is the passenger's to give and goes to the driver in full.
       // No app fee on a terminal-QR ride: the platform did not find this
       // passenger a driver, they were already sitting in the tricycle.
+      // A safety record is not a booking. Nobody was dispatched, no queue
+      // was held, nothing was matched — the app noticed the passenger was
+      // already riding and wrote down who with, so that someone knows. That
+      // waiver is unconditional rather than resting on the terminal-QR
+      // toggle: a safety net with a price on it is one people switch off.
       const platformFee =
-        ride.bookedAtTerminal && state.terminalQrFeeWaived
+        ride.safetyRecord || (ride.bookedAtTerminal && state.terminalQrFeeWaived)
           ? 0
           : Math.min(ride.fareEstimate, state.commissionPerRide)
       const todaCommission = Math.min(
@@ -4857,6 +4897,7 @@ interface RideContextValue extends RideState {
     requestedDriverId?: string | null
     bookedAtTerminal?: boolean
     destinationPending?: boolean
+    boardedWithDriverId?: string | null
     prescriptionDataUrls?: string[]
     seniorIdDataUrl?: string | null
     otherDocDataUrl?: string | null
@@ -5896,6 +5937,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
         requestedDriverId: null,
         bookedAtTerminal: false,
         destinationPending: false,
+        boardedWithDriverId: null,
         prescriptionDataUrls: [],
         seniorIdDataUrl: null,
         otherDocDataUrl: null,

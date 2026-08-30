@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRides } from '../context/RideContext'
 import { useSession } from '../context/SessionContext'
 import { useWatchPosition } from '../lib/liveTracking'
 import { formatKm, haversineDistanceMeters } from '../lib/geo'
+import { SUSTAINED_MS, movingTogether, trimTrack, type Fix } from '../lib/rideTogether'
 import { createCustomLocation } from '../lib/customLocation'
 import { CLSU_GPS, driverDispatchGps } from '../mock/data'
 import { terminalRideIsFree } from '../lib/terminalFee'
@@ -42,7 +43,16 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
   // carries on from the default booking coordinate rather than stopping to
   // argue about permissions.
   const position = watched ?? CLSU_GPS
-  const [confirming, setConfirming] = useState<Driver | null>(null)
+  // Fires the auto-start once. Candidates flicker while GPS settles, and a
+  // second pass would record a second trip for the same ride.
+  const startedRef = useRef(false)
+  // Where the passenger has been, and where each nearby tricycle has been,
+  // over the last few seconds. Refs rather than state: these are written on
+  // every GPS tick and read only by the rule below, so re-rendering the
+  // panel for each one would buy nothing.
+  const passengerTrack = useRef<Fix[]>([])
+  const driverTracks = useRef<Map<string, Fix[]>>(new Map())
+  const [heldMs, setHeldMs] = useState(0)
   // Manual fallback for when the tricycle you are actually in did not make
   // the GPS-radius list — a driver's phone can lag, or you stepped a little
   // past SAME_TRICYCLE_METERS. Typing the plate number everyone can already
@@ -78,10 +88,41 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
       .sort((a, b) => a.meters - b.meters)
   }, [drivers, terminals, todaOrganizations, position, busyIds])
 
-  // Exactly one tricycle in the same spot is not a choice, it is an answer.
+  // The question that separates the tricycle a passenger is IN from the
+  // four they are standing beside: did it pull out when they did, in the
+  // same direction, and is it still with them a few seconds later.
+  //
+  // Proximity alone cannot answer it. At a terminal every tricycle in the
+  // rank is within arm's reach and all but one of them is the wrong answer,
+  // so the earlier version of this — record whoever is nearest — would have
+  // written a stranger's plate into the passenger's history and a trip the
+  // driver never made into theirs.
+  //
+  // Runs on the GPS tick, which is the only clock that matters here, and
+  // only on a real fix: the CLSU fallback below is a guess about where the
+  // phone is, and a guess is not something to record a trip on.
   useEffect(() => {
-    if (!confirming && candidates.length === 1) setConfirming(candidates[0].driver)
-  }, [candidates, confirming])
+    if (startedRef.current || passengerHasTrip) return
+    if (!watched || !currentPassengerId) return
+    const now = Date.now()
+    passengerTrack.current = trimTrack([...passengerTrack.current, { gps: watched, at: now }], now)
+
+    let longestHeld = 0
+    for (const { driver } of candidates) {
+      const gps = driverDispatchGps(driver, terminals, todaOrganizations)
+      if (!gps) continue
+      const track = trimTrack([...(driverTracks.current.get(driver.id) ?? []), { gps, at: now }], now)
+      driverTracks.current.set(driver.id, track)
+      const verdict = movingTogether(passengerTrack.current, track)
+      if (verdict.together) {
+        startedRef.current = true
+        startRecording(driver)
+        return
+      }
+      longestHeld = Math.max(longestHeld, verdict.heldMs)
+    }
+    setHeldMs(longestHeld)
+  }, [watched, candidates, passengerHasTrip, currentPassengerId, terminals, todaOrganizations])
 
   // Matched against every eligible driver, not just the nearby list — typing
   // the plate is the fallback for exactly the case where GPS missed you.
@@ -121,6 +162,9 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
       requestedDriverId: driver.id,
       bookedAtTerminal: true,
       destinationPending: true,
+      // The trip is already happening; this records it rather than asking
+      // for it. Creates the ride underway, with no platform fee.
+      boardedWithDriverId: driver.id,
     } as never)
     onClose()
   }
@@ -134,8 +178,8 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
         <div className="px-3 py-2.5">
           <p className="text-sm font-extrabold leading-tight text-white">Record mo ang Biyahe</p>
           <p className="text-[11px] text-blue-100">
-            Hindi mo na kailangang i-type kung saan ka galing — alam na ng app. I-type lang kung saan ang
-            Destination mo.
+            Kusang mare-record ito kapag umandar na kayo — hindi mo na kailangang pindutin. Ang destination na
+            lang ang itatanong, para sa safety. Libre ito, walang app fee.
           </p>
         </div>
       </div>
@@ -148,9 +192,21 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
         </p>
       )}
 
+      {/* What the app is doing while nothing has happened yet. Without
+          this the panel looks inert during the seconds it spends deciding,
+          and a passenger who has just sat down starts hunting for a button
+          to press — which is the tapping this whole rule exists to remove. */}
+      {!passengerHasTrip && !!watched && candidates.length > 0 && (
+        <p className="rounded-lg bg-blue-50 px-3 py-2 text-[11px] font-medium text-blue-900">
+          {heldMs > 0
+            ? `Umaandar na kayo — sandali lang, ire-record na (${Math.max(1, Math.ceil((SUSTAINED_MS - heldMs) / 1000))}s)…`
+            : 'Hinihintay lang na umandar ang tricycle. Kusang mare-record ang biyahe mo pag-alis ninyo.'}
+        </p>
+      )}
+
       {!passengerHasTrip && (
         <div>
-          <h2 className="text-xs font-semibold text-slate-700">Alin ang TRC No. sa loob?</h2>
+          <h2 className="text-xs font-semibold text-slate-700">Ayaw maghintay? Alin ang TRC No. sa loob?</h2>
 
           {/* Type it in — the fallback for whenever the tricycle you're
               actually in didn't make the GPS list below (driver's phone
@@ -168,8 +224,8 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
               <button
                 type="button"
                 onClick={() => {
-                  setConfirming(typedMatch)
                   setTrcInput('')
+                  startRecording(typedMatch)
                 }}
                 className="shrink-0 rounded-lg bg-brand-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-brand-700"
               >
@@ -184,19 +240,16 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
           {candidates.length > 0 ? (
             <>
               <p className="mb-1.5 mt-2.5 text-[10px] text-slate-500">
-                O piliin — ito ang mga tricycle na nasa tabi mo ngayon, ayon sa GPS.
+                I-tap ang sinasakyan mo — mare-record agad ang biyahe.
               </p>
               <div className="space-y-1">
                 {candidates.map(({ driver, meters }) => {
-                  const isPicked = confirming?.id === driver.id
                   return (
                     <button
                       key={driver.id}
                       type="button"
-                      onClick={() => setConfirming(isPicked ? null : driver)}
-                      className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition ${
-                        isPicked ? 'border-brand-600 bg-brand-50' : 'border-slate-200 bg-white hover:bg-slate-50'
-                      }`}
+                      onClick={() => startRecording(driver)}
+                      className="flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-left transition hover:bg-slate-50"
                     >
                       <span className="min-w-0 flex-1 truncate text-xs">
                         <span className="font-bold text-slate-800">TRC {driver.plateNumber}</span>
@@ -221,25 +274,6 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
               </p>
             )
           )}
-        </div>
-      )}
-
-      {confirming && !passengerHasTrip && (
-        <div className="rounded-xl border-2 border-brand-600 bg-white p-3 shadow-sm">
-          <p className="text-xs text-slate-600">
-            Ire-record ang biyahe mo kay{' '}
-            <span className="font-bold text-slate-800">
-              {confirming.name} · TRC {confirming.plateNumber}
-            </span>
-            . Itatanong namin kung saan ka pupunta habang bumibiyahe ka na.
-          </p>
-          <button
-            type="button"
-            onClick={() => startRecording(confirming)}
-            className="mt-2 w-full rounded-lg bg-brand-600 py-2.5 text-sm font-bold text-white hover:bg-brand-700"
-          >
-            📍 Record my Trip
-          </button>
         </div>
       )}
 

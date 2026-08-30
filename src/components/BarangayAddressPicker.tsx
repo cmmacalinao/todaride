@@ -16,6 +16,11 @@ interface BarangayAddressPickerProps {
   // resolves as they type, so "set" and "settled on" are not the same thing
   // — this is them saying the second one.
   onConfirm?: () => void
+  // This address already has real coordinates behind it — pinned on the
+  // map, or taken from the phone. Callers that own the GPS button
+  // themselves say so here; the picker cannot see their fix otherwise,
+  // and would go on demanding a landmark for a point it already knows.
+  pinned?: boolean
   onResolve: (address: PhAddressTags) => Promise<void>
   // Drops the Province and City dropdowns, for callers that already own the
   // city choice above this control (see PassengerPage's From/Where to card).
@@ -57,6 +62,7 @@ export function BarangayAddressPicker({
   defaultBarangay = '',
   defaultAddressDetail = '',
   onConfirm,
+  pinned: pinnedProp,
   onResolve,
   hideRegionSelects = false,
   gpsOption,
@@ -95,9 +101,10 @@ export function BarangayAddressPicker({
   // Confirm — nothing goes red while they are still working down the form.
   const [missing, setMissing] = useState<'barangay' | 'detail' | null>(null)
   const [status, setStatus] = useState<'idle' | 'locating' | 'done' | 'error'>(defaultBarangay ? 'done' : 'idle')
-  // The location came from the phone rather than from typing, so the
-  // exact point is already known.
-  const pinned = gpsOption?.status === 'done'
+  // The location came from the phone or the map rather than from typing,
+  // so the exact point is already known — whether this picker owns the
+  // GPS button or the caller does.
+  const pinned = pinnedProp || gpsOption?.status === 'done'
   // A pre-filled barangay means this mount was seeded from a location that's
   // already resolved (a Saved Place quick-pick, or a map-tap/GPS guess) —
   // skip resolving again while the fields still match exactly what they were

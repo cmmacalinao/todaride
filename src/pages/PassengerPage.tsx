@@ -1338,6 +1338,7 @@ export function PassengerPage() {
                 defaultAddressDetail={pickupPickerSeed.addressDetail}
                 onResolve={handlePickupResolve}
                 onConfirm={() => setOpenEnd(null)}
+                pinned={pickupGps !== null}
               />
               {gpsStatus === 'error' && gpsError && <p className="text-[11px] text-amber-700">{gpsError}</p>}
               </div>

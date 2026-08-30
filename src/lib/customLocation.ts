@@ -22,13 +22,38 @@ export interface PhAddressTags {
 // over an accidental shorter substring hit (e.g. "Muñoz"). Returns null only
 // if not even the province resolved; a matched province with no city (or a
 // matched city with no barangay) still comes back with the levels that did.
+// The names a place answers to.
+//
+// OpenStreetMap and the app rarely spell a city the same way. A pin in
+// San Jose comes back labelled "Caanawan, San Jose"; the app's list calls
+// it "San Jose City". A plain substring test misses that, and a missed
+// city takes the barangay down with it — so a passenger standing in San
+// Jose was handed the default barangay, CLSU, and asked which building on
+// campus they meant. The pin was right the whole way through; only the
+// spelling disagreed.
+//
+// Matching stays anchored to the province, which is matched first, so
+// dropping a "City" suffix cannot reach across the country for a
+// same-named town.
+function cityAliases(city: string): string[] {
+  const base = city.toLowerCase()
+  return [...new Set([
+    base,
+    base.replace(/\s+city$/, ''),
+    base.replace(/^science city of\s+/, ''),
+    base.replace(/^city of\s+/, ''),
+  ])].filter(Boolean)
+}
+
 export function guessPhAddressFromLabel(label: string): PhAddressTags | null {
   const lower = label.toLowerCase()
   const byLengthDesc = (a: string, b: string) => b.length - a.length
   const province = [...PH_PROVINCES].sort(byLengthDesc).find((p) => lower.includes(p.toLowerCase()))
   if (!province) return null
 
-  const city = [...getCitiesForProvince(province)].sort(byLengthDesc).find((c) => lower.includes(c.toLowerCase()))
+  const city = [...getCitiesForProvince(province)]
+    .sort(byLengthDesc)
+    .find((c) => cityAliases(c).some((alias) => lower.includes(alias)))
   if (!city) return { province, city: '', barangay: '', addressDetail: '' }
 
   const barangay = [...getBarangaysForCity(province, city)]

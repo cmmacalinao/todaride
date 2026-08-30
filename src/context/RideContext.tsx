@@ -1374,6 +1374,30 @@ function lastFourDigits(phone: string): string {
 const LEGACY_BANNER_URL = '/ads/toda-saferide-banner.svg'
 const BANNER_URL = '/ads/toda-saferide-banner.webp'
 
+// Every name the recorded-pickup label has answered to. The label is
+// stamped onto a ride when the trip is recorded, so renaming it in the
+// source changes nothing a passenger sees: trips already saved keep the
+// wording they were born with, and the booking form offers the last
+// trip's pickup as the next one's. Rename it three times and all three
+// are still on screen somewhere.
+//
+// So old labels are rewritten on the way in, the same as any other stored
+// shape this app has outgrown.
+const RECORDED_PICKUP_LABEL = 'FROM'
+const OLD_RECORDED_PICKUP_LABELS = [
+  'Kung nasaan ka ngayon',
+  'My location',
+  'Where you from',
+]
+
+function migrateRecordedPickupLabel(rides: Ride[]): Ride[] {
+  return rides.map((ride) =>
+    ride.pickup && OLD_RECORDED_PICKUP_LABELS.includes(ride.pickup.label)
+      ? { ...ride, pickup: { ...ride.pickup, label: RECORDED_PICKUP_LABEL } }
+      : ride,
+  )
+}
+
 function migrateBannerAd(ad: BannerAd | null): BannerAd | null {
   if (!ad || ad.imageUrl !== LEGACY_BANNER_URL) return ad
   return { ...ad, imageUrl: BANNER_URL }
@@ -1387,7 +1411,7 @@ function fromStored(parsed: StoredState): RideState {
   // senior/PWD adult also has none).
   const linkedChildIds = new Set(parentLinks.map((l) => l.studentPassengerId))
   return {
-    rides: parsed.rides ?? [],
+    rides: migrateRecordedPickupLabel(parsed.rides ?? []),
     alerts: parsed.alerts ?? [],
     drivers: ((): Driver[] => {
       const stored = (parsed.drivers ?? []).map((d) => ({ ...d, email: d.email ?? null, facebook: d.facebook ?? null }))

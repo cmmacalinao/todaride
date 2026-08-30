@@ -641,7 +641,10 @@ export function PassengerPage() {
   // "Pickup"/"Destination" for a ride; "Buy near to"/"Deliver to" for an
   // errand — same map picker, same underlying pickup/dropoff state, just
   // different words for what each pin means.
-  const pickupLabel = isErrand ? 'Buy near to' : 'Pickup'
+  // FROM, not Pickup. The box answers where the trip starts, and on a
+  // recorded ride the app fills it in itself with the same word, so the two
+  // paths read alike.
+  const pickupLabel = isErrand ? 'Buy near to' : 'FROM'
   const dropoffLabel = isErrand ? 'Deliver to' : 'Destination'
   // The single question the rest of the form asks: is there a destination yet?
   const hasDestination = isErrand || dropoffChosen
@@ -1231,7 +1234,17 @@ export function PassengerPage() {
         // City, pickup, destination, and (while Group Ride is open) how
         // many riders have a destination set yet — all choices that
         // should re-frame the map on the spot.
-        refitSignal={`${cityScope}|${pickup.id}|${hasDestination ? dropoff.id : 'none'}|${groupMapPoints.length}`}
+        //
+        // Except on Track my trip. There the map is being read, not
+        // answered: the passenger is looking for which tricycle is beside
+        // them, and the view jumping to re-frame a pickup or destination
+        // takes the map out from under them mid-glance. That screen keeps
+        // whatever framing it was given.
+        refitSignal={
+          terminalOpen
+            ? 'terminal'
+            : `${cityScope}|${pickup.id}|${hasDestination ? dropoff.id : 'none'}|${groupMapPoints.length}`
+        }
         hasDropoff={hasDestination}
         hasPickup={pickupChosen}
         terminals={terminals}
@@ -1459,7 +1472,12 @@ export function PassengerPage() {
             </button>
             {openEnd === 'dropoff' && (
               <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
-                {isErrand && quickPlaceChips('dropoff')}
+                {/* Saved places on the destination too, not only on an
+                    errand. A passenger going home, to school or to work is
+                    the ordinary case, and they had to type it every time
+                    while the pickup — the end the app can often guess by
+                    itself — was the one with the shortcuts. */}
+                {quickPlaceChips('dropoff')}
                 <BarangayAddressPicker
                   key={`to-${dropoffPickerSeed.key}`}
                   label=""

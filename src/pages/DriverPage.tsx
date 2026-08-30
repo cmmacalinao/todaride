@@ -1355,6 +1355,45 @@ export function DriverPage() {
 
 
 
+      {/* The passengers actually waiting, on the page a driver opens.
+
+          The strip at the top counts offers aimed at this driver and sends
+          them to another page to see them. Everything else waiting -- rides
+          open to any TODA, which is most of them -- was only ever visible by
+          going looking. A driver sitting at the terminal with an empty screen
+          had no way to know somebody two streets away wanted a ride.
+
+          Hidden entirely when nothing is waiting: an empty board on the main
+          screen teaches drivers to stop reading it. */}
+      {nearbyRequests.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold text-slate-700">🚗 Passengers waiting nearby</h2>
+          <NearbyRequestsBoard
+            requests={nearbyRequests}
+            onAccept={(rideId) => {
+              driverProposeAccept(rideId, driver.id, originGpsForRide(rides.find((r) => r.id === rideId)))
+              goToSection('current')
+            }}
+            onDecline={(rideId) => declineRide(rideId, driver.id)}
+            busyNote={
+              myActiveRide
+                ? 'You are on a trip right now. Finish it before taking another — this is what is waiting.'
+                : null
+            }
+          />
+        </section>
+      )}
+
+      {/* Earnings on the dashboard as well as behind its own tab.
+
+          It was taken off this page once because it and the Pila card sat
+          above everything else, so reaching anything below meant scrolling
+          past both. It goes back underneath instead of on top: a driver
+          opening the app wants the incoming request and the map first, and
+          the day's takings when they have a moment. Same section, rendered
+          twice -- one definition, so the two can never disagree. */}
+      {earningsSection}
+
       <section ref={tripHistorySectionRef}>
         <button
           type="button"

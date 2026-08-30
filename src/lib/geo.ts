@@ -52,12 +52,47 @@ export function getCurrentGeoPosition(): Promise<GeoCoords> {
       reject(new Error('Location services are not available on this device/browser.'))
       return
     }
-    navigator.geolocation.getCurrentPosition(
-      (position) => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
-      (error) => reject(error),
-      { enableHighAccuracy: true, timeout: 10000 },
-    )
+
+    const ok = (position: GeolocationPosition) =>
+      resolve({ lat: position.coords.latitude, lng: position.coords.longitude })
+
+    // Two attempts, because one set of options cannot suit both cases.
+    //
+    // The first asks the GPS chip for a precise fix. Outdoors that answers
+    // in a second or two. Indoors, in a terminal shed, or with a cold
+    // almanac it can take far longer than any timeout worth waiting out —
+    // and the old single attempt simply failed there, which is exactly
+    // where a passenger stands when booking.
+    //
+    // The second drops to wifi and cell positioning, accurate to a street
+    // rather than a doorway. For naming a pickup barangay that is plenty,
+    // and a rough answer beats the honest failure the app used to give.
+    navigator.geolocation.getCurrentPosition(ok, () => {
+      navigator.geolocation.getCurrentPosition(ok, (error) => reject(geolocationError(error)), {
+        enableHighAccuracy: false,
+        timeout: 20000,
+        // A fix from the last two minutes is still where you are.
+        maximumAge: 120000,
+      })
+    }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 })
   })
+}
+
+// GeolocationPositionError is not an Error, so every caller checking
+// `err instanceof Error` fell through to a generic "could not get your
+// location" — which told a passenger nothing about whether they had
+// refused permission, were indoors, or had location switched off entirely.
+// Three different problems with three different answers.
+function geolocationError(error: GeolocationPositionError): Error {
+  if (error.code === error.PERMISSION_DENIED) {
+    return new Error(
+      'Location permission is off for this site. Turn it on in your browser settings, or type your address instead.',
+    )
+  }
+  if (error.code === error.POSITION_UNAVAILABLE) {
+    return new Error('Your phone could not get a location fix. Try stepping outside, or type your address instead.')
+  }
+  return new Error('Locating took too long. Try again outdoors, or type your address instead.')
 }
 
 // Distances are shown in kilometres, everywhere, whatever their size.

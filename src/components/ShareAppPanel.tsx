@@ -8,12 +8,14 @@ import { QRCodeSVG } from 'qrcode.react'
 // camera at and a link to paste into a chat — not an app store, which this
 // does not use and would only confuse the ask.
 //
-// The address is taken from wherever the app is actually being served rather
-// than written down here. On the pilot domain that is todasaferide.com; on a
-// preview build it is the preview, which is correct — a link copied from a
-// staging site should not send somebody to production.
+// The address is written down here rather than read off window.location. The
+// point of the sheet is to hand somebody the pilot, and the pilot lives at one
+// address — a code generated on a laptop at localhost, or off the netlify.app
+// preview, would scan cleanly and go nowhere the recipient can reach.
+export const APP_URL = 'https://todasaferide.com'
+
 export function ShareAppPanel({ onClose }: { onClose: () => void }) {
-  const url = typeof window === 'undefined' ? '' : window.location.origin
+  const url = APP_URL
   const [copied, setCopied] = useState(false)
   const canShare = typeof navigator !== 'undefined' && !!navigator.share
 
@@ -65,7 +67,7 @@ export function ShareAppPanel({ onClose }: { onClose: () => void }) {
         <div className="mt-3 flex justify-center rounded-xl border-2 border-gold-400 bg-white p-3">
           {/* Level H so it still scans with a thumbprint on the screen or a
               crease through a printed copy. */}
-          <QRCodeSVG value={url || ' '} size={190} level="H" marginSize={2} />
+          <QRCodeSVG value={url} size={190} level="H" marginSize={2} />
         </div>
 
         <p className="mt-2 break-all rounded-lg bg-slate-50 px-2.5 py-2 text-center text-xs font-medium text-slate-700">

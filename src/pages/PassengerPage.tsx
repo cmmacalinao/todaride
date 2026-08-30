@@ -15,7 +15,6 @@ import {
   DEFAULT_DROPOFF_LOCATION,
   DEFAULT_BOOKING_ADDRESS_DETAIL,
   DEFAULT_BOOKING_BARANGAY,
-  defaultBarangayForCity,
   DEFAULT_BOOKING_CITY,
   DEFAULT_BOOKING_PROVINCE,
   DRIVER_REPORT_REASONS,
@@ -494,27 +493,17 @@ export function PassengerPage() {
 
   // The city above From/Where to drives both ends: changing it reseeds each
   // picker (bumping its key remounts it) so the barangay lists repopulate for
-  // the new city, and quick-picks the city centre so the map follows too.
+  // the new city. The city centre is deliberately not quick-picked any more:
+  // naming a city is not the same as naming an address, and filling one in
+  // was answering the question the passenger is here to answer.
   function handleHomeCityChange(nextCity: string) {
     setCityScope(nextCity)
-    const presetBarangay = defaultBarangayForCity(nextCity)
     // Seeding the dropdown is not enough on its own: the picker deliberately
     // skips resolving a value it was just seeded with (so a Saved Place or a
     // map pin is not re-geocoded and blurred). That guard means the From /
     // Where to labels above would keep showing the previous location while
     // the dropdown underneath already said CLSU. Resolving here is what
     // actually moves the pin and the label.
-    const presetAddress = presetBarangay
-      ? { province: DEFAULT_BOOKING_PROVINCE, city: nextCity, barangay: presetBarangay, addressDetail: '' }
-      : null
-
-    const seed = (p: { key: number }) => ({
-      key: p.key + 1,
-      province: DEFAULT_BOOKING_PROVINCE,
-      city: nextCity,
-      barangay: presetBarangay,
-      addressDetail: '',
-    })
 
     // Which ends follow the city depends on whether one is being edited.
     //

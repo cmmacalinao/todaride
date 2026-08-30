@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useReducer, type ReactNode, useRe
 import { BANNER_AD_SLOT_COUNT } from '../types'
 import { mergeById, mergeIncomingRides } from '../lib/rideMerge'
 import type { RecoveryKind } from '../lib/unifiedLogin'
+import type { RidePhoto } from '../types'
 import type {
   PabiliFareMode,
   MapBoundary,
@@ -1316,6 +1317,8 @@ interface StoredState {
   duesGracePeriodDays?: number
   tripHistoryRetentionDays?: number
   tariffSettings?: TariffSettings
+  cityTariffs?: Record<string, TariffSettings>
+  todaTariffs?: Record<string, TariffSettings>
   driverReports?: DriverReport[]
   pabiliServiceFee?: number
   pabiliFareMode?: PabiliFareMode

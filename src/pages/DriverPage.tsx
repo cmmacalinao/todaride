@@ -1470,6 +1470,7 @@ function ActiveTripCard({
     parentLinks,
     updateDriverLiveGps,
     simulateMovementEnabled,
+    liveGpsEnabled,
     driverCancelRide,
     setPabiliItemBought,
     confirmPassengerArrival,
@@ -1499,7 +1500,11 @@ function ActiveTripCard({
   // Real-GPS mode is an app-wide admin decision, not a driver preference —
   // the driver can't opt out of it (see the locked control further down).
   const gpsSharingLocked = !simulateMovementEnabled
-  const effectiveShareGps = gpsSharingLocked || shareLiveGps
+  // Live GPS tracking keeps the watch running whatever the trip state, so a
+  // driver can watch their own marker follow them around the barangay. It
+  // only feeds this phone's map; what other people see is the 30-second
+  // publish below, which is a separate decision.
+  const effectiveShareGps = liveGpsEnabled || gpsSharingLocked || shareLiveGps
   const { position: liveDriverGps, error: liveGpsError } = useWatchPosition(effectiveShareGps)
   const ride = rides.find((r) => r.id === rideId)
   // Card settles at checkout; everything else is money that physically has to

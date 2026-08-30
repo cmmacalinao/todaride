@@ -84,6 +84,7 @@ export function TripMonitor({
     declineProposedFare,
     terminals,
     setRideDestination,
+    liveGpsEnabled,
   } = useRides()
   // On by default. Live position is the whole point of the trip screen —
   // it is how the driver finds the passenger and how the family watching at
@@ -104,7 +105,7 @@ export function TripMonitor({
   // whoever needs it, without standing between everyone else and the answer.
   const [gotOffHelpOpen, setGotOffHelpOpen] = useState(false)
   const [customTipInput, setCustomTipInput] = useState('')
-  const { position: livePassengerGps, error: liveGpsError } = useWatchPosition(shareLiveGps)
+  const { position: livePassengerGps, error: liveGpsError } = useWatchPosition(liveGpsEnabled || shareLiveGps)
 
   useEffect(() => {
     updatePassengerLiveGps(ride.id, shareLiveGps ? livePassengerGps : null)

@@ -367,6 +367,11 @@ interface RideState {
   // does NOT disable the terminal-queue offer timeout, which is real
   // dispatch logic rather than simulation.
   simulateMovementEnabled: boolean
+  // Every phone follows its own movement and draws it on its own map,
+  // trip or no trip. Nothing about it is written anywhere: it is a way to
+  // see whether GPS is accurate enough on the handsets a pilot actually
+  // uses, not a way to keep a record of where anyone went.
+  liveGpsEnabled: boolean
   // Real dialable numbers (see EmergencyHotline) — not simulated.
   emergencyHotlines: EmergencyHotline[]
 }
@@ -490,6 +495,7 @@ type RideAction =
   | { type: 'SET_SIMULATED_OTP_ENABLED'; enabled: boolean }
   | { type: 'SET_PUBLIC_BASE_URL'; url: string }
   | { type: 'SET_SIMULATE_MOVEMENT_ENABLED'; enabled: boolean }
+  | { type: 'SET_LIVE_GPS_ENABLED'; enabled: boolean }
   | { type: 'ADD_EMERGENCY_HOTLINE'; hotline: EmergencyHotline }
   | { type: 'UPDATE_EMERGENCY_HOTLINE'; id: string; updates: Partial<Omit<EmergencyHotline, 'id'>> }
   | { type: 'REMOVE_EMERGENCY_HOTLINE'; id: string }
@@ -1351,6 +1357,7 @@ interface StoredState {
   simulatedOtpEnabled?: boolean
   publicBaseUrl?: string
   simulateMovementEnabled?: boolean
+  liveGpsEnabled?: boolean
   emergencyHotlines?: EmergencyHotline[]
 }
 
@@ -1588,6 +1595,7 @@ function fromStored(parsed: StoredState): RideState {
     simulatedOtpEnabled: parsed.simulatedOtpEnabled ?? true,
     publicBaseUrl: parsed.publicBaseUrl ?? '',
     simulateMovementEnabled: parsed.simulateMovementEnabled ?? true,
+    liveGpsEnabled: parsed.liveGpsEnabled ?? true,
     // Merged rather than "stored wins", because a stored list would freeze
     // out every hotline added to the seed afterwards — and a missing
     // emergency number is the one kind of stale data worth being pushy
@@ -1773,6 +1781,7 @@ function loadInitialState(): RideState {
     simulatedOtpEnabled: true,
     publicBaseUrl: '',
     simulateMovementEnabled: true,
+    liveGpsEnabled: true,
     emergencyHotlines: MOCK_EMERGENCY_HOTLINES,
   }
 }
@@ -3071,6 +3080,8 @@ function reducer(state: RideState, action: RideAction): RideState {
       return { ...state, emergencyHotlines: state.emergencyHotlines.filter((h) => h.id !== action.id) }
     case 'SET_SIMULATE_MOVEMENT_ENABLED':
       return { ...state, simulateMovementEnabled: action.enabled }
+    case 'SET_LIVE_GPS_ENABLED':
+      return { ...state, liveGpsEnabled: action.enabled }
     case 'SET_PUBLIC_BASE_URL':
       // Trailing slash stripped so callers can append paths without
       // producing a double slash.
@@ -5070,6 +5081,7 @@ interface RideContextValue extends RideState {
   setSimulatedOtpEnabled: (enabled: boolean) => void
   setPublicBaseUrl: (url: string) => void
   setSimulateMovementEnabled: (enabled: boolean) => void
+  setLiveGpsEnabled: (enabled: boolean) => void
   addEmergencyHotline: (args: Omit<EmergencyHotline, 'id' | 'addedAt'>) => void
   updateEmergencyHotline: (id: string, updates: Partial<Omit<EmergencyHotline, 'id'>>) => void
   removeEmergencyHotline: (id: string) => void
@@ -6150,6 +6162,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setSimulatedOtpEnabled: (enabled) => dispatch({ type: 'SET_SIMULATED_OTP_ENABLED', enabled }),
     setPublicBaseUrl: (url) => dispatch({ type: 'SET_PUBLIC_BASE_URL', url }),
     setSimulateMovementEnabled: (enabled) => dispatch({ type: 'SET_SIMULATE_MOVEMENT_ENABLED', enabled }),
+    setLiveGpsEnabled: (enabled) => dispatch({ type: 'SET_LIVE_GPS_ENABLED', enabled }),
     addEmergencyHotline: (args) =>
       dispatch({
         type: 'ADD_EMERGENCY_HOTLINE',

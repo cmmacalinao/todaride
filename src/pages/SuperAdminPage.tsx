@@ -37,6 +37,8 @@ export function SuperAdminPage() {
     setTerminalQrFeeWaived,
     simulatedOtpEnabled,
     simulateMovementEnabled,
+    liveGpsEnabled,
+    setLiveGpsEnabled,
     publicBaseUrl,
     setPabiliEnabled,
     setMedsEnabled,
@@ -263,6 +265,13 @@ export function SuperAdminPage() {
               description="Show the one-time code on screen instead of texting it. Off means a real code must come from the SMS server, and login fails if it isn't running."
               enabled={simulatedOtpEnabled}
               onChange={setSimulatedOtpEnabled}
+            />
+            <FeatureToggleRow
+              icon="🛰️"
+              label="Live GPS tracking"
+              description="Each phone follows its own movement and shows it on its own map, trip or no trip. Nothing is recorded — it is for checking whether GPS is accurate enough on the handsets your testers actually carry."
+              enabled={liveGpsEnabled}
+              onChange={setLiveGpsEnabled}
             />
             <FeatureToggleRow
               icon="🛺"

@@ -9,6 +9,7 @@ import { TricycleQrPanel } from '../components/TricycleQrPanel'
 import { NearbyRequestsBoard, buildNearbyRequests } from '../components/NearbyRequestsBoard'
 import type { DrawerSection } from '../components/NavDrawer'
 import { useEffect, useRef, useState } from 'react'
+import { DRIVER_GPS_PUBLISH_MS } from '../lib/rideTogether'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ETA_SECONDS_PER_LEG, useRides } from '../context/RideContext'
 import { useSession } from '../context/SessionContext'
@@ -109,9 +110,39 @@ export function DriverPage() {
     simulateMovementEnabled,
     triggerDriverSos,
     resolveAlert,
+    reportDriverGps,
   } = useRides()
   const { loggedInDriverId, setLoggedInDriverId, loggedInTodaAdminOrgId, setLoggedInTodaAdminOrgId } = useSession()
   const { position: myLiveGps } = useWatchPosition(true)
+
+  // Publishes where this tricycle is, on a timer, for as long as the driver
+  // is signed in.
+  //
+  // Until this existed a driver's recorded position was written once — when
+  // they joined the terminal queue — and never again, so a tricycle halfway
+  // across town still showed as parked at the rank. The passenger-side
+  // boarding rule asks whether a tricycle moved together with the passenger,
+  // and against a point that never moves the answer is always no.
+  //
+  // Both the position and the dispatcher are held in refs: the watch reports
+  // far more often than this publishes, and the context hands back a fresh
+  // function identity on every render — either in the dependency list would
+  // tear down and rebuild the interval constantly, publishing on every
+  // render instead of every 30 seconds.
+  const liveGpsRef = useRef<GeoCoords | null>(null)
+  liveGpsRef.current = myLiveGps
+  const reportGpsRef = useRef(reportDriverGps)
+  reportGpsRef.current = reportDriverGps
+  useEffect(() => {
+    if (!loggedInDriverId) return
+    const publish = () => {
+      const gps = liveGpsRef.current
+      if (gps) reportGpsRef.current(loggedInDriverId, gps)
+    }
+    publish()
+    const id = setInterval(publish, DRIVER_GPS_PUBLISH_MS)
+    return () => clearInterval(id)
+  }, [loggedInDriverId])
   const [queueNotice, setQueueNotice] = useState<{ title: string; body: string } | null>(null)
   const [checkingLocation, setCheckingLocation] = useState(false)
   const [sosSending, setSosSending] = useState(false)

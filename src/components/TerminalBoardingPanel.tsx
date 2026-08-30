@@ -7,7 +7,8 @@ import { SUSTAINED_MS, movingTogether, trimTrack, type Fix } from '../lib/rideTo
 import { createCustomLocation } from '../lib/customLocation'
 import { CLSU_GPS, driverDispatchGps } from '../mock/data'
 import { terminalRideIsFree } from '../lib/terminalFee'
-import type { Driver, MockLocation } from '../types'
+import { PhotoCaptureButton } from './PhotoCaptureButton'
+import type { Driver, MockLocation, RidePhoto } from '../types'
 
 // Two tricycles at a terminal can be a few metres apart, so this is the
 // radius inside which the app is willing to say "you are probably in this
@@ -34,6 +35,8 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
     setRequestedDriver,
     terminalQrFeeWaived,
     commissionPerRide,
+    triggerPassengerSos,
+    alerts,
   } = useRides()
   const feeFree = terminalRideIsFree(terminalQrFeeWaived, commissionPerRide)
   const { currentPassengerId } = useSession()
@@ -53,6 +56,19 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
   const passengerTrack = useRef<Fix[]>([])
   const driverTracks = useRef<Map<string, Fix[]>>(new Map())
   const [heldMs, setHeldMs] = useState(0)
+  // More than one tricycle matching at once — see the effect below.
+  const [ambiguous, setAmbiguous] = useState(false)
+  // Photographs taken before there is a trip to attach them to. Held here
+  // and handed to the ride the moment one is recorded — a plate
+  // photographed while deciding whether to get in is the same evidence as
+  // one photographed after, and throwing it away because the paperwork
+  // did not exist yet would be absurd.
+  const [pendingPhotos, setPendingPhotos] = useState<RidePhoto[]>([])
+  // An SOS this passenger has already raised and nobody has closed yet.
+  // Pressing it twice should not file a second one.
+  const openSosForMe = alerts.find(
+    (a) => a.type === 'sos' && a.status === 'open' && a.triggeredBy === currentPassengerId && !a.rideId,
+  )
   // Manual fallback for when the tricycle you are actually in did not make
   // the GPS-radius list — a driver's phone can lag, or you stepped a little
   // past SAME_TRICYCLE_METERS. Typing the plate number everyone can already
@@ -108,19 +124,29 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
     passengerTrack.current = trimTrack([...passengerTrack.current, { gps: watched, at: now }], now)
 
     let longestHeld = 0
+    const qualified: Driver[] = []
     for (const { driver } of candidates) {
       const gps = driverDispatchGps(driver, terminals, todaOrganizations)
       if (!gps) continue
       const track = trimTrack([...(driverTracks.current.get(driver.id) ?? []), { gps, at: now }], now)
       driverTracks.current.set(driver.id, track)
       const verdict = movingTogether(passengerTrack.current, track)
-      if (verdict.together) {
-        startedRef.current = true
-        startRecording(driver)
-        return
-      }
+      if (verdict.together) qualified.push(driver)
       longestHeld = Math.max(longestHeld, verdict.heldMs)
     }
+
+    // Only when the answer is the ONE tricycle. Two can satisfy the rule at
+    // once — a tricycle that pulled out a few seconds ahead is on the same
+    // road, at the same speed, still inside the separation limit, and looks
+    // from the outside exactly like the one carrying you. Taking the nearest
+    // of them would be settling a stranger's plate on a coin flip, so the
+    // panel keeps waiting instead, and the list below stays available.
+    if (qualified.length === 1) {
+      startedRef.current = true
+      startRecording(qualified[0])
+      return
+    }
+    setAmbiguous(qualified.length > 1)
     setHeldMs(longestHeld)
   }, [watched, candidates, passengerHasTrip, currentPassengerId, terminals, todaOrganizations])
 
@@ -145,7 +171,7 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
     if (!currentPassengerId || !position) return
     // The pickup is simply where they are. No barangay dropdown, no map tap —
     // the phone already knows, and asking would be theatre.
-    const pickup: MockLocation = createCustomLocation('Kung nasaan ka ngayon', position)
+    const pickup: MockLocation = createCustomLocation('My location', position)
     setRequestedDriver(currentPassengerId, driver.id)
     requestRide({
       passengerId: currentPassengerId,
@@ -165,6 +191,7 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
       // The trip is already happening; this records it rather than asking
       // for it. Creates the ride underway, with no platform fee.
       boardedWithDriverId: driver.id,
+      initialPhotos: pendingPhotos,
     } as never)
     onClose()
   }
@@ -186,6 +213,49 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
 
       {mapSlot}
 
+      {/* The camera and the panic button, before boarding rather than after.
+          Both used to appear only once a trip existed, which put them on the
+          far side of the decision they are most needed for: a passenger
+          looking at a tricycle and not liking it has no trip, and had no
+          button. Photographs taken here travel into the trip if one is
+          recorded; the SOS stands on its own and needs no ride at all. */}
+      <div className="flex items-center gap-2">
+        <PhotoCaptureButton
+          onCapture={(dataUrl) =>
+            setPendingPhotos((prev) =>
+              [
+                ...prev,
+                {
+                  id: `photo-${Date.now()}-${prev.length}`,
+                  dataUrl,
+                  takenBy: currentPassengerId ?? 'passenger',
+                  takenAt: new Date().toISOString(),
+                },
+              ].slice(-6),
+            )
+          }
+        />
+        <p className="min-w-0 flex-1 text-center text-[10px] leading-snug text-slate-500">
+          {pendingPhotos.length > 0
+            ? `${pendingPhotos.length} litrato — isasama sa record ng biyahe.`
+            : 'Kunan ng litrato ang plaka o ang loob bago ka sumakay.'}
+        </p>
+        <button
+          type="button"
+          onClick={() => currentPassengerId && triggerPassengerSos(currentPassengerId, watched ?? null)}
+          disabled={!currentPassengerId || !!openSosForMe}
+          aria-label="SOS"
+          className={`flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 transition disabled:cursor-not-allowed ${
+            openSosForMe
+              ? 'animate-pulse border-danger-700 bg-danger-600 text-white'
+              : 'border-danger-300 bg-danger-50 text-danger-800 hover:bg-danger-100'
+          }`}
+        >
+          <span className="text-base leading-none">🆘</span>
+          <span className="text-[11px] font-semibold">{openSosForMe ? 'Sent' : 'SOS'}</span>
+        </button>
+      </div>
+
       {passengerHasTrip && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
           May biyahe ka pa ngayon. Tapusin muna iyon bago mag-record ng bago.
@@ -196,17 +266,43 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
           this the panel looks inert during the seconds it spends deciding,
           and a passenger who has just sat down starts hunting for a button
           to press — which is the tapping this whole rule exists to remove. */}
-      {!passengerHasTrip && !!watched && candidates.length > 0 && (
+      {/* Always shown, including with no GPS fix and no tricycle in range.
+          Gating this on a fix meant the one person who most needed telling
+          — someone whose phone had not answered, or who had refused the
+          permission — saw an empty panel and no hint that anything was
+          meant to happen. "Nothing is working yet, and here is why" is
+          information; silence is not. */}
+      {!passengerHasTrip && (
         <p className="rounded-lg bg-blue-50 px-3 py-2 text-[11px] font-medium text-blue-900">
-          {heldMs > 0
-            ? `Umaandar na kayo — sandali lang, ire-record na (${Math.max(1, Math.ceil((SUSTAINED_MS - heldMs) / 1000))}s)…`
-            : 'Hinihintay lang na umandar ang tricycle. Kusang mare-record ang biyahe mo pag-alis ninyo.'}
+          {!watched
+            ? 'Waiting for your phone\'s GPS. If you would rather not turn it on, just type the TRC No. below.'
+            : candidates.length === 0
+              ? 'No tricycle near you according to GPS — just type the TRC No. below.'
+              : ambiguous
+                ? 'Two tricycles are travelling with you — pick the one you are riding in from the list below.'
+                : heldMs > 0
+                  ? `You are moving — recording your trip in ${Math.max(1, Math.ceil((SUSTAINED_MS - heldMs) / 1000))}s…`
+                  : 'Waiting for the tricycle to move off. Your trip records itself once you set out.'}
         </p>
       )}
 
       {!passengerHasTrip && (
         <div>
-          <h2 className="text-xs font-semibold text-slate-700">Ayaw maghintay? Alin ang TRC No. sa loob?</h2>
+          {/* The sticker route, which used to live on the previous screen
+              and sent people back a page to use. It belongs here, beside
+              the typed TRC it is the shortcut for: scanning is the same
+              answer to the same question, arrived at without typing. The QR
+              is an ordinary link opened by the phone's own camera, so the
+              app never asks for camera permission. */}
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            <p className="text-xs font-semibold text-slate-700">Point your phone camera at the sticker</p>
+            <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
+              Open your camera and hold it over the QR inside the tricycle. It opens this app on your
+              driver&apos;s trip — no typing.
+            </p>
+          </div>
+
+          <h2 className="mt-2.5 text-xs font-semibold text-slate-700">Sticker missing? Alin ang TRC No. sa loob?</h2>
 
           {/* Type it in — the fallback for whenever the tricycle you're
               actually in didn't make the GPS list below (driver's phone

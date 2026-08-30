@@ -32,6 +32,9 @@ interface TripMonitorProps {
   sosLabel: string
   showCancel?: boolean
   onCancel?: () => void
+  // Closes a trip the passenger has already stepped out of. See the panel
+  // near the bottom of this file for why the passenger needs this at all.
+  onFinishTrip?: () => void
   // Lets the caller stop showing this ride in the "current trip" slot once
   // it's completed, so the passenger can start a new booking without first
   // having to tap a payment method — see PassengerPage's dismissedRideId.
@@ -56,6 +59,7 @@ export function TripMonitor({
   sosLabel,
   showCancel,
   onCancel,
+  onFinishTrip,
   onDismiss,
   extraContacts,
   allowLiveGpsToggle,
@@ -81,7 +85,12 @@ export function TripMonitor({
     terminals,
     setRideDestination,
   } = useRides()
-  const [shareLiveGps, setShareLiveGps] = useState(false)
+  // On by default. Live position is the whole point of the trip screen —
+  // it is how the driver finds the passenger and how the family watching at
+  // home can see the tricycle move. Off by default meant the safety feature
+  // was there only for whoever went looking for the button. The toggle
+  // stays, so anyone can stop sharing.
+  const [shareLiveGps, setShareLiveGps] = useState(true)
   // A driver waiting on an answer is a driver not moving, and the card that
   // asks for it can arrive while the passenger is scrolled somewhere else on
   // the page. It brings itself into view when it appears.
@@ -782,6 +791,35 @@ export function TripMonitor({
               <span aria-hidden className="text-lg text-navy-900/60">›</span>
             </button>
           )}
+          {/* A trip nobody booked needs to say out loud that it exists.
+              The passenger got into a tricycle off the street and the app
+              recorded it without being asked, so the one thing it owes them
+              is the plain statement that it did — who they are with, and
+              that someone else can see it. Sitting directly above the camera
+              and the SOS, because those are the two things a person reaches
+              for when a ride stops feeling right. */}
+          {ride.safetyRecord && ride.status === 'ongoing' && (
+            <div className="rounded-lg border-2 border-danger-300 bg-danger-50 px-3 py-2">
+              <p className="flex items-center gap-1.5 text-xs font-extrabold text-danger-800">
+                <span aria-hidden className="animate-pulse text-sm leading-none">🔴</span>
+                Naka-record ang biyahe mo
+              </p>
+              <p className="mt-0.5 text-[11px] leading-snug text-danger-800/80">
+                {ride.driverName ?? 'Ang driver'}
+                {driver?.plateNumber ? ' · TRC ' + driver.plateNumber : ''} — nakikita ng pamilya mo kung
+                nasaan ka. Kumuha ng litrato o pindutin ang SOS kung may hindi tama.
+              </p>
+              {onFinishTrip && (
+                <button
+                  type="button"
+                  onClick={onFinishTrip}
+                  className="mt-2 w-full rounded-lg border border-danger-400 bg-white py-1.5 text-[11px] font-bold text-danger-800 hover:bg-danger-100"
+                >
+                  ⏹ Itigil ang pag-record — tapos na ang biyahe
+                </button>
+              )}
+            </div>
+          )}
           <div className="flex items-center gap-2">
             {hasDriver && (
               <PhotoCaptureButton onCapture={(dataUrl) => addSafetyPhoto(ride.id, dataUrl, sosActorId)} />
@@ -856,6 +894,37 @@ export function TripMonitor({
               {ride.driverName ?? 'Your driver'} is already on the way — cancel only if you really cannot ride.
             </p>
           )}
+        </div>
+      )}
+
+      {/* The passenger said they were out, and the trip is still running.
+          Confirming arrival stamps a time and an actual drop-off point — it
+          is a safety record, and deliberately does not end the ride, because
+          normally the driver closes it out a moment later with the fare
+          settled between them.
+
+          When that moment never comes, the passenger is stranded inside a
+          trip they have already left: an ongoing ride blocks the next
+          booking, so the app becomes unusable until someone else acts. A
+          driver whose phone died, or who simply forgot, should not be able
+          to lock a passenger out of the service.
+
+          So the passenger can close it themselves, but only after saying
+          they got off, and only while the driver has not — the ordinary path
+          is untouched and this appears solely when it has failed. */}
+      {onFinishTrip && ride.passengerArrivedAt && ride.status === 'ongoing' && (
+        <div className="rounded-xl border border-slate-300 bg-white p-3">
+          <p className="text-xs text-slate-600">
+            Hindi pa tinatapos ng driver ang biyahe. Kung nakababa ka na, ikaw na ang magsara nito para
+            makapag-book ulit.
+          </p>
+          <button
+            type="button"
+            onClick={onFinishTrip}
+            className="mt-2 w-full rounded-lg border border-slate-400 bg-white py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Tapusin ang biyahe
+          </button>
         </div>
       )}
 

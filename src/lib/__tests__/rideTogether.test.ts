@@ -16,50 +16,69 @@ import {
 const T0 = 1_756_000_000_000
 const at = (seconds: number) => T0 + seconds * 1000
 
-// A straight run north from CLSU, one fix per second at ~20 km/h (5.5 m/s).
+// A straight run north from CLSU at ~20 km/h (5.5 m/s), sampled at whatever
+// moments are asked for. The passenger's phone reports continuously and the
+// tricycle's every 30 seconds, so the two are deliberately given different
+// sample times in most of these.
 function northbound(startLat: number, lng: number, seconds: number[], mps = 5.5): Fix[] {
   return seconds.map((s) => ({ gps: { lat: startLat + (mps * s) / 111_320, lng }, at: at(s) }))
 }
+
+// What a phone in the passenger's pocket produces: a fix every two seconds.
+const FINE = Array.from({ length: 31 }, (_, i) => i * 2)
+// What a tricycle publishes: one fix every 30 seconds.
+const COARSE = [0, 30, 60]
 
 describe('telling a ride from standing next to a tricycle', () => {
   it('records nothing when both are parked at the terminal', () => {
     // The exact false positive this replaced: two GPS traces a few metres
     // apart, neither going anywhere.
-    const still = (lat: number): Fix[] =>
-      [0, 3, 6, 9, 12].map((s) => ({ gps: { lat, lng: 120.94 }, at: at(s) }))
-    const verdict = movingTogether(still(15.7331), still(15.73312))
+    const still = (lat: number, seconds: number[]): Fix[] =>
+      seconds.map((s) => ({ gps: { lat, lng: 120.94 }, at: at(s) }))
+    const verdict = movingTogether(still(15.7331, FINE), still(15.73312, COARSE))
     expect(verdict.together).toBe(false)
     expect(verdict.reason).toBe('not-moving')
   })
 
   it('records the trip once they have been moving together long enough', () => {
-    const seconds = [0, 3, 6, 9, 12]
-    const passenger = northbound(15.7331, 120.94, seconds)
-    const tricycle = northbound(15.73312, 120.94001, seconds)
+    // One full driver reporting interval of agreement, judged from the
+    // coarse track against the fine one.
+    const passenger = northbound(15.7331, 120.94, FINE)
+    const tricycle = northbound(15.73312, 120.94001, COARSE)
     const verdict = movingTogether(passenger, tricycle)
     expect(verdict.together).toBe(true)
     expect(verdict.heldMs).toBeGreaterThanOrEqual(SUSTAINED_MS)
   })
 
+  it('reads the coarse track even though the passenger reports far more often', () => {
+    // The bug this guards: stepping through the passenger's two-second
+    // slices and asking a tricycle that reports every 30s what it was doing
+    // over each one. The answer was always "no fix that recent", so the
+    // rule could never fire on real data however perfectly they travelled
+    // together.
+    const passenger = northbound(15.7331, 120.94, FINE)
+    const tricycle = northbound(15.73312, 120.94001, COARSE)
+    expect(movingTogether(passenger, tricycle).reason).toBe('moving-together')
+  })
+
   it('waits out a single agreeing moment', () => {
     // A tricycle passing on the same road at the same instant agrees for a
     // moment. Recording on that would put a stranger's plate in the log.
-    const seconds = [0, 3]
     const verdict = movingTogether(
-      northbound(15.7331, 120.94, seconds),
-      northbound(15.73312, 120.94001, seconds),
+      northbound(15.7331, 120.94, [0, 2, 4, 6, 8, 10]),
+      northbound(15.73312, 120.94001, [0, 10]),
     )
     expect(verdict.together).toBe(false)
     expect(verdict.reason).toBe('too-brief')
   })
 
   it('refuses a tricycle heading the other way', () => {
-    const seconds = [0, 3, 6, 9, 12]
-    const passenger = northbound(15.7331, 120.94, seconds)
-    // Starts 66m up the road and comes back down it, so the two cross and
-    // stay well inside the separation limit throughout — otherwise this
-    // would be caught as 'too-far' and the heading rule never tested.
-    const southbound = northbound(15.7331 + 66 / 111_320, 120.94001, seconds, -5.5)
+    // Deliberately a short tricycle interval. Over a full 30s report gap two
+    // vehicles going opposite ways are 300m apart, so separation refuses
+    // them long before heading is consulted — the heading rule only has
+    // anything to say across a short gap, which is what this covers.
+    const passenger = northbound(15.7331, 120.94, [0, 2, 4])
+    const southbound = northbound(15.7331 + 30 / 111_320, 120.94001, [0, 4], -5.5)
     const verdict = movingTogether(passenger, southbound)
     expect(verdict.together).toBe(false)
     expect(verdict.reason).toBe('different-heading')
@@ -68,9 +87,8 @@ describe('telling a ride from standing next to a tricycle', () => {
   it('refuses a tricycle that has pulled away', () => {
     // Same heading, same speed, but on the next street over. Riding in it
     // means being in it.
-    const seconds = [0, 3, 6, 9, 12]
-    const passenger = northbound(15.7331, 120.94, seconds)
-    const farLane = northbound(15.7331, 120.9425, seconds) // ~270m east
+    const passenger = northbound(15.7331, 120.94, FINE)
+    const farLane = northbound(15.7331, 120.9425, COARSE) // ~270m east
     const verdict = movingTogether(passenger, farLane)
     expect(verdict.together).toBe(false)
     expect(verdict.reason).toBe('too-far')
@@ -84,8 +102,8 @@ describe('telling a ride from standing next to a tricycle', () => {
   it('will not vouch for a tricycle whose phone stopped reporting', () => {
     // The driver's fixes are all older than the passenger's window, so
     // there is nothing to compare the movement against.
-    const passenger = northbound(15.7331, 120.94, [20, 23, 26, 29, 32])
-    const stale = northbound(15.73312, 120.94001, [0, 3])
+    const passenger = northbound(15.7331, 120.94, [40, 42, 44, 46, 48, 50])
+    const stale = northbound(15.73312, 120.94001, [0, 30])
     expect(movingTogether(passenger, stale).together).toBe(false)
   })
 })

@@ -19,10 +19,22 @@ export const MIN_SPEED_MPS = 2.2 // ~8 km/h — above a walk, below a tricycle
 // apart on a moving vehicle, and each fix carries its own error.
 export const SAME_HEADING_DEGREES = 45
 
-// Riding together has to hold for this long before a trip is recorded. One
-// agreeing sample is a tricycle passing at the same moment on the same road,
-// which is exactly the false positive that would record a stranger's trip.
-export const SUSTAINED_MS = 8000
+// Riding together has to hold for this long before a trip is recorded.
+//
+// This is one full driver reporting interval. A tricycle publishes its
+// position every 30 seconds, so 30s is the shortest span over which its
+// movement can be observed at all — asking for less would be asking a
+// question the data cannot answer. It is also, on its own, strong evidence:
+// to fake it a passing tricycle would have to hold within 80m of the
+// passenger at a matched speed and heading for half a minute, by which point
+// it is not passing them, it is carrying them.
+export const SUSTAINED_MS = 30_000
+
+// How often a driver's phone publishes where the tricycle is while they are
+// on duty. Every reading costs battery and a write to the shared database,
+// and 30s is the coarsest cadence that still catches a tricycle pulling out
+// of a terminal before the passenger has given up and tapped the list.
+export const DRIVER_GPS_PUBLISH_MS = 30_000
 
 // They must also still be together. A tricycle that pulls away is not one
 // the passenger is sitting in, however well the headings matched a moment
@@ -83,17 +95,25 @@ export function movingTogether(passenger: Fix[], tricycle: Fix[]): TogetherVerdi
     return { together: false, heldMs: 0, reason: 'no-data' }
   }
 
-  // Walk backwards through the passenger's track for as long as every step
-  // agrees with the tricycle's movement over the same moment. The first
-  // disagreement ends the streak — this is "how long has it been true
-  // without a break", not "how often was it true".
+  // Walk backwards along the TRICYCLE's fixes, not the passenger's.
+  //
+  // The two tracks are sampled at very different rates: the passenger's
+  // phone reports continuously while the panel is open, the tricycle's every
+  // 30 seconds. Stepping through the fine track and asking the coarse one
+  // what it was doing over each two-second slice only ever gets one answer —
+  // "no fix that recent" — because the newest driver report can be half a
+  // minute old. Stepping through the coarse track instead asks a question
+  // the fine one can always answer.
+  //
+  // The first disagreement ends the streak: this is "how long has it been
+  // true without a break", not "how often was it true".
   let heldMs = 0
   let lastFailure: TogetherVerdict['reason'] = 'too-brief'
 
-  for (let i = passenger.length - 1; i > 0; i--) {
-    const to = passenger[i]
-    const from = passenger[i - 1]
-    const pair = spanFor(tricycle, from.at, to.at)
+  for (let i = tricycle.length - 1; i > 0; i--) {
+    const to = tricycle[i]
+    const from = tricycle[i - 1]
+    const pair = spanFor(passenger, from.at, to.at)
     if (!pair) {
       lastFailure = 'no-data'
       break
@@ -109,8 +129,8 @@ export function movingTogether(passenger: Fix[], tricycle: Fix[]): TogetherVerdi
       break
     }
 
-    const theirs = bearingDegrees(pair[0].gps, pair[1].gps)
-    const ours = bearingDegrees(from.gps, to.gps)
+    const theirs = bearingDegrees(from.gps, to.gps)
+    const ours = bearingDegrees(pair[0].gps, pair[1].gps)
     if (theirs === null || ours === null || headingDifference(ours, theirs) > SAME_HEADING_DEGREES) {
       lastFailure = 'different-heading'
       break

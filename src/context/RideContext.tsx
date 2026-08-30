@@ -403,6 +403,11 @@ type RideAction =
       // created underway rather than requested, because there is nothing
       // left to dispatch.
       boardedWithDriverId: string | null
+      // Photographs taken before this ride existed — the plate, the
+      // driver, the inside of the tricycle. They are the same evidence
+      // whether the shutter went before or after the trip was recorded,
+      // so they are carried in rather than lost with the panel's state.
+      initialPhotos: RidePhoto[]
       prescriptionDataUrls: string[]
       seniorIdDataUrl: string | null
       otherDocDataUrl: string | null
@@ -434,6 +439,7 @@ type RideAction =
         isPwdSeniorRide: boolean
       }[]
     }
+  | { type: 'REPORT_DRIVER_GPS'; driverId: string; gps: GeoCoords }
   | { type: 'ACCEPT_RIDE'; rideId: string; driverId: string }
   | { type: 'DECLINE_RIDE'; rideId: string; driverId: string }
   | { type: 'START_RIDE'; rideId: string }
@@ -455,6 +461,11 @@ type RideAction =
   | { type: 'UPDATE_PASSENGER_LIVE_GPS'; rideId: string; gps: GeoCoords | null }
   | { type: 'TRIGGER_SOS'; rideId: string; triggeredBy: string }
   | { type: 'TRIGGER_DRIVER_SOS'; driverId: string; location: GeoCoords | null; notes: string | null }
+  // A passenger's SOS before any trip exists — standing at a terminal,
+  // climbing into a tricycle, deciding not to. The ride-bound TRIGGER_SOS
+  // cannot serve that moment, and it is not a safe moment to be without a
+  // panic button.
+  | { type: 'TRIGGER_PASSENGER_SOS'; passengerId: string; location: GeoCoords | null; notes: string | null }
   | { type: 'RESOLVE_ALERT'; alertId: string }
   | { type: 'APPROVE_DRIVER'; driverId: string }
   | { type: 'REJECT_DRIVER'; driverId: string; reason: string | null }
@@ -2127,7 +2138,7 @@ function reducer(state: RideState, action: RideAction): RideState {
         isPwdSeniorRide: action.isPwdSeniorRide,
         routeAlert: false,
         deviationOffset: null,
-        safetyPhotos: [],
+        safetyPhotos: action.initialPhotos,
         priorityTodaOrgId,
         priorityQueueOfferedDriverId: offeredDriverId,
         priorityQueueOfferedAt: offeredAt,
@@ -2412,6 +2423,18 @@ function reducer(state: RideState, action: RideAction): RideState {
       return { ...state, todaRadiusKm: Math.max(0, Number(action.km) || 0) }
     case 'SET_OUT_OF_AREA_PER_KM':
       return { ...state, outOfAreaPerKm: Math.max(0, Math.round(action.amount)) }
+    case 'REPORT_DRIVER_GPS':
+      // Where this tricycle is right now, published by the driver's own phone
+      // while they are on duty. Before this existed the only position a
+      // driver had was the one written when they joined the terminal queue,
+      // which meant a tricycle halfway across town still showed as parked at
+      // the rank — and meant the boarding rule, which asks whether a tricycle
+      // moved with the passenger, was comparing against a point that could
+      // not move.
+      return {
+        ...state,
+        drivers: state.drivers.map((d) => (d.id === action.driverId ? { ...d, lastKnownGps: action.gps } : d)),
+      }
     case 'ACCEPT_RIDE': {
       const driver = state.drivers.find((d) => d.id === action.driverId)
       return {
@@ -2521,13 +2544,17 @@ function reducer(state: RideState, action: RideAction): RideState {
       // a tip is the passenger's to give and goes to the driver in full.
       // No app fee on a terminal-QR ride: the platform did not find this
       // passenger a driver, they were already sitting in the tricycle.
-      // A safety record is not a booking. Nobody was dispatched, no queue
-      // was held, nothing was matched — the app noticed the passenger was
-      // already riding and wrote down who with, so that someone knows. That
-      // waiver is unconditional rather than resting on the terminal-QR
-      // toggle: a safety net with a price on it is one people switch off.
+      // A safety record is charged on the same terms as a terminal booking:
+      // in both the app found nobody a driver, they were already sitting in
+      // the tricycle. Whether that is free is the operator's decision, held
+      // in one toggle.
+      //
+      // It matters that this is the SAME toggle the passenger-facing label
+      // reads. The label promises "no charge" only when this is on, so the
+      // two can never disagree — and a promise on the button that the
+      // receipt then breaks is worse than charging openly.
       const platformFee =
-        ride.safetyRecord || (ride.bookedAtTerminal && state.terminalQrFeeWaived)
+        (ride.bookedAtTerminal || ride.safetyRecord) && state.terminalQrFeeWaived
           ? 0
           : Math.min(ride.fareEstimate, state.commissionPerRide)
       const todaCommission = Math.min(
@@ -2786,6 +2813,32 @@ function reducer(state: RideState, action: RideAction): RideState {
         alerts: [alert, ...state.alerts],
         activityLog: [
           sosLogEntry(`Passenger — ${ride.passengerName}`, notes),
+          ...state.activityLog,
+        ].slice(0, MAX_ACTIVITY_LOG_ENTRIES),
+      }
+    }
+    case 'TRIGGER_PASSENGER_SOS': {
+      const pax = state.passengers.find((p) => p.id === action.passengerId)
+      if (!pax) return state
+      const notes = action.notes?.trim() || `${pax.name} triggered an emergency SOS before boarding.`
+      const alert: SosAlert = {
+        id: `alert-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        rideId: null,
+        triggeredBy: action.passengerId,
+        type: 'sos',
+        status: 'open',
+        notes,
+        createdAt: new Date().toISOString(),
+        guardianNotifiedPhone: null,
+        triggeredByRole: 'passenger',
+        todaOrgId: null,
+        location: action.location,
+      }
+      return {
+        ...state,
+        alerts: [alert, ...state.alerts],
+        activityLog: [
+          sosLogEntry(`Passenger — ${pax.name}`, notes, null),
           ...state.activityLog,
         ].slice(0, MAX_ACTIVITY_LOG_ENTRIES),
       }
@@ -4898,6 +4951,7 @@ interface RideContextValue extends RideState {
     bookedAtTerminal?: boolean
     destinationPending?: boolean
     boardedWithDriverId?: string | null
+    initialPhotos?: RidePhoto[]
     prescriptionDataUrls?: string[]
     seniorIdDataUrl?: string | null
     otherDocDataUrl?: string | null
@@ -4919,6 +4973,7 @@ interface RideContextValue extends RideState {
       isPwdSeniorRide: boolean
     }[]
   }) => void
+  reportDriverGps: (driverId: string, gps: GeoCoords) => void
   acceptRide: (rideId: string, driverId: string) => void
   declineRide: (rideId: string, driverId: string) => void
   startRide: (rideId: string) => void
@@ -4936,6 +4991,7 @@ interface RideContextValue extends RideState {
   updatePassengerLiveGps: (rideId: string, gps: GeoCoords | null) => void
   triggerSos: (rideId: string, triggeredBy: string) => void
   triggerDriverSos: (driverId: string, location: GeoCoords | null, notes?: string | null) => void
+  triggerPassengerSos: (passengerId: string, location: GeoCoords | null, notes?: string | null) => void
   resolveAlert: (alertId: string) => void
   approveDriver: (driverId: string) => void
   rejectDriver: (driverId: string, reason?: string | null) => void
@@ -5938,6 +5994,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
         bookedAtTerminal: false,
         destinationPending: false,
         boardedWithDriverId: null,
+        initialPhotos: [],
         prescriptionDataUrls: [],
         seniorIdDataUrl: null,
         otherDocDataUrl: null,
@@ -5946,6 +6003,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
       }),
     requestGroupRide: (args) =>
       dispatch({ type: 'REQUEST_GROUP_RIDE', requestedDriverId: null, ...args }),
+    reportDriverGps: (driverId, gps) => dispatch({ type: 'REPORT_DRIVER_GPS', driverId, gps }),
     acceptRide: (rideId, driverId) => dispatch({ type: 'ACCEPT_RIDE', rideId, driverId }),
     declineRide: (rideId, driverId) => dispatch({ type: 'DECLINE_RIDE', rideId, driverId }),
     startRide: (rideId) => dispatch({ type: 'START_RIDE', rideId }),
@@ -5963,6 +6021,8 @@ export function RideProvider({ children }: { children: ReactNode }) {
     updateDriverLiveGps: (rideId, gps) => dispatch({ type: 'UPDATE_DRIVER_LIVE_GPS', rideId, gps }),
     updatePassengerLiveGps: (rideId, gps) => dispatch({ type: 'UPDATE_PASSENGER_LIVE_GPS', rideId, gps }),
     triggerSos: (rideId, triggeredBy) => dispatch({ type: 'TRIGGER_SOS', rideId, triggeredBy }),
+    triggerPassengerSos: (passengerId, location, notes = null) =>
+      dispatch({ type: 'TRIGGER_PASSENGER_SOS', passengerId, location, notes }),
     triggerDriverSos: (driverId, location, notes = null) =>
       dispatch({ type: 'TRIGGER_DRIVER_SOS', driverId, location, notes }),
     resolveAlert: (alertId) => dispatch({ type: 'RESOLVE_ALERT', alertId }),

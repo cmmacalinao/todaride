@@ -750,7 +750,16 @@ export function PassengerPage() {
   // back to the booking page — a form mounted inside the trip card would be
   // unmounted before anyone saw it. Dismissable: someone fumbling for their
   // wallet should not be trapped behind a modal.
-  const unpaidRide = myRides.find((r) => r.status === 'completed' && !r.paymentAcknowledged)
+  //
+  // Safety records are excluded. On that path the passenger flagged the
+  // tricycle down themselves and pays the driver in cash the way they
+  // always have — the app dispatched nobody, agreed no fare, and collects
+  // nothing. Presenting a total due would claim it had worked out what they
+  // owe, and the figure would be wrong anyway: these trips often end with no
+  // destination ever given, so the fare falls back to the base minimum.
+  const unpaidRide = myRides.find(
+    (r) => r.status === 'completed' && !r.paymentAcknowledged && !r.safetyRecord,
+  )
   const [showPayment, setShowPayment] = useState(false)
   const unpaidRideId = unpaidRide?.id ?? null
   useEffect(() => {
@@ -1077,6 +1086,26 @@ export function PassengerPage() {
     }
   }
 
+  // Where you are, without being asked for it.
+  //
+  // This app books a tricycle from wherever the passenger is standing, so a
+  // pickup box that opens empty — or worse, pre-filled with the CLSU main
+  // gate for someone three barangays away — made correcting it the first
+  // thing every passenger did. This runs the same locate-and-fill the
+  // location button runs, once, on open.
+  //
+  // It stands down as soon as the passenger has chosen a pickup themselves,
+  // and never interrupts an errand or a trip already underway. A refused or
+  // failed fix is not retried: handleUseMyGps already reports it, and asking
+  // the phone again on a loop would only pester someone who has said no.
+  const autoLocatedRef = useRef(false)
+  useEffect(() => {
+    if (autoLocatedRef.current) return
+    if (pickupChosen || isErrand || activeRide) return
+    autoLocatedRef.current = true
+    void handleUseMyGps('pickup')
+  }, [pickupChosen, isErrand, activeRide])
+
   // Admin-configurable — see AdminPage's "Trip history retention" setting.
   // Older rides aren't lost, they just drop out of this list (earnings
   // totals, ratings, and admin reports all still see the full history).
@@ -1391,9 +1420,20 @@ export function PassengerPage() {
                     className="flex min-w-0 flex-[4] items-center gap-1.5 rounded-lg bg-[#ffe066] px-2.5 py-1.5 text-left shadow-sm transition hover:bg-[#ffd633]"
                   >
                     <span aria-hidden className="shrink-0 text-sm leading-none">🚏</span>
-                    <span className="min-w-0 flex-1 text-[10px] font-extrabold uppercase leading-tight tracking-wide text-navy-900">
-                      Sakay sa terminal o pumara? Tap to track
-                      {terminalTripIsFree && <span className="font-bold normal-case"> - walang app fee</span>}
+                    {/* Two lines, because the strip is answering two
+                        different questions. The first says what this is for —
+                        safety, not booking — and the second says who it is
+                        for and what it costs. Run together on one line they
+                        read as a single slogan and the "no charge" gets lost
+                        at the end of it. */}
+                    <span className="min-w-0 flex-1 leading-tight text-navy-900">
+                      <span className="block text-[10px] font-extrabold uppercase tracking-wide">
+                        Track your trip for your safety
+                      </span>
+                      <span className="block text-[9px] font-semibold">
+                        Kung sumakay sa terminal o pumara lang — record your trip
+                        {terminalTripIsFree && ' (no app fee)'}
+                      </span>
                     </span>
                   </button>
                   <button
@@ -2418,7 +2458,7 @@ function ActiveRideCard({
   onCancel: () => void
   onDismiss: () => void
 }) {
-  const { rides } = useRides()
+  const { rides, completeRide } = useRides()
   const ride = rides.find((r) => r.id === rideId)
   if (!ride) return null
 
@@ -2430,6 +2470,7 @@ function ActiveRideCard({
       sosLabel="SOS — Something's wrong"
       showCancel
       onCancel={onCancel}
+      onFinishTrip={() => completeRide(ride.id, ride.paymentMethod)}
       onDismiss={onDismiss}
       allowLiveGpsToggle
       allowGotOffCheck

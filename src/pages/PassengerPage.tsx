@@ -803,7 +803,17 @@ export function PassengerPage() {
     // the next ride starts from. Where to goes back to blank — nobody is
     // standing at a destination they have not picked yet.
     const justEnded = myRides.find((r) => r.status === 'completed' && !r.paymentAcknowledged)
-    if (justEnded) {
+    // Only when the trip actually went somewhere.
+    //
+    // Carrying the last drop-off into the next pickup is right for an
+    // ordinary ride: you are standing where you got out. A recorded trip
+    // that was never given a destination has a drop-off that is only a copy
+    // of its own pickup, so this was seeding the next booking with the word
+    // the recorded pickup is named after -- an address field pre-filled with
+    // a label instead of a place, which the passenger then had to clear.
+    const endedSomewhere =
+      !!justEnded && !justEnded.destinationPending && justEnded.dropoff?.id !== justEnded.pickup?.id
+    if (justEnded && endedSomewhere) {
       const arrivedAt = justEnded.actualDropoff
         ? { ...justEnded.dropoff, label: justEnded.actualDropoff.label }
         : justEnded.dropoff
@@ -1203,6 +1213,7 @@ export function PassengerPage() {
         // should re-frame the map on the spot.
         refitSignal={`${cityScope}|${pickup.id}|${hasDestination ? dropoff.id : 'none'}|${groupMapPoints.length}`}
         hasDropoff={hasDestination}
+        hasPickup={pickupChosen}
         terminals={terminals}
         extraPoints={groupRideOpen ? groupMapPoints : undefined}
         showGpsFor={isErrand ? 'dropoff' : 'pickup'}
@@ -1342,8 +1353,22 @@ export function PassengerPage() {
               <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full bg-white" />
               <span className="min-w-0 flex-1">
                 <span className="block text-[9px] font-semibold uppercase tracking-wide text-white/75">{pickupLabel}</span>
-                <span className="block truncate text-sm font-semibold text-white">{formatAddressLine(pickup.label)}</span>
-                {!pickupChosen && <span className="block text-[10px] text-white/70">Suggested — tap to change</span>}
+                {/* Blank until the passenger says where they are, the same as
+                    the destination below.
+
+                    It used to open reading "CLSU Main Gate" — a real address,
+                    in the field the fare and the driver are dispatched from,
+                    that nobody had chosen. Anyone booking from anywhere else
+                    had to notice it was wrong and correct it, and the ones who
+                    did not sent a tricycle to a gate they were nowhere near.
+                    A guess presented as an answer is worse than an empty box. */}
+                <span
+                  className={`block truncate text-sm ${
+                    pickupChosen ? 'font-semibold text-white' : 'font-normal text-white/70'
+                  }`}
+                >
+                  {pickupChosen ? formatAddressLine(pickup.label) : 'Where are you now?'}
+                </span>
               </span>
             </button>
             {openEnd === 'pickup' && (

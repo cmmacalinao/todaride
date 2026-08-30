@@ -23,6 +23,7 @@ export function LocationMapPicker({
   dropoffLabel = 'Destination',
   refitSignal,
   hasDropoff = true,
+  hasPickup = true,
   leadingAction,
   underMapAction,
   showGpsFor,
@@ -50,6 +51,9 @@ export function LocationMapPicker({
   // withheld rather than drawn somewhere provisional: a marker on the map is
   // read as a decision, and this one has not been made yet.
   hasDropoff?: boolean
+  // Same as hasDropoff: the pickup object always holds something, so only
+  // the caller knows whether the passenger actually chose it.
+  hasPickup?: boolean
   // Terminals to draw alongside the two pins — where tricycles wait. Shown,
   // never selectable: tapping the map still moves whichever pin is armed.
   terminals?: Terminal[]
@@ -165,7 +169,7 @@ export function LocationMapPicker({
           title="Tap to see the complete address"
           className="min-w-0 flex-1 space-y-0.5 rounded-lg bg-slate-50 px-2 py-1 text-left text-[11px] leading-tight transition hover:bg-slate-100 active:bg-slate-200"
         >
-          <span className={`block truncate text-pickup-accent ${target === 'pickup' ? 'font-semibold' : 'font-normal'}`}>📍 {formatAddressLine(pickup.label)}</span>
+          <span className={`block truncate text-pickup-accent ${target === 'pickup' ? 'font-semibold' : 'font-normal'}`}>📍 {hasPickup ? formatAddressLine(pickup.label) : <span className="text-slate-400">not set yet</span>}</span>
           <span className={`block truncate text-dest-accent ${target === 'dropoff' ? 'font-semibold' : 'font-normal'}`}>🏁 {hasDropoff ? formatAddressLine(dropoff.label) : <span className="text-slate-400">not set yet</span>}</span>
         </button>
         <div className="flex shrink-0 gap-1 rounded-lg bg-slate-100 p-1">

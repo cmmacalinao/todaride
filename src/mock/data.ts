@@ -3087,10 +3087,14 @@ export const MOCK_DRIVERS: Driver[] = [
     online: true,
     verificationStatus: 'approved',
     documents: submittedDocs(),
-    todaOrgId: 'toda-poblacion',
+    // CLSU, not San Jose City. A driver with no saved position of their own
+    // is placed at their TODA's terminal, so this one line is what decides
+    // where he appears on the map — and in Poblacion TODA he was plotted an
+    // hour's drive from the pilot area, close to nobody the pilot serves.
+    todaOrgId: 'toda-clsu',
     province: 'Nueva Ecija',
-    city: 'San Jose City',
-    barangay: 'Crisanto Sanchez Poblacion',
+    city: 'Science City of Muñoz',
+    barangay: 'CLSU',
     addressDetail: 'Purok 2',
     phone: '0917-100-1001',
     email: null,

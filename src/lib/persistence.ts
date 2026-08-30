@@ -35,6 +35,20 @@ const HOT: { key: string; table: string; columns: (row: Record<string, unknown>)
       data: r,
     }),
   },
+  // Accounts, for the same reason rides are here and more urgently: a lost
+  // ride is a demo trip, a lost passenger is somebody who signed up and
+  // cannot log in. Inside the shared blob they were erased whenever any
+  // other device saved an older copy of the world.
+  {
+    key: 'passengers',
+    table: 'passenger',
+    columns: (p) => ({ id: p.id, name: p.name ?? null, phone: p.phone ?? null, data: p }),
+  },
+  {
+    key: 'parents',
+    table: 'parent',
+    columns: (p) => ({ id: p.id, name: p.name ?? null, phone: p.phone ?? null, data: p }),
+  },
   {
     key: 'drivers',
     table: 'driver',

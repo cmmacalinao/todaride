@@ -872,6 +872,12 @@ export interface Ride {
   // with. It is a safety net rather than a booking: nobody was dispatched,
   // nothing was matched, and no platform fee is charged for it.
   safetyRecord?: boolean
+  // The plate a passenger typed for a tricycle this app has never heard
+  // of. Not every tricycle on the road is a registered TODA SafeRide
+  // driver, and somebody riding in one of those is exactly who most needs
+  // a record of it — so the plate is kept even though there is no account
+  // to attach it to, and no driver phone to compare movement against.
+  unregisteredPlate?: string | null
   priorityQueueOfferedDriverId: string | null
   priorityQueueOfferedAt: string | null
   priorityQueueLog: QueueOfferLogEntry[]

@@ -408,6 +408,8 @@ type RideAction =
       // created underway rather than requested, because there is nothing
       // left to dispatch.
       boardedWithDriverId: string | null
+      // Set instead of boardedWithDriverId for a tricycle with no account.
+      unregisteredPlate: string | null
       // Photographs taken before this ride existed — the plate, the
       // driver, the inside of the tricycle. They are the same evidence
       // whether the shutter went before or after the trip was recorded,
@@ -2226,12 +2228,23 @@ function reducer(state: RideState, action: RideAction): RideState {
       const boardedDriver = action.boardedWithDriverId
         ? state.drivers.find((d) => d.id === action.boardedWithDriverId)
         : null
-      const recorded: Ride = boardedDriver
+      // A plate with no account behind it still gets recorded.
+      //
+      // Not every tricycle on the road is registered here, and a passenger
+      // riding in an unregistered one is exactly who most needs somebody to
+      // know where they are. There is no driver phone to compare movement
+      // against, so this can never start by itself — the passenger asked
+      // for it by typing the plate, which is consent enough and the only
+      // signal available.
+      const boardedAtAll = !!boardedDriver || !!action.unregisteredPlate
+      const recorded: Ride = boardedAtAll
         ? {
             ...ride,
             status: 'ongoing' as RideStatus,
-            driverId: boardedDriver.id,
-            driverName: boardedDriver.name,
+            driverId: boardedDriver?.id ?? null,
+            driverName:
+              boardedDriver?.name ?? `TRC ${action.unregisteredPlate} — hindi rehistrado`,
+            unregisteredPlate: boardedDriver ? null : action.unregisteredPlate,
             acceptedAt: new Date().toISOString(),
             startedAt: new Date().toISOString(),
             // Not on the way to the pickup — past it. The pickup is where
@@ -5005,6 +5018,7 @@ interface RideContextValue extends RideState {
     bookedAtTerminal?: boolean
     destinationPending?: boolean
     boardedWithDriverId?: string | null
+    unregisteredPlate?: string | null
     initialPhotos?: RidePhoto[]
     prescriptionDataUrls?: string[]
     seniorIdDataUrl?: string | null
@@ -6049,6 +6063,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
         bookedAtTerminal: false,
         destinationPending: false,
         boardedWithDriverId: null,
+        unregisteredPlate: null,
         initialPhotos: [],
         prescriptionDataUrls: [],
         seniorIdDataUrl: null,

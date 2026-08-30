@@ -167,7 +167,9 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
     )
   }, [trcInput, drivers, busyIds])
 
-  function startRecording(driver: Driver) {
+  // Either a tricycle this app knows, or just the number painted on the
+  // side of one it does not.
+  function startRecording(driver: Driver | null, plate?: string) {
     if (!currentPassengerId || !position) return
     // The pickup is simply where they are. No barangay dropdown, no map tap —
     // the phone already knows, and asking would be theatre.
@@ -185,12 +187,13 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
       isPwdSeniorRide: false,
       pickupGps: position,
       passengerCount: 1,
-      requestedDriverId: driver.id,
+      requestedDriverId: driver?.id ?? null,
       bookedAtTerminal: true,
       destinationPending: true,
       // The trip is already happening; this records it rather than asking
       // for it. Creates the ride underway, with no platform fee.
-      boardedWithDriverId: driver.id,
+      boardedWithDriverId: driver?.id ?? null,
+      unregisteredPlate: driver ? null : (plate ?? null),
       initialPhotos: pendingPhotos,
     } as never)
     onClose()
@@ -329,8 +332,38 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
               </button>
             )}
           </div>
+          {/* A plate this app has never seen is still worth recording.
+
+              Not every tricycle on the road is a registered TODA SafeRide
+              driver, and somebody riding in one of those is exactly who
+              most needs a record of where they are. Nothing can be checked
+              about it — no account, no phone reporting its position, so no
+              movement to compare against — and the panel says so rather
+              than implying the app knows more than it does.
+
+              This can only ever be deliberate: the passenger typed the
+              number themselves. */}
           {trcInput.trim().length > 0 && !typedMatch && (
-            <p className="mt-1 text-[10px] text-slate-400">Walang nahanap na TRC {trcInput.trim()}.</p>
+            <div className="mt-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2">
+              <p className="text-[11px] font-semibold text-amber-900">
+                Walang nahanap na TRC {trcInput.trim()}.
+              </p>
+              <p className="mt-0.5 text-[10px] leading-snug text-amber-800">
+                Hindi rehistrado sa TODA SafeRide. Mare-record pa rin ang plaka at kung nasaan ka — pero walang
+                pangalan ng driver, at hindi ito kusang magsisimula.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  const plate = trcInput.trim().toUpperCase()
+                  setTrcInput('')
+                  startRecording(null, plate)
+                }}
+                className="mt-1.5 w-full rounded-lg bg-amber-600 py-1.5 text-[11px] font-bold text-white hover:bg-amber-700"
+              >
+                I-record pa rin ang biyahe
+              </button>
+            </div>
           )}
 
           {candidates.length > 0 ? (

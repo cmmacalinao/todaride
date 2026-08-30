@@ -1348,7 +1348,12 @@ export function PassengerPage() {
                 defaultAddressDetail={pickupPickerSeed.addressDetail}
                 onResolve={handlePickupResolve}
                 onConfirm={() => setOpenEnd(null)}
-                pinned={pickupGps !== null}
+                // Anything with real coordinates behind it counts, not just
+                // the GPS button: a spot tapped on the map, a saved place, or
+                // a fix taken earlier in this session. The exact point is
+                // known either way, and that is the whole question the
+                // landmark was being asked to answer.
+                pinned={pickupGps !== null || !!pickup.gps}
               />
               {gpsStatus === 'error' && gpsError && <p className="text-[11px] text-amber-700">{gpsError}</p>}
               </div>

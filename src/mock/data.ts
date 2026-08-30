@@ -3702,6 +3702,29 @@ function groupFare(tariff: TariffSettings, passengerCount: number): number {
   return tariff.standardRate * passengerCount * (1 - tariff.groupRideDiscountPct / 100)
 }
 
+// Which tariff applies to a particular ride.
+//
+// A taripa is set by an LGU, so it is a fact about a city, not about the
+// app — Munoz and San Jose publish different ones and both are correct.
+// A TODA may also have been granted its own schedule inside a city, which
+// is why an organisation can override its city in turn.
+//
+// Most narrow wins: TODA, then city, then the platform default. Each
+// override is a whole schedule rather than a patch, so an operator
+// reading one screen sees every figure that will actually be charged and
+// never has to hold two sets in their head to work out the total.
+export function resolveTariff(
+  base: TariffSettings,
+  cityTariffs: Record<string, TariffSettings> | undefined,
+  todaTariffs: Record<string, TariffSettings> | undefined,
+  city: string | null | undefined,
+  todaOrgId: string | null | undefined,
+): TariffSettings {
+  if (todaOrgId && todaTariffs?.[todaOrgId]) return todaTariffs[todaOrgId]
+  if (city && cityTariffs?.[city]) return cityTariffs[city]
+  return base
+}
+
 export function estimateFareBreakdown(
   pickup: MockLocation,
   dropoff: MockLocation,

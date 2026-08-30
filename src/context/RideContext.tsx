@@ -148,6 +148,7 @@ import {
   MOCK_TODA_ORGANIZATIONS,
   SAAS_PLAN_FEES,
   estimateFare,
+  resolveTariff,
   estimateSpecialPickupFee,
   getActiveTodaCommission,
   MOCK_BANNER_ADS,
@@ -242,6 +243,11 @@ interface RideState {
   duesGracePeriodDays: number
   tripHistoryRetentionDays: number
   tariffSettings: TariffSettings
+  // Per-city and per-TODA taripa, keyed by city name and org id. Empty
+  // means "everyone uses tariffSettings", which is where every install
+  // starts. See resolveTariff.
+  cityTariffs: Record<string, TariffSettings>
+  todaTariffs: Record<string, TariffSettings>
   driverReports: DriverReport[]
   pabiliServiceFee: number
   // Which driver each passenger has picked off the nearby list for their
@@ -708,6 +714,8 @@ type RideAction =
       addressDetail: string
     }
   | { type: 'SET_TARIFF_SETTINGS'; settings: TariffSettings }
+  | { type: 'SET_CITY_TARIFF'; city: string; settings: TariffSettings | null }
+  | { type: 'SET_TODA_TARIFF'; todaOrgId: string; settings: TariffSettings | null }
   | { type: 'SAVE_PASSENGER_LOCATION'; passengerId: string; id: string; label: SavedLocationLabel; location: MockLocation }
   | { type: 'REMOVE_PASSENGER_LOCATION'; passengerId: string; savedLocationId: string }
   | {
@@ -1513,6 +1521,8 @@ function fromStored(parsed: StoredState): RideState {
     duesGracePeriodDays: parsed.duesGracePeriodDays ?? DEFAULT_DUES_GRACE_PERIOD_DAYS,
     tripHistoryRetentionDays: parsed.tripHistoryRetentionDays ?? DEFAULT_TRIP_HISTORY_RETENTION_DAYS,
     tariffSettings: { ...DEFAULT_TARIFF_SETTINGS, ...parsed.tariffSettings },
+    cityTariffs: parsed.cityTariffs ?? {},
+    todaTariffs: parsed.todaTariffs ?? {},
     driverReports: parsed.driverReports ?? [],
     pabiliServiceFee: parsed.pabiliServiceFee ?? DEFAULT_PABILI_SERVICE_FEE,
     pabiliFareMode: parsed.pabiliFareMode === 'fixed' ? 'fixed' : 'standard',
@@ -1596,7 +1606,11 @@ function fromStored(parsed: StoredState): RideState {
     vendorsEnabled: parsed.vendorsEnabled ?? false,
     simulatedOtpEnabled: parsed.simulatedOtpEnabled ?? true,
     publicBaseUrl: parsed.publicBaseUrl ?? '',
-    simulateMovementEnabled: parsed.simulateMovementEnabled ?? true,
+    // Off unless somebody has said otherwise. The pilot is on real roads
+    // now, so the map should move because a tricycle moved. An install that
+    // has already chosen keeps its choice — this only changes what a fresh
+    // one starts with.
+    simulateMovementEnabled: parsed.simulateMovementEnabled ?? false,
     liveGpsEnabled: parsed.liveGpsEnabled ?? true,
     // Merged rather than "stored wins", because a stored list would freeze
     // out every hotline added to the seed afterwards — and a missing
@@ -1732,6 +1746,8 @@ function loadInitialState(): RideState {
     duesGracePeriodDays: DEFAULT_DUES_GRACE_PERIOD_DAYS,
     tripHistoryRetentionDays: DEFAULT_TRIP_HISTORY_RETENTION_DAYS,
     tariffSettings: DEFAULT_TARIFF_SETTINGS,
+    cityTariffs: {},
+    todaTariffs: {},
     driverReports: [],
     pabiliServiceFee: DEFAULT_PABILI_SERVICE_FEE,
     pabiliFareMode: 'standard',
@@ -1782,7 +1798,7 @@ function loadInitialState(): RideState {
     vendorsEnabled: false,
     simulatedOtpEnabled: true,
     publicBaseUrl: '',
-    simulateMovementEnabled: true,
+    simulateMovementEnabled: false,
     liveGpsEnabled: true,
     emergencyHotlines: MOCK_EMERGENCY_HOTLINES,
   }
@@ -2137,7 +2153,16 @@ function reducer(state: RideState, action: RideAction): RideState {
         dispatchCtx(state, action.pickup.gps ?? null),
       )
       const pabiliServiceFee = action.serviceType !== 'ride' ? state.pabiliServiceFee : 0
-      const oneWayFare = estimateFare(action.pickup, action.dropoff, state.tariffSettings, {
+      // Priced by where the trip starts, and by the TODA answering it if
+      // that TODA has its own schedule. See resolveTariff.
+      const rideTariff = resolveTariff(
+        state.tariffSettings,
+        state.cityTariffs,
+        state.todaTariffs,
+        action.pickup.city,
+        priorityTodaOrgId,
+      )
+      const oneWayFare = estimateFare(action.pickup, action.dropoff, rideTariff, {
         isStudent: action.isStudentRide,
         isPwdSenior: action.isPwdSeniorRide,
         passengerCount: action.passengerCount,
@@ -2151,7 +2176,7 @@ function reducer(state: RideState, action: RideAction): RideState {
       // one-time detour, charged on its own.
       const terminalGps = getTerminalGps(state.todaOrganizations.find((o) => o.id === priorityTodaOrgId))
       const specialPickupFee = action.specialPickupRequested
-        ? estimateSpecialPickupFee(terminalGps, action.pickupGps, state.tariffSettings)
+        ? estimateSpecialPickupFee(terminalGps, action.pickupGps, rideTariff)
         : 0
       const ride: Ride = {
         id: `ride-${Date.now()}`,
@@ -2277,8 +2302,15 @@ function reducer(state: RideState, action: RideAction): RideState {
         false,
         dispatchCtx(state, action.pickup.gps ?? null),
       )
+      const groupTariff = resolveTariff(
+        state.tariffSettings,
+        state.cityTariffs,
+        state.todaTariffs,
+        action.pickup.city,
+        priorityTodaOrgId,
+      )
       const fares = action.riders.map((r) =>
-        estimateFare(action.pickup, r.dropoff, state.tariffSettings, {
+        estimateFare(action.pickup, r.dropoff, groupTariff, {
           isStudent: r.isStudentRide,
           isPwdSenior: r.isPwdSeniorRide,
           passengerCount: 1,
@@ -3164,7 +3196,17 @@ function reducer(state: RideState, action: RideAction): RideState {
         ...state,
         rides: state.rides.map((r) => {
           if (r.id !== action.rideId) return r
-          const fare = estimateFare(r.pickup, action.dropoff, state.tariffSettings, {
+          const fare = estimateFare(
+            r.pickup,
+            action.dropoff,
+            resolveTariff(
+              state.tariffSettings,
+              state.cityTariffs,
+              state.todaTariffs,
+              r.pickup.city,
+              r.priorityTodaOrgId,
+            ),
+            {
             isStudent: r.isStudentRide,
             isPwdSenior: r.isPwdSeniorRide,
             passengerCount: r.passengerCount,
@@ -3722,6 +3764,18 @@ function reducer(state: RideState, action: RideAction): RideState {
       }
     case 'SET_TARIFF_SETTINGS':
       return { ...state, tariffSettings: action.settings }
+    case 'SET_CITY_TARIFF': {
+      const next = { ...state.cityTariffs }
+      if (action.settings) next[action.city] = action.settings
+      else delete next[action.city]
+      return { ...state, cityTariffs: next }
+    }
+    case 'SET_TODA_TARIFF': {
+      const next = { ...state.todaTariffs }
+      if (action.settings) next[action.todaOrgId] = action.settings
+      else delete next[action.todaOrgId]
+      return { ...state, todaTariffs: next }
+    }
     case 'SET_PABILI_FARE_MODE':
       return { ...state, pabiliFareMode: action.mode }
     case 'SET_PABILI_FIXED_FARE':
@@ -5268,6 +5322,8 @@ interface RideContextValue extends RideState {
     args: { province: string; city: string; barangay: string; addressDetail: string },
   ) => void
   setTariffSettings: (settings: TariffSettings) => void
+  setCityTariff: (city: string, settings: TariffSettings | null) => void
+  setTodaTariff: (todaOrgId: string, settings: TariffSettings | null) => void
   setPabiliServiceFee: (amount: number) => void
   setPabiliFareMode: (mode: PabiliFareMode) => void
   setPabiliFixedFare: (amount: number) => void
@@ -6272,6 +6328,8 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setTodaTerminalGps: (todaOrgId, gps) => dispatch({ type: 'SET_TODA_TERMINAL_GPS', todaOrgId, gps }),
     setTodaTerminalAddress: (todaOrgId, args) => dispatch({ type: 'SET_TODA_TERMINAL_ADDRESS', todaOrgId, ...args }),
     setTariffSettings: (settings) => dispatch({ type: 'SET_TARIFF_SETTINGS', settings }),
+    setCityTariff: (city, settings) => dispatch({ type: 'SET_CITY_TARIFF', city, settings }),
+    setTodaTariff: (todaOrgId, settings) => dispatch({ type: 'SET_TODA_TARIFF', todaOrgId, settings }),
     setPabiliServiceFee: (amount) => dispatch({ type: 'SET_PABILI_SERVICE_FEE', amount }),
     setPabiliFareMode: (mode) => dispatch({ type: 'SET_PABILI_FARE_MODE', mode }),
     setPabiliFixedFare: (amount) => dispatch({ type: 'SET_PABILI_FIXED_FARE', amount }),

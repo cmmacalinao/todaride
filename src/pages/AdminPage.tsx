@@ -19,7 +19,7 @@ import { SosAlertBanner } from '../components/SosAlertBanner'
 import { AnnouncementsManager } from '../components/AnnouncementsManager'
 import { ClientNotesCenter } from '../components/ClientNotesCenter'
 import { SupportInbox } from '../components/SupportInbox'
-import { CLSU_GPS, DEFAULT_BOOKING_CITY, DEFAULT_BOOKING_PROVINCE, DRIVER_REPORT_REASON_LABELS, getTodaQueue, isPastDeadline, SAAS_PLAN_FEES } from '../mock/data'
+import { CLSU_GPS, DEFAULT_BOOKING_CITY, DEFAULT_BOOKING_PROVINCE, DRIVER_REPORT_REASON_LABELS, getCitiesForProvince, getTodaQueue, isPastDeadline, resolveTariff, SAAS_PLAN_FEES } from '../mock/data'
 import { getDispatchWindow } from '../lib/tracking'
 import { matchesNameQuery } from '../lib/fuzzyName'
 import { RealLiveMap } from '../components/RealLiveMap'
@@ -162,6 +162,10 @@ export function AdminPage() {
     setTodaSaasPlan,
     setTodaOperator,
     setTariffSettings,
+    cityTariffs,
+    todaTariffs,
+    setCityTariff,
+    setTodaTariff,
     resolveDriverReport,
     setPabiliServiceFee,
     pabiliFareMode,
@@ -232,6 +236,12 @@ export function AdminPage() {
   const [groupFlat2Input, setGroupFlat2Input] = useState(String(tariffSettings.groupRideFlatRate2))
   const [groupFlat3Input, setGroupFlat3Input] = useState(String(tariffSettings.groupRideFlatRate3))
   const [groupFlat4Input, setGroupFlat4Input] = useState(String(tariffSettings.groupRideFlatRate4))
+  // Which taripa the form below is editing: the platform default, one
+  // city's, or one TODA's. Stored as a single string so the picker is one
+  // control rather than three, and so the form has exactly one subject at a
+  // time — an operator should never be unsure which schedule they just
+  // changed.
+  const [tariffScope, setTariffScope] = useState('default')
   const [tariffError, setTariffError] = useState('')
   const [pabiliFeeInput, setPabiliFeeInput] = useState(String(pabiliServiceFee))
   const [pabiliFixedFareInput, setPabiliFixedFareInput] = useState(String(pabiliFixedFare))
@@ -330,6 +340,50 @@ export function AdminPage() {
     logAdmin('Updated trip history retention', `Trip history now shows the last ${days} day(s).`)
   }
 
+  const scopeCity = tariffScope.startsWith('city:') ? tariffScope.slice(5) : null
+  const scopeToda = tariffScope.startsWith('toda:') ? tariffScope.slice(5) : null
+  const tariffScopeLabel = scopeCity
+    ? scopeCity
+    : scopeToda
+      ? (todaOrganizations.find((o) => o.id === scopeToda)?.name ?? scopeToda)
+      : 'All cities'
+  // Whether this scope has a schedule of its own, or is simply inheriting.
+  const scopeHasOwn = scopeCity
+    ? !!cityTariffs[scopeCity]
+    : scopeToda
+      ? !!todaTariffs[scopeToda]
+      : true
+
+  // Loads whichever schedule the picker just selected into the form. An
+  // inheriting scope shows what it currently inherits, so an operator edits
+  // real numbers rather than a blank form and can see what they are
+  // departing from.
+  function loadTariffInto(next: string) {
+    setTariffScope(next)
+    setTariffError('')
+    const city = next.startsWith('city:') ? next.slice(5) : null
+    const toda = next.startsWith('toda:') ? next.slice(5) : null
+    const t = resolveTariff(tariffSettings, cityTariffs, todaTariffs, city, toda)
+    setStandardRateInput(String(t.standardRate))
+    setStudentRateInput(String(t.studentRate))
+    setPwdSeniorRateInput(String(t.pwdSeniorRate))
+    setPerKmRateInput(String(t.perKmRate))
+    setStandardKmInput(String(t.standardKmCovered))
+    setExtraPassengerFeeInput(String(t.extraPassengerFee))
+    setGroupDiscountInput(String(t.groupRideDiscountPct))
+    setGroupFareMode(t.groupRideFareMode)
+    setGroupFlat2Input(String(t.groupRideFlatRate2))
+    setGroupFlat3Input(String(t.groupRideFlatRate3))
+    setGroupFlat4Input(String(t.groupRideFlatRate4))
+  }
+
+  function handleUseDefaultTariff() {
+    if (scopeCity) setCityTariff(scopeCity, null)
+    else if (scopeToda) setTodaTariff(scopeToda, null)
+    logAdmin(`Removed custom tariff — ${tariffScopeLabel}`, 'Back to the schedule it inherits.')
+    loadTariffInto('default')
+  }
+
   function handleSaveTariff() {
     const standardRate = Number(standardRateInput)
     const studentRate = Number(studentRateInput)
@@ -358,7 +412,7 @@ export function AdminPage() {
       setTariffError('Group fares must be numbers of 0 or more.')
       return
     }
-    setTariffSettings({
+    const settings = {
       standardRate,
       studentRate,
       pwdSeniorRate,
@@ -370,9 +424,12 @@ export function AdminPage() {
       groupRideFlatRate2: flat2,
       groupRideFlatRate3: flat3,
       groupRideFlatRate4: flat4,
-    })
+    }
+    if (tariffScope.startsWith('city:')) setCityTariff(tariffScope.slice(5), settings)
+    else if (tariffScope.startsWith('toda:')) setTodaTariff(tariffScope.slice(5), settings)
+    else setTariffSettings(settings)
     logAdmin(
-      'Updated fare tariff',
+      `Updated fare tariff — ${tariffScopeLabel}`,
       `Standard ₱${standardRate}, student ₱${studentRate}, PWD/Senior ₱${pwdSeniorRate}, covers ${standardKmCovered} km then ₱${perKmRate}/km, group discount ${groupRideDiscountPct}%.`,
     )
   }
@@ -1989,6 +2046,50 @@ export function AdminPage() {
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="mb-1 text-sm font-semibold text-slate-700">LGU tariff rate</h2>
+        {/* A taripa belongs to a city, not to the app. Munoz and San Jose
+            publish different ones and both are correct, and a TODA may have
+            been granted its own inside a city. One picker, one subject: the
+            fields below always belong to whatever is named here. */}
+        <label className="mb-2 block">
+          <span className="mb-1 block text-xs font-medium text-slate-500">This taripa applies to</span>
+          <select
+            value={tariffScope}
+            onChange={(e) => loadTariffInto(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+          >
+            <option value="default">All cities — platform default</option>
+            <optgroup label="City">
+              {getCitiesForProvince(DEFAULT_BOOKING_PROVINCE).map((c) => (
+                <option key={c} value={`city:${c}`}>
+                  {c}{cityTariffs[c] ? ' — own taripa' : ''}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="TODA">
+              {todaOrganizations.map((o) => (
+                <option key={o.id} value={`toda:${o.id}`}>
+                  {o.name}{todaTariffs[o.id] ? ' — own taripa' : ''}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+        </label>
+        {tariffScope !== 'default' && (
+          <p className="mb-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-600">
+            {scopeHasOwn
+              ? `${tariffScopeLabel} has its own taripa. Saving changes it here only.`
+              : `${tariffScopeLabel} currently follows the schedule above it. Saving gives it one of its own.`}
+            {scopeHasOwn && (
+              <button
+                type="button"
+                onClick={handleUseDefaultTariff}
+                className="ml-2 font-semibold text-brand-700 underline"
+              >
+                Use the default instead
+              </button>
+            )}
+          </p>
+        )}
         <p className="mb-3 text-xs text-slate-500">
           Standard LGU-style tricycle fare: a flat base rate (student, PWD/Senior, or standard) covers the first
           few kilometers, then a per-km rate applies beyond that, plus a flat surcharge per rider when 2 or more

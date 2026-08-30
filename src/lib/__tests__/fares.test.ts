@@ -8,6 +8,7 @@ import {
   estimateOutOfAreaBreakdown,
   getFreeTodaDrivers,
   orderByDispatchDistance,
+  resolveTariff,
 } from '../../mock/data'
 import { errandBaseFare } from '../../context/RideContext'
 import { isRideVisibleToDriver } from '../tracking'
@@ -439,5 +440,41 @@ describe('pricing a group by published fare rather than percentage', () => {
   it('leaves solo riders alone in either mode', () => {
     const flat = { ...base, groupRideFareMode: 'flat' as const, groupRideFlatRate2: 99 }
     expect(near(1, flat)).toBe(near(1, base))
+  })
+})
+
+describe('whose taripa applies', () => {
+  const base = { ...DEFAULT_TARIFF_SETTINGS, standardRate: 15 }
+  const munoz = { ...DEFAULT_TARIFF_SETTINGS, standardRate: 20 }
+  const clsuToda = { ...DEFAULT_TARIFF_SETTINGS, standardRate: 25 }
+
+  it('uses the platform default when nobody has set anything', () => {
+    expect(resolveTariff(base, {}, {}, 'Science City of Muñoz', 'toda-clsu')).toBe(base)
+  })
+
+  it("uses the city's taripa where the LGU has published one", () => {
+    // A taripa is a fact about a city, not about the app: Muñoz and San Jose
+    // publish different ones and both are correct.
+    const cities = { 'Science City of Muñoz': munoz }
+    expect(resolveTariff(base, cities, {}, 'Science City of Muñoz', null)).toBe(munoz)
+    expect(resolveTariff(base, cities, {}, 'San Jose City', null)).toBe(base)
+  })
+
+  it('lets a TODA override its own city', () => {
+    // Some are granted their own schedule inside a city.
+    const cities = { 'Science City of Muñoz': munoz }
+    const todas = { 'toda-clsu': clsuToda }
+    expect(resolveTariff(base, cities, todas, 'Science City of Muñoz', 'toda-clsu')).toBe(clsuToda)
+  })
+
+  it('falls back past a TODA with no schedule of its own', () => {
+    const cities = { 'Science City of Muñoz': munoz }
+    const todas = { 'toda-clsu': clsuToda }
+    expect(resolveTariff(base, cities, todas, 'Science City of Muñoz', 'toda-sanisidro')).toBe(munoz)
+  })
+
+  it('survives a ride with no city or TODA attached', () => {
+    expect(resolveTariff(base, { x: munoz }, { y: clsuToda }, null, null)).toBe(base)
+    expect(resolveTariff(base, undefined, undefined, 'Anywhere', 'any')).toBe(base)
   })
 })

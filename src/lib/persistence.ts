@@ -22,6 +22,12 @@ export interface PersistenceAdapter {
 // The collections that get their own table rather than riding along in the
 // one JSONB blob — the ones two devices write at the same time. See the
 // comment at the top of 0002_app_schema.sql for why.
+// How often a visible page re-reads the shared state when the realtime
+// socket has nothing to say. Long enough that five testers cost almost no
+// bandwidth, short enough that a driver accepting is seen before the
+// passenger gives up and reloads.
+const POLL_WHILE_VISIBLE_MS = 12000
+
 const HOT: { key: string; table: string; columns: (row: Record<string, unknown>) => Record<string, unknown> }[] = [
   {
     key: 'rides',
@@ -257,6 +263,26 @@ class SupabaseAdapter implements PersistenceAdapter {
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
       refetch()
     }
+
+    // A heartbeat, because a websocket on a phone is a promise nobody can
+    // keep.
+    //
+    // Realtime is configured correctly and works on a desk. On a mobile
+    // network it is another matter: carrier NAT drops idle connections,
+    // the browser throttles a backgrounded tab, and a project over its
+    // usage quota can have realtime limited without telling the client.
+    // Any of those leave the socket open-looking and silent, and the app
+    // then shows a world that stopped -- which is exactly what a passenger
+    // means when they say it only updates if they pull to refresh.
+    //
+    // So the app refreshes for them. Only while the page is actually being
+    // looked at, so a phone in a pocket costs nothing, and slowly enough
+    // to stay cheap: one read of the shared state, not a stream.
+    //
+    // This does not replace the subscription -- when the socket is healthy
+    // updates still arrive in a moment rather than on the next beat. It is
+    // the floor under it.
+    const heartbeat = setInterval(onWake, POLL_WHILE_VISIBLE_MS)
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onWake)
     if (typeof window !== 'undefined') {
       window.addEventListener('focus', onWake)
@@ -268,6 +294,7 @@ class SupabaseAdapter implements PersistenceAdapter {
     const unsubLocal = this.local.subscribe(onRemote)
     return () => {
       if (timer) clearTimeout(timer)
+      clearInterval(heartbeat)
       if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onWake)
       if (typeof window !== 'undefined') {
         window.removeEventListener('focus', onWake)

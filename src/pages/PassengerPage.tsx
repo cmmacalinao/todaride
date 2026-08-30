@@ -470,10 +470,18 @@ export function PassengerPage() {
     // the wrong end (open FROM, get the Where-to picker).
     const opening = openEnd !== target
     if (opening) {
+      // Falls back to the passenger's own city, not to Munoz. Opening the
+      // destination used to jump the selector to the seeded default, so
+      // somebody in San Jose who tapped Where to was suddenly being offered
+      // barangays from a city an hour away.
+      const home = passenger?.city || DEFAULT_BOOKING_CITY
       setCityScope(
         target === 'pickup'
-          ? pickupPickerSeed.city || pickup.city || DEFAULT_BOOKING_CITY
-          : dropoffPickerSeed.city || dropoff.city || DEFAULT_BOOKING_CITY,
+          ? pickupPickerSeed.city || (pickupChosen ? pickup.city : '') || home
+          // An unchosen destination is still an object, and it carries the
+          // seeded default's city — which is how Munoz kept reappearing for a
+          // passenger in San Jose the moment they tapped Where to.
+          : dropoffPickerSeed.city || (dropoffChosen ? dropoff.city : '') || home,
       )
     }
     setOpenEnd(opening ? target : null)
@@ -521,14 +529,19 @@ export function PassengerPage() {
     const movesDropoff = openEnd !== 'pickup' && (isErrand || dropoffChosen)
 
     if (movesDropoff) {
-      setDropoffPickerSeed(seed)
-      // Mirrors the pickup branch below: resolve to the city's default
-      // barangay where there is one, otherwise to the city centre. Either
-      // way the row ends up naming the city that was just chosen — leaving
-      // it unresolved is what left a Muñoz address sitting under "Palayan
-      // City".
-      if (presetAddress) void handleDropoffResolve(presetAddress)
-      else void handleDropoffCityQuickPick(nextCity)
+      // Same rule as the pickup below: the barangay list follows the city,
+      // the address does not. This used to resolve straight to the city's
+      // default barangay, so changing the city answered the destination
+      // question too — and left CLSU sitting in the box for someone who had
+      // just said they were going somewhere else entirely.
+      setDropoffPickerSeed((prev) => ({
+        key: prev.key + 1,
+        province: DEFAULT_BOOKING_PROVINCE,
+        city: nextCity,
+        barangay: '',
+        addressDetail: '',
+      }))
+      setDropoffChosen(false)
     }
     if (movesPickup) {
       // The barangay list follows the city; the pickup itself does not.
@@ -1052,12 +1065,6 @@ export function PassengerPage() {
   // public-market-search proxy already used as "the passenger's rough area"
   // elsewhere in this file (see handleSelectPabili). Destination/"Deliver
   // to" is left alone since that's a free choice, not a "where am I" field.
-  async function handleDropoffCityQuickPick(newCity: string) {
-    const point = await resolveNearbyPublicMarket(newCity, DEFAULT_BOOKING_PROVINCE)
-    setCustomLocations((prev) => [...prev, point])
-    handleDropoffQuickPick(point)
-  }
-
   // Picking a registered store for Pabili's pickup ("Buy near to") — same
   // "must exist in customLocations before pickupId can point at it" rule as
   // every other custom pickup here (allLocations is built from
@@ -1361,7 +1368,7 @@ export function PassengerPage() {
               onClick={() => openAddressPicker('pickup')}
               className="flex w-full items-center gap-2.5 rounded-lg bg-pickup-accent px-3 py-2 pr-14 text-left shadow-sm filter transition hover:brightness-90"
             >
-              <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full bg-white" />
+              <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-white" />
               <span className="min-w-0 flex-1">
                 <span className="block text-[9px] font-semibold uppercase tracking-wide text-white/75">{pickupLabel}</span>
                 {/* Blank until the passenger says where they are, the same as
@@ -1435,7 +1442,7 @@ export function PassengerPage() {
                   weight; a bold theme can instead make this a solid fill with
                   white text — same four roles (fill/text/subtext/dot), theme
                   decides which way they lean. See theme.css. */}
-              <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full bg-dest-dot" />
+              <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-dest-dot" />
               <span className="min-w-0 flex-1">
                 <span className="block text-[9px] font-semibold uppercase tracking-wide text-dest-subtext/70">{dropoffLabel}</span>
                 <span
@@ -1455,11 +1462,8 @@ export function PassengerPage() {
                   label=""
                   hideRegionSelects
                   defaultProvince={dropoffPickerSeed.province || DEFAULT_BOOKING_PROVINCE}
-                  defaultCity={dropoffPickerSeed.city || DEFAULT_BOOKING_CITY}
-                  defaultBarangay={
-                    dropoffPickerSeed.barangay ||
-                    defaultBarangayForCity(dropoffPickerSeed.city || DEFAULT_BOOKING_CITY)
-                  }
+                  defaultCity={dropoffPickerSeed.city || cityScope || DEFAULT_BOOKING_CITY}
+                  defaultBarangay={dropoffPickerSeed.barangay}
                   defaultAddressDetail={dropoffPickerSeed.addressDetail}
                   onResolve={handleDropoffResolve}
                   onConfirm={() => setOpenEnd(null)}

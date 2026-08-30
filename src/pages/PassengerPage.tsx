@@ -621,14 +621,29 @@ export function PassengerPage() {
   // that refuse to cancel once dispatched); without this exclusion this
   // generic card would claim the same ride first and let the customer
   // cancel an already-dispatched delivery outright via plain cancelRide.
-  const activeRide = myRides.find(
-    (r) =>
-      r.serviceType !== 'buy_medicine' &&
-      r.status !== 'declined' &&
-      (r.status !== 'cancelled' || r.cancelledBy === 'driver') &&
-      (r.status !== 'completed' || !r.paymentAcknowledged) &&
-      !dismissedRideIds.has(r.id),
-  )
+  const claimsTheScreen = (r: Ride) =>
+    r.serviceType !== 'buy_medicine' &&
+    r.status !== 'declined' &&
+    (r.status !== 'cancelled' || r.cancelledBy === 'driver') &&
+    (r.status !== 'completed' || !r.paymentAcknowledged) &&
+    !dismissedRideIds.has(r.id)
+
+  // A live trip outranks a notice about a dead one, and the newest outranks
+  // the rest.
+  //
+  // This used to be a plain find(), which takes whatever the array happens
+  // to offer first — and the array arrives from the shared database in no
+  // particular order. A driver-cancelled ride is deliberately kept around
+  // so the passenger can read why the driver stopped, so a notice from days
+  // ago could sit in the slot while a driver was proposing a fare for a
+  // booking made minutes ago. The passenger saw an old apology; the driver
+  // saw "waiting for the passenger to approve" and waited for nothing.
+  const candidates = myRides.filter(claimsTheScreen)
+  const byNewest = (a: Ride, b: Ride) => (b.requestedAt ?? '').localeCompare(a.requestedAt ?? '')
+  const running = candidates
+    .filter((r) => r.status !== 'completed' && r.status !== 'cancelled')
+    .sort(byNewest)
+  const activeRide = running[0] ?? [...candidates].sort(byNewest)[0]
   // A ride in one of its ending states: paid off, or called off. It still
   // has a card to show — the receipt, or the reason the driver stopped —
   // but it no longer owns the screen, because the passenger's next question

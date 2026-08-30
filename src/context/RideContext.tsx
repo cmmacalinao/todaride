@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useReducer, type ReactNode, useRef } from 'react'
 import { BANNER_AD_SLOT_COUNT } from '../types'
-import { mergeIncomingRides } from '../lib/rideMerge'
+import { mergeById, mergeIncomingRides } from '../lib/rideMerge'
 import type { RecoveryKind } from '../lib/unifiedLogin'
 import type {
   PabiliFareMode,
@@ -2977,7 +2977,16 @@ function reducer(state: RideState, action: RideAction): RideState {
       // completed ride cannot be walked back by a client whose copy predates
       // it, which is what made "Cancel trip" appear to do nothing while
       // another phone kept ticking the same ride.
-      return { ...action.state, rides: mergeIncomingRides(state.rides, action.state.rides) }
+      //
+      // Accounts are unioned rather than replaced — a sign-up this device
+      // has must survive a copy of the world that predates it. See
+      // mergeById.
+      return {
+        ...action.state,
+        rides: mergeIncomingRides(state.rides, action.state.rides),
+        passengers: mergeById(state.passengers, action.state.passengers),
+        parents: mergeById(state.parents, action.state.parents),
+      }
     case 'SET_COMMISSION':
       return { ...state, commissionPerRide: Math.max(0, action.amount) }
     // One case for every account type rather than four near-identical

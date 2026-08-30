@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isFinishedRide, mergeIncomingRides } from '../rideMerge'
+import { isFinishedRide, mergeById, mergeIncomingRides } from '../rideMerge'
 import type { Ride, RideStatus } from '../../types'
 
 const ride = (id: string, status: RideStatus, extra: Partial<Ride> = {}): Ride =>
@@ -60,5 +60,35 @@ describe('reconciling a ride that arrives from another device', () => {
     expect(isFinishedRide('ongoing')).toBe(false)
     expect(isFinishedRide('requested')).toBe(false)
     expect(isFinishedRide('driver_arriving')).toBe(false)
+  })
+})
+
+describe('reconciling accounts that arrive from another device', () => {
+  const person = (id: string, name: string) => ({ id, name }) as { id: string; name: string }
+
+  it('keeps a sign-up the incoming copy has never heard of', () => {
+    // The bug this exists for: someone registers on their phone, another
+    // device saves a world that predates them, and the account is gone with
+    // no row left to recover.
+    const local = [person('pax-1', 'Celeste'), person('pax-9', 'Art Danao')]
+    const incoming = [person('pax-1', 'Celeste')]
+    const merged = mergeById(local, incoming)
+    expect(merged.map((p) => p.id).sort()).toEqual(['pax-1', 'pax-9'])
+  })
+
+  it('takes the incoming version of a record both sides know', () => {
+    // A profile edited elsewhere is a newer edit, not a competing one.
+    const merged = mergeById([person('pax-1', 'Old name')], [person('pax-1', 'New name')])
+    expect(merged).toHaveLength(1)
+    expect(merged[0].name).toBe('New name')
+  })
+
+  it('accepts accounts this device has never seen', () => {
+    const merged = mergeById([], [person('pax-4', 'Ces')])
+    expect(merged.map((p) => p.id)).toEqual(['pax-4'])
+  })
+
+  it('is empty only when both sides are', () => {
+    expect(mergeById([], [])).toEqual([])
   })
 })

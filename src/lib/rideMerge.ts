@@ -27,6 +27,31 @@ export function isFinishedRide(status: RideStatus): boolean {
 // This is not a substitute for real conflict resolution, which would need
 // versions on every row. It is the one rule that matters for a pilot: a trip
 // that is over stays over.
+// An account this device knows about is never dropped because the copy
+// arriving from elsewhere has not heard of it yet.
+//
+// Accounts live inside one shared blob that every client writes whole, so
+// two phones are in a race: one registers a passenger and saves; another,
+// still holding the older list, saves a moment later and the new sign-up
+// is gone. Someone who registered successfully then cannot log in, and
+// there is no row left to recover.
+//
+// Keeping the union of both sides means the device that has the account
+// writes it back on its next save instead of adopting its own erasure.
+// The cost is that deleting an account no longer propagates from one
+// device to another — during a pilot, losing a sign-up is much worse
+// than keeping one too long.
+//
+// This is a stopgap. The real fix is a row per account, the way rides
+// already work; see supabase/migrations/0003_accounts_own_rows.sql.
+export function mergeById<T extends { id: string }>(local: T[], incoming: T[]): T[] {
+  const merged = new Map(local.map((item) => [item.id, item]))
+  // Incoming wins on conflict: it is the newer edit of a record both
+  // sides already know. Only records missing from it are preserved.
+  for (const item of incoming) merged.set(item.id, item)
+  return [...merged.values()]
+}
+
 export function mergeIncomingRides(local: Ride[], incoming: Ride[]): Ride[] {
   const mine = new Map(local.map((r) => [r.id, r]))
   return incoming.map((theirs) => {

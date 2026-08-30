@@ -409,3 +409,35 @@ describe('pila order at the terminal', () => {
     expect(order.map((d) => d.id)).toEqual(['drv-b', 'drv-a'])
   })
 })
+
+describe('pricing a group by published fare rather than percentage', () => {
+  const base = { ...DEFAULT_TARIFF_SETTINGS, standardRate: 15, groupRideDiscountPct: 10 }
+  const near = (count: number, tariff: typeof base) =>
+    estimateFareBreakdown(clsu, clsu, tariff, {
+      isStudent: false,
+      isPwdSenior: false,
+      passengerCount: count,
+    }).total
+
+  it('uses the percentage until told otherwise', () => {
+    expect(near(2, base)).toBe(27)
+  })
+
+  it('charges the published fare in flat mode', () => {
+    // An LGU that has printed "P40 for three" should be able to type 40,
+    // rather than reverse-engineering a percentage that lands near it.
+    const flat = { ...base, groupRideFareMode: 'flat' as const, groupRideFlatRate3: 40 }
+    expect(near(3, flat)).toBe(40)
+  })
+
+  it('falls back to the percentage for a size left unset', () => {
+    // A half-filled form must not hand somebody a free ride.
+    const flat = { ...base, groupRideFareMode: 'flat' as const, groupRideFlatRate4: 0 }
+    expect(near(4, flat)).toBe(54)
+  })
+
+  it('leaves solo riders alone in either mode', () => {
+    const flat = { ...base, groupRideFareMode: 'flat' as const, groupRideFlatRate2: 99 }
+    expect(near(1, flat)).toBe(near(1, base))
+  })
+})

@@ -3621,6 +3621,12 @@ export const DEFAULT_TARIFF_SETTINGS: TariffSettings = {
   standardKmCovered: 2,
   extraPassengerFee: 5,
   groupRideDiscountPct: 10,
+  groupRideFareMode: 'percent',
+  // Seeded to what the 10% rule produces at a P15 standard rate, so
+  // switching to flat changes nothing until somebody edits them.
+  groupRideFlatRate2: 27,
+  groupRideFlatRate3: 41,
+  groupRideFlatRate4: 54,
 }
 
 // Admin-configurable flat charge added on top of the standard fare for a
@@ -3680,6 +3686,22 @@ export interface FareBreakdown {
 // group booking of 2-4, standardRate×passengerCount minus the admin-set
 // group discount % replaces the base rate + flat per-head surcharge;
 // discounted rides and groups of 5+ keep using the flat surcharge.
+// What a group of 2-4 pays in total, by whichever method the operator
+// chose. A flat rate of zero is treated as unset and falls through to the
+// percentage: a half-filled form should not hand somebody a free ride.
+function groupFare(tariff: TariffSettings, passengerCount: number): number {
+  if (tariff.groupRideFareMode === 'flat') {
+    const flat =
+      passengerCount === 2
+        ? tariff.groupRideFlatRate2
+        : passengerCount === 3
+          ? tariff.groupRideFlatRate3
+          : tariff.groupRideFlatRate4
+    if (flat > 0) return flat
+  }
+  return tariff.standardRate * passengerCount * (1 - tariff.groupRideDiscountPct / 100)
+}
+
 export function estimateFareBreakdown(
   pickup: MockLocation,
   dropoff: MockLocation,
@@ -3687,9 +3709,7 @@ export function estimateFareBreakdown(
   { isStudent, isPwdSenior, passengerCount }: FareOptions,
 ): FareBreakdown {
   const isGroupEligible = !isStudent && !isPwdSenior && passengerCount >= 2 && passengerCount <= 4
-  const groupRate = isGroupEligible
-    ? tariff.standardRate * passengerCount * (1 - tariff.groupRideDiscountPct / 100)
-    : null
+  const groupRate = isGroupEligible ? groupFare(tariff, passengerCount) : null
   const baseRate =
     typeof groupRate === 'number'
       ? groupRate

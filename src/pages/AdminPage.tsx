@@ -228,6 +228,10 @@ export function AdminPage() {
   const [standardKmInput, setStandardKmInput] = useState(String(tariffSettings.standardKmCovered))
   const [extraPassengerFeeInput, setExtraPassengerFeeInput] = useState(String(tariffSettings.extraPassengerFee))
   const [groupDiscountInput, setGroupDiscountInput] = useState(String(tariffSettings.groupRideDiscountPct))
+  const [groupFareMode, setGroupFareMode] = useState(tariffSettings.groupRideFareMode)
+  const [groupFlat2Input, setGroupFlat2Input] = useState(String(tariffSettings.groupRideFlatRate2))
+  const [groupFlat3Input, setGroupFlat3Input] = useState(String(tariffSettings.groupRideFlatRate3))
+  const [groupFlat4Input, setGroupFlat4Input] = useState(String(tariffSettings.groupRideFlatRate4))
   const [tariffError, setTariffError] = useState('')
   const [pabiliFeeInput, setPabiliFeeInput] = useState(String(pabiliServiceFee))
   const [pabiliFixedFareInput, setPabiliFixedFareInput] = useState(String(pabiliFixedFare))
@@ -347,6 +351,13 @@ export function AdminPage() {
       return
     }
     setTariffError('')
+    const flat2 = Number(groupFlat2Input)
+    const flat3 = Number(groupFlat3Input)
+    const flat4 = Number(groupFlat4Input)
+    if ([flat2, flat3, flat4].some((n) => !Number.isFinite(n) || n < 0)) {
+      setTariffError('Group fares must be numbers of 0 or more.')
+      return
+    }
     setTariffSettings({
       standardRate,
       studentRate,
@@ -355,6 +366,10 @@ export function AdminPage() {
       standardKmCovered,
       extraPassengerFee,
       groupRideDiscountPct,
+      groupRideFareMode: groupFareMode,
+      groupRideFlatRate2: flat2,
+      groupRideFlatRate3: flat3,
+      groupRideFlatRate4: flat4,
     })
     logAdmin(
       'Updated fare tariff',
@@ -600,10 +615,10 @@ export function AdminPage() {
       </>
       )}
 
-      {adminTab === 'settings' && (
-      <>
-      <AccountingOfficerManager />
+      {adminTab === 'settings' && <AccountingOfficerManager />}
 
+      {adminTab === 'fees' && (
+      <>
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="mb-1 text-sm font-semibold text-slate-700">Commission settings</h2>
         <p className="mb-3 text-xs text-slate-500">
@@ -1967,9 +1982,10 @@ export function AdminPage() {
       </>
       )}
 
-      {adminTab === 'settings' && (
+      {adminTab === 'settings' && <BannerAdManager />}
+
+      {adminTab === 'fees' && (
       <>
-      <BannerAdManager />
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="mb-1 text-sm font-semibold text-slate-700">LGU tariff rate</h2>
@@ -2074,12 +2090,63 @@ export function AdminPage() {
             <span className="text-sm text-slate-500">%</span>
           </div>
         </label>
+        {/* Two ways to price a group, because a percentage is a way of
+            deriving a fare and a derived fare can disagree with the one
+            printed on the tricycle. Where the LGU or TODA has published
+            actual figures, an operator should be able to type them. */}
+        <div className="flex flex-wrap items-center gap-2">
+          {([['percent', 'Discount %'], ['flat', 'Set fare per group size']] as const).map(([mode, label]) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setGroupFareMode(mode)}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                groupFareMode === mode
+                  ? 'border-brand-600 bg-brand-50 text-brand-700'
+                  : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {groupFareMode === 'flat' && (
+          <div className="grid grid-cols-3 gap-3">
+            {([
+              ['2 passengers', groupFlat2Input, setGroupFlat2Input],
+              ['3 passengers', groupFlat3Input, setGroupFlat3Input],
+              ['4 passengers', groupFlat4Input, setGroupFlat4Input],
+            ] as const).map(([label, value, setValue]) => (
+              <label key={label} className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-500">{label}</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-slate-500">₱</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                  />
+                </div>
+              </label>
+            ))}
+          </div>
+        )}
+
         {(() => {
           const previewStandardRate = Number(standardRateInput)
           const previewDiscount = Number(groupDiscountInput)
           const validPreview = Number.isFinite(previewStandardRate) && Number.isFinite(previewDiscount)
-          const groupPrice = (count: number) =>
-            validPreview ? Math.round(previewStandardRate * count * (1 - previewDiscount / 100)) : '—'
+          const flatFor = (count: number) =>
+            Number(count === 2 ? groupFlat2Input : count === 3 ? groupFlat3Input : groupFlat4Input)
+          // Mirrors groupFare() in data.ts, including the rule that an unset
+          // flat rate falls back to the percentage rather than to nothing.
+          const groupPrice = (count: number) => {
+            if (groupFareMode === 'flat' && flatFor(count) > 0) return Math.round(flatFor(count))
+            return validPreview ? Math.round(previewStandardRate * count * (1 - previewDiscount / 100)) : '—'
+          }
           return (
             <div className="grid grid-cols-3 gap-3 rounded-lg bg-slate-50 p-2 text-center text-xs text-slate-500">
               <div>

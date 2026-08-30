@@ -9,6 +9,7 @@ export type AdminTab =
   | 'partners'
   | 'drivers'
   | 'rides'
+  | 'fees'
   | 'settings'
   | 'announce'
 
@@ -21,7 +22,12 @@ export const ADMIN_TABS: { id: AdminTab; icon: string; label: string }[] = [
   { id: 'partners', icon: '🏢', label: 'Partners' },
   { id: 'drivers', icon: '🧑‍✈️', label: 'Drivers' },
   { id: 'rides', icon: '🗺️', label: 'Rides & Safety' },
-  { id: 'settings', icon: '⚙️', label: 'Settings & Fees' },
+  // Every figure that decides what somebody pays or keeps, in one place.
+  // They were spread across two halves of the Settings tab with banner ads
+  // and the accounting lock between them, so answering "what do we charge?"
+  // meant scrolling past things that have nothing to do with money.
+  { id: 'fees', icon: '💸', label: 'Fees & Tariff' },
+  { id: 'settings', icon: '⚙️', label: 'Settings' },
   { id: 'announce', icon: '📣', label: 'Announce & Notes' },
 ]
 

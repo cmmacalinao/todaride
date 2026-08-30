@@ -1434,6 +1434,20 @@ export interface TariffSettings {
   // a 2-passenger ride costs standardRate×2×0.9. Discounted-fare riders keep
   // using the flat extraPassengerFee surcharge instead.
   groupRideDiscountPct: number
+  // How a 2-4 group fare is arrived at. 'percent' takes the discount above
+  // off standardRate x passengerCount; 'flat' ignores it and charges the
+  // figure the LGU or TODA actually published for that many riders.
+  //
+  // A percentage is a way of deriving a fare, and a derived fare can
+  // disagree with the one on the tricycle. Where an operator has been
+  // given the numbers, they should be able to type the numbers.
+  groupRideFareMode: 'percent' | 'flat'
+  // Total fare for the whole group at each size, used only in flat mode.
+  // Zero means "not set", and falls back to the percentage rather than
+  // charging nobody anything.
+  groupRideFlatRate2: number
+  groupRideFlatRate3: number
+  groupRideFlatRate4: number
 }
 
 // Who made a logged change — an audit-trail concept, not a login role (see

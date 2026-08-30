@@ -3,6 +3,9 @@ import { sendRealOtp, verifyRealOtp } from '../lib/otpApi'
 import { useRides } from '../context/RideContext'
 
 interface OtpVerifyProps {
+  // Off by default: a caller has to say it is worth a credit. See
+  // handleSend for which moments are.
+  sendRealSms?: boolean
   phone: string
   verified: boolean
   onVerifiedChange: (verified: boolean) => void
@@ -16,7 +19,7 @@ interface OtpVerifyProps {
 // code is shown on screen; off, a real code is required and an unreachable
 // server surfaces as an error instead of silently degrading — which is the
 // only way to tell that real texts are genuinely working.
-export function OtpVerify({ phone, verified, onVerifiedChange }: OtpVerifyProps) {
+export function OtpVerify({ phone, verified, onVerifiedChange, sendRealSms = false }: OtpVerifyProps) {
   const { simulatedOtpEnabled } = useRides()
   const [sent, setSent] = useState(false)
   const [code, setCode] = useState('')
@@ -29,7 +32,16 @@ export function OtpVerify({ phone, verified, onVerifiedChange }: OtpVerifyProps)
   }
 
   async function handleSend() {
-    if (simulatedOtpEnabled) {
+    // Real texts are for signing up, and nothing else.
+    //
+    // Every send costs a Semaphore credit, and this component is the one
+    // people press most: logging in, logging in by TRC number, forgetting a
+    // password. Someone already registered has a password and a fingerprint
+    // to get back in with, so texting them a code again is paying to repeat
+    // a thing already proven -- and a mistyped number or an impatient
+    // second tap costs the same as a real one. Registration is the moment
+    // the number actually needs proving, so that is where the credits go.
+    if (simulatedOtpEnabled || !sendRealSms) {
       setError('')
       setLocalCode(String(Math.floor(1000 + Math.random() * 9000)))
       setSent(true)

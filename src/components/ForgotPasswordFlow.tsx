@@ -159,7 +159,18 @@ export function ForgotPasswordFlow({ onClose }: { onClose: () => void }) {
             Resetting the PIN for <span className="font-semibold">{chosen.name}</span> ({KIND_LABELS[chosen.kind]}) ·{' '}
             {maskPhone(chosen.phone)}
           </p>
-          <OtpVerify phone={chosen.phone} verified={otpVerified} onVerifiedChange={setOtpVerified} />
+          {/* Worth a credit. This is the one screen where the code is the
+              only thing standing between a phone number and somebody else's
+              account -- shown on screen instead, anyone who knows a number
+              could reset the PIN behind it without ever holding the phone.
+              It also fires rarely: only when someone is genuinely locked
+              out. */}
+          <OtpVerify
+            phone={chosen.phone}
+            verified={otpVerified}
+            onVerifiedChange={setOtpVerified}
+            sendRealSms
+          />
 
           {otpVerified && (
             <div className="space-y-2 border-t border-slate-100 pt-2">

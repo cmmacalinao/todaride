@@ -520,13 +520,16 @@ export function PassengerPage() {
     //    trip possible. Open Where to, change its city, and the From you
     //    already chose stays put.
     const movesPickup = openEnd !== 'dropoff'
-    // On a ride, a destination nobody has chosen yet stays unchosen: moving
-    // both ends is a convenience for setting up a same-city trip, not licence
-    // to fill in the one field the passenger is supposed to answer. (It also
-    // put the same market at both ends, which booked a trip to nowhere.) An
-    // errand's "Deliver to" is where the customer already is, so it still
-    // follows the city.
-    const movesDropoff = openEnd !== 'pickup' && (isErrand || dropoffChosen)
+    // The list follows the city at both ends, always.
+    //
+    // This used to also require the destination to have been chosen already,
+    // which was guarding against something that can no longer happen: back
+    // when changing the city resolved an address, letting it touch an
+    // unchosen destination filled in the field the passenger is supposed to
+    // answer. Nothing is resolved any more -- only the dropdown is reseeded --
+    // so the guard had stopped protecting anything and was instead leaving
+    // somebody who switched to Munoz picking from San Jose's barangays.
+    const movesDropoff = openEnd !== 'pickup'
 
     if (movesDropoff) {
       // Same rule as the pickup below: the barangay list follows the city,

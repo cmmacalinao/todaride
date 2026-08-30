@@ -30,6 +30,7 @@ import {
   getTerminalGps,
 } from '../mock/data'
 import { getCurrentGeoPosition } from '../lib/geo'
+import { isInAppBrowser, openInBrowserHint } from '../lib/inAppBrowser'
 import { isWithinRetentionDays } from '../lib/tracking'
 import {
   createCustomLocation,
@@ -202,6 +203,8 @@ export function PassengerPage() {
   const [cityScope, setCityScope] = useState('')
   const [pickupGps, setPickupGps] = useState<GeoCoords | null>(null)
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'locating' | 'done' | 'error'>('idle')
+  // Fixed for the life of the page — the browser cannot change underneath us.
+  const inApp = isInAppBrowser()
   const [gpsError, setGpsError] = useState('')
   const [serviceType, setServiceType] = useState<ServiceType>('ride')
   const [pabiliItems, setPabiliItems] = useState('')
@@ -1060,12 +1063,6 @@ export function PassengerPage() {
     handleDropoffQuickPick(point)
   }
 
-  async function handlePickupCityQuickPick(newCity: string) {
-    const point = await resolveNearbyPublicMarket(newCity, DEFAULT_BOOKING_PROVINCE)
-    setCustomLocations((prev) => [...prev, point])
-    handlePickupQuickPick(point)
-  }
-
   // Picking a registered store for Pabili's pickup ("Buy near to") — same
   // "must exist in customLocations before pickupId can point at it" rule as
   // every other custom pickup here (allLocations is built from
@@ -1411,6 +1408,17 @@ export function PassengerPage() {
                 pinned={pickupGps !== null || !!pickup.gps}
               />
               {gpsStatus === 'error' && gpsError && <p className="text-[11px] text-amber-700">{gpsError}</p>}
+              {/* Shown only after a failure, and only inside an embedded
+                  browser. Messenger and the like refuse geolocation without
+                  saying so, which looks exactly like a broken feature:
+                  everything works except finding where you are. Two pilot
+                  testers hit this and nothing on screen could tell them why. */}
+              {gpsStatus === 'error' && inApp && (
+                <p className="mt-1 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] leading-snug text-amber-800">
+                  You opened this inside another app, and it will not share your location.{' '}
+                  {openInBrowserHint()}
+                </p>
+              )}
               </div>
             )}
             {/* The connector only makes sense while the two rows are touching —

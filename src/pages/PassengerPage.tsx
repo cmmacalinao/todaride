@@ -1240,10 +1240,17 @@ export function PassengerPage() {
         // them, and the view jumping to re-frame a pickup or destination
         // takes the map out from under them mid-glance. That screen keeps
         // whatever framing it was given.
+        // Only a point actually moving re-frames the map.
+        //
+        // The city used to be in here too, and tapping FROM or Destination
+        // sets the city scope to whichever end was opened — so merely
+        // opening a box swung the map, before the passenger had said
+        // anything. Naming a city no longer picks an address either, so
+        // there is nothing for the map to move to when it changes.
         refitSignal={
           terminalOpen
             ? 'terminal'
-            : `${cityScope}|${pickup.id}|${hasDestination ? dropoff.id : 'none'}|${groupMapPoints.length}`
+            : `${pickup.id}|${hasDestination ? dropoff.id : 'none'}|${groupMapPoints.length}`
         }
         hasDropoff={hasDestination}
         hasPickup={pickupChosen}
@@ -1587,6 +1594,22 @@ export function PassengerPage() {
           Bumalik sa booking
         </button>
         <TerminalBoardingPanel onClose={() => setTerminalOpen(false)} mapSlot={sharedMap} />
+
+        {/* Folded away by default.
+
+            This screen exists to answer one question — which tricycle am I
+            in — and the app asks for the destination once the trip is
+            recorded and moving, because somebody who has just sat down is
+            not reading a form. But a passenger who already knows where they
+            are going should not have to wait to be asked, so the boxes are
+            here, shut, one tap away. */}
+        <details className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <summary className="cursor-pointer list-none px-3 py-2.5 text-xs font-semibold text-slate-700">
+            Alam mo na kung saan ka pupunta?
+            <span className="ml-1 font-normal text-slate-400">— ilagay na ang address</span>
+          </summary>
+          <div className="border-t border-slate-100 p-2">{addressCard(false)}</div>
+        </details>
       </div>
     )
   }

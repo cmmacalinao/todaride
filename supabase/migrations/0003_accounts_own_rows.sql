@@ -45,3 +45,10 @@ create trigger passenger_touch_updated_at
 create trigger parent_touch_updated_at
   before update on parent
   for each row execute function touch_updated_at();
+
+-- Without this the new tables are invisible to every other device until it
+-- reloads: the client subscribes to postgres_changes on each table it reads,
+-- and a table outside the publication simply never fires. A registration
+-- would land in the database and reach nobody.
+alter publication supabase_realtime add table passenger;
+alter publication supabase_realtime add table parent;

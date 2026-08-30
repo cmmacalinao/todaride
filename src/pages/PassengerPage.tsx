@@ -195,7 +195,11 @@ export function PassengerPage() {
   // NOT to the booking — a trip from CLSU to San Jose City is two different
   // cities, and the picker has to be able to point at each in turn without
   // the second choice overwriting the first.
-  const [cityScope, setCityScope] = useState(DEFAULT_BOOKING_CITY)
+  // Blank until someone says, like the two address boxes below it. A city
+  // sitting there unasked is the same guess-as-answer the pickup used to
+  // make: it decides which barangays the picker offers, so a passenger in
+  // San Jose was shown a list from Munoz and had to notice.
+  const [cityScope, setCityScope] = useState('')
   const [pickupGps, setPickupGps] = useState<GeoCoords | null>(null)
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'locating' | 'done' | 'error'>('idle')
   const [gpsError, setGpsError] = useState('')
@@ -507,12 +511,26 @@ export function PassengerPage() {
       else void handleDropoffCityQuickPick(nextCity)
     }
     if (movesPickup) {
-      setPickupPickerSeed(seed)
-      // A city with a known default barangay resolves straight to it; one
-      // without falls back to the city-centre quick-pick, the best guess
-      // available when there is no barangay to aim at.
-      if (presetAddress) void handlePickupResolve(presetAddress)
-      else void handlePickupCityQuickPick(nextCity)
+      // The barangay list follows the city; the pickup itself does not.
+      //
+      // Choosing a city used to resolve straight to that city's default
+      // barangay -- CLSU for Munoz, and a centre point for everywhere else
+      // -- so naming the city silently answered the question underneath it
+      // as well. The passenger then had a real address in the field that
+      // sets the fare and dispatches a driver, chosen by nobody, and had to
+      // notice it was wrong. Same guess-as-answer as the old CLSU default,
+      // one screen along.
+      //
+      // The dropdowns still repopulate for the new city, so the list they
+      // offer is the right one. Nothing is picked from it.
+      setPickupPickerSeed((prev) => ({
+        key: prev.key + 1,
+        province: DEFAULT_BOOKING_PROVINCE,
+        city: nextCity,
+        barangay: '',
+        addressDetail: '',
+      }))
+      setPickupChosen(false)
     }
   }
 
@@ -1337,6 +1355,7 @@ export function PassengerPage() {
               onChange={(e) => handleHomeCityChange(e.target.value)}
               className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
             >
+              <option value="">Select city…</option>
               {getCitiesForProvince(DEFAULT_BOOKING_PROVINCE).map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -1380,11 +1399,7 @@ export function PassengerPage() {
                 hideRegionSelects
                 defaultProvince={pickupPickerSeed.province || DEFAULT_BOOKING_PROVINCE}
                 defaultCity={pickupPickerSeed.city || DEFAULT_BOOKING_CITY}
-                defaultBarangay={
-                  pickupPickerSeed.barangay ||
-                  defaultBarangayForCity(pickupPickerSeed.city || DEFAULT_BOOKING_CITY) ||
-                  DEFAULT_BOOKING_BARANGAY
-                }
+                defaultBarangay={pickupPickerSeed.barangay}
                 defaultAddressDetail={pickupPickerSeed.addressDetail}
                 onResolve={handlePickupResolve}
                 onConfirm={() => setOpenEnd(null)}

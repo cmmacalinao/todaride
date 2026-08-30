@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { InstallAppButton } from './InstallAppButton'
+import { ShareAppPanel } from './ShareAppPanel'
 import type { AccountPanelKind } from './AccountPanels'
 import { useRides } from '../context/RideContext'
 
@@ -205,6 +206,7 @@ export function NavDrawer({
   onSwitchToTodaAdmin: () => void
 }) {
   const { pabiliEnabled, medsEnabled } = useRides()
+  const [showShare, setShowShare] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -297,8 +299,20 @@ export function NavDrawer({
         {/* Offered where someone already went looking for the app's own
             controls, and only when the browser says an install is actually
             available (see InstallAppButton — it renders nothing otherwise). */}
-        <div className="px-2 pt-2">
+        <div className="space-y-1.5 px-2 pt-2">
           <InstallAppButton />
+          {/* Next to the install row because it answers the neighbouring
+              question: not "put this on my phone" but "put it on theirs".
+              The pilot spreads at a terminal, one person showing another,
+              and that moment needs a code to point a camera at. */}
+          <button
+            type="button"
+            onClick={() => { onClose(); setShowShare(true) }}
+            className="flex w-full items-center gap-2 rounded-lg border-2 border-brand-300 bg-brand-50 px-3 py-2 text-left transition hover:bg-brand-100"
+          >
+            <span aria-hidden className="text-lg leading-none">📲</span>
+            <span className="min-w-0 flex-1 text-xs font-bold text-brand-800">Share the app · QR code</span>
+          </button>
         </div>
 
         <nav className="flex-1 space-y-0.5 p-2">
@@ -331,6 +345,7 @@ export function NavDrawer({
           })}
         </nav>
       </div>
+      {showShare && <ShareAppPanel onClose={() => setShowShare(false)} />}
     </>
   )
 }

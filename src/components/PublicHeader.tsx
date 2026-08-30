@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { InstallAppButton } from './InstallAppButton'
+import { ShareAppPanel } from './ShareAppPanel'
 import { EmergencyNumbersPanel } from './EmergencyNumbersPanel'
 import { ContactUsForm } from './ContactUsForm'
 import { THEME_OPTIONS, useTheme } from '../context/ThemeContext'
@@ -26,6 +27,7 @@ export function PublicHeader({ title = 'TODA SafeRide' }: { title?: string }) {
   const onLanding = location.pathname === '/'
   const [menuOpen, setMenuOpen] = useState(false)
   const [showHotlines, setShowHotlines] = useState(false)
+  const [showShare, setShowShare] = useState(false)
   const [showContact, setShowContact] = useState(false)
   const [showTheme, setShowTheme] = useState(false)
   const { theme, setTheme } = useTheme()
@@ -124,8 +126,19 @@ export function PublicHeader({ title = 'TODA SafeRide' }: { title?: string }) {
                 first-visit decision — by the time someone has an account they
                 have already decided how they reach the app — and the signed-in
                 drawer is the one place a logged-out visitor cannot get to. */}
-            <div className="px-2 pt-2">
+            <div className="space-y-1.5 px-2 pt-2">
               <InstallAppButton />
+              {/* And the same before signing in: most of the pilot arrives
+                  because somebody standing next to them showed them a code,
+                  and that person may not have an account either. */}
+              <button
+                type="button"
+                onClick={() => { setMenuOpen(false); setShowShare(true) }}
+                className="flex w-full items-center gap-2 rounded-lg border-2 border-brand-300 bg-brand-50 px-3 py-2 text-left transition hover:bg-brand-100"
+              >
+                <span aria-hidden className="text-lg leading-none">📲</span>
+                <span className="min-w-0 flex-1 text-xs font-bold text-brand-800">Share the app · QR code</span>
+              </button>
             </div>
 
             <nav className="p-2">
@@ -231,6 +244,7 @@ export function PublicHeader({ title = 'TODA SafeRide' }: { title?: string }) {
           </div>
         </div>
       )}
+      {showShare && <ShareAppPanel onClose={() => setShowShare(false)} />}
     </>
   )
 }

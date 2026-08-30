@@ -1390,12 +1390,22 @@ const OLD_RECORDED_PICKUP_LABELS = [
   'Where you from',
 ]
 
+// Both ends, not just the pickup.
+//
+// A recorded trip starts with its dropoff set to a copy of its pickup —
+// there is no destination until the passenger gives one — so the label
+// lives twice on the same ride. And the booking form seeds the next
+// pickup from the last trip DROPOFF, on the reasoning that you are
+// standing where you got out. Rewriting only the pickup therefore fixed
+// the copy nobody reads and left the one on screen.
 function migrateRecordedPickupLabel(rides: Ride[]): Ride[] {
-  return rides.map((ride) =>
-    ride.pickup && OLD_RECORDED_PICKUP_LABELS.includes(ride.pickup.label)
-      ? { ...ride, pickup: { ...ride.pickup, label: RECORDED_PICKUP_LABEL } }
-      : ride,
-  )
+  const fix = (loc: MockLocation | null | undefined) =>
+    loc && OLD_RECORDED_PICKUP_LABELS.includes(loc.label) ? { ...loc, label: RECORDED_PICKUP_LABEL } : loc
+  return rides.map((ride) => ({
+    ...ride,
+    pickup: fix(ride.pickup) ?? ride.pickup,
+    dropoff: fix(ride.dropoff) ?? ride.dropoff,
+  }))
 }
 
 function migrateBannerAd(ad: BannerAd | null): BannerAd | null {

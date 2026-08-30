@@ -1604,7 +1604,11 @@ function fromStored(parsed: StoredState): RideState {
     pabiliEnabled: parsed.pabiliEnabled ?? false,
     medsEnabled: parsed.medsEnabled ?? false,
     vendorsEnabled: parsed.vendorsEnabled ?? false,
-    simulatedOtpEnabled: parsed.simulatedOtpEnabled ?? true,
+    // Real codes unless somebody has said otherwise. The endpoint is live
+    // and the account has credits, so a pilot with real testers should be
+    // proving the real path. An install that has already chosen keeps its
+    // choice — this only changes what a fresh one starts with.
+    simulatedOtpEnabled: parsed.simulatedOtpEnabled ?? false,
     publicBaseUrl: parsed.publicBaseUrl ?? '',
     // Off unless somebody has said otherwise. The pilot is on real roads
     // now, so the map should move because a tricycle moved. An install that
@@ -1796,7 +1800,7 @@ function loadInitialState(): RideState {
     pabiliEnabled: false,
     medsEnabled: false,
     vendorsEnabled: false,
-    simulatedOtpEnabled: true,
+    simulatedOtpEnabled: false,
     publicBaseUrl: '',
     simulateMovementEnabled: false,
     liveGpsEnabled: true,

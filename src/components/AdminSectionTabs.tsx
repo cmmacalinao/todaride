@@ -12,6 +12,7 @@ export type AdminTab =
   | 'fees'
   | 'settings'
   | 'announce'
+  | 'checklist'
 
 export const ADMIN_TABS: { id: AdminTab; icon: string; label: string }[] = [
   { id: 'overview', icon: '📊', label: 'Overview' },
@@ -29,6 +30,9 @@ export const ADMIN_TABS: { id: AdminTab; icon: string; label: string }[] = [
   { id: 'fees', icon: '💸', label: 'Fees & Tariff' },
   { id: 'settings', icon: '⚙️', label: 'Settings' },
   { id: 'announce', icon: '📣', label: 'Announce & Notes' },
+  // Last in the row on purpose: it is a guide somebody opens deliberately,
+  // not a section they pass through while running the pilot.
+  { id: 'checklist', icon: '✅', label: 'Checklist' },
 ]
 
 // The section strip used to be local state inside AdminPage, so it vanished

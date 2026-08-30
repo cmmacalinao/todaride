@@ -2,6 +2,7 @@ import { formatTripRoute } from '../lib/addressFormat'
 import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AdminSectionTabs, useAdminTab } from '../components/AdminSectionTabs'
+import { PilotTestChecklist } from '../components/PilotTestChecklist'
 import { BannerAdManager } from '../components/BannerAdManager'
 import { useRides, usePublicOrigin } from '../context/RideContext'
 import { ShareLinkNotice } from '../components/ShareLinkNotice'
@@ -2402,6 +2403,8 @@ export function AdminPage() {
       </section>
       </>
       )}
+
+      {adminTab === 'checklist' && <PilotTestChecklist />}
 
       {adminTab === 'announce' && (
         <>

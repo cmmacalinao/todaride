@@ -15,10 +15,10 @@ import { QRCodeSVG } from 'qrcode.react'
 export const APP_URL = 'https://todasaferide.com'
 
 // What actually gets handed out. The ?fresh tells the app at the other end
-// to throw away whatever build that phone had cached before it opens, and
-// to land on the offer to keep it on the home screen — see freshStart. A
-// phone being handed the app is starting from scratch by definition, and
-// the one thing it must not do is open a copy from three deploys ago.
+// to throw away whatever build that phone had cached before it opens — see
+// freshStart. A phone being handed the app is starting from scratch by
+// definition, and the one thing it must not do is open a copy from three
+// deploys ago.
 export const SHARE_URL = `${APP_URL}/?fresh=1`
 
 export function ShareAppPanel({ onClose }: { onClose: () => void }) {
@@ -58,8 +58,7 @@ export function ShareAppPanel({ onClose }: { onClose: () => void }) {
           <div>
             <h2 className="text-base font-bold text-navy-900">Get TODA SafeRide</h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              Point a phone camera at the code. It clears out any old copy, opens the app, and offers to put
-              it on the home screen.
+              Point a phone camera at the code. It clears out any old copy and opens the app.
             </p>
           </div>
           <button

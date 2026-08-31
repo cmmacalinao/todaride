@@ -26,10 +26,6 @@
 // should not be signed out for it.
 export const FRESH_PARAM = 'fresh'
 
-// Handed off across the reload, because the reset replaces the URL and would
-// otherwise take the reason for the visit with it. See AddToHomeSheet.
-export const ADD_PARAM = 'add'
-
 // A phone on a bad signal must not be left staring at a blank page while the
 // worker thinks about it. Past this, carry on with whatever is already there.
 const UPDATE_TIMEOUT_MS = 8000
@@ -56,7 +52,31 @@ async function adoptNewestWorker(registration: ServiceWorkerRegistration): Promi
   })
 }
 
+// Something to look at while the worker updates.
+//
+// The reset mounts no app — that is the point of it — so without this the
+// person who just scanned a code at a terminal watches a blank white page for
+// as long as the update takes. A blank page reads as a broken link, and the
+// one thing this route must not do is look broken to somebody being handed
+// the app for the first time.
+//
+// Written straight into the document rather than rendered: React is not
+// running on this path and starting it up to show one line would be slower
+// than the thing it is apologising for.
+function showUpdatingSplash(): void {
+  const root = document.getElementById('root')
+  if (!root) return
+  root.innerHTML = `
+    <div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#1e3a8a;font-family:system-ui,-apple-system,'Segoe UI',sans-serif">
+      <img src="/logo.webp" alt="TODA SafeRide" style="width:150px;max-width:60vw;height:auto" />
+      <div style="width:26px;height:26px;border:3px solid rgba(255,255,255,.28);border-top-color:#fbbf24;border-radius:50%;animation:toda-spin .8s linear infinite"></div>
+      <p style="margin:0;color:#e2e8f0;font-size:13px;letter-spacing:.01em">Kinukuha ang pinakabagong bersyon…</p>
+      <style>@keyframes toda-spin{to{transform:rotate(360deg)}}</style>
+    </div>`
+}
+
 export async function freshStart(): Promise<void> {
+  showUpdatingSplash()
   try {
     if ('serviceWorker' in navigator) {
       const registrations = await navigator.serviceWorker.getRegistrations()
@@ -76,9 +96,12 @@ export async function freshStart(): Promise<void> {
 
   const url = new URL(window.location.href)
   url.searchParams.delete(FRESH_PARAM)
-  // Whoever scanned the code was offered the app by someone; land them on the
-  // offer to keep it, rather than making them find it in a menu later.
-  url.searchParams.set(ADD_PARAM, '1')
+  // A build that briefly shipped handed itself ?add to raise an install
+  // prompt on arrival. That prompt is gone, and nothing strips the parameter
+  // any more, so it would sit in the address bar of every phone still running
+  // that build until it next updated. Clear it here, where such a phone is
+  // guaranteed to pass through.
+  url.searchParams.delete('add')
   // replace, not assign: the ?fresh address must not sit in history, where
   // Back would run the whole routine again.
   window.location.replace(url.toString())

@@ -25,7 +25,6 @@ import { MedsRideBookingPage } from './pages/MedsRideBookingPage'
 import { PharmacyPortalPage } from './pages/PharmacyPortalPage'
 import { OperatorPortalPage } from './pages/OperatorPortalPage'
 import { FranchisePage } from './pages/FranchisePage'
-import { AddToHomeSheet } from './components/AddToHomeSheet'
 import { AppUpdateWatcher } from './components/AppUpdateWatcher'
 import { RideProvider } from './context/RideContext'
 import { SessionProvider, useSession } from './context/SessionContext'
@@ -233,11 +232,10 @@ export default function App() {
     <ThemeProvider>
       <SessionProvider>
         <RideProvider>
-          {/* Both live above every route and outside the auth gate: a phone can
-              be out of date, or newly handed the app, on any screen at all —
-              including before anybody has signed in. */}
+          {/* Above every route and outside the auth gate: a phone can be out
+              of date on any screen at all, including before anybody has
+              signed in. */}
           <AppUpdateWatcher />
-          <AddToHomeSheet />
           <AppShell />
         </RideProvider>
       </SessionProvider>

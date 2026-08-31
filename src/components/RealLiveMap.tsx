@@ -72,6 +72,9 @@ interface RealLiveMapProps {
   // It still yields the instant the reader takes the map over (see
   // FitBounds), and re-locking the map hands the frame back.
   followAll?: boolean
+  // The account owner's own live position. Given, a pinch re-centres the map
+  // on them instead of on wherever the frame happened to be.
+  centerOn?: GeoCoords | null
   // A trip moment worth re-framing for — pass a value that changes at that
   // moment (arrival at the pickup point) and the map fits everything again,
   // even if the viewer had panned away. Arrival ends one leg and begins
@@ -198,11 +201,15 @@ function FitBounds({
   refitSignal,
   fitPointIds,
   followAll,
+  centerOn,
 }: {
   points: MapPoint[]
   refitSignal?: string
   fitPointIds?: string[]
   followAll?: boolean
+  // Where the person holding the phone is. Given, the map re-centres on it
+  // whenever the zoom changes.
+  centerOn?: GeoCoords | null
 }) {
   const map = useMap()
   const userMovedRef = useRef(false)
@@ -250,6 +257,28 @@ function FitBounds({
   const fitKey = followAll
     ? framed.map((p) => `${p.id}:${p.gps.lat.toFixed(4)},${p.gps.lng.toFixed(4)}`).join('|')
     : framed.map((p) => p.id).join(',')
+
+  // Zooming keeps you in the middle.
+  //
+  // Leaflet zooms about the centre of the current view, so a map framed on a
+  // pickup and a destination drifts further from the person every time they
+  // pinch — by the third zoom the thing they were trying to look at more
+  // closely is off the edge. Re-centring on their own position makes the zoom
+  // mean "closer to me", which is what a pinch means on every other map they
+  // have ever used.
+  //
+  // Only on zoom, never on pan: dragging is how somebody looks at somewhere
+  // else, and snapping back would make that impossible.
+  const centerRef = useRef(centerOn)
+  centerRef.current = centerOn
+  useMapEvents({
+    zoomend() {
+      const here = centerRef.current
+      if (!here) return
+      programmaticRef.current = true
+      map.setView([here.lat, here.lng], map.getZoom(), { animate: true })
+    },
+  })
 
   useEffect(() => {
     if (framed.length === 0) return
@@ -364,7 +393,7 @@ function ClickHandler({ onMapClick }: { onMapClick: (gps: GeoCoords) => void }) 
 
 // The free, keyless renderer — OpenStreetMap tiles via Leaflet. Used
 // whenever no Google Maps API key is configured (see RealLiveMap below).
-function OsmLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, frozen, draggableIds, onPointDragEnd, height = '220px', panLock }: RealLiveMapProps & { panLock?: { unlocked: boolean; onToggle: () => void } }) {
+function OsmLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen, draggableIds, onPointDragEnd, height = '220px', panLock }: RealLiveMapProps & { panLock?: { unlocked: boolean; onToggle: () => void } }) {
   const center: [number, number] = [points[0].gps.lat, points[0].gps.lng]
 
   return (
@@ -424,7 +453,7 @@ function OsmLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, on
       ))}
       <FreezeView frozen={frozen} />
       {panLock && <PanLockControl unlocked={panLock.unlocked} onToggle={panLock.onToggle} />}
-      <FitBounds points={points} refitSignal={refitSignal} fitPointIds={fitPointIds} followAll={followAll} />
+      <FitBounds points={points} refitSignal={refitSignal} fitPointIds={fitPointIds} followAll={followAll} centerOn={centerOn} />
     </MapContainer>
   )
 }
@@ -510,7 +539,7 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, height }: RealLiveMapProps) {
+export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, height }: RealLiveMapProps) {
   // If the Google script fails to load (bad key, network block, CSP), fall
   // back to the OSM/Leaflet canvas instead of showing an empty map.
   const [googleFailed, setGoogleFailed] = useState(false)
@@ -615,6 +644,7 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
           refitSignal={framingSignal}
           fitPointIds={fitPointIds}
           followAll={followAll}
+          centerOn={centerOn}
           frozen={locked}
           height={height}
           panLock={

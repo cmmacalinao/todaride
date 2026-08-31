@@ -293,7 +293,16 @@ export function LocationMapPicker({
           {target === 'pickup' ? pickupLabel : dropoffLabel}
         </span>
       </p>
-      <RealLiveMap points={points} onMapClick={placePin} hideLegend refitSignal={refitSignal} />
+      {/* centerOn: a pinch means "closer to me". Without it the map zooms
+          about whatever the frame happened to be centred on, and the person
+          doing the pinching slides off the edge. */}
+      <RealLiveMap
+        points={points}
+        onMapClick={placePin}
+        hideLegend
+        refitSignal={refitSignal}
+        centerOn={myPosition}
+      />
       {/* Under the map: book on the left, how many are riding on the right. */}
       {(leadingAction || underMapAction) && (
         <div className="flex items-center gap-2">

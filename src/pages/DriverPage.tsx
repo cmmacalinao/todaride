@@ -1273,7 +1273,11 @@ export function DriverPage() {
             hintLine={sharedHintLine}
           />
         ) : (
-          <RealLiveMap points={dashboardMapPoints} height="calc(100vh - 300px)" />
+          /* centerOn is deliberately not passed to the trip map below: while
+             a trip is running the frame holds the driver, the passenger and
+             both ends of the journey, and re-centring on one of them would
+             push the other three out. */
+          <RealLiveMap points={dashboardMapPoints} height="calc(100vh - 300px)" centerOn={myLiveGps} />
         )}
       </div>
 

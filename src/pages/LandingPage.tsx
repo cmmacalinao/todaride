@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { AppLoginForm } from '../components/AppLoginForm'
+import { AndroidAppBanner } from '../components/AndroidAppBanner'
 
 // Trimmed from ten to the four the brand board leads with — a first screen
 // that lists everything sells nothing. The rest still describe the product,
@@ -91,6 +92,11 @@ export function LandingPage() {
           ))}
         </div>
       </section>
+
+      {/* Below the features, above the sign-up card: by here somebody has
+          seen what the app does, which is the point at which installing it
+          is a reasonable thing to ask. Renders nothing off Android. */}
+      <AndroidAppBanner />
 
       <section className="bg-white px-5 pb-10">
         <div className="rounded-xl bg-brand-600 p-5 text-center">

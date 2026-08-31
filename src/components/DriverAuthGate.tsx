@@ -653,7 +653,7 @@ function RegisterForm({
   invite: DriverInvite | null
   inviteTodaOrgId: string | null
 }) {
-  const { todaOrganizations, addUnregisteredToda } = useRides()
+  const { todaOrganizations, addUnregisteredToda, openDriverSignup } = useRides()
   // An invite already identifies who this is and which TODA vouched for
   // them, so it skips the OTP identity-verification step entirely and goes
   // straight to filling in the rest (plate/license/address/PIN/documents).
@@ -720,10 +720,18 @@ function RegisterForm({
       setError('Your license expiry date must be in the future — an expired license can\'t be used to register.')
       return
     }
-    const missing = DOCUMENT_TYPES.filter((t) => !documents[t].submitted)
-    if (missing.length > 0) {
-      setError(`Please upload: ${missing.map((t) => DOCUMENT_LABELS[t]).join(', ')}.`)
-      return
+    // Documents are required unless the pilot flag says otherwise. During a
+    // pilot the driver is standing in front of whoever is signing them up,
+    // their papers are in their hand, and blocking on an upload from a phone
+    // at a terminal loses the tester rather than protecting anyone. Turn
+    // "Open driver signup" off in Super Admin and this is a hard requirement
+    // again — which it must be before anyone real is carried.
+    if (!openDriverSignup) {
+      const missing = DOCUMENT_TYPES.filter((t) => !documents[t].submitted)
+      if (missing.length > 0) {
+        setError(`Please upload: ${missing.map((t) => DOCUMENT_LABELS[t]).join(', ')}.`)
+        return
+      }
     }
     const resolvedTodaOrgId =
       todaSelection === null
@@ -755,9 +763,13 @@ function RegisterForm({
   if (submitted) {
     return (
       <section className="rounded-xl border border-brand-200 bg-brand-50 p-4 text-center">
-        <p className="text-sm font-semibold text-brand-800">Application submitted</p>
+        <p className="text-sm font-semibold text-brand-800">
+          {openDriverSignup ? 'You are registered' : 'Application submitted'}
+        </p>
         <p className="mt-1 text-xs text-slate-600">
-          Your documents are with Admin for review. You'll be able to log in once your account is approved.
+          {openDriverSignup
+            ? 'Pilot testing: your account is active straight away. Log in with your plate number and PIN. Admin can still ask for your documents later.'
+            : "Your documents are with Admin for review. You'll be able to log in once your account is approved."}
         </p>
         <button
           onClick={onSubmitted}
@@ -1022,7 +1034,18 @@ function RegisterForm({
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs font-medium text-slate-500">Required documents</p>
+        {/* The heading has to match what the form will actually enforce. A
+            section headed "Required" that submits without them teaches the
+            driver that this form does not mean what it says. */}
+        <p className="text-xs font-medium text-slate-500">
+          {openDriverSignup ? 'Documents — optional during pilot testing' : 'Required documents'}
+        </p>
+        {openDriverSignup && (
+          <p className="text-[11px] leading-snug text-slate-500">
+            Makakapagsimula ka agad kahit wala pa ang mga ito. Hihingin pa rin ng Admin ang mga papeles mo
+            bago ang totoong pasada.
+          </p>
+        )}
         {DOCUMENT_TYPES.map((type) => (
           <DocumentUploadField
             key={type}

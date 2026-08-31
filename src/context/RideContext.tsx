@@ -379,6 +379,12 @@ interface RideState {
   // see whether GPS is accurate enough on the handsets a pilot actually
   // uses, not a way to keep a record of where anyone went.
   liveGpsEnabled: boolean
+  // Pilot testing only. Lets a driver sign up without uploading anything
+  // and approves them on the spot, because during a pilot the person
+  // registering is standing in front of you and there is nobody staffing an
+  // approvals queue. Off is the real behaviour: documents required, Admin
+  // reviews, driver waits.
+  openDriverSignup: boolean
   // Real dialable numbers (see EmergencyHotline) — not simulated.
   emergencyHotlines: EmergencyHotline[]
 }
@@ -505,6 +511,7 @@ type RideAction =
   | { type: 'SET_PUBLIC_BASE_URL'; url: string }
   | { type: 'SET_SIMULATE_MOVEMENT_ENABLED'; enabled: boolean }
   | { type: 'SET_LIVE_GPS_ENABLED'; enabled: boolean }
+  | { type: 'SET_OPEN_DRIVER_SIGNUP'; enabled: boolean }
   | { type: 'ADD_EMERGENCY_HOTLINE'; hotline: EmergencyHotline }
   | { type: 'UPDATE_EMERGENCY_HOTLINE'; id: string; updates: Partial<Omit<EmergencyHotline, 'id'>> }
   | { type: 'REMOVE_EMERGENCY_HOTLINE'; id: string }
@@ -1371,6 +1378,7 @@ interface StoredState {
   publicBaseUrl?: string
   simulateMovementEnabled?: boolean
   liveGpsEnabled?: boolean
+  openDriverSignup?: boolean
   emergencyHotlines?: EmergencyHotline[]
 }
 
@@ -1619,6 +1627,7 @@ function fromStored(parsed: StoredState): RideState {
     // one starts with.
     simulateMovementEnabled: parsed.simulateMovementEnabled ?? false,
     liveGpsEnabled: parsed.liveGpsEnabled ?? true,
+    openDriverSignup: parsed.openDriverSignup ?? true,
     // Merged rather than "stored wins", because a stored list would freeze
     // out every hotline added to the seed afterwards — and a missing
     // emergency number is the one kind of stale data worth being pushy
@@ -1807,6 +1816,7 @@ function loadInitialState(): RideState {
     publicBaseUrl: '',
     simulateMovementEnabled: false,
     liveGpsEnabled: true,
+    openDriverSignup: true,
     emergencyHotlines: MOCK_EMERGENCY_HOTLINES,
   }
 }
@@ -3134,6 +3144,8 @@ function reducer(state: RideState, action: RideAction): RideState {
       return { ...state, simulateMovementEnabled: action.enabled }
     case 'SET_LIVE_GPS_ENABLED':
       return { ...state, liveGpsEnabled: action.enabled }
+    case 'SET_OPEN_DRIVER_SIGNUP':
+      return { ...state, openDriverSignup: action.enabled }
     case 'SET_PUBLIC_BASE_URL':
       // Trailing slash stripped so callers can append paths without
       // producing a double slash.
@@ -4364,6 +4376,7 @@ function reducer(state: RideState, action: RideAction): RideState {
       }
     }
     case 'REGISTER_DRIVER': {
+      // Approved on the spot while the pilot flag is on — see openDriverSignup.
       const driver: Driver = {
         id: `drv-${Date.now()}`,
         name: action.name,
@@ -4374,7 +4387,7 @@ function reducer(state: RideState, action: RideAction): RideState {
         rating: 0,
         ratingCount: 0,
         online: false,
-        verificationStatus: 'pending',
+        verificationStatus: state.openDriverSignup ? 'approved' : 'pending',
         documents: action.documents,
         todaOrgId: action.todaOrgId,
         province: action.province,
@@ -5157,6 +5170,7 @@ interface RideContextValue extends RideState {
   setPublicBaseUrl: (url: string) => void
   setSimulateMovementEnabled: (enabled: boolean) => void
   setLiveGpsEnabled: (enabled: boolean) => void
+  setOpenDriverSignup: (enabled: boolean) => void
   addEmergencyHotline: (args: Omit<EmergencyHotline, 'id' | 'addedAt'>) => void
   updateEmergencyHotline: (id: string, updates: Partial<Omit<EmergencyHotline, 'id'>>) => void
   removeEmergencyHotline: (id: string) => void
@@ -6245,6 +6259,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setPublicBaseUrl: (url) => dispatch({ type: 'SET_PUBLIC_BASE_URL', url }),
     setSimulateMovementEnabled: (enabled) => dispatch({ type: 'SET_SIMULATE_MOVEMENT_ENABLED', enabled }),
     setLiveGpsEnabled: (enabled) => dispatch({ type: 'SET_LIVE_GPS_ENABLED', enabled }),
+    setOpenDriverSignup: (enabled) => dispatch({ type: 'SET_OPEN_DRIVER_SIGNUP', enabled }),
     addEmergencyHotline: (args) =>
       dispatch({
         type: 'ADD_EMERGENCY_HOTLINE',

@@ -39,6 +39,8 @@ export function SuperAdminPage() {
     simulateMovementEnabled,
     liveGpsEnabled,
     setLiveGpsEnabled,
+    openDriverSignup,
+    setOpenDriverSignup,
     publicBaseUrl,
     setPabiliEnabled,
     setMedsEnabled,
@@ -265,6 +267,13 @@ export function SuperAdminPage() {
               description="Show the one-time code on screen instead of texting it. Off means a real code must come from the SMS server, and login fails if it isn't running."
               enabled={simulatedOtpEnabled}
               onChange={setSimulatedOtpEnabled}
+            />
+            <FeatureToggleRow
+              icon="📝"
+              label="Open driver signup"
+              description="Let a driver register without uploading documents, and approve them on the spot. For pilot testing, where the driver is standing in front of you and nobody is staffing an approvals queue. Off is the real behaviour: documents required, Admin reviews, driver waits — turn it off before anyone real is carried."
+              enabled={openDriverSignup}
+              onChange={setOpenDriverSignup}
             />
             <FeatureToggleRow
               icon="🛰️"

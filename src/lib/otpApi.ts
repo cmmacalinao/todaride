@@ -1,13 +1,25 @@
+import { isNativeApp } from './platform'
+
 // Talks to the local Express server (see server/index.js) which holds the
 // Semaphore API key and actually sends the SMS — a browser-only app can't
 // call a paid SMS gateway directly without exposing the key to anyone who
 // opens devtools.
-// In development that is the Express server on port 4000. In a build it is
-// empty on purpose: the deployed app calls its own origin, where
-// netlify.toml routes /api/* to the functions in netlify/functions. Same
-// paths either way, so this file does not care which is answering.
+// In development that is the Express server on port 4000. On the deployed
+// website it is empty: the page calls its own origin, where netlify.toml
+// routes /api/* to the functions in netlify/functions.
+//
+// The installed app is the exception, and the reason this is not just an
+// empty string. Its own origin is https://localhost — the scheme Capacitor
+// serves the bundled files from — so a relative /api/send-otp resolves to a
+// host that does not exist and never reaches Netlify. The fetch fails, the
+// caller reads that as "the OTP server is not running", and quietly shows a
+// simulated code instead. With simulated codes now off by default, that is
+// signup and password recovery failing outright on every phone with the app
+// installed. So the app is pointed at the pilot's real origin.
+const PILOT_ORIGIN = 'https://todasaferide.com'
 const OTP_API_BASE =
-  import.meta.env.VITE_OTP_API_BASE ?? (import.meta.env.DEV ? 'http://localhost:4000' : '')
+  import.meta.env.VITE_OTP_API_BASE ??
+  (import.meta.env.DEV ? 'http://localhost:4000' : isNativeApp() ? PILOT_ORIGIN : '')
 
 // The signature issued by the last send, held between the two calls.
 // A Netlify Function is a fresh process per request and keeps nothing, so

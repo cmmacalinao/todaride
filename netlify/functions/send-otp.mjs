@@ -1,3 +1,4 @@
+import { corsHeaders, preflightResponse } from './_cors.mjs'
 import { createHmac, randomInt } from 'node:crypto'
 
 // Sends a real one-time code by SMS, from the same domain the app is served
@@ -28,7 +29,7 @@ export function signCode(phone, code, expiresAt, secret) {
   return createHmac('sha256', secret).update(`${phone}|${code}|${expiresAt}`).digest('base64url')
 }
 
-export default async function handler(request) {
+async function handle(request) {
   if (request.method !== 'POST') {
     return Response.json({ error: 'Method not allowed.' }, { status: 405 })
   }
@@ -75,5 +76,21 @@ export default async function handler(request) {
     // The client hands these back on verify. Neither reveals the code.
     token: signCode(phone, code, expiresAt, secret),
     expiresAt,
+  })
+}
+
+// Every response goes out through here so the CORS headers cannot be
+// forgotten on one branch — an error the app would see only as a network
+// failure, which is exactly the misdiagnosis this whole fix came from.
+export default async function handler(request) {
+  const preflight = preflightResponse(request)
+  if (preflight) return preflight
+  const response = await handle(request)
+  const headers = new Headers(response.headers)
+  for (const [key, value] of Object.entries(corsHeaders(request))) headers.set(key, value)
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
   })
 }

@@ -1,3 +1,4 @@
+import { corsHeaders, preflightResponse } from './_cors.mjs'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
 // Checks a code against the signature issued when it was sent. See
@@ -22,7 +23,7 @@ function sameSignature(a, b) {
   return timingSafeEqual(left, right)
 }
 
-export default async function handler(request) {
+async function handle(request) {
   if (request.method !== 'POST') {
     return Response.json({ error: 'Method not allowed.' }, { status: 405 })
   }
@@ -51,4 +52,20 @@ export default async function handler(request) {
   }
 
   return Response.json({ ok: true })
+}
+
+// Every response goes out through here so the CORS headers cannot be
+// forgotten on one branch — an error the app would see only as a network
+// failure, which is exactly the misdiagnosis this whole fix came from.
+export default async function handler(request) {
+  const preflight = preflightResponse(request)
+  if (preflight) return preflight
+  const response = await handle(request)
+  const headers = new Headers(response.headers)
+  for (const [key, value] of Object.entries(corsHeaders(request))) headers.set(key, value)
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  })
 }

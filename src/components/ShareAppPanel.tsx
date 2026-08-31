@@ -25,10 +25,7 @@ export function ShareAppPanel({ onClose }: { onClose: () => void }) {
   const url = SHARE_URL
   const [copied, setCopied] = useState(false)
   const canShare = typeof navigator !== 'undefined' && !!navigator.share
-  // sms: only goes anywhere on something that can send a text. On a laptop
-  // nothing is registered to handle it, so the button was a dead control on
-  // the machine most likely to be showing this panel to a room.
-  const canText = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+
 
   async function copyLink() {
     try {
@@ -85,7 +82,7 @@ export function ShareAppPanel({ onClose }: { onClose: () => void }) {
           {url}
         </p>
 
-        <div className={`mt-3 grid gap-2 ${canShare || canText ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        <div className={`mt-3 grid gap-2 ${canShare ? 'grid-cols-2' : 'grid-cols-1'}`}>
           <button
             type="button"
             onClick={() => void copyLink()}
@@ -94,8 +91,15 @@ export function ShareAppPanel({ onClose }: { onClose: () => void }) {
             {copied ? '✓ Copied' : '🔗 Copy link'}
           </button>
           {/* Only where the phone actually has a share sheet. A button that
-              opens nothing is worse than no button. */}
-          {canShare ? (
+              opens nothing is worse than no button.
+
+              There used to be an SMS fallback beside this, opening an sms:
+              link wherever the user agent looked like a phone. It went: every
+              phone that matters already has a share sheet, so it only ever
+              appeared where sms: had nothing to handle it — a laptop, or
+              anything reporting a phone's user agent without being one. The
+              copy button and the code above cover that case honestly. */}
+          {canShare && (
             <button
               type="button"
               onClick={() => void shareLink()}
@@ -103,14 +107,7 @@ export function ShareAppPanel({ onClose }: { onClose: () => void }) {
             >
               📤 Share
             </button>
-          ) : canText ? (
-            <a
-              href={`sms:?&body=${encodeURIComponent(`TODA SafeRide: ${url}`)}`}
-              className="rounded-lg bg-brand-600 py-2 text-center text-xs font-bold text-white transition hover:bg-brand-700"
-            >
-              💬 Send by SMS
-            </a>
-          ) : null}
+          )}
         </div>
 
         <p className="mt-3 border-t border-slate-100 pt-2 text-[11px] leading-snug text-slate-500">

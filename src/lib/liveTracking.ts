@@ -11,14 +11,17 @@ import type { GeoCoords } from '../types'
 // distance from the last accepted one to count as movement; anything smaller
 // is treated as the same spot and the marker holds still.
 //
-// 8m is under a tricycle-length of travel, so genuine movement is never
-// swallowed, while the noise almost always is.
-const MIN_MOVE_METERS = 8
+// 3m is about four paces. Low enough that walking redraws the marker often
+// enough to read as movement rather than as a series of jumps, and still
+// above the wander a stationary phone produces on a good fix. Anything
+// larger and a person walking to the corner never sees the dot leave.
+const MIN_MOVE_METERS = 3
 
-// Wifi/cell fixes come back with accuracy in the hundreds of metres and can
-// place you in the next barangay. Once a decent fix exists, a much vaguer one
-// is not an update — it is a worse guess about the same place.
-const MAX_ACCURACY_METERS = 150
+// What counts as a fix precise enough to trust without comment. Vaguer than
+// this is still shown — a rough position beats none, and a driver waiting for
+// GPS to lock needs to see something — but it is flagged, so a pin that is
+// hundreds of metres out can be recognised as vague rather than broken.
+export const COARSE_ACCURACY_METERS = 150
 
 // Continuously watches the device's real GPS while enabled — the driver/
 // passenger opt-in toggles this on, at which point their actual movement
@@ -70,10 +73,19 @@ export function useWatchPosition(enabled: boolean): {
         // guess, which is what "the location is wrong" looked like.
         const sharper = nextAccuracy != null && lastAccuracy != null && nextAccuracy < lastAccuracy
         if (!sharper) {
-          // A wildly imprecise reading tells us less than what we already
-          // have, and moving the marker to it would be a lie about position.
-          if (nextAccuracy != null && nextAccuracy > MAX_ACCURACY_METERS) return
-          if (haversineDistanceMeters(last, next) < MIN_MOVE_METERS) return
+          // Movement has to beat the phone's own uncertainty before it counts.
+          //
+          // A flat 150m ceiling was tried here and froze the marker outright:
+          // a phone reporting a steady ±200m had every reading after the
+          // first rejected, so the dot only ever moved when the page was
+          // reloaded and a fresh first fix came in. That is worse than a
+          // twitchy marker, because it looks like tracking that works.
+          //
+          // Half the accuracy figure, floored at the noise threshold: a sharp
+          // fix updates on a few metres, a vague one has to travel far enough
+          // that the movement is real rather than the error moving around.
+          const needed = Math.max(MIN_MOVE_METERS, (nextAccuracy ?? 0) / 2)
+          if (haversineDistanceMeters(last, next) < needed) return
         }
       }
 
@@ -133,7 +145,10 @@ export function useWatchPosition(enabled: boolean): {
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => accept(pos.coords),
       (err) => setError(err.message || 'Could not get your location.'),
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+      // maximumAge 0: never hand back a cached fix. Five seconds of cache is
+      // five seconds of a marker sitting still while the person holding it is
+      // walking, which is the difference between a live map and a stale one.
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
     )
     return () => {
       if (watchIdRef.current !== null) {

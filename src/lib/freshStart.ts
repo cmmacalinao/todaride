@@ -71,28 +71,46 @@ function showUpdatingSplash(): void {
       <img src="/logo.webp" alt="TODA SafeRide" style="width:150px;max-width:60vw;height:auto" />
       <div style="width:26px;height:26px;border:3px solid rgba(255,255,255,.28);border-top-color:#fbbf24;border-radius:50%;animation:toda-spin .8s linear infinite"></div>
       <p style="margin:0;color:#e2e8f0;font-size:13px;letter-spacing:.01em">Kinukuha ang pinakabagong bersyon…</p>
+      <!-- An escape hatch, because this screen must never be a dead end. The
+           deadline above should always carry somebody off it, but a plain link
+           needs no JavaScript to have survived in order to work — and someone
+           stranded here has already been let down by the JavaScript. -->
+      <a href="/" style="margin-top:6px;color:#fbbf24;font-size:12px;text-decoration:underline">Buksan na ang app</a>
       <style>@keyframes toda-spin{to{transform:rotate(360deg)}}</style>
     </div>`
 }
 
 export async function freshStart(): Promise<void> {
   showUpdatingSplash()
-  try {
-    if ('serviceWorker' in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations()
-      await Promise.all(
-        registrations.map((r) =>
-          adoptNewestWorker(r).catch(() => {
-            // Offline, or the fetch was refused. The reload below still gets
-            // this phone to the app; it just gets there on the build it has.
-          }),
-        ),
-      )
-    }
-  } catch {
-    // Private windows and locked-down browsers refuse the whole API — in
-    // which case nothing was ever cached, so there is nothing to update.
-  }
+
+  // The whole update phase is raced against one deadline, not just the wait
+  // for a new worker to activate.
+  //
+  // An earlier version timed out only the activation, leaving
+  // registration.update() — a network fetch — unbounded. A phone on a weak
+  // signal could sit on the splash indefinitely with no way off it, which is
+  // a worse failure than the stale build this route exists to fix: at least a
+  // stale app is an app. Whatever happens, the navigation below runs.
+  const updating = (async () => {
+    if (!('serviceWorker' in navigator)) return
+    const registrations = await navigator.serviceWorker.getRegistrations()
+    await Promise.all(
+      registrations.map((r) =>
+        adoptNewestWorker(r).catch(() => {
+          // Offline, or the fetch was refused. The reload below still gets
+          // this phone to the app; it just gets there on the build it has.
+        }),
+      ),
+    )
+  })()
+
+  await Promise.race([
+    updating.catch(() => {
+      // Private windows and locked-down browsers refuse the whole API — in
+      // which case nothing was ever cached, so there is nothing to update.
+    }),
+    new Promise((resolve) => setTimeout(resolve, UPDATE_TIMEOUT_MS)),
+  ])
 
   const url = new URL(window.location.href)
   url.searchParams.delete(FRESH_PARAM)

@@ -14,7 +14,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ETA_SECONDS_PER_LEG, useRides } from '../context/RideContext'
 import { useSession } from '../context/SessionContext'
 import { StatusBadge } from '../components/StatusBadge'
-import { RealLiveMap, type MapPoint } from '../components/RealLiveMap'
+import { RealLiveMap, preloadNavMap, type MapPoint } from '../components/RealLiveMap'
 import { LocationPermissionRow } from '../components/LocationPermissionRow'
 import { DriverAuthGate } from '../components/DriverAuthGate'
 import { alongTheWayFit, isSpecialTrip, seatsLeft } from '../lib/alongTheWay'
@@ -1604,7 +1604,13 @@ function ActiveTripCard({
   // only feeds this phone's map; what other people see is the 30-second
   // publish below, which is a separate decision.
   const effectiveShareGps = liveGpsEnabled || gpsSharingLocked || shareLiveGps
-  const { position: liveDriverGps, error: liveGpsError } = useWatchPosition(effectiveShareGps)
+  const {
+    position: liveDriverGps,
+    error: liveGpsError,
+    // Direction and speed of the tricycle, for the heading-up map below.
+    headingDegrees: liveDriverHeading,
+    speedMps: liveDriverSpeed,
+  } = useWatchPosition(effectiveShareGps)
   const ride = rides.find((r) => r.id === rideId)
   // Card settles at checkout; everything else is money that physically has to
   // reach the driver, so the driver is the one who confirms it arrived.
@@ -1720,6 +1726,32 @@ function ActiveTripCard({
   const atDropoff = metersFromDropoff === null || metersFromDropoff <= DROPOFF_PROXIMITY_METERS
   const passengerGpsInfo = getPassengerMapGps(ride)
   const framing = tripMapFraming(ride.status, ride.legProgress)
+
+  // The map turns to face the road only once the trip is actually running.
+  //
+  // Not on the way to the pickup: that leg is framed to show the driver, the
+  // passenger and both ends of the journey at once, which is what a driver
+  // wants while deciding how to get there — and a tilted rotating view of it
+  // would show one street at a time instead.
+  //
+  // Not without a real fix either. Heading-up built on an interpolated
+  // position is a confident-looking picture of a guess, which is the failure
+  // this app has already had three times.
+  // Fetched on the way to the pickup, so the map is ready the moment the
+  // passenger is aboard rather than downloading as the tricycle pulls away.
+  useEffect(() => {
+    if (ride.status === 'driver_arriving') preloadNavMap()
+  }, [ride.status])
+
+  const navCamera =
+    ride.status === 'ongoing' && liveDriverGps
+      ? {
+          center: liveDriverGps,
+          heading: liveDriverHeading,
+          speedMps: liveDriverSpeed,
+          rotatePointId: 'driver',
+        }
+      : null
   const now = useNow(5000, ride.status === 'driver_arriving')
   const forgotStart = forgotToStartTrip(ride, driverGpsForPickup, now)
 
@@ -1912,6 +1944,7 @@ function ActiveTripCard({
                 : framing.fitPointIds
             }
             frozen={framing.frozen}
+            nav={navCamera}
           />
         </div>
       )}

@@ -36,6 +36,13 @@ const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default:
 const AdminTodaProfilePage = lazy(() => import('./pages/AdminTodaProfilePage').then((m) => ({ default: m.AdminTodaProfilePage })))
 const SuperAdminPage = lazy(() => import('./pages/SuperAdminPage').then((m) => ({ default: m.SuperAdminPage })))
 const SimulatorPage = lazy(() => import('./pages/SimulatorPage').then((m) => ({ default: m.SimulatorPage })))
+// The ternary, rather than a plain lazy(), is what keeps the bench out of the
+// build: Vite substitutes `false` for import.meta.env.DEV, the branch folds
+// away, and the dynamic import goes with it. Declared unconditionally, the
+// bundler has to emit the chunk whether or not any route can ever reach it.
+const NavMapCheckPage = import.meta.env.DEV
+  ? lazy(() => import('./pages/NavMapCheckPage').then((m) => ({ default: m.NavMapCheckPage })))
+  : null
 const AccountingPage = lazy(() => import('./pages/AccountingPage').then((m) => ({ default: m.AccountingPage })))
 const IncomePromotionPage = lazy(() => import('./pages/IncomePromotionPage').then((m) => ({ default: m.IncomePromotionPage })))
 const MedsRideBookingPage = lazy(() => import('./pages/MedsRideBookingPage').then((m) => ({ default: m.MedsRideBookingPage })))
@@ -146,19 +153,25 @@ function AppShell() {
   // Prefix, not equality: the rider app is now more than one screen (see
   // /book/meds/:orderId). Everything under /book is still the rider app, so
   // the confinement this enforces is unchanged — only its granularity is.
-  if (isRiderRole && !isRiderApp) {
+  // The map bench belongs to no role's app, so every rule below would bounce
+  // it back to whichever screen the signed-in account is confined to. In a
+  // build import.meta.env.DEV is false and the whole thing folds away, so
+  // this cannot widen anything on the deployed site.
+  const isDevBench = import.meta.env.DEV && location.pathname === '/navcheck'
+
+  if (isRiderRole && !isRiderApp && !isDevBench) {
     return <Navigate to="/book/start" replace />
   }
-  if (isDriverRole && location.pathname !== '/drive') {
+  if (isDriverRole && location.pathname !== '/drive' && !isDevBench) {
     return <Navigate to="/drive" replace />
   }
-  if (isPharmacyRole && location.pathname !== '/pharmacy') {
+  if (isPharmacyRole && location.pathname !== '/pharmacy' && !isDevBench) {
     return <Navigate to="/pharmacy" replace />
   }
-  if (isOperatorAdminRole && location.pathname !== '/operator') {
+  if (isOperatorAdminRole && location.pathname !== '/operator' && !isDevBench) {
     return <Navigate to="/operator" replace />
   }
-  if (isFranchiseAdminRole && location.pathname !== '/franchise') {
+  if (isFranchiseAdminRole && location.pathname !== '/franchise' && !isDevBench) {
     return <Navigate to="/franchise" replace />
   }
 
@@ -230,6 +243,15 @@ function AppShell() {
           <Route path="/admin" element={<AdminPage />} />
           {/* Dev/demo aid — two seeded accounts side by side. */}
           <Route path="/admin/simulator" element={<SimulatorPage />} />
+          {/* A bench for the heading-up trip camera: a synthetic ride round a
+              square, so the map can be watched turning corners without
+              booking a real trip and driving it.
+
+              Dev server only — the condition is compiled away in a build, so
+              the page never reaches the deployed site or the APK. It is also
+              why this sits outside /admin rather than inside it: the point is
+              to check a map, not to test the sign-in gate. */}
+          {NavMapCheckPage && <Route path="/navcheck" element={<NavMapCheckPage />} />}
           {/* Super Admin is its own tier, not a permission bit on Admin. An
               Admin session reaching this route is asked to sign in with the
               Super Admin credentials rather than being bounced — the boundary

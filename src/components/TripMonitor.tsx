@@ -8,7 +8,7 @@ import { StatusBadge } from './StatusBadge'
 import { BarangayAddressPicker } from './BarangayAddressPicker'
 import { resolvePhAddress, type PhAddressTags } from '../lib/customLocation'
 import { DEFAULT_BOOKING_CITY, DEFAULT_BOOKING_PROVINCE, defaultBarangayForCity } from '../mock/data'
-import { RealLiveMap, type MapPoint } from './RealLiveMap'
+import { RealLiveMap, preloadNavMap, type MapPoint } from './RealLiveMap'
 import { AlertBanner } from './AlertBanner'
 import { PhotoCaptureButton } from './PhotoCaptureButton'
 import { PhotoGallery } from './PhotoGallery'
@@ -105,7 +105,14 @@ export function TripMonitor({
   // whoever needs it, without standing between everyone else and the answer.
   const [gotOffHelpOpen, setGotOffHelpOpen] = useState(false)
   const [customTipInput, setCustomTipInput] = useState('')
-  const { position: livePassengerGps, error: liveGpsError } = useWatchPosition(liveGpsEnabled || shareLiveGps)
+  const {
+    position: livePassengerGps,
+    error: liveGpsError,
+    // The passenger's own phone is in the tricycle once they are aboard, so
+    // its heading is the tricycle's heading — see navCamera below.
+    headingDegrees: livePassengerHeading,
+    speedMps: livePassengerSpeed,
+  } = useWatchPosition(liveGpsEnabled || shareLiveGps)
 
   useEffect(() => {
     updatePassengerLiveGps(ride.id, shareLiveGps ? livePassengerGps : null)
@@ -350,6 +357,35 @@ export function TripMonitor({
   const fitPointIds = framing.fitPointIds
     ? [...framing.fitPointIds, ...coRidersBooked.filter((r) => r.dropoff.gps).map((r) => `co-dropoff-${r.id}`)]
     : framing.fitPointIds
+
+  // The map faces the way the ride is going, but only once the passenger is
+  // in the tricycle and it is moving.
+  //
+  // While waiting for a driver, the passenger is standing on a kerb: their
+  // phone's heading is whichever way they happen to be facing, and a map that
+  // swings round every time they look up the road for the tricycle is a map
+  // nobody can use. Waiting is also exactly when they want the wide view of
+  // the driver coming towards them, which is what the north-up frame gives.
+  //
+  // The camera sits on the passenger's own fix rather than the driver's,
+  // because it has to agree with the heading turning it — and the heading is
+  // coming from this phone.
+  // While the tricycle is on its way here, fetch the navigation map. It is
+  // wanted the moment this passenger climbs in, which is a bad moment to start
+  // downloading a fifth of a megabyte.
+  useEffect(() => {
+    if (ride.status === 'driver_arriving') preloadNavMap()
+  }, [ride.status])
+
+  const navCamera =
+    ride.status === 'ongoing' && onBoard && livePassengerGps
+      ? {
+          center: livePassengerGps,
+          heading: livePassengerHeading,
+          speedMps: livePassengerSpeed,
+          rotatePointId: 'driver',
+        }
+      : null
 
   return (
     <section className="space-y-3 rounded-xl border border-brand-200 bg-brand-50 p-4 shadow-sm">
@@ -773,6 +809,7 @@ export function TripMonitor({
             followAll={framing.followAll}
             fitPointIds={fitPointIds}
             frozen={framing.frozen}
+            nav={navCamera}
           />
           {needsDestination && (
             <button

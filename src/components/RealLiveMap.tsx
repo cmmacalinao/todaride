@@ -1,10 +1,29 @@
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { MapContainer, Marker, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { googleMapsApiKey } from '../lib/googleMapsLoader'
 import { GoogleLiveMap } from './GoogleLiveMap'
+import { markerBoxSize, markerHtml, type MarkerIcon } from './mapMarkerHtml'
+import { NavMapBoundary } from './NavMapBoundary'
 import type { GeoCoords } from '../types'
+
+// Loaded only when a trip is actually running. MapLibre and its worker are
+// most of a megabyte, and the great majority of sessions — booking a ride,
+// checking a fare, a driver watching the queue — never open this view at all.
+const NavLiveMap = lazy(() => import('./NavLiveMap').then((m) => ({ default: m.NavLiveMap })))
+
+// Fetches that chunk ahead of time.
+//
+// Left to itself it downloads at the exact moment the trip starts: the driver
+// is pulling away, the passenger is looking at the screen, and a fifth of a
+// megabyte has to arrive over whatever signal the road has before the map
+// appears. Called while the driver is still on their way to the pickup, it is
+// already in cache by then. A failed preload is not worth reporting — the
+// lazy import will simply try again for real.
+export function preloadNavMap() {
+  void import('./NavLiveMap').catch(() => {})
+}
 
 export interface MapPoint {
   id: string
@@ -19,7 +38,7 @@ export interface MapPoint {
   // 'pharmacy' for a pharmacy pin (so it reads as "a pharmacy is here" at a
   // glance instead of just another colored dot indistinguishable from a
   // pickup/dropoff point).
-  icon?: 'tricycle' | 'pharmacy' | 'terminal' | 'me'
+  icon?: MarkerIcon
   // Pins the label open instead of waiting for a hover, and it travels with
   // the marker. For the tricycle a passenger is actually sitting in: they
   // are holding the phone one-handed on a moving road and will not hover
@@ -98,6 +117,24 @@ interface RealLiveMapProps {
   // answer than typing coordinates.
   draggableIds?: string[]
   onPointDragEnd?: (id: string, gps: GeoCoords) => void
+  // Turns the map into a navigation view for the length of a trip: tilted,
+  // and turned so the road ahead points at the top of the phone. Needs a
+  // position to sit on and a direction to face; without either it stays the
+  // ordinary north-up map, which is also what it falls back to if the vector
+  // tiles cannot be reached.
+  //
+  // Only for a screen somebody is looking at while moving. On a booking map
+  // it would be worse than useless — you are standing still, and a map that
+  // rotates when you turn round to look at a jeepney is a map that will not
+  // hold still.
+  nav?: {
+    center: GeoCoords
+    heading: number | null
+    speedMps: number | null
+    // Which marker is this phone's own vehicle, so it can be turned to face
+    // the way it is travelling.
+    rotatePointId?: string
+  } | null
 }
 
 function routeLineStyle(routeIsReal: boolean | undefined, routeVariant: 'trip' | 'pickup' | undefined) {
@@ -107,78 +144,13 @@ function routeLineStyle(routeIsReal: boolean | undefined, routeVariant: 'trip' |
     : { color: '#2563eb', weight: 4, opacity: 0.7 }
 }
 
-const EMOJI_MARKER_ICONS: Record<'tricycle' | 'pharmacy' | 'terminal' | 'me', string> = {
-  tricycle: '🛺',
-  terminal: '🚏',
-  pharmacy: '💊',
-  // The person holding the phone. A figure rather than a plain dot, because
-  // this marker sits among tricycles and terminals and has to be read at a
-  // glance as "that one is me" while somebody is standing at a rank looking
-  // between the screen and the road.
-  me: '🧍',
-}
-
-// Pharmacy pins render at ~75% of the driver/tricycle marker's size — a
-// pharmacy is one of several static reference points on a browsing map, not
-// the one live thing the eye should be drawn to (the driver's own position
-// during tracking), so it doesn't need the same visual weight.
-const EMOJI_MARKER_SIZES: Record<'tricycle' | 'pharmacy' | 'terminal' | 'me', { box: number; font: number }> = {
-  tricycle: { box: 18, font: 11 },
-  terminal: { box: 16, font: 10 },
-  pharmacy: { box: 20, font: 11 },
-  // The largest of them. Everything else on this map is a place or a vehicle
-  // being looked for; this is the one point the eye should find first.
-  me: { box: 22, font: 13 },
-}
-
-// The tricycle, drawn rather than borrowed from the emoji font.
-//
-// 🛺 renders in whatever colours the platform decided — green on one phone,
-// orange on another — and none of them are ours. Drawn, it wears the logo's
-// blue on the logo's gold, so the marker for a TODA tricycle looks like it
-// belongs to this app rather than to Unicode. It also renders identically on
-// every phone, which an emoji does not.
-//
-// Deliberately simple: at 18 pixels a silhouette reads and detail does not.
-const TRICYCLE_SVG =
-  '<svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">' +
-  // The sidecar: a boxy cab with its own roof, which is the half that says
-  // 'tricycle' rather than 'car'.
-  '<path d="M2.5 16V9.2a1 1 0 0 1 1-1h6.2a1 1 0 0 1 1 1V16z" fill="#1e3a8a"/>' +
-  '<rect x="2" y="7.6" width="9.4" height="1.5" rx="0.7" fill="#1e3a8a"/>' +
-  '<rect x="4" y="10" width="5" height="2.6" rx="0.5" fill="#fbbf24"/>' +
-  // The motorcycle it is bolted to, kept separate so the two read as two
-  // things at a glance.
-  '<path d="M13.2 16v-3.2h1.6l1.1-3.2h1.6v1.5h-1.2l-.8 2.4h2.1V16z" fill="#1e3a8a"/>' +
-  // Different wheel sizes, the way a real one has them.
-  '<circle cx="6.6" cy="17.4" r="2.5" fill="#1e3a8a"/><circle cx="6.6" cy="17.4" r="1" fill="#fbbf24"/>' +
-  '<circle cx="17.6" cy="17.4" r="3" fill="#1e3a8a"/><circle cx="17.6" cy="17.4" r="1.2" fill="#fbbf24"/>' +
-  '</svg>'
-function dotIcon(color: string, pulse?: boolean, icon?: 'tricycle' | 'pharmacy' | 'terminal' | 'me', pointId?: string) {
-  const stamp = pointId ? ` data-point-id="${pointId.replace(/"/g, '&quot;')}"` : ''
-  if (icon) {
-    const emoji = icon === 'tricycle' ? TRICYCLE_SVG : EMOJI_MARKER_ICONS[icon]
-    const { box, font } = EMOJI_MARKER_SIZES[icon]
-    const halfBox = box / 2
-    const haloInset = box === 26 ? -6 : -5
-    return L.divIcon({
-      className: '',
-      html: `<div${stamp} style="position:relative;width:${box}px;height:${box}px;">
-        ${pulse ? `<div style="position:absolute;inset:${haloInset}px;border-radius:9999px;background:${color};opacity:0.25;"></div>` : ''}
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border-radius:9999px;background:${icon === 'tricycle' ? '#fbbf24' : 'white'};border:2px solid ${icon === 'tricycle' ? '#1e3a8a' : color};box-shadow:0 1px 3px rgba(0,0,0,0.45);font-size:${font}px;line-height:1;padding:${icon === 'tricycle' ? '2px' : '0'};">${emoji}</div>
-      </div>`,
-      iconSize: [box, box],
-      iconAnchor: [halfBox, halfBox],
-    })
-  }
+function dotIcon(color: string, pulse?: boolean, icon?: MarkerIcon, pointId?: string) {
+  const box = markerBoxSize(icon)
   return L.divIcon({
     className: '',
-    html: `<div${stamp} style="position:relative;width:18px;height:18px;">
-      ${pulse ? `<div style="position:absolute;inset:-7px;border-radius:9999px;background:${color};opacity:0.25;"></div>` : ''}
-      <div style="position:absolute;inset:0;border-radius:9999px;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.45);"></div>
-    </div>`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
+    html: markerHtml({ color, pulse, icon, pointId }),
+    iconSize: [box, box],
+    iconAnchor: [box / 2, box / 2],
   })
 }
 
@@ -539,10 +511,15 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, height }: RealLiveMapProps) {
+export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, height, nav }: RealLiveMapProps) {
   // If the Google script fails to load (bad key, network block, CSP), fall
   // back to the OSM/Leaflet canvas instead of showing an empty map.
   const [googleFailed, setGoogleFailed] = useState(false)
+  // Same idea for the navigation view: no WebGL, no vector tiles, no signal —
+  // the rider gets the north-up map rather than an empty box. It never tries
+  // again on its own, because a view that flickers between two different maps
+  // mid-trip is worse than one that quietly settles for the plainer one.
+  const [navFailed, setNavFailed] = useState(false)
   // Locked until asked otherwise — see PanLock.
   const [unlocked, setUnlocked] = useState(false)
   // Counts the times the map has gone back under glass. Feeding it into the
@@ -569,7 +546,8 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
   }, [unlocked])
 
   if (points.length === 0) return null
-  const useGoogle = !!googleMapsApiKey() && !googleFailed
+  const useNav = !!nav && !navFailed
+  const useGoogle = !useNav && !!googleMapsApiKey() && !googleFailed
   const displayPoints = spreadOverlappingPoints(points)
 
   // Terminals are scenery: on every map, never changing, and their own pins
@@ -616,7 +594,33 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
           ))}
         </div>
       )}
-      {useGoogle ? (
+      {useNav && nav ? (
+        <NavMapBoundary onFailed={() => setNavFailed(true)}>
+        <Suspense
+          fallback={
+            <div
+              className="flex items-center justify-center bg-slate-100 text-[11px] text-slate-500"
+              style={{ height: height ?? '260px' }}
+            >
+              Loading map…
+            </div>
+          }
+        >
+          <NavLiveMap
+            points={displayPoints}
+            routeLine={routeLine}
+            routeIsReal={routeIsReal}
+            routeVariant={routeVariant}
+            height={height}
+            center={nav.center}
+            heading={nav.heading}
+            speedMps={nav.speedMps}
+            rotatePointId={nav.rotatePointId}
+            onFailed={() => setNavFailed(true)}
+          />
+        </Suspense>
+        </NavMapBoundary>
+      ) : useGoogle ? (
         <GoogleLiveMap
           points={displayPoints}
           routeLine={routeLine}

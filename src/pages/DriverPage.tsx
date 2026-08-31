@@ -113,7 +113,33 @@ export function DriverPage() {
     reportDriverGps,
   } = useRides()
   const { loggedInDriverId, setLoggedInDriverId, loggedInTodaAdminOrgId, setLoggedInTodaAdminOrgId } = useSession()
-  const { position: myLiveGps } = useWatchPosition(true)
+  // Two ways to get a fix, because on Android they are not equally likely to
+  // work. The watch starts on its own and asks for nothing; a one-off read
+  // happens because somebody pressed a button. Android treats those very
+  // differently — an ungestured watch is the one it quietly refuses, which is
+  // why the passenger's tap-to-locate worked on the same phone, in the same
+  // browser, while the driver sat pinned to their terminal.
+  //
+  // So the watch is still preferred, and a tapped read seeds it when the
+  // watch has produced nothing. Everything downstream reads myLiveGps and
+  // does not care which of the two answered.
+  const { position: watchedGps, error: myLiveGpsError } = useWatchPosition(true)
+  const [tappedGps, setTappedGps] = useState<GeoCoords | null>(null)
+  const [locating, setLocating] = useState(false)
+  const [locateError, setLocateError] = useState<string | null>(null)
+  const myLiveGps = watchedGps ?? tappedGps
+
+  async function locateMe() {
+    setLocating(true)
+    setLocateError(null)
+    try {
+      setTappedGps(await getCurrentGeoPosition())
+    } catch (err) {
+      setLocateError(err instanceof Error ? err.message : 'Could not get your location.')
+    } finally {
+      setLocating(false)
+    }
+  }
 
   // Publishes where this tricycle is, on a timer, for as long as the driver
   // is signed in.
@@ -927,6 +953,41 @@ export function DriverPage() {
     <div className="mx-auto max-w-lg space-y-3 px-4 pb-20 pt-2">
       <div ref={topSentinelRef} />
       <AnnouncementFeed viewer="drivers" />
+
+      {/* Whether this phone is actually giving a position, said out loud.
+          Without this the page falls back to the driver's terminal in silence,
+          and a terminal is a plausible-looking coordinate — so a phone that
+          was refusing location looked exactly like a phone that was working,
+          and two drivers pinned to the same gate looked like a map bug rather
+          than two phones reporting nothing. */}
+      {myLiveGps ? (
+        <p className="rounded-lg bg-emerald-50 px-3 py-1.5 text-[11px] font-medium text-emerald-800">
+          📍 GPS on — {myLiveGps.lat.toFixed(5)}, {myLiveGps.lng.toFixed(5)}
+        </p>
+      ) : (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
+          <p className="text-[11px] font-bold text-amber-900">
+            📍 Walang GPS — nakapin ka sa terminal mo, hindi sa totoong pwesto mo.
+          </p>
+          {(locateError ?? myLiveGpsError) && (
+            <p className="mt-0.5 text-[11px] leading-snug text-amber-800">{locateError ?? myLiveGpsError}</p>
+          )}
+          {/* The same tap-to-locate the passenger side has had all along.
+              A request made because a finger touched the screen is the one
+              Android reliably honours. */}
+          <button
+            type="button"
+            onClick={() => void locateMe()}
+            disabled={locating}
+            className="mt-1.5 w-full rounded-lg bg-brand-600 py-2 text-xs font-bold text-white disabled:opacity-60"
+          >
+            {locating ? 'Hinahanap…' : '📍 I-on ang GPS ko'}
+          </button>
+          <p className="mt-1 text-[11px] leading-snug text-amber-700">
+            Kung tatanungin, piliin ang <span className="font-semibold">Allow</span>.
+          </p>
+        </div>
+      )}
 
       {justPaidRide?.payment && (
         <div

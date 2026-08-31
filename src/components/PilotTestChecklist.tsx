@@ -25,6 +25,72 @@ interface Run {
 }
 
 const RUNS: Run[] = [
+  // First, because everything after it is wasted if this is wrong. Four
+  // rounds of GPS fixes failed on exactly two things: a phone serving its
+  // cached build, and location granted for one visit only.
+  {
+    id: 'setup',
+    title: 'Before you leave the house',
+    who: 'Both phones · on wifi, before you go anywhere',
+    steps: [
+      {
+        do: 'Open todasaferide.com/?fresh=1 on BOTH phones.',
+        expect:
+          'Without ?fresh=1 a phone serves its cached copy, and you spend the morning testing last week’s build.',
+      },
+      {
+        do: 'Sign one phone in as the passenger and the other as the driver.',
+        expect:
+          'Two different accounts. Create the driver one if it does not exist — signup needs no documents while Open driver signup is on.',
+      },
+      {
+        do: 'Allow location on both, choosing "Allow on every visit".',
+        expect:
+          'The Live location row above the map reads “· allowed”. "Allow this time" makes the browser ask again on every single visit.',
+      },
+      {
+        do: 'On the driver phone, read the GPS banner.',
+        expect:
+          'Green, with real coordinates and a ± figure. Amber with hundreds of metres means the fix is from wifi — stand outside until it tightens.',
+      },
+      {
+        do: 'Bring a second person.',
+        expect: 'Nobody can drive a tricycle and watch two phones. This is the step people skip.',
+      },
+    ],
+  },
+  // Two minutes standing still. If the markers are wrong here, driving will
+  // not fix them, and you will have learned it before leaving the terminal.
+  {
+    id: 'baseline',
+    title: 'Standing still, before you move',
+    who: 'Both phones · at the terminal, engine off',
+    steps: [
+      {
+        do: 'Driver phone: look at where your own tricycle marker is.',
+        expect:
+          'On you, pulsing, labelled “· live”. If it says “(no GPS)” it has fallen back to the terminal and is not your position.',
+      },
+      {
+        do: 'Passenger phone: find the blue figure for yourself.',
+        expect: 'A pulsing 🧍, separate from the green FROM pin, which stays where it was set.',
+      },
+      {
+        do: "Passenger phone: look for the driver's tricycle.",
+        expect:
+          'A gold circle with a navy tricycle. It only appears if the driver published within the last 3 minutes, so their app must be open.',
+      },
+      {
+        do: 'Stand still for one full minute and watch both markers.',
+        expect: 'They hold still. Constant twitching means the movement filter is too loose — report it.',
+      },
+      {
+        do: 'Walk twenty metres, still watching.',
+        expect:
+          'The marker follows as you walk. If it only moves when you reload the page, that is the bug to report first.',
+      },
+    ],
+  },
   {
     id: 'signup',
     title: 'Sign up with a real code',
@@ -115,6 +181,16 @@ const RUNS: Run[] = [
         do: 'Take a photo from the trip screen, then press SOS.',
         expect: 'The photo attaches to the trip; the SOS reaches Admin and the TODA.',
       },
+      {
+        do: 'Count how often the tricycle marker jumps forward.',
+        expect:
+          'Roughly every 30 seconds, in hops rather than a glide. That is the driver publish rate, not a fault — report it only if the hops stop.',
+      },
+      {
+        do: "Put the passenger's phone in a pocket for two minutes, then look.",
+        expect:
+          'A gap in the trail. A browser stops tracking when the screen locks; this is the limit the installed app exists to remove, and is expected here.',
+      },
     ],
   },
   {
@@ -159,6 +235,11 @@ const RUNS: Run[] = [
       {
         do: 'Tap the yellow "Track your trip for your safety" strip.',
         expect: 'The tracking page opens with a status line — even with no GPS fix it says what it is waiting for.',
+      },
+      {
+        do: 'Drive off WITHOUT typing anything, and wait 30 to 60 seconds.',
+        expect:
+          'It starts recording by itself once you and the tricycle have moved together for half a minute. This is the boarding rule reading the phone’s own speed and heading — if it does not self-start, say so, then carry on with the TRC number.',
       },
       {
         do: 'Type the TRC number of the tricycle you are in.',

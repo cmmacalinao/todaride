@@ -13,6 +13,7 @@ import { RiderStartPage } from './pages/RiderStartPage'
 import { RoleChooserPage } from './pages/RoleChooserPage'
 import { BookPage } from './pages/BookPage'
 import { AppUpdateWatcher } from './components/AppUpdateWatcher'
+import { ScanArrivalChoice } from './components/ScanArrivalChoice'
 import { RideProvider } from './context/RideContext'
 import { SessionProvider, useSession } from './context/SessionContext'
 import { ThemeProvider } from './context/ThemeContext'
@@ -256,6 +257,7 @@ export default function App() {
               of date on any screen at all, including before anybody has
               signed in. */}
           <AppUpdateWatcher />
+          <ScanArrivalChoice />
           <AppShell />
         </RideProvider>
       </SessionProvider>

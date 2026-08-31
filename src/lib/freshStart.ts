@@ -26,6 +26,11 @@
 // should not be signed out for it.
 export const FRESH_PARAM = 'fresh'
 
+// Handed forward across the reload so the app knows this visit began with
+// a scan, and can ask the one question worth asking on Android before it
+// gets out of the way. See ScanArrivalChoice.
+export const SCAN_PARAM = 'via'
+
 // A phone on a bad signal must not be left staring at a blank page while the
 // worker thinks about it. Past this, carry on with whatever is already there.
 const UPDATE_TIMEOUT_MS = 8000
@@ -114,6 +119,7 @@ export async function freshStart(): Promise<void> {
 
   const url = new URL(window.location.href)
   url.searchParams.delete(FRESH_PARAM)
+  url.searchParams.set(SCAN_PARAM, 'scan')
   // A build that briefly shipped handed itself ?add to raise an install
   // prompt on arrival. That prompt is gone, and nothing strips the parameter
   // any more, so it would sit in the address bar of every phone still running

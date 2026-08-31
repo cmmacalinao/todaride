@@ -12,7 +12,9 @@
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "check": "npm run typecheck && vitest run",
-    "stage:apk": "node scripts/stage-apk.mjs"
+    "stage:apk": "node scripts/stage-apk.mjs",
+    "apk": "node scripts/build-apk.mjs",
+    "release": "npm run build && cap sync android && npm run apk && npm run stage:apk && npx netlify deploy --prod --no-build --dir=dist --site=ca255699-90a9-414d-9346-e3faba9ea423"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

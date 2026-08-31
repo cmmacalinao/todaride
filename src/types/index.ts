@@ -502,6 +502,11 @@ export interface Driver {
   // freshest real position dispatch has to work with; null falls back to
   // the driver's terminal (see driverDispatchGps in mock/data.ts).
   lastKnownGps?: GeoCoords | null
+  // When that position was published. Without it there is no way to tell a
+  // reading from a minute ago from one left behind yesterday, and a stale
+  // point drawn as a live tricycle is worse than no tricycle: somebody walks
+  // toward a marker for a driver who went home.
+  lastKnownGpsAt?: string | null
   // Where a passenger sends an e-wallet fare. Null until the driver fills it
   // in from their own profile — a number nobody entered is worse than none
   // at all, so the passenger is told to ask rather than shown a blank.

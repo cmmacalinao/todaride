@@ -15,6 +15,7 @@ import { ETA_SECONDS_PER_LEG, useRides } from '../context/RideContext'
 import { useSession } from '../context/SessionContext'
 import { StatusBadge } from '../components/StatusBadge'
 import { RealLiveMap, type MapPoint } from '../components/RealLiveMap'
+import { LocationPermissionRow } from '../components/LocationPermissionRow'
 import { DriverAuthGate } from '../components/DriverAuthGate'
 import { alongTheWayFit, isSpecialTrip, seatsLeft } from '../lib/alongTheWay'
 import { aboardLabel, shortName } from '../lib/names'
@@ -466,15 +467,28 @@ export function DriverPage() {
       })),
     {
       id: 'me',
-      // The terminal the driver actually picked, then the org's single pin,
-      // then DRIVER_BASE_GPS for a freelance driver with no terminal at all.
-      gps: myHomeTerminal?.gps ?? homeToda?.terminalGps ?? DRIVER_BASE_GPS,
+      // The phone's own position when it has one, and only then the terminal.
+      //
+      // It used to be the terminal always, which is why a driver watching
+      // this map never saw themselves move: the marker was pinned to a place,
+      // not to them. The fallback is still honest — a driver waiting for work
+      // genuinely is at their rank — but it is a fallback now, and the label
+      // says which of the two is being shown so a stationary marker can be
+      // told apart from a stationary tricycle.
+      gps: myLiveGps ?? myHomeTerminal?.gps ?? homeToda?.terminalGps ?? DRIVER_BASE_GPS,
       color: '#1d4ed8',
-      label: myHomeTerminal
-        ? `You — ${driver.plateNumber} · ${myHomeTerminal.name}`
-        : homeToda
-          ? `${homeToda.name} terminal`
-          : `You — ${driver.plateNumber}`,
+      icon: 'tricycle' as const,
+      // Blinks only when it is really you. A pulsing halo means "this is
+      // live", and putting it on a terminal pin would promise movement the
+      // map cannot deliver.
+      pulse: !!myLiveGps,
+      label: myLiveGps
+        ? `You — ${driver.plateNumber} · live`
+        : myHomeTerminal
+          ? `You — ${driver.plateNumber} · at ${myHomeTerminal.name} (no GPS)`
+          : homeToda
+            ? `${homeToda.name} terminal (no GPS)`
+            : `You — ${driver.plateNumber} (no GPS)`,
     },
     ...incoming
       .filter((r) => !!r.pickup.gps)
@@ -960,6 +974,7 @@ export function DriverPage() {
           was refusing location looked exactly like a phone that was working,
           and two drivers pinned to the same gate looked like a map bug rather
           than two phones reporting nothing. */}
+      <LocationPermissionRow />
       {myLiveGps ? (
         <div
           className={`rounded-lg px-3 py-1.5 text-[11px] font-medium ${

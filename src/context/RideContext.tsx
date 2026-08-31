@@ -2549,7 +2549,11 @@ function reducer(state: RideState, action: RideAction): RideState {
       // not move.
       return {
         ...state,
-        drivers: state.drivers.map((d) => (d.id === action.driverId ? { ...d, lastKnownGps: action.gps } : d)),
+        drivers: state.drivers.map((d) =>
+          d.id === action.driverId
+            ? { ...d, lastKnownGps: action.gps, lastKnownGpsAt: new Date().toISOString() }
+            : d,
+        ),
       }
     case 'ACCEPT_RIDE': {
       const driver = state.drivers.find((d) => d.id === action.driverId)

@@ -43,3 +43,7 @@ ios/App/App.xcodeproj/project.xcworkspace/xcuserdata
 # netlify.toml, rebuilt on every deploy. The real config is netlify.toml at
 # the repo root.
 .netlify
+
+# Backups the dev asset writer leaves behind. An earlier build shipped a
+# logo.png.bak inside the APK to every phone; once was enough.
+*.bak

@@ -31,7 +31,7 @@ function assetWriter(): Plugin {
           try {
             const { file, dataUrl } = JSON.parse(body) as { file: string; dataUrl: string }
             // Only ever inside public/, and only image files.
-            if (!/^[\w./-]+\.(png|svg)$/.test(file) || file.includes('..')) {
+            if (!/^[\w./-]+\.(png|svg|webp)$/.test(file) || file.includes('..')) {
               throw new Error('refusing to write ' + file)
             }
             const target = resolve(process.cwd(), 'public', file)

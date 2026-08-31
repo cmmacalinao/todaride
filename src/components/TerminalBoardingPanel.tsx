@@ -36,6 +36,7 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
     terminalQrFeeWaived,
     commissionPerRide,
     triggerPassengerSos,
+    completeRide,
     alerts,
   } = useRides()
   const feeFree = terminalRideIsFree(terminalQrFeeWaived, commissionPerRide)
@@ -83,6 +84,7 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
     (r) => r.passengerId === currentPassengerId && ['requested', 'accepted', 'driver_arriving', 'ongoing'].includes(r.status),
   )
 
+
   // Whose GPS matches the passenger's. Drivers already on someone else's trip
   // are excluded — being near them means the tricycle went past, not that you
   // are in it.
@@ -107,6 +109,30 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
       .filter((c) => c.meters <= SAME_TRICYCLE_METERS)
       .sort((a, b) => a.meters - b.meters)
   }, [drivers, terminals, todaOrganizations, position, busyIds])
+
+  // The trip this screen is currently watching, if there is one.
+  //
+  // A recorded trip belongs here rather than on the booking page: this is the
+  // screen somebody opens to answer "is it recording, and where am I", and it
+  // already has the map that question is asked against.
+  const activeRide = rides.find(
+    (r) => r.passengerId === currentPassengerId && ['requested', 'accepted', 'driver_arriving', 'ongoing'].includes(r.status),
+  )
+  const isRecordingTrip = activeRide?.safetyRecord === true && activeRide.status === 'ongoing'
+  const recordedDriver = activeRide?.driverId ? drivers.find((d) => d.id === activeRide.driverId) : null
+
+  // What the app is doing while nothing has been recorded yet, in the order
+  // the passenger would ask it: is my phone answering, is there a tricycle
+  // near me, is it clear which one, and how much longer.
+  const recordingStatus = !watched
+    ? "Waiting for your phone's GPS. If you would rather not turn it on, just type the TRC No. below."
+    : candidates.length === 0
+      ? 'No tricycle near you according to GPS — just type the TRC No. below.'
+      : ambiguous
+        ? 'Two tricycles are travelling with you — pick the one you are riding in from the list below.'
+        : heldMs > 0
+          ? `You are moving — recording your trip in ${Math.max(1, Math.ceil((SUSTAINED_MS - heldMs) / 1000))}s…`
+          : 'Waiting for the tricycle to move off. Your trip records itself once you set out.'
 
   // The question that separates the tricycle a passenger is IN from the
   // four they are standing beside: did it pull out when they did, in the
@@ -212,7 +238,13 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
       unregisteredPlate: driver ? null : (plate ?? null),
       initialPhotos: pendingPhotos,
     } as never)
-    onClose()
+    // Deliberately stays on this screen.
+    //
+    // It used to navigate straight to the booking page the moment recording
+    // began, which took the passenger away from the map they were watching to
+    // a page about booking a ride they had already started. The strip above
+    // flips to "Recording" here instead, so the answer to "is it recording?"
+    // is on the screen they were already looking at.
   }
 
   return (
@@ -231,6 +263,60 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
       </div>
 
       {mapSlot}
+
+      {/* The strip that says whether anything is being recorded yet.
+          Nothing is, on this screen — recording begins when the phone and one
+          tricycle are measurably travelling together, and at that moment the
+          panel closes and the trip screen takes over with the same strip
+          reading "Recording". Saying "Record your Trip" here, greyed, is the
+          honest half of that pair: this is what is about to happen, and it
+          has not happened yet.
+
+          The line beneath is what the app is actually doing meanwhile —
+          without it the panel looks inert during the seconds it spends
+          deciding, and a passenger who has just sat down starts hunting for a
+          button to press, which is the tapping this whole rule exists to
+          remove. Shown even with no GPS fix and no tricycle in range: the one
+          person who most needs telling is whoever's phone has not answered. */}
+      {isRecordingTrip && activeRide ? (
+        <div className="rounded-lg border-2 border-danger-300 bg-danger-50 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <span className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-extrabold text-danger-800">
+              <span aria-hidden className="animate-pulse text-sm leading-none">🔴</span>
+              Recording
+            </span>
+            <button
+              type="button"
+              onClick={() => completeRide(activeRide.id, activeRide.paymentMethod)}
+              className="shrink-0 rounded-lg border border-danger-400 bg-white px-2.5 py-1 text-[11px] font-bold text-danger-800 transition hover:bg-danger-100"
+            >
+              ⏹ Stop Recording
+            </button>
+          </div>
+          {/* Who, in one line. No address box: the destination is set with
+              the red Destination tab and the map above, which is one place to
+              answer it and a tap rather than three dropdowns typed on a
+              moving tricycle. */}
+          <p className="mt-1 text-[11px] leading-snug text-danger-800/80">
+            {activeRide.driverName ?? 'Ang driver'}
+            {/* Some plates already carry the TRC prefix in the data and some
+                do not, so prefixing unconditionally printed "TRC TRC-1023". */}
+            {recordedDriver?.plateNumber
+              ? ` · ${/^TRC/i.test(recordedDriver.plateNumber) ? '' : 'TRC '}${recordedDriver.plateNumber}`
+              : ''}
+          </p>
+        </div>
+      ) : (
+        !passengerHasTrip && (
+          <div className="rounded-lg border-2 border-slate-200 bg-white px-3 py-2">
+            <p className="flex items-center gap-1.5 text-xs font-extrabold text-slate-700">
+              <span aria-hidden className="text-sm leading-none opacity-40">🔴</span>
+              Record your Trip
+            </p>
+            <p className="mt-1 text-[11px] leading-snug text-slate-600">{recordingStatus}</p>
+          </div>
+        )
+      )}
 
       {/* The camera and the panic button, before boarding rather than after.
           Both used to appear only once a trip existed, which put them on the
@@ -275,35 +361,26 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
         </button>
       </div>
 
-      {passengerHasTrip && (
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-          May biyahe ka pa ngayon. Tapusin muna iyon bago mag-record ng bago.
-        </p>
+      {/* A way back, not just a refusal.
+          This used to be a sentence telling the passenger they already had a
+          trip and should finish it first — true, but it left them on a screen
+          that could do nothing for them, with no way to reach the trip it was
+          talking about. It is the trip screen they want; this takes them
+          there. */}
+      {passengerHasTrip && !isRecordingTrip && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex w-full items-center gap-2 rounded-lg border-2 border-amber-400 bg-amber-50 px-3 py-2 text-left transition hover:bg-amber-100"
+        >
+          <span aria-hidden className="animate-pulse text-sm leading-none">🔴</span>
+          <span className="min-w-0 flex-1 text-xs font-extrabold text-amber-900">
+            You have an ongoing trip — Go back to booking page
+          </span>
+          <span aria-hidden className="text-lg text-amber-900/60">›</span>
+        </button>
       )}
 
-      {/* What the app is doing while nothing has happened yet. Without
-          this the panel looks inert during the seconds it spends deciding,
-          and a passenger who has just sat down starts hunting for a button
-          to press — which is the tapping this whole rule exists to remove. */}
-      {/* Always shown, including with no GPS fix and no tricycle in range.
-          Gating this on a fix meant the one person who most needed telling
-          — someone whose phone had not answered, or who had refused the
-          permission — saw an empty panel and no hint that anything was
-          meant to happen. "Nothing is working yet, and here is why" is
-          information; silence is not. */}
-      {!passengerHasTrip && (
-        <p className="rounded-lg bg-blue-50 px-3 py-2 text-[11px] font-medium text-blue-900">
-          {!watched
-            ? 'Waiting for your phone\'s GPS. If you would rather not turn it on, just type the TRC No. below.'
-            : candidates.length === 0
-              ? 'No tricycle near you according to GPS — just type the TRC No. below.'
-              : ambiguous
-                ? 'Two tricycles are travelling with you — pick the one you are riding in from the list below.'
-                : heldMs > 0
-                  ? `You are moving — recording your trip in ${Math.max(1, Math.ceil((SUSTAINED_MS - heldMs) / 1000))}s…`
-                  : 'Waiting for the tricycle to move off. Your trip records itself once you set out.'}
-        </p>
-      )}
 
       {!passengerHasTrip && (
         <div>

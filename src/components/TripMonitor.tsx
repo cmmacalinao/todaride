@@ -5,9 +5,6 @@ import { ETA_SECONDS_PER_LEG, useRides } from '../context/RideContext'
 import { DRIVER_BASE_GPS, MOCK_DRIVERS, PAYMENT_METHODS } from '../mock/data'
 import { showInMiddle, showInMiddleWhenSettled } from '../lib/showInMiddle'
 import { StatusBadge } from './StatusBadge'
-import { BarangayAddressPicker } from './BarangayAddressPicker'
-import { resolvePhAddress, type PhAddressTags } from '../lib/customLocation'
-import { DEFAULT_BOOKING_CITY, DEFAULT_BOOKING_PROVINCE, defaultBarangayForCity } from '../mock/data'
 import { RealLiveMap, preloadNavMap, type MapPoint } from './RealLiveMap'
 import { AlertBanner } from './AlertBanner'
 import { PhotoCaptureButton } from './PhotoCaptureButton'
@@ -83,7 +80,6 @@ export function TripMonitor({
     approveProposedFare,
     declineProposedFare,
     terminals,
-    setRideDestination,
     liveGpsEnabled,
   } = useRides()
   // On by default. Live position is the whole point of the trip screen —
@@ -136,12 +132,6 @@ export function TripMonitor({
   // on the ride's id so it fires once per trip, not on every re-render.
   const rideId = ride.id
   useEffect(() => showInMiddleWhenSettled(mapSectionRef.current), [rideId])
-  const needsDestination = ride.destinationPending === true
-  const [askDestination, setAskDestination] = useState(false)
-  const movingWithoutDestination = needsDestination && (ride.status === 'ongoing' || ride.status === 'driver_arriving')
-  useEffect(() => {
-    if (movingWithoutDestination) setAskDestination(true)
-  }, [movingWithoutDestination])
   const tripJustStarted = ride.status === 'ongoing'
   useEffect(() => {
     if (!tripJustStarted) return
@@ -443,18 +433,9 @@ export function TripMonitor({
         </div>
       )}
 
-      {needsDestination && (
-        <button
-          type="button"
-          onClick={() => setAskDestination(true)}
-          className="w-full rounded-lg border-2 border-amber-400 bg-amber-50 px-3 py-2 text-left"
-        >
-          <span className="block text-xs font-extrabold text-amber-900">Saan ka pupunta?</span>
-          <span className="block text-[11px] text-amber-800">
-            Kailangan pa ng destination para makuha ang tamang pamasahe — tap to add it.
-          </span>
-        </button>
-      )}
+      {/* The destination is asked for once, in the strip under the map. It
+          used to be asked here as well, and in a modal over the whole screen
+          — three places for one answer. */}
 
       <p className="text-lg font-bold text-slate-800">Fare: ₱{ride.fareEstimate}</p>
       {(ride.pabiliTip > 0 || ride.tipOffer > 0 || ride.passengerCount > 1) && (
@@ -811,24 +792,6 @@ export function TripMonitor({
             frozen={framing.frozen}
             nav={navCamera}
           />
-          {needsDestination && (
-            <button
-              type="button"
-              onClick={() => setAskDestination(true)}
-              className="flex w-full items-center gap-2 rounded-lg bg-gold-400 px-3 py-2 text-left shadow-sm transition hover:bg-gold-500"
-            >
-              <span aria-hidden className="text-lg leading-none">🏁</span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-extrabold italic tracking-tight text-navy-900">
-                  Saan ka punta?
-                </span>
-                <span className="block text-[10px] font-bold text-navy-900/80">
-                  I-tap para ilagay ang destination — para tama ang pamasahe.
-                </span>
-              </span>
-              <span aria-hidden className="text-lg text-navy-900/60">›</span>
-            </button>
-          )}
           {/* A trip nobody booked needs to say out loud that it exists.
               The passenger got into a tricycle off the street and the app
               recorded it without being asked, so the one thing it owes them
@@ -836,28 +799,6 @@ export function TripMonitor({
               that someone else can see it. Sitting directly above the camera
               and the SOS, because those are the two things a person reaches
               for when a ride stops feeling right. */}
-          {ride.safetyRecord && ride.status === 'ongoing' && (
-            <div className="rounded-lg border-2 border-danger-300 bg-danger-50 px-3 py-2">
-              <p className="flex items-center gap-1.5 text-xs font-extrabold text-danger-800">
-                <span aria-hidden className="animate-pulse text-sm leading-none">🔴</span>
-                Naka-record ang biyahe mo
-              </p>
-              <p className="mt-0.5 text-[11px] leading-snug text-danger-800/80">
-                {ride.driverName ?? 'Ang driver'}
-                {driver?.plateNumber ? ' · TRC ' + driver.plateNumber : ''} — nakikita ng pamilya mo kung
-                nasaan ka. Kumuha ng litrato o pindutin ang SOS kung may hindi tama.
-              </p>
-              {onFinishTrip && (
-                <button
-                  type="button"
-                  onClick={onFinishTrip}
-                  className="mt-2 w-full rounded-lg border border-danger-400 bg-white py-1.5 text-[11px] font-bold text-danger-800 hover:bg-danger-100"
-                >
-                  ⏹ Itigil ang pag-record — tapos na ang biyahe
-                </button>
-              )}
-            </div>
-          )}
           <div className="flex items-center gap-2">
             {hasDriver && (
               <PhotoCaptureButton onCapture={(dataUrl) => addSafetyPhoto(ride.id, dataUrl, sosActorId)} />
@@ -1081,44 +1022,6 @@ export function TripMonitor({
         ))}
       </div>
 
-      {askDestination && needsDestination && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-3 sm:items-center"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Saan ka pupunta"
-        >
-          <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
-            <p className="text-sm font-bold text-slate-800">Saan ka pupunta?</p>
-            <p className="mt-0.5 text-[11px] text-slate-500">
-              Naka-record na ang biyahe mo{tricycleLabel ? ` kay ${tricycleLabel}` : ''}. Sabihin lang kung saan
-              ka bababa para makuha ang tamang pamasahe.
-            </p>
-            <div className="mt-2 rounded-lg bg-slate-50/70 p-2">
-              <BarangayAddressPicker
-                label=""
-                hideRegionSelects
-                defaultProvince={ride.dropoff.province || DEFAULT_BOOKING_PROVINCE}
-                defaultCity={ride.dropoff.city || DEFAULT_BOOKING_CITY}
-                defaultBarangay={defaultBarangayForCity(ride.dropoff.city || DEFAULT_BOOKING_CITY)}
-                onResolve={async (address: PhAddressTags) => {
-                  const location = await resolvePhAddress(address)
-                  setRideDestination(ride.id, location)
-                  setAskDestination(false)
-                }}
-                onConfirm={() => setAskDestination(false)}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => setAskDestination(false)}
-              className="mt-1.5 w-full rounded-lg py-1.5 text-[11px] font-medium text-slate-500 hover:bg-slate-50"
-            >
-              Mamaya na
-            </button>
-          </div>
-        </div>
-      )}
 
 
     </section>

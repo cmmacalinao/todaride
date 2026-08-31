@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { ShareAppPanel } from './ShareAppPanel'
+import { AndroidAppMenuRow } from './AndroidAppLink'
 import { EmergencyNumbersPanel } from './EmergencyNumbersPanel'
 import { ContactUsForm } from './ContactUsForm'
 import { THEME_OPTIONS, useTheme } from '../context/ThemeContext'
@@ -134,6 +135,7 @@ export function PublicHeader({ title = 'TODA SafeRide' }: { title?: string }) {
                 arrives because somebody standing next to them showed them a
                 code, and that person may not have an account either. */}
             <div className="space-y-1.5 px-2 pt-2">
+              <AndroidAppMenuRow onNavigate={() => setMenuOpen(false)} />
               <button
                 type="button"
                 onClick={() => { setMenuOpen(false); setShowShare(true) }}

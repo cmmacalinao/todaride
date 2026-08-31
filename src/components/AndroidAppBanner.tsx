@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { isNativeApp } from '../lib/platform'
+import { APK_PATH, canUseApk } from './AndroidAppLink'
 
 // Offers the Android app, to the phones that can actually use one.
 //
@@ -14,18 +14,11 @@ import { isNativeApp } from '../lib/platform'
 // you lose the person who only wanted a tricycle. The real argument for the
 // app is not the icon — it is that browser geolocation stops when the screen
 // locks, which is exactly when a trip is being tracked.
-const APK_PATH = '/TodaSafeRide.apk'
-
-function isAndroid(): boolean {
-  if (typeof navigator === 'undefined') return false
-  return /Android/i.test(navigator.userAgent)
-}
 
 export function AndroidAppBanner() {
   const [showHow, setShowHow] = useState(false)
 
-  // Already inside the app, or on a phone this file cannot run on.
-  if (isNativeApp() || !isAndroid()) return null
+  if (!canUseApk()) return null
 
   return (
     <section className="mx-4 mb-6 rounded-2xl border-2 border-gold-400 bg-gold-50 p-4">

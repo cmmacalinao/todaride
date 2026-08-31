@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ShareAppPanel } from './ShareAppPanel'
+import { AndroidAppMenuRow } from './AndroidAppLink'
 import type { AccountPanelKind } from './AccountPanels'
 import { useRides } from '../context/RideContext'
 
@@ -298,6 +299,7 @@ export function NavDrawer({
         {/* The pilot spreads at a terminal, one person showing another, and
             that moment needs a code to point a camera at. */}
         <div className="space-y-1.5 px-2 pt-2">
+          <AndroidAppMenuRow onNavigate={onClose} />
           <button
             type="button"
             onClick={() => { onClose(); setShowShare(true) }}

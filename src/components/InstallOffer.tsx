@@ -1,19 +1,8 @@
-import { isNativeApp } from '../lib/platform'
+import { APK_PATH, canUseApk } from '../lib/installTarget'
 
-// One definition of "can this phone use the APK, and where is it".
-//
-// The offer started life only on the landing page, which quietly meant only
-// signed-out visitors ever saw it — and anyone who has used the pilot before
-// arrives already signed in, straight onto their own screen. The person most
-// likely to want the app was the one guaranteed not to be offered it.
-export const APK_PATH = '/TodaSafeRide.apk'
-
-export function canUseApk(): boolean {
-  if (isNativeApp()) return false // already in it
-  if (typeof navigator === 'undefined') return false
-  return /Android/i.test(navigator.userAgent)
-}
-
+// The rules themselves live in lib/installTarget, where they can be tested
+// without a browser. This file is only what they look like.
+export { APK_PATH, canAddToHomeScreen, canUseApk, alreadyInstalled } from '../lib/installTarget'
 // The menu row, so the offer is reachable from any screen in either menu
 // rather than only from the bottom of the landing page.
 export function AndroidAppMenuRow({ onNavigate }: { onNavigate?: () => void }) {

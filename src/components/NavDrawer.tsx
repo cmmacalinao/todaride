@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ShareAppPanel } from './ShareAppPanel'
-import { AndroidAppMenuRow } from './AndroidAppLink'
+import { AndroidAppMenuRow } from './InstallOffer'
 import type { AccountPanelKind } from './AccountPanels'
 import { useRides } from '../context/RideContext'
 

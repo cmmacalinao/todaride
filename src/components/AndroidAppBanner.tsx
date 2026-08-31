@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { APK_PATH, canUseApk } from './AndroidAppLink'
+import { APK_PATH, canUseApk } from './InstallOffer'
 
 // Offers the Android app, to the phones that can actually use one.
 //

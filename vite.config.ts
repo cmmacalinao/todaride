@@ -1,7 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
-import { copyFileSync, existsSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 // Lets the running app write its terminal list back into the repo's seed
@@ -16,6 +16,44 @@ import { resolve } from 'node:path'
 // browser's own canvas. So the browser does the work and hands the result
 // back here to be saved. Dev-only, like the terminal seed writer beside it,
 // and it keeps a .bak of whatever it overwrites.
+// Hands out the built APK on the dev server, at the same path the deployed
+// site serves it from.
+//
+// The APK deliberately does not live in public/. Capacitor copies the whole
+// web output into the APK, so a copy sitting there would put the previous
+// build inside the next one and double the download every time — which is
+// why the deploy stages it into dist/ afterwards instead (see
+// scripts/stage-apk.mjs). That leaves the dev server with nothing at
+// /TodaSafeRide.apk, and Vite's SPA fallback answering it with index.html:
+// 200 OK, an .apk filename, and HTML inside. Android rejects that as a
+// corrupt package, which looks like a broken build rather than a missing
+// file.
+//
+// So dev reads it straight from the Gradle output. apply: 'serve' — this
+// never exists in a build, and so can never end up inside an APK.
+function apkForDev(): Plugin {
+  return {
+    name: 'toda-apk-dev',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/TodaSafeRide.apk', (_req, res) => {
+        const built = resolve(process.cwd(), 'android/app/build/outputs/apk/debug/app-debug.apk')
+        if (!existsSync(built)) {
+          res.statusCode = 404
+          res.setHeader('Content-Type', 'text/plain')
+          res.end('No APK built yet. Run: npm run apk')
+          return
+        }
+        const bytes = readFileSync(built)
+        res.setHeader('Content-Type', 'application/vnd.android.package-archive')
+        res.setHeader('Content-Length', String(bytes.length))
+        res.setHeader('Content-Disposition', 'attachment; filename="TodaSafeRide.apk"')
+        res.end(bytes)
+      })
+    },
+  }
+}
+
 function assetWriter(): Plugin {
   return {
     name: 'toda-asset-writer',
@@ -100,6 +138,7 @@ export default defineConfig({
   plugins: [
     terminalSeedWriter(),
     assetWriter(),
+    apkForDev(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',

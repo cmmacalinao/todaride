@@ -43,6 +43,33 @@ const ARRIVED_BY_SCAN = (() => {
   return true
 })()
 
+// iOS's Share button, drawn rather than described.
+//
+// "Ang kahon na may pataas na arrow" is an accurate description and still
+// leaves somebody hunting a toolbar for it. The glyph is the thing they are
+// actually looking for, so it is shown at the size it appears on the phone,
+// in a box the same shape as the button it sits in.
+//
+// Inline SVG rather than an image file: it inherits the text colour, stays
+// sharp at any size, and cannot be the one asset that failed to load on the
+// screen whose whole job is telling somebody what to press.
+function ShareGlyph() {
+  return (
+    <span
+      aria-hidden
+      className="mx-0.5 inline-flex h-6 w-6 shrink-0 translate-y-1 items-center justify-center rounded-md border border-slate-300 bg-white"
+    >
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="#0a84ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        {/* the arrow leaving the box */}
+        <path d="M12 3v11" />
+        <path d="M8 7l4-4 4 4" />
+        {/* the box it leaves, open at the top so the arrow reads as escaping */}
+        <path d="M8 11H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-2" />
+      </svg>
+    </span>
+  )
+}
+
 export function ScanArrivalChoice() {
   const [platform, setPlatform] = useState<'android' | 'ios' | null>(null)
   // Add to Home Screen exists only in Safari. Somebody who opened the code
@@ -107,9 +134,8 @@ export function ScanArrivalChoice() {
                 and the item people miss is the one they have to scroll to. */}
             <ol className="mt-3 space-y-1.5 rounded-lg bg-slate-50 px-3 py-2.5 text-[11px] leading-relaxed text-slate-700">
               <li>
-                <span className="font-bold">1.</span> Pindutin ang{' '}
-                <span className="font-semibold">Share</span> — ang kahon na may pataas na arrow, sa ibaba
-                ng Safari.
+                <span className="font-bold">1.</span> Pindutin ang <ShareGlyph /> —{' '}
+                <span className="font-semibold">Share</span>, nasa ibaba ng Safari.
               </li>
               <li>
                 <span className="font-bold">2.</span> Mag-scroll pababa sa listahan.

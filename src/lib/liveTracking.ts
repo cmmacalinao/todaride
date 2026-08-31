@@ -23,6 +23,16 @@ const MIN_MOVE_METERS = 3
 // hundreds of metres out can be recognised as vague rather than broken.
 export const COARSE_ACCURACY_METERS = 150
 
+// Above this, a reading is not a position — it is a glitch.
+//
+// 40 m/s is about 144 km/h, far beyond anything a tricycle does and beyond
+// most vehicles a passenger could be in, so nothing real is thrown away. What
+// it catches is the fix that places a phone in the next town for one reading
+// and back again on the next: a jump that flows straight into the recorded
+// trip, the distance shown to the passenger, and the boarding rule that
+// decides which tricycle they are sitting in.
+const MAX_PLAUSIBLE_SPEED_MPS = 40
+
 // Continuously watches the device's real GPS while enabled — the driver/
 // passenger opt-in toggles this on, at which point their actual movement
 // (not a simulation) drives their marker on the real map.
@@ -33,11 +43,26 @@ export function useWatchPosition(enabled: boolean): {
   // is only sure to within 2 km" rather than drawing that as a pin and
   // letting somebody believe it.
   accuracy: number | null
+  // The device's own speed and direction, when it reports them.
+  //
+  // Both arrive in every position event and were being discarded. They matter
+  // because the boarding rule derives its own from consecutive fixes, and a
+  // derived value is only as good as the two points behind it — two fixes 8m
+  // apart with 30m of error can imply almost any speed and any heading. The
+  // phone's own figures come from the GNSS chip and are steadier.
+  //
+  // Null when the device declines to say, which Android does routinely below
+  // walking pace. Callers must fall back rather than treat null as zero.
+  speedMps: number | null
+  headingDegrees: number | null
 } {
   const [position, setPosition] = useState<GeoCoords | null>(null)
   const [accuracy, setAccuracy] = useState<number | null>(null)
+  const [speedMps, setSpeedMps] = useState<number | null>(null)
+  const [headingDegrees, setHeadingDegrees] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const accuracyRef = useRef<number | null>(null)
+  const acceptedAtRef = useRef<number | null>(null)
   const watchIdRef = useRef<number | null>(null)
   // What the marker is currently showing. Kept in a ref, not state, so the
   // comparison below reads the latest accepted value without re-subscribing
@@ -48,19 +73,44 @@ export function useWatchPosition(enabled: boolean): {
     if (!enabled) {
       setPosition(null)
       setAccuracy(null)
+      setSpeedMps(null)
+      setHeadingDegrees(null)
       acceptedRef.current = null
       accuracyRef.current = null
+      acceptedAtRef.current = null
       return
     }
     setError(null)
 
     // One reading, wherever it came from, judged the same way.
-    const accept = (coords: { latitude: number; longitude: number; accuracy: number | null }) => {
+    const accept = (coords: {
+      latitude: number
+      longitude: number
+      accuracy: number | null
+      speed?: number | null
+      heading?: number | null
+    }) => {
       setError(null)
       const next = { lat: coords.latitude, lng: coords.longitude }
       const nextAccuracy = coords.accuracy ?? null
+      const now = Date.now()
       const last = acceptedRef.current
       const lastAccuracy = accuracyRef.current
+      const lastAt = acceptedAtRef.current
+
+      // Throw away a fix that claims impossible movement.
+      //
+      // Two guards, both needed. The speed has to be beyond any real vehicle,
+      // and the jump has to be bigger than the two readings' own error added
+      // together — otherwise a pair of vague fixes that merely overlap gets
+      // discarded as a teleport, and a phone with poor reception would stop
+      // updating at all.
+      if (last && lastAt) {
+        const moved = haversineDistanceMeters(last, next)
+        const elapsed = (now - lastAt) / 1000
+        const errorBudget = (lastAccuracy ?? 0) + (nextAccuracy ?? 0)
+        if (elapsed > 0.5 && moved > errorBudget && moved / elapsed > MAX_PLAUSIBLE_SPEED_MPS) return
+      }
 
       if (last) {
         // A sharper reading always wins, however little the phone claims to
@@ -91,8 +141,13 @@ export function useWatchPosition(enabled: boolean): {
 
       acceptedRef.current = next
       accuracyRef.current = nextAccuracy
+      acceptedAtRef.current = now
       setPosition(next)
       setAccuracy(nextAccuracy)
+      // Negative means "not available" in the browser API; null is the honest
+      // representation of that, and stops a caller reading -1 as reversing.
+      setSpeedMps(coords.speed != null && coords.speed >= 0 ? coords.speed : null)
+      setHeadingDegrees(coords.heading != null && coords.heading >= 0 ? coords.heading : null)
     }
 
     // Inside the installed app, go through Capacitor rather than the
@@ -158,7 +213,7 @@ export function useWatchPosition(enabled: boolean): {
     }
   }, [enabled])
 
-  return { position, error, accuracy }
+  return { position, error, accuracy, speedMps, headingDegrees }
 }
 
 // Re-renders on an interval so time-based conditions (see

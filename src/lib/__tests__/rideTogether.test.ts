@@ -4,6 +4,7 @@ import {
   SUSTAINED_MS,
   bearingDegrees,
   headingDifference,
+  headingOf,
   movingTogether,
   speedMps,
   trimTrack,
@@ -140,5 +141,56 @@ describe('the geometry underneath it', () => {
 
   it('keeps the separation limit at the width of a terminal, not a street', () => {
     expect(MAX_SEPARATION_METERS).toBe(80)
+  })
+})
+
+// The device's own readings, and the fallback when it gives none.
+//
+// Worth testing rather than eyeballing: the derived values and the reported
+// ones can disagree, and which one wins decides whether a trip gets recorded
+// against a driver. A phone that says "stationary" while two noisy fixes
+// imply 20 km/h must not start a trip.
+describe('device speed and heading', () => {
+  const at = (ms: number) => 1_700_000_000_000 + ms
+
+  it("uses the phone's speed when it reports one", () => {
+    const from = { gps: { lat: 15.73, lng: 120.93 }, at: at(0) }
+    // Two fixes 40m apart in 10s derive 4 m/s, but the phone says it is barely
+    // moving — trust the phone.
+    const to = { gps: { lat: 15.7303, lng: 120.93 }, at: at(10_000), speedMps: 0.3 }
+    expect(speedMps(from, to)).toBe(0.3)
+  })
+
+  it('falls back to the derived speed when the phone says nothing', () => {
+    const from = { gps: { lat: 15.73, lng: 120.93 }, at: at(0) }
+    const to = { gps: { lat: 15.7303, lng: 120.93 }, at: at(10_000) }
+    expect(speedMps(from, to)).toBeGreaterThan(2)
+  })
+
+  it('treats a negative reading as no reading', () => {
+    // The browser API uses -1 for "unavailable"; read literally that is a
+    // vehicle in reverse, which would fail the movement check for a tricycle
+    // that is in fact under way.
+    const from = { gps: { lat: 15.73, lng: 120.93 }, at: at(0) }
+    const to = { gps: { lat: 15.7303, lng: 120.93 }, at: at(10_000), speedMps: -1 }
+    expect(speedMps(from, to)).toBeGreaterThan(2)
+  })
+
+  it("uses the phone's heading when it reports one", () => {
+    const from = { gps: { lat: 15.73, lng: 120.93 }, at: at(0) }
+    const to = { gps: { lat: 15.7303, lng: 120.93 }, at: at(10_000), headingDegrees: 270 }
+    expect(headingOf(from, to)).toBe(270)
+  })
+
+  it('falls back to the bearing between two points', () => {
+    const from = { gps: { lat: 15.73, lng: 120.93 }, at: at(0) }
+    const to = { gps: { lat: 15.7303, lng: 120.93 }, at: at(10_000) }
+    // Due north, give or take floating point.
+    expect(headingOf(from, to)).toBeCloseTo(0, 1)
+  })
+
+  it('reports no heading for a point that has not moved', () => {
+    const same = { gps: { lat: 15.73, lng: 120.93 }, at: at(0) }
+    expect(headingOf(same, { ...same, at: at(5_000) })).toBeNull()
   })
 })

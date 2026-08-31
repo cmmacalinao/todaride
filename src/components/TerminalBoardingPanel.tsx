@@ -40,7 +40,11 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
   } = useRides()
   const feeFree = terminalRideIsFree(terminalQrFeeWaived, commissionPerRide)
   const { currentPassengerId } = useSession()
-  const { position: watched } = useWatchPosition(true)
+  const {
+    position: watched,
+    speedMps: watchedSpeed,
+    headingDegrees: watchedHeading,
+  } = useWatchPosition(true)
   // This pilot assumes location is on. Where the browser has no fix to give
   // — a laptop, a headless run, a phone still warming up its GPS — the panel
   // carries on from the default booking coordinate rather than stopping to
@@ -121,7 +125,17 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
     if (startedRef.current || passengerHasTrip) return
     if (!watched || !currentPassengerId) return
     const now = Date.now()
-    passengerTrack.current = trimTrack([...passengerTrack.current, { gps: watched, at: now }], now)
+    // Carry the phone's own speed and heading into the track. The boarding
+    // rule prefers them over the pair it would otherwise derive — see Fix in
+    // rideTogether — and they are the difference between "these two fixes
+    // imply movement" and "the phone says it is moving".
+    passengerTrack.current = trimTrack(
+      [
+        ...passengerTrack.current,
+        { gps: watched, at: now, speedMps: watchedSpeed, headingDegrees: watchedHeading },
+      ],
+      now,
+    )
 
     let longestHeld = 0
     const qualified: Driver[] = []

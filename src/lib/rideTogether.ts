@@ -44,6 +44,17 @@ export const MAX_SEPARATION_METERS = 80
 export interface Fix {
   gps: GeoCoords
   at: number
+  // What the phone itself said about how fast and which way, if it said
+  // anything. Preferred over the values derived from a pair of positions:
+  // the derived ones are only as good as the two points behind them, and two
+  // fixes 8 metres apart with 30 metres of error can imply almost any speed
+  // and any heading. The GNSS chip measures rather than infers.
+  //
+  // Optional throughout. Android withholds both routinely below walking pace,
+  // and every fix recorded before this existed has neither — so the derived
+  // path has to remain a working fallback rather than a legacy branch.
+  speedMps?: number | null
+  headingDegrees?: number | null
 }
 
 // Compass bearing from one point to the next, in degrees clockwise from
@@ -68,11 +79,21 @@ export function headingDifference(a: number, b: number): number {
   return raw > 180 ? 360 - raw : raw
 }
 
-// Metres per second between two fixes.
+// Metres per second between two fixes — the phone's own reading when it gave
+// one, otherwise worked out from the distance covered.
 export function speedMps(from: Fix, to: Fix): number {
+  if (to.speedMps != null && to.speedMps >= 0) return to.speedMps
   const seconds = (to.at - from.at) / 1000
   if (seconds <= 0) return 0
   return haversineDistanceMeters(from.gps, to.gps) / seconds
+}
+
+// Which way a pair is travelling — again the phone's own reading first.
+// Null when neither source can say, which is the honest answer for a point
+// that has not moved.
+export function headingOf(from: Fix, to: Fix): number | null {
+  if (to.headingDegrees != null && to.headingDegrees >= 0) return to.headingDegrees
+  return bearingDegrees(from.gps, to.gps)
 }
 
 export interface TogetherVerdict {
@@ -129,8 +150,8 @@ export function movingTogether(passenger: Fix[], tricycle: Fix[]): TogetherVerdi
       break
     }
 
-    const theirs = bearingDegrees(from.gps, to.gps)
-    const ours = bearingDegrees(pair[0].gps, pair[1].gps)
+    const theirs = headingOf(from, to)
+    const ours = headingOf(pair[0], pair[1])
     if (theirs === null || ours === null || headingDifference(ours, theirs) > SAME_HEADING_DEGREES) {
       lastFailure = 'different-heading'
       break

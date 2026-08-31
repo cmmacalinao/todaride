@@ -1,8 +1,5 @@
-import { useLayoutEffect } from 'react'
+import { lazy, Suspense, useLayoutEffect } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { AdminParentMonitorPage } from './pages/AdminParentMonitorPage'
-import { AdminPassengerMonitorPage } from './pages/AdminPassengerMonitorPage'
-import { AdminDriverMonitorPage } from './pages/AdminDriverMonitorPage'
 import { PublicHeader } from './components/PublicHeader'
 import { SuperAdminGate } from './components/SuperAdminGate'
 import { NavBar } from './components/NavBar'
@@ -11,24 +8,37 @@ import { DesktopOnlyNotice } from './components/DesktopOnlyNotice'
 import { isDesktopOnlyRole, isNativeApp } from './lib/platform'
 import { LandingPage } from './pages/LandingPage'
 import { DriverPage } from './pages/DriverPage'
-import { AdminPage } from './pages/AdminPage'
-import { AdminTodaProfilePage } from './pages/AdminTodaProfilePage'
-import { SuperAdminPage } from './pages/SuperAdminPage'
-import { SimulatorPage } from './pages/SimulatorPage'
 import { TerminalScanPage } from './pages/TerminalScanPage'
 import { RiderStartPage } from './pages/RiderStartPage'
 import { RoleChooserPage } from './pages/RoleChooserPage'
-import { AccountingPage } from './pages/AccountingPage'
-import { IncomePromotionPage } from './pages/IncomePromotionPage'
 import { BookPage } from './pages/BookPage'
-import { MedsRideBookingPage } from './pages/MedsRideBookingPage'
-import { PharmacyPortalPage } from './pages/PharmacyPortalPage'
-import { OperatorPortalPage } from './pages/OperatorPortalPage'
-import { FranchisePage } from './pages/FranchisePage'
 import { AppUpdateWatcher } from './components/AppUpdateWatcher'
 import { RideProvider } from './context/RideContext'
 import { SessionProvider, useSession } from './context/SessionContext'
 import { ThemeProvider } from './context/ThemeContext'
+
+// Split out of the main bundle, because almost nobody who opens this app
+// will ever see them.
+//
+// Everything used to arrive in one file: a passenger standing at a terminal
+// on mobile data downloaded the admin console, the accounting screens, the
+// simulator and all four staff portals before they could ask for a ride.
+// These are the screens a passenger or a driver never opens, so they are
+// fetched the first time somebody actually navigates to one — which, for a
+// staff account on a desk, costs a moment once.
+const AdminParentMonitorPage = lazy(() => import('./pages/AdminParentMonitorPage').then((m) => ({ default: m.AdminParentMonitorPage })))
+const AdminPassengerMonitorPage = lazy(() => import('./pages/AdminPassengerMonitorPage').then((m) => ({ default: m.AdminPassengerMonitorPage })))
+const AdminDriverMonitorPage = lazy(() => import('./pages/AdminDriverMonitorPage').then((m) => ({ default: m.AdminDriverMonitorPage })))
+const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
+const AdminTodaProfilePage = lazy(() => import('./pages/AdminTodaProfilePage').then((m) => ({ default: m.AdminTodaProfilePage })))
+const SuperAdminPage = lazy(() => import('./pages/SuperAdminPage').then((m) => ({ default: m.SuperAdminPage })))
+const SimulatorPage = lazy(() => import('./pages/SimulatorPage').then((m) => ({ default: m.SimulatorPage })))
+const AccountingPage = lazy(() => import('./pages/AccountingPage').then((m) => ({ default: m.AccountingPage })))
+const IncomePromotionPage = lazy(() => import('./pages/IncomePromotionPage').then((m) => ({ default: m.IncomePromotionPage })))
+const MedsRideBookingPage = lazy(() => import('./pages/MedsRideBookingPage').then((m) => ({ default: m.MedsRideBookingPage })))
+const PharmacyPortalPage = lazy(() => import('./pages/PharmacyPortalPage').then((m) => ({ default: m.PharmacyPortalPage })))
+const OperatorPortalPage = lazy(() => import('./pages/OperatorPortalPage').then((m) => ({ default: m.OperatorPortalPage })))
+const FranchisePage = lazy(() => import('./pages/FranchisePage').then((m) => ({ default: m.FranchisePage })))
 
 // Puts the login/landing view back at the top of the frame every time it
 // appears.
@@ -169,7 +179,14 @@ function AppShell() {
           clears it with a hair to spare. Re-measure if that header's contents
           change again — this number has no other way to stay honest. */}
       <main className={isMinimalHeader ? undefined : 'pt-2'}>
-        <Routes>
+        {/* The staff screens below are separate chunks now, so there is a
+            moment between asking for one and having it. A quiet line beats a
+            spinner here: these open on a desk, on wifi, and the wait is
+            usually too short to be worth animating. */}
+        <Suspense
+          fallback={<p className="p-6 text-center text-sm text-slate-400">Loading…</p>}
+        >
+          <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/welcome" element={<RoleChooserPage />} />
           <Route path="/scan/:driverId" element={<TerminalScanPage />} />
@@ -223,7 +240,8 @@ function AppShell() {
           <Route path="/admin/toda/:todaOrgId" element={<AdminTodaProfilePage />} />
           <Route path="/admin/accounting" element={<AccountingPage />} />
           <Route path="/admin/income-promotion" element={<IncomePromotionPage />} />
-        </Routes>
+          </Routes>
+        </Suspense>
       </main>
     </>
   )

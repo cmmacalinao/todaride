@@ -32,19 +32,14 @@ const ROLE_TILES: RoleTile[] = [
     loginTo: '/book?role=passenger&auth=login',
     signupTo: '/book?role=passenger&auth=signup',
   },
-  {
-    icon: '👪',
-    label: 'Parent',
-    blurb: "Book and track your child's rides",
-    loginTo: '/book?role=parent&auth=login',
-    // Signing up as a parent is no longer its own account. Adding a child is
-    // an option inside passenger registration, so a mother ends up with one
-    // login instead of two — see PassengerRegisterForm's dependants section.
-    // The tile stays for LOGIN, because parents registered under the old flow
-    // still have their own accounts to sign in to.
-    signupTo: '/book?role=passenger&auth=signup',
-    loginOnly: true,
-  },
+  // No Parent tile. A parent is a passenger who has a child on their account:
+  // adding a dependant is a step inside passenger registration, so a mother
+  // ends up with one login rather than two, and this screen no longer asks
+  // her to classify herself before it can show her a form.
+  //
+  // The parent role itself is untouched — dependants, the family view of a
+  // trip, and where an SOS goes all still work. Only the separate way in is
+  // gone.
   {
     icon: '🛵',
     label: 'Driver',

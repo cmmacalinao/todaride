@@ -37,7 +37,12 @@ const ROLE_LABELS: Record<GateRole, string> = {
   franchise: 'Franchise',
 }
 
-const ALL_ROLES: GateRole[] = ['passenger', 'parent', 'driver', 'admin', 'pharmacy', 'vendor', 'operator', 'franchise']
+// Parent is deliberately absent: a parent signs in as a passenger, and the
+// child sits on that one account (see PassengerRegisterForm's dependants
+// section). ParentAuth and the parent role are left in place below — existing
+// parent accounts, the family view of a trip and SOS routing all still work —
+// but the login screen no longer offers it as a separate way in.
+const ALL_ROLES: GateRole[] = ['passenger', 'driver', 'admin', 'pharmacy', 'vendor', 'operator', 'franchise']
 
 // Which login tabs make sense for whichever entry point sent someone here —
 // LandingPage's "Book a Ride →" only ever needs a rider identity
@@ -47,7 +52,7 @@ const ALL_ROLES: GateRole[] = ['passenger', 'parent', 'driver', 'admin', 'pharma
 // there's nothing to choose between, same as /admin). Any other path
 // (typed directly) falls back to showing every tab.
 function allowedRolesForPath(pathname: string): GateRole[] {
-  if (pathname === '/book') return ['passenger', 'parent']
+  if (pathname === '/book') return ['passenger']
   if (pathname === '/drive') return ['driver']
   if (pathname === '/admin') return ['admin']
   if (pathname === '/pharmacy') return ['pharmacy']
@@ -119,7 +124,7 @@ export function LegacyAuthGate() {
     .filter((r) => vendorsEnabled || r !== 'vendor')
   // Someone landing on /pharmacy while MEDS is off would otherwise be left
   // with no form at all — fall back to the normal rider entry point.
-  const withoutParams = pathRoles.length > 0 ? pathRoles : (['passenger', 'parent'] as GateRole[])
+  const withoutParams = pathRoles.length > 0 ? pathRoles : (['passenger'] as GateRole[])
   // The role chooser (see RoleChooserPage) has already asked who they are, so
   // it links here with ?role=/?auth= to land on exactly one form. Anyone
   // reaching a path directly still gets the full tab row as before.

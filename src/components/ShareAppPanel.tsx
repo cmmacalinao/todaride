@@ -23,21 +23,51 @@ export const SHARE_URL = `${APP_URL}/?fresh=1`
 
 export function ShareAppPanel({ onClose }: { onClose: () => void }) {
   const url = SHARE_URL
-  const [copied, setCopied] = useState(false)
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const canShare = typeof navigator !== 'undefined' && !!navigator.share
 
+  // The older way of copying, kept because the modern one is not always
+  // there. navigator.clipboard is undefined outside a secure context and is
+  // refused outright by several in-app browsers — and this panel exists to be
+  // used inside exactly those, where somebody is passing the pilot along in a
+  // Messenger thread. execCommand is deprecated and still the only thing that
+  // works in those hosts.
+  function copyTheOldWay(text: string): boolean {
+    try {
+      const field = document.createElement('textarea')
+      field.value = text
+      // Off-screen rather than hidden: a field with display:none cannot be
+      // selected, and selection is the whole mechanism here.
+      field.style.position = 'fixed'
+      field.style.top = '-1000px'
+      field.setAttribute('readonly', '')
+      document.body.appendChild(field)
+      field.select()
+      field.setSelectionRange(0, text.length)
+      const ok = document.execCommand('copy')
+      document.body.removeChild(field)
+      return ok
+    } catch {
+      return false
+    }
+  }
 
   async function copyLink() {
     try {
-      await navigator.clipboard.writeText(url)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url)
+        setCopyState('copied')
+        setTimeout(() => setCopyState('idle'), 2000)
+        return
+      }
     } catch {
-      // Clipboard access is refused in some in-app browsers and over plain
-      // http. The address is printed below in full for exactly this case, so
-      // there is always a way to pass it on.
-      setCopied(false)
+      // Refused. Fall through and try the old way rather than giving up —
+      // the previous version stopped here, which looked to the user like a
+      // button that did nothing at all.
     }
+    const ok = copyTheOldWay(url)
+    setCopyState(ok ? 'copied' : 'failed')
+    if (ok) setTimeout(() => setCopyState('idle'), 2000)
   }
 
   async function shareLink() {
@@ -78,9 +108,27 @@ export function ShareAppPanel({ onClose }: { onClose: () => void }) {
           <QRCodeSVG value={url} size={190} level="H" marginSize={2} />
         </div>
 
-        <p className="mt-2 break-all rounded-lg bg-slate-50 px-2.5 py-2 text-center text-xs font-medium text-slate-700">
+        {/* Tapping selects the whole address, so it can be copied by hand
+            when the clipboard is refused — which is the case this panel is
+            most likely to meet. */}
+        <p
+          onClick={(e) => {
+            const range = document.createRange()
+            range.selectNodeContents(e.currentTarget)
+            const selection = window.getSelection()
+            selection?.removeAllRanges()
+            selection?.addRange(range)
+          }}
+          className="mt-2 cursor-pointer select-all break-all rounded-lg bg-slate-50 px-2.5 py-2 text-center text-xs font-medium text-slate-700"
+        >
           {url}
         </p>
+        {copyState === 'failed' && (
+          <p className="mt-1 text-center text-[11px] leading-snug text-amber-700">
+            Hindi pumayag ang browser na kopyahin ito. Pindutin nang matagal ang address sa itaas, tapos
+            piliin ang <span className="font-semibold">Copy</span>.
+          </p>
+        )}
 
         <div className={`mt-3 grid gap-2 ${canShare ? 'grid-cols-2' : 'grid-cols-1'}`}>
           <button
@@ -88,7 +136,7 @@ export function ShareAppPanel({ onClose }: { onClose: () => void }) {
             onClick={() => void copyLink()}
             className="rounded-lg border border-slate-300 bg-white py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
           >
-            {copied ? '✓ Copied' : '🔗 Copy link'}
+            {copyState === 'copied' ? '✓ Copied' : '🔗 Copy link'}
           </button>
           {/* Only where the phone actually has a share sheet. A button that
               opens nothing is worse than no button.

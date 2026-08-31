@@ -41,6 +41,8 @@ export function SuperAdminPage() {
     setLiveGpsEnabled,
     openDriverSignup,
     setOpenDriverSignup,
+    documentGraceDays,
+    setDocumentGraceDays,
     publicBaseUrl,
     setPabiliEnabled,
     setMedsEnabled,
@@ -275,6 +277,31 @@ export function SuperAdminPage() {
               enabled={openDriverSignup}
               onChange={setOpenDriverSignup}
             />
+            {/* Sits under the switch it belongs to, and only while that
+                switch is on — a deadline for documents nobody is allowed to
+                defer is just a number taking up space. */}
+            {openDriverSignup && (
+              <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+                <span aria-hidden className="text-lg leading-none">
+                  📎
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-navy-900">Days to submit documents</span>
+                  <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">
+                    How long a driver who signed up without papers has to produce them. The date is stamped
+                    on each driver when they register, so changing this only affects who registers next.
+                  </span>
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={documentGraceDays}
+                  onChange={(e) => setDocumentGraceDays(Number(e.target.value))}
+                  className="w-16 shrink-0 rounded-lg border border-slate-300 px-2 py-1.5 text-center text-sm"
+                />
+              </label>
+            )}
             <FeatureToggleRow
               icon="🛰️"
               label="Live GPS tracking"

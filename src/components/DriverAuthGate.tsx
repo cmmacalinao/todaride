@@ -4,6 +4,11 @@ import { autoDetectTodaOrgId, DOCUMENT_LABELS, DOCUMENT_TYPES, MOCK_DRIVERS, MOC
 import { getCurrentGeoPosition } from '../lib/geo'
 import { matchesNameQuery } from '../lib/fuzzyName'
 import { DocumentUploadField } from './DocumentUploadField'
+import {
+  findDriverSignupProblems,
+  type Problem,
+  type ProblemField,
+} from '../lib/driverSignupProblems'
 import { IdentifierLoginForm } from './IdentifierLoginForm'
 import { EMPTY_PH_ADDRESS, PhAddressFields, type PhAddressValue } from './PhAddressFields'
 import { RegistrationOtpStep } from './RegistrationOtpStep'
@@ -677,7 +682,25 @@ function RegisterForm({
   const [pin, setPin] = useState('')
   const [documents, setDocuments] = useState<DriverDocuments>(EMPTY_DOCUMENTS)
   const [error, setError] = useState('')
+  // What is wrong, field by field, rather than one sentence listing every
+  // field that might be. The old message named five things at once and left
+  // the driver to work out which applied to them — on a phone, at a terminal,
+  // with a queue behind them.
+  const [problems, setProblems] = useState<Problem[]>([])
   const [submitted, setSubmitted] = useState(false)
+
+  const wrong = (field: ProblemField) => problems.some((item) => item.field === field)
+  // A red ring on the box itself, so the list and the form agree about which
+  // one is the problem.
+  const ring = (field: ProblemField) =>
+    wrong(field) ? 'border-rose-400 ring-2 ring-rose-200' : 'border-slate-300'
+
+  function goToField(field: ProblemField) {
+    const el = document.getElementById(`signup-${field}`)
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const input = el?.querySelector('input, select')
+    if (input instanceof HTMLElement) input.focus({ preventScroll: true })
+  }
 
   const inviteOrgName = invite ? todaOrganizations.find((o) => o.id === invite.todaOrgId)?.name : null
   // Locked (non-editable) TODA org, from either flow above — distinct from
@@ -697,42 +720,29 @@ function RegisterForm({
   }
 
   function handleSubmit() {
-    if (
-      !plateNumber.trim() ||
-      !licenseNo.trim() ||
-      !licenseExpiry ||
-      !address.province ||
-      !address.city ||
-      !address.barangay ||
-      !address.addressDetail.trim() ||
-      pin.length !== 4
-    ) {
-      setError('Fill in your plate number, license details, full address, and a 4-digit PIN.')
+    // The rules live in lib/driverSignupProblems, where they are tested
+    // without a form or an OTP step in the way.
+    const found = findDriverSignupProblems({
+      plateNumber,
+      licenseNo,
+      confirmLicenseNo,
+      licenseExpiry,
+      address,
+      pin,
+      documents,
+      documentsRequired: !openDriverSignup,
+    })
+
+    if (found.length > 0) {
+      setProblems(found)
+      setError('')
+      // Take them to the first one. Naming a field is no use if it is three
+      // screens further down, which on a phone it usually is.
+      requestAnimationFrame(() => goToField(found[0].field))
       return
     }
-    if (licenseNo.trim() !== confirmLicenseNo.trim()) {
-      setError(
-        "The license number you typed and the confirmation don't match. Double-check both fields against your license.",
-      )
-      return
-    }
-    if (new Date(licenseExpiry).getTime() <= Date.now()) {
-      setError('Your license expiry date must be in the future — an expired license can\'t be used to register.')
-      return
-    }
-    // Documents are required unless the pilot flag says otherwise. During a
-    // pilot the driver is standing in front of whoever is signing them up,
-    // their papers are in their hand, and blocking on an upload from a phone
-    // at a terminal loses the tester rather than protecting anyone. Turn
-    // "Open driver signup" off in Super Admin and this is a hard requirement
-    // again — which it must be before anyone real is carried.
-    if (!openDriverSignup) {
-      const missing = DOCUMENT_TYPES.filter((t) => !documents[t].submitted)
-      if (missing.length > 0) {
-        setError(`Please upload: ${missing.map((t) => DOCUMENT_LABELS[t]).join(', ')}.`)
-        return
-      }
-    }
+
+    setProblems([])
     const resolvedTodaOrgId =
       todaSelection === null
         ? autoDetectTodaOrgId(todaOrganizations, address)
@@ -851,7 +861,7 @@ function RegisterForm({
           Optional — helps riders and your TODA recognize you informally, alongside your license documents.
         </p>
       </div>
-      <div>
+      <div id="signup-plate">
         <label className="mb-1 block text-xs font-medium text-slate-500">Tricycle plate number</label>
         <input
           value={plateNumber}
@@ -859,7 +869,7 @@ function RegisterForm({
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
       </div>
-      <div>
+      <div id="signup-license">
         <label className="mb-1 block text-xs font-medium text-slate-500">Driver's license number</label>
         <input
           value={licenseNo}
@@ -867,7 +877,7 @@ function RegisterForm({
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
       </div>
-      <div>
+      <div id="signup-confirmLicense">
         <label className="mb-1 block text-xs font-medium text-slate-500">
           Confirm driver's license number
         </label>
@@ -881,7 +891,7 @@ function RegisterForm({
           your typing, not the uploaded photo — we don't do automatic ID/OCR verification yet.)
         </p>
       </div>
-      <div>
+      <div id="signup-expiry">
         <label className="mb-1 block text-xs font-medium text-slate-500">License expiry date</label>
         <input
           type="date"
@@ -890,12 +900,19 @@ function RegisterForm({
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
       </div>
-      <PhAddressFields
-        value={address}
-        onChange={setAddress}
-        addressDetailLabel="Detailed home address (zone, street, house no., notes)"
-        addressDetailPlaceholder="e.g. Purok 2, near the barangay hall"
-      />
+      {/* The address is four controls inside a shared component, so the ring
+          goes round the group rather than reaching inside it. */}
+      <div
+        id="signup-address"
+        className={wrong('address') ? 'rounded-lg p-1 ring-2 ring-rose-200' : undefined}
+      >
+        <PhAddressFields
+          value={address}
+          onChange={setAddress}
+          addressDetailLabel="Detailed home address (zone, street, house no., notes)"
+          addressDetailPlaceholder="e.g. Purok 2, near the barangay hall"
+        />
+      </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-500">TODA organization</label>
         {lockedTodaOrgId ? (
@@ -1020,7 +1037,7 @@ function RegisterForm({
           </>
         )}
       </div>
-      <div>
+      <div id="signup-pin">
         <label className="mb-1 block text-xs font-medium text-slate-500">Create a 4-digit PIN</label>
         <input
           type="password"
@@ -1028,7 +1045,8 @@ function RegisterForm({
           maxLength={4}
           value={pin}
           onChange={(e) => setPin(e.target.value)}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm tracking-widest"
+          aria-invalid={wrong('pin')}
+          className={`w-full rounded-lg border px-3 py-2 text-sm tracking-widest ${ring('pin')}`}
           placeholder="••••"
         />
       </div>
@@ -1055,6 +1073,29 @@ function RegisterForm({
           />
         ))}
       </div>
+
+      {problems.length > 0 && (
+        <div className="rounded-lg border border-rose-300 bg-rose-50 p-3">
+          <p className="text-xs font-bold text-rose-800">
+            {problems.length === 1 ? `One thing to fix:` : `${problems.length} things to fix:`}
+          </p>
+          <ul className="mt-1.5 space-y-1">
+            {problems.map((problem) => (
+              <li key={problem.field}>
+                {/* Each line jumps to its own field. The list is the map, and
+                    on a phone the field it names is usually off-screen. */}
+                <button
+                  type="button"
+                  onClick={() => goToField(problem.field)}
+                  className="text-left text-[11px] leading-snug text-rose-700 underline decoration-rose-300"
+                >
+                  {problem.message}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {error && <p className="text-xs font-medium text-amber-700">{error}</p>}
 

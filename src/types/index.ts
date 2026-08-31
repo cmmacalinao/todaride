@@ -466,6 +466,12 @@ export interface Driver {
   ratingCount: number
   online: boolean
   verificationStatus: VerificationStatus
+  // When a driver signed up before producing documents, the date those
+  // documents are due. null once everything is in, or when they were
+  // complete from the start. Stamped at registration rather than derived
+  // from the current setting, so changing the window later cannot put an
+  // existing driver in breach of a date nobody gave them.
+  documentsDueBy?: string | null
   documents: DriverDocuments
   todaOrgId: string | null
   province: string

@@ -160,6 +160,7 @@ import {
   getTerminalGps,
   getTodaQueue,
   orderByDispatchDistance,
+  DOCUMENT_TYPES,
 } from '../mock/data'
 import { TERMINAL_PROXIMITY_METERS, haversineDistanceMeters } from '../lib/geo'
 import { getPersistence } from '../lib/persistence'
@@ -385,6 +386,12 @@ interface RideState {
   // approvals queue. Off is the real behaviour: documents required, Admin
   // reviews, driver waits.
   openDriverSignup: boolean
+  // How long a driver who signed up without documents has to produce them.
+  // A deferral, not a waiver: the deadline is stamped on the driver at
+  // registration so it survives this setting being changed afterwards —
+  // shortening the window should not retroactively put drivers in breach of
+  // a date they were never told.
+  documentGraceDays: number
   // Real dialable numbers (see EmergencyHotline) — not simulated.
   emergencyHotlines: EmergencyHotline[]
 }
@@ -512,6 +519,7 @@ type RideAction =
   | { type: 'SET_SIMULATE_MOVEMENT_ENABLED'; enabled: boolean }
   | { type: 'SET_LIVE_GPS_ENABLED'; enabled: boolean }
   | { type: 'SET_OPEN_DRIVER_SIGNUP'; enabled: boolean }
+  | { type: 'SET_DOCUMENT_GRACE_DAYS'; days: number }
   | { type: 'ADD_EMERGENCY_HOTLINE'; hotline: EmergencyHotline }
   | { type: 'UPDATE_EMERGENCY_HOTLINE'; id: string; updates: Partial<Omit<EmergencyHotline, 'id'>> }
   | { type: 'REMOVE_EMERGENCY_HOTLINE'; id: string }
@@ -1379,6 +1387,7 @@ interface StoredState {
   simulateMovementEnabled?: boolean
   liveGpsEnabled?: boolean
   openDriverSignup?: boolean
+  documentGraceDays?: number
   emergencyHotlines?: EmergencyHotline[]
 }
 
@@ -1628,6 +1637,7 @@ function fromStored(parsed: StoredState): RideState {
     simulateMovementEnabled: parsed.simulateMovementEnabled ?? false,
     liveGpsEnabled: parsed.liveGpsEnabled ?? true,
     openDriverSignup: parsed.openDriverSignup ?? true,
+    documentGraceDays: parsed.documentGraceDays ?? 30,
     // Merged rather than "stored wins", because a stored list would freeze
     // out every hotline added to the seed afterwards — and a missing
     // emergency number is the one kind of stale data worth being pushy
@@ -1817,6 +1827,7 @@ function loadInitialState(): RideState {
     simulateMovementEnabled: false,
     liveGpsEnabled: true,
     openDriverSignup: true,
+    documentGraceDays: 30,
     emergencyHotlines: MOCK_EMERGENCY_HOTLINES,
   }
 }
@@ -3146,6 +3157,8 @@ function reducer(state: RideState, action: RideAction): RideState {
       return { ...state, liveGpsEnabled: action.enabled }
     case 'SET_OPEN_DRIVER_SIGNUP':
       return { ...state, openDriverSignup: action.enabled }
+    case 'SET_DOCUMENT_GRACE_DAYS':
+      return { ...state, documentGraceDays: Math.max(1, Math.round(action.days)) }
     case 'SET_PUBLIC_BASE_URL':
       // Trailing slash stripped so callers can append paths without
       // producing a double slash.
@@ -4388,6 +4401,11 @@ function reducer(state: RideState, action: RideAction): RideState {
         ratingCount: 0,
         online: false,
         verificationStatus: state.openDriverSignup ? 'approved' : 'pending',
+        // Stamped now, from the setting as it stands today, so a driver is
+        // held to the date they were actually given.
+        documentsDueBy: DOCUMENT_TYPES.every((t) => action.documents[t].submitted)
+          ? null
+          : new Date(Date.now() + state.documentGraceDays * 24 * 60 * 60 * 1000).toISOString(),
         documents: action.documents,
         todaOrgId: action.todaOrgId,
         province: action.province,
@@ -5171,6 +5189,7 @@ interface RideContextValue extends RideState {
   setSimulateMovementEnabled: (enabled: boolean) => void
   setLiveGpsEnabled: (enabled: boolean) => void
   setOpenDriverSignup: (enabled: boolean) => void
+  setDocumentGraceDays: (days: number) => void
   addEmergencyHotline: (args: Omit<EmergencyHotline, 'id' | 'addedAt'>) => void
   updateEmergencyHotline: (id: string, updates: Partial<Omit<EmergencyHotline, 'id'>>) => void
   removeEmergencyHotline: (id: string) => void
@@ -6260,6 +6279,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setSimulateMovementEnabled: (enabled) => dispatch({ type: 'SET_SIMULATE_MOVEMENT_ENABLED', enabled }),
     setLiveGpsEnabled: (enabled) => dispatch({ type: 'SET_LIVE_GPS_ENABLED', enabled }),
     setOpenDriverSignup: (enabled) => dispatch({ type: 'SET_OPEN_DRIVER_SIGNUP', enabled }),
+    setDocumentGraceDays: (days) => dispatch({ type: 'SET_DOCUMENT_GRACE_DAYS', days }),
     addEmergencyHotline: (args) =>
       dispatch({
         type: 'ADD_EMERGENCY_HOTLINE',

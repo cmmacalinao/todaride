@@ -32,7 +32,7 @@ const RUNS: Run[] = [
     steps: [
       {
         do: 'Create an account as a Passenger with a real mobile number.',
-        expect: 'An SMS arrives from todaride within a minute.',
+        expect: 'An SMS arrives from TodaRide within a minute.',
       },
       {
         do: 'Enter the code and finish.',

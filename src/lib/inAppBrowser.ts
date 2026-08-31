@@ -38,3 +38,18 @@ export function openInBrowserHint(): string {
     ? 'Tap ••• at the bottom right, then "Open in Safari".'
     : 'Tap ⋮ at the top right, then "Open in Chrome" or "Open in browser".'
 }
+
+// A link that asks iOS for Safari specifically.
+//
+// Swapping the https: scheme for x-safari-https: is the one lever a page has
+// here. It is undocumented, Apple has never promised it, and it does nothing
+// at all in some hosts — so it is offered as a button beside the written
+// instructions rather than instead of them, and nothing depends on it having
+// worked.
+//
+// It only escapes an in-app browser. It cannot make Safari somebody's default
+// browser, and a normal link tapped outside an app opens whatever they have
+// already chosen — which is theirs to decide, not ours.
+export function safariEscapeUrl(url: string = window.location.href): string {
+  return url.replace(/^https:/, 'x-safari-https:')
+}

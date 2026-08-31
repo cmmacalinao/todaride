@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { APK_PATH, canAddToHomeScreen, canUseApk } from './InstallOffer'
 import { SCAN_PARAM } from '../lib/freshStart'
+import { isInAppBrowser, safariEscapeUrl } from '../lib/inAppBrowser'
 
 // The choice a scanned code lands on.
 //
@@ -44,6 +45,10 @@ const ARRIVED_BY_SCAN = (() => {
 
 export function ScanArrivalChoice() {
   const [platform, setPlatform] = useState<'android' | 'ios' | null>(null)
+  // Add to Home Screen exists only in Safari. Somebody who opened the code
+  // from a Messenger thread is in Meta's browser, where the menu item they
+  // are about to be told to find is simply not there.
+  const strandedInAnotherApp = platform === 'ios' && isInAppBrowser()
 
   useEffect(() => {
     if (!ARRIVED_BY_SCAN) return
@@ -81,6 +86,22 @@ export function ScanArrivalChoice() {
             <p className="mt-1 text-xs leading-relaxed text-slate-600">
               Put it on your Home screen and it opens like an app — no address bar, and it remembers you.
             </p>
+
+            {strandedInAnotherApp && (
+              <>
+                <a
+                  href={safariEscapeUrl()}
+                  className="mt-3 block rounded-lg bg-brand-600 py-2.5 text-center text-xs font-bold text-white transition hover:bg-brand-700"
+                >
+                  🧭 Open in Safari first
+                </a>
+                <p className="mt-1.5 text-center text-[11px] leading-snug text-slate-500">
+                  Kung walang nangyari: pindutin ang ••• sa kanang ibaba, tapos{' '}
+                  <span className="font-semibold">Open in Safari</span>. Hindi kayang mag-Add to Home
+                  Screen ang browser ng Messenger.
+                </p>
+              </>
+            )}
             {/* Instructions rather than a button, because iOS has no way for a
                 page to trigger this. Numbered, because the Share sheet is long
                 and the item people miss is the one they have to scroll to. */}
@@ -99,10 +120,14 @@ export function ScanArrivalChoice() {
                 <span className="font-semibold">Add</span>.
               </li>
             </ol>
-            <p className="mt-1.5 text-center text-[11px] leading-snug text-slate-500">
-              Kailangan itong gawin sa Safari. Kung binuksan mo ito mula sa Messenger, pindutin ang ⋯ at
-              piliin ang <span className="font-semibold">Open in Safari</span> muna.
-            </p>
+            {/* Only where it is news. Somebody already stranded in another
+                app has been told this above, in more useful terms, and saying
+                it twice reads as the sheet not knowing where they are. */}
+            {!strandedInAnotherApp && (
+              <p className="mt-1.5 text-center text-[11px] leading-snug text-slate-500">
+                Kailangan itong gawin sa Safari.
+              </p>
+            )}
           </>
         )}
 

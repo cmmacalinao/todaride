@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { InstallAppButton } from './InstallAppButton'
 import { ShareAppPanel } from './ShareAppPanel'
 import type { AccountPanelKind } from './AccountPanels'
 import { useRides } from '../context/RideContext'
@@ -296,15 +295,9 @@ export function NavDrawer({
           </span>
         </button>
 
-        {/* Offered where someone already went looking for the app's own
-            controls, and only when the browser says an install is actually
-            available (see InstallAppButton — it renders nothing otherwise). */}
+        {/* The pilot spreads at a terminal, one person showing another, and
+            that moment needs a code to point a camera at. */}
         <div className="space-y-1.5 px-2 pt-2">
-          <InstallAppButton />
-          {/* Next to the install row because it answers the neighbouring
-              question: not "put this on my phone" but "put it on theirs".
-              The pilot spreads at a terminal, one person showing another,
-              and that moment needs a code to point a camera at. */}
           <button
             type="button"
             onClick={() => { onClose(); setShowShare(true) }}

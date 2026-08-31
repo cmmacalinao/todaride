@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
-import { InstallAppButton } from './InstallAppButton'
 import { ShareAppPanel } from './ShareAppPanel'
 import { EmergencyNumbersPanel } from './EmergencyNumbersPanel'
 import { ContactUsForm } from './ContactUsForm'
@@ -131,15 +130,10 @@ export function PublicHeader({ title = 'TODA SafeRide' }: { title?: string }) {
                 ×
               </button>
             </div>
-            {/* Offered before signing in as well as after. Installing is a
-                first-visit decision — by the time someone has an account they
-                have already decided how they reach the app — and the signed-in
-                drawer is the one place a logged-out visitor cannot get to. */}
+            {/* Offered before signing in as well as after: most of the pilot
+                arrives because somebody standing next to them showed them a
+                code, and that person may not have an account either. */}
             <div className="space-y-1.5 px-2 pt-2">
-              <InstallAppButton />
-              {/* And the same before signing in: most of the pilot arrives
-                  because somebody standing next to them showed them a code,
-                  and that person may not have an account either. */}
               <button
                 type="button"
                 onClick={() => { setMenuOpen(false); setShowShare(true) }}

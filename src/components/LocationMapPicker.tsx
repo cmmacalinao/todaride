@@ -1,3 +1,4 @@
+import { LocationPermissionRow } from './LocationPermissionRow'
 import { formatAddressLine } from '../lib/addressFormat'
 import { useRef, useState, type ReactNode } from 'react'
 import { RealLiveMap, type MapPoint } from './RealLiveMap'
@@ -76,6 +77,7 @@ export function LocationMapPicker({
   // pickup), an errand on the Deliver-to tab (you are standing where it
   // should be brought). Omit it and no button appears.
   showGpsFor?: 'pickup' | 'dropoff'
+
   // Ride booking calls these "Pickup"/"Destination"; a Pabili/Buy Medicine
   // errand calls them "Buy near to"/"Deliver to" instead — same map, same
   // pickup/dropoff state, just different words for what each pin means.
@@ -215,6 +217,9 @@ export function LocationMapPicker({
         </div>
       </div>
       {belowTabs}
+      {/* Above the GPS button, because it governs it: this wakes location and
+          reports what the browser decided; that one fills an address with it. */}
+      <LocationPermissionRow />
       {showGpsFor === target && (
         <button
           type="button"

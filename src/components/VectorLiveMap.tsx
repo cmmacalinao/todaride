@@ -71,15 +71,30 @@ function calloutPill(label: string): string {
     padding:3px 8px;border-radius:9999px;box-shadow:0 1px 4px rgba(0,0,0,.35);pointer-events:none;">${safe}</div>`
 }
 
+function markerInnerHtml(p: MapPoint): string {
+  // The relative wrapper lives INSIDE the marker root, never on it.
+  //
+  // MapLibre positions every marker with `.maplibregl-marker { position:
+  // absolute }` and its own transform. Setting position on the root element
+  // inline beats that rule, which drops the markers into normal document flow
+  // — they then stack one under another, so each marker is displaced by the
+  // combined height of the markers declared before it. The first pin lands
+  // exactly right and every later one sits progressively lower, which is a
+  // remarkably convincing way to look like a projection bug.
+  return (
+    `<div style="position:relative;width:100%;height:100%;">` +
+    `<div data-art style="position:absolute;inset:0;">${markerHtml({ color: p.color, pulse: p.pulse, icon: p.icon, pointId: p.id })}</div>` +
+    (p.callout ? calloutPill(p.label) : '') +
+    `</div>`
+  )
+}
+
 function buildMarkerElement(p: MapPoint): HTMLDivElement {
   const el = document.createElement('div')
   const box = markerBoxSize(p.icon)
-  el.style.position = 'relative'
   el.style.width = `${box}px`
   el.style.height = `${box}px`
-  el.innerHTML =
-    `<div data-art style="position:absolute;inset:0;">${markerHtml({ color: p.color, pulse: p.pulse, icon: p.icon, pointId: p.id })}</div>` +
-    (p.callout ? calloutPill(p.label) : '')
+  el.innerHTML = markerInnerHtml(p)
   // The hover label. Leaflet drew its own tooltip; the browser's is the same
   // information with none of the positioning problems on a phone.
   el.title = p.label

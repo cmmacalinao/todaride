@@ -53,7 +53,6 @@ import { PabiliItemsInput } from '../components/PabiliItemsInput'
 import { makeGuestPassengerId, useGuestRider } from '../components/GuestRiderFields'
 import { PassengerRewardsCard } from '../components/PassengerRewardsCard'
 import { terminalRideIsFree } from '../lib/terminalFee'
-import { TerminalBoardingPanel } from '../components/TerminalBoardingPanel'
 import { GroupRideInlinePanel, type GroupRiderEntry } from '../components/GroupRideInlinePanel'
 import type {
   DriverReportReason,
@@ -239,11 +238,6 @@ export function PassengerPage() {
   // controls which address form shows below the map, so only one is on
   // screen at a time instead of both stacked.
   const [mapTarget, setMapTarget] = useState<'pickup' | 'dropoff'>('pickup')
-  // Whether the destination boxes are showing on Track my trip. The
-  // Destination tab toggles them: tapping it opens the form, tapping it
-  // again folds it away, and confirming an address closes it too. Tapping
-  // FROM closes it, because that tab is asking about the other end.
-  const [terminalDestOpen, setTerminalDestOpen] = useState(false)
   const [groupRiders, setGroupRiders] = useState<GroupRiderEntry[]>([])
   const [groupPaySplit, setGroupPaySplit] = useState<'separate' | 'booker'>('separate')
   const [groupSubmitting, setGroupSubmitting] = useState(false)
@@ -299,8 +293,7 @@ export function PassengerPage() {
   //
   // Group Ride is still a panel on this page; it is a variation on booking
   // rather than a different thing to be doing.
-  const terminalOpen = location.pathname === '/book/terminal'
-  const setTerminalOpen = (open: boolean) => navigate(open ? '/book/terminal' : '/book')
+  const openTrackMyTrip = () => navigate('/book/terminal')
   // Group Ride, the same way. It needs the page's map as much as the
   // terminal screen does — pinning each rider's own destination is done on
   // it — so it also stays this component and takes the map with it.
@@ -1223,42 +1216,13 @@ export function PassengerPage() {
   // with it there too, so they are swapped out while Terminal is open: that
   // flow submits through its own "Record my Trip" button and is always a
   // single rider, neither of which apply here.
-  // The destination boxes as they appear on Track my trip: folded until the
-  // Destination tab is chosen, gone again once the address is confirmed.
-  //
-  // There is no pickup half. On that screen the start is not a question —
-  // the app takes it from the phone the moment a trip records itself — so a
-  // box for it would invite somebody to answer something about to be
-  // answered better.
-  const terminalDestinationForm = terminalDestOpen && mapTarget === 'dropoff' && (
-    <div className="space-y-2 rounded-lg bg-slate-50/70 p-2">
-      {quickPlaceChips('dropoff')}
-      <BarangayAddressPicker
-        key={`terminal-to-${dropoffPickerSeed.key}`}
-        label=""
-        hideRegionSelects
-        defaultProvince={dropoffPickerSeed.province || DEFAULT_BOOKING_PROVINCE}
-        defaultCity={dropoffPickerSeed.city || cityScope || DEFAULT_BOOKING_CITY}
-        defaultBarangay={dropoffPickerSeed.barangay}
-        defaultAddressDetail={dropoffPickerSeed.addressDetail}
-        onResolve={handleDropoffResolve}
-        onConfirm={() => setTerminalDestOpen(false)}
-        pinned={!!dropoff.gps && dropoffChosen}
-      />
-    </div>
-  )
-
   const sharedMap = (
     <div ref={bookingMapRef} className="scroll-mt-24">
       <LocationMapPicker
         pickup={pickup}
         dropoff={dropoff}
         target={mapTarget}
-        onTargetChange={(next) => {
-          setMapTarget(next)
-          if (!terminalOpen) return
-          setTerminalDestOpen(next === 'dropoff' ? mapTarget !== 'dropoff' || !terminalDestOpen : false)
-        }}
+        onTargetChange={setMapTarget}
         onPinPickup={handlePinPickup}
         onPinDropoff={handlePinDropoff}
         pickupLabel={pickupLabel}
@@ -1279,23 +1243,14 @@ export function PassengerPage() {
         // opening a box swung the map, before the passenger had said
         // anything. Naming a city no longer picks an address either, so
         // there is nothing for the map to move to when it changes.
-        // On Track my trip the destination form opens under the tab that
-        // asks for it, rather than as a strip elsewhere on the page. The
-        // tab is the question; the boxes are the answer, and they belong
-        // together.
-        belowTabs={terminalOpen ? terminalDestinationForm : undefined}
-        refitSignal={
-          terminalOpen
-            ? 'terminal'
-            : `${pickup.id}|${hasDestination ? dropoff.id : 'none'}|${groupMapPoints.length}`
-        }
+        refitSignal={`${pickup.id}|${hasDestination ? dropoff.id : 'none'}|${groupMapPoints.length}`}
         hasDropoff={hasDestination}
         hasPickup={pickupChosen}
         terminals={terminals}
         extraPoints={groupRideOpen ? groupMapPoints : undefined}
         showGpsFor={isErrand ? 'dropoff' : 'pickup'}
         underMapAction={
-          terminalOpen || isErrand ? undefined : (
+          isErrand ? undefined : (
             <span
               className="flex items-center gap-1 rounded-lg bg-slate-100 px-1.5 py-1"
               title={`Passengers riding — up to ${MAX_RIDE_PASSENGERS}${
@@ -1330,7 +1285,7 @@ export function PassengerPage() {
           )
         }
         leadingAction={
-          terminalOpen ? undefined : (
+          (
             <div className="space-y-1">
               <button
                 onClick={handleRequest}
@@ -1569,8 +1524,7 @@ export function PassengerPage() {
                 <div className="mt-2 flex items-stretch gap-1.5">
                   <button
                     type="button"
-                    onClick={() => setTerminalOpen(!terminalOpen)}
-                    aria-expanded={terminalOpen}
+                    onClick={openTrackMyTrip}
                     className="flex min-w-0 flex-[4] items-center gap-1.5 rounded-lg bg-[#ffe066] px-2.5 py-1.5 text-left shadow-sm transition hover:bg-[#ffd633]"
                   >
                     <span aria-hidden className="shrink-0 text-sm leading-none">🚏</span>
@@ -1622,54 +1576,6 @@ export function PassengerPage() {
   
         </section>
   )
-  // Sakay sa Terminal, as its own screen.
-  //
-  // It used to unroll beneath the booking form, which left both on screen at
-  // once: two sets of address boxes, a map that had moved but looked
-  // duplicated, and a form asking where you want to go above a panel for a
-  // ride you are already taking. They are two different jobs. This is the
-  // second one, alone, with the way back stated at the top.
-  //
-  // Everything it needs — pickup, destination, the single map instance — is
-  // still this component's, computed above and handed straight over.
-  if (terminalOpen) {
-    return (
-      <div className="mx-auto flex min-h-[calc(100vh-70px)] max-w-lg flex-col space-y-2 px-4 pb-[72px] pt-1">
-        <button
-          type="button"
-          onClick={() => setTerminalOpen(false)}
-          className="flex items-center gap-1.5 self-start rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-        >
-          <span aria-hidden className="text-sm leading-none">‹</span>
-          Bumalik sa booking
-        </button>
-
-        {/* How far it is, once there is a destination to measure to.
-
-            A passenger recording a ride they flagged down has no quoted
-            fare and no booking screen to read one off — the distance is
-            what tells them whether the number the driver says at the end is
-            in the right range. Road distance where a route resolves, which
-            is the distance actually travelled rather than the straight line
-            through the fields beside it.
-
-            Silent until a destination is set: there is nothing honest to say
-            before that. */}
-        {dropoffChosen && plannedRoute && (
-          <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-xs text-slate-600 shadow-sm">
-            🛣️ <span className="font-semibold text-slate-800">{formatKm(plannedRoute.distanceMeters)}</span> papunta sa
-            destination mo
-            <span className="text-slate-400">
-              {' '}· mga {Math.max(1, Math.round(plannedRoute.durationSeconds / 60))} min
-            </span>
-          </p>
-        )}
-
-        <TerminalBoardingPanel onClose={() => setTerminalOpen(false)} mapSlot={sharedMap} />
-
-      </div>
-    )
-  }
 
   // Group Ride, as its own screen. The map comes with it: setting each
   // rider's destination is done by pinning on that same map, so a panel
@@ -2095,7 +2001,7 @@ export function PassengerPage() {
           {/* Not rendered here while Terminal is open — see the sharedMap
               const above, which slots this same map into the Terminal
               panel's own header instead so it never mounts twice. */}
-          {!terminalOpen && sharedMap}
+          {sharedMap}
 
           {/* When it gets here and when you are there — the two numbers most
               passengers decide on, kept small enough to sit on one line. */}

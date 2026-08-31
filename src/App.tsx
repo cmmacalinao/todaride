@@ -12,6 +12,7 @@ import { TerminalScanPage } from './pages/TerminalScanPage'
 import { RiderStartPage } from './pages/RiderStartPage'
 import { RoleChooserPage } from './pages/RoleChooserPage'
 import { BookPage } from './pages/BookPage'
+import { TrackMyTripPage } from './pages/TrackMyTripPage'
 import { AppUpdateWatcher } from './components/AppUpdateWatcher'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { ScanArrivalChoice } from './components/ScanArrivalChoice'
@@ -201,7 +202,7 @@ function AppShell() {
               component, because it shares that form's pickup, destination
               and map; the route is what makes it a place you can be, with a
               back button and a history entry of its own. */}
-          <Route path="/book/terminal" element={<BookPage />} />
+          <Route path="/book/terminal" element={<TrackMyTripPage />} />
           {/* Booking for several people at once — its own screen for the
               same reason as the terminal one: it is a different job from
               booking a single ride, and the two were competing for one

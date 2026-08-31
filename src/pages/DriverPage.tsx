@@ -123,7 +123,7 @@ export function DriverPage() {
   // So the watch is still preferred, and a tapped read seeds it when the
   // watch has produced nothing. Everything downstream reads myLiveGps and
   // does not care which of the two answered.
-  const { position: watchedGps, error: myLiveGpsError } = useWatchPosition(true)
+  const { position: watchedGps, error: myLiveGpsError, accuracy: gpsAccuracy } = useWatchPosition(true)
   const [tappedGps, setTappedGps] = useState<GeoCoords | null>(null)
   const [locating, setLocating] = useState(false)
   const [locateError, setLocateError] = useState<string | null>(null)
@@ -961,9 +961,28 @@ export function DriverPage() {
           and two drivers pinned to the same gate looked like a map bug rather
           than two phones reporting nothing. */}
       {myLiveGps ? (
-        <p className="rounded-lg bg-emerald-50 px-3 py-1.5 text-[11px] font-medium text-emerald-800">
-          📍 GPS on — {myLiveGps.lat.toFixed(5)}, {myLiveGps.lng.toFixed(5)}
-        </p>
+        <div
+          className={`rounded-lg px-3 py-1.5 text-[11px] font-medium ${
+            gpsAccuracy != null && gpsAccuracy > 150
+              ? 'bg-amber-50 text-amber-900'
+              : 'bg-emerald-50 text-emerald-800'
+          }`}
+        >
+          <p>
+            📍 GPS on — {myLiveGps.lat.toFixed(5)}, {myLiveGps.lng.toFixed(5)}
+            {gpsAccuracy != null && ` · ±${Math.round(gpsAccuracy)}m`}
+          </p>
+          {/* A phone that is only sure to within a kilometre is still giving a
+              pin, and the pin looks exactly as confident as a good one. Say
+              the number, so a wrong-looking location can be recognised as a
+              vague one rather than a broken one. */}
+          {gpsAccuracy != null && gpsAccuracy > 150 && (
+            <p className="mt-0.5 leading-snug">
+              Malabo pa ang fix — malamang wifi o cell tower, hindi GPS. Lumabas sa labas at maghintay
+              saglit para humigpit ito.
+            </p>
+          )}
+        </div>
       ) : (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
           <p className="text-[11px] font-bold text-amber-900">

@@ -23,9 +23,18 @@ const MAX_ACCURACY_METERS = 150
 // Continuously watches the device's real GPS while enabled — the driver/
 // passenger opt-in toggles this on, at which point their actual movement
 // (not a simulation) drives their marker on the real map.
-export function useWatchPosition(enabled: boolean): { position: GeoCoords | null; error: string | null } {
+export function useWatchPosition(enabled: boolean): {
+  position: GeoCoords | null
+  error: string | null
+  // How wide the fix is, in metres. Surfaced so a caller can say "your phone
+  // is only sure to within 2 km" rather than drawing that as a pin and
+  // letting somebody believe it.
+  accuracy: number | null
+} {
   const [position, setPosition] = useState<GeoCoords | null>(null)
+  const [accuracy, setAccuracy] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const accuracyRef = useRef<number | null>(null)
   const watchIdRef = useRef<number | null>(null)
   // What the marker is currently showing. Kept in a ref, not state, so the
   // comparison below reads the latest accepted value without re-subscribing
@@ -35,7 +44,9 @@ export function useWatchPosition(enabled: boolean): { position: GeoCoords | null
   useEffect(() => {
     if (!enabled) {
       setPosition(null)
+      setAccuracy(null)
       acceptedRef.current = null
+      accuracyRef.current = null
       return
     }
     setError(null)
@@ -44,15 +55,32 @@ export function useWatchPosition(enabled: boolean): { position: GeoCoords | null
     const accept = (coords: { latitude: number; longitude: number; accuracy: number | null }) => {
       setError(null)
       const next = { lat: coords.latitude, lng: coords.longitude }
+      const nextAccuracy = coords.accuracy ?? null
       const last = acceptedRef.current
+      const lastAccuracy = accuracyRef.current
+
       if (last) {
-        // A wildly imprecise reading tells us less than what we already
-        // have, and moving the marker to it would be a lie about position.
-        if (coords.accuracy != null && coords.accuracy > MAX_ACCURACY_METERS) return
-        if (haversineDistanceMeters(last, next) < MIN_MOVE_METERS) return
+        // A sharper reading always wins, however little the phone claims to
+        // have moved. This is the case that used to be lost: the first fix a
+        // phone produces is usually a coarse wifi or cell estimate, accurate
+        // to hundreds of metres or worse, and it was accepted without any
+        // accuracy check at all because there was nothing to compare it to.
+        // The real GPS fix that arrived seconds later was then thrown away
+        // for not having moved 8 metres — so the driver stayed pinned to a
+        // guess, which is what "the location is wrong" looked like.
+        const sharper = nextAccuracy != null && lastAccuracy != null && nextAccuracy < lastAccuracy
+        if (!sharper) {
+          // A wildly imprecise reading tells us less than what we already
+          // have, and moving the marker to it would be a lie about position.
+          if (nextAccuracy != null && nextAccuracy > MAX_ACCURACY_METERS) return
+          if (haversineDistanceMeters(last, next) < MIN_MOVE_METERS) return
+        }
       }
+
       acceptedRef.current = next
+      accuracyRef.current = nextAccuracy
       setPosition(next)
+      setAccuracy(nextAccuracy)
     }
 
     // Inside the installed app, go through Capacitor rather than the
@@ -115,7 +143,7 @@ export function useWatchPosition(enabled: boolean): { position: GeoCoords | null
     }
   }, [enabled])
 
-  return { position, error }
+  return { position, error, accuracy }
 }
 
 // Re-renders on an interval so time-based conditions (see

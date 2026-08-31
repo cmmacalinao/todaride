@@ -1,3 +1,4 @@
+import { ArchitectureOverview } from '../components/ArchitectureOverview'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
@@ -12,7 +13,15 @@ import { SupportInbox } from '../components/SupportInbox'
 import { ActivityLogPanel } from '../components/ActivityLogPanel'
 import { SosAlertBanner } from '../components/SosAlertBanner'
 
-type SuperAdminTab = 'hub' | 'links' | 'announce' | 'notes' | 'todas' | 'operators' | 'franchises'
+type SuperAdminTab =
+  | 'hub'
+  | 'links'
+  | 'announce'
+  | 'notes'
+  | 'todas'
+  | 'operators'
+  | 'franchises'
+  | 'architecture'
 
 // Hub for the extra-gated admin areas (Accounting & Compliance, Income &
 // Promotion) plus read-only oversight into any Level-1 TODA's, Level-2
@@ -98,6 +107,7 @@ export function SuperAdminPage() {
             ['todas', 'TODAs (Lvl 1)'],
             ['operators', 'Operators (Lvl 2)'],
             ['franchises', 'Franchises (Lvl 3)'],
+            ['architecture', '🏗️ Architecture'],
           ] as [SuperAdminTab, string][]
         ).map(([value, label]) => (
           <button
@@ -113,6 +123,7 @@ export function SuperAdminPage() {
         ))}
       </div>
 
+      {tab === 'architecture' && <ArchitectureOverview />}
       {tab === 'announce' && <AnnouncementsManager />}
 
       {tab === 'notes' && (

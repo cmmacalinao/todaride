@@ -13,6 +13,7 @@ import { RiderStartPage } from './pages/RiderStartPage'
 import { RoleChooserPage } from './pages/RoleChooserPage'
 import { BookPage } from './pages/BookPage'
 import { AppUpdateWatcher } from './components/AppUpdateWatcher'
+import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { ScanArrivalChoice } from './components/ScanArrivalChoice'
 import { RideProvider } from './context/RideContext'
 import { SessionProvider, useSession } from './context/SessionContext'
@@ -250,6 +251,10 @@ function AppShell() {
 
 export default function App() {
   return (
+    // Outside the providers, so it still catches a crash that happens while
+    // they are setting themselves up — the state they hydrate comes off the
+    // network and a phone is the likeliest place for that to go wrong.
+    <AppErrorBoundary>
     <ThemeProvider>
       <SessionProvider>
         <RideProvider>
@@ -262,5 +267,6 @@ export default function App() {
         </RideProvider>
       </SessionProvider>
     </ThemeProvider>
+    </AppErrorBoundary>
   )
 }

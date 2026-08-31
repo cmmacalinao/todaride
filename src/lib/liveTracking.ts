@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
+import { Geolocation } from '@capacitor/geolocation'
 import { haversineDistanceMeters } from './geo'
 import type { GeoCoords } from '../types'
 
@@ -36,25 +38,72 @@ export function useWatchPosition(enabled: boolean): { position: GeoCoords | null
       acceptedRef.current = null
       return
     }
+    setError(null)
+
+    // One reading, wherever it came from, judged the same way.
+    const accept = (coords: { latitude: number; longitude: number; accuracy: number | null }) => {
+      setError(null)
+      const next = { lat: coords.latitude, lng: coords.longitude }
+      const last = acceptedRef.current
+      if (last) {
+        // A wildly imprecise reading tells us less than what we already
+        // have, and moving the marker to it would be a lie about position.
+        if (coords.accuracy != null && coords.accuracy > MAX_ACCURACY_METERS) return
+        if (haversineDistanceMeters(last, next) < MIN_MOVE_METERS) return
+      }
+      acceptedRef.current = next
+      setPosition(next)
+    }
+
+    // Inside the installed app, go through Capacitor rather than the
+    // WebView's navigator.geolocation.
+    //
+    // geo.ts already says why for one-off reads — the WebView's own
+    // implementation is flaky or unimplemented, and only the plugin raises a
+    // real native permission prompt — but the continuous watch a driver
+    // depends on was still using the browser API. Android has the permissions
+    // in its manifest and no one asking for them at runtime, so the watch
+    // never produced a fix: position stayed null, and every driver fell back
+    // to their terminal's coordinates. Two different drivers both pinned to
+    // CLSU main gate, which is that fallback, not a location.
+    if (Capacitor.isNativePlatform()) {
+      let nativeId: string | null = null
+      let cancelled = false
+      void (async () => {
+        try {
+          const status = await Geolocation.requestPermissions()
+          if (status.location === 'denied' && status.coarseLocation === 'denied') {
+            setError('Location permission is off for this app. Turn it on in Settings to be tracked.')
+            return
+          }
+          const id = await Geolocation.watchPosition(
+            { enableHighAccuracy: true, timeout: 15000 },
+            (pos, err) => {
+              if (err) {
+                setError(err.message || 'Could not get your location.')
+                return
+              }
+              if (pos) accept(pos.coords)
+            },
+          )
+          if (cancelled) void Geolocation.clearWatch({ id })
+          else nativeId = id
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Could not get your location.')
+        }
+      })()
+      return () => {
+        cancelled = true
+        if (nativeId) void Geolocation.clearWatch({ id: nativeId })
+      }
+    }
+
     if (!navigator.geolocation) {
       setError('Location services are not available on this device/browser.')
       return
     }
-    setError(null)
     watchIdRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        setError(null)
-        const next = { lat: pos.coords.latitude, lng: pos.coords.longitude }
-        const last = acceptedRef.current
-        if (last) {
-          // A wildly imprecise reading tells us less than what we already
-          // have, and moving the marker to it would be a lie about position.
-          if (pos.coords.accuracy > MAX_ACCURACY_METERS) return
-          if (haversineDistanceMeters(last, next) < MIN_MOVE_METERS) return
-        }
-        acceptedRef.current = next
-        setPosition(next)
-      },
+      (pos) => accept(pos.coords),
       (err) => setError(err.message || 'Could not get your location.'),
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
     )

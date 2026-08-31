@@ -50,6 +50,12 @@ const NAV_TRICYCLE_ART_OFFSET_DEGREES = 90
 // top by - padding the top pushes the centre down.
 const AHEAD_BIAS = 0.28
 
+// How far a finger may slide and how long it may rest and still count as a
+// tap rather than a drag. Generous on distance, because a thumb on a moving
+// tricycle is not precise.
+const TAP_SLOP_PX = 12
+const TAP_MAX_MS = 700
+
 type VectorLiveMapProps = RealLiveMapProps & {
   panLock?: { unlocked: boolean; onToggle: () => void }
   onFailed?: () => void
@@ -185,8 +191,42 @@ export function VectorLiveMap({
     map.on('dragstart', takeOver)
     map.on('zoomstart', takeOver)
 
-    map.on('click', (e) => {
-      onMapClickRef.current?.({ lat: e.lngLat.lat, lng: e.lngLat.lng })
+    // Tap to drop a pin, detected from pointer events rather than from the
+    // map's own click event.
+    //
+    // Setting a pickup by tapping the map is the single most important thing
+    // anybody does on this screen, and it must not depend on which gestures
+    // happen to be enabled. The map is pan-locked by default — that lock
+    // exists so a swipe scrolls the page instead of dragging the map, and it
+    // switches off MapLibre's drag and touch-zoom handlers. A tap is not a
+    // gesture the lock is meant to refuse, so it is read here directly.
+    //
+    // Pointer events cover mouse, touch and pen in one path, and do not rely
+    // on the browser synthesising a click after a tap — which is where this
+    // silently differs between a laptop and a phone.
+    //
+    // Bound to the canvas, not the container: markers are their own elements
+    // sitting above it, so tapping a pharmacy pin still selects the pharmacy
+    // instead of also dropping a pin underneath it.
+    const canvas = map.getCanvas()
+    let downAt: { x: number; y: number; t: number } | null = null
+    canvas.addEventListener('pointerdown', (e) => {
+      downAt = { x: e.clientX, y: e.clientY, t: performance.now() }
+    })
+    canvas.addEventListener('pointercancel', () => {
+      downAt = null
+    })
+    canvas.addEventListener('pointerup', (e) => {
+      const start = downAt
+      downAt = null
+      if (!start || !onMapClickRef.current) return
+      // A drag is not a tap, and neither is a long press — both are how
+      // somebody moves or inspects the map rather than choosing a place.
+      const moved = Math.hypot(e.clientX - start.x, e.clientY - start.y)
+      if (moved > TAP_SLOP_PX || performance.now() - start.t > TAP_MAX_MS) return
+      const rect = canvas.getBoundingClientRect()
+      const at = map.unproject([e.clientX - rect.left, e.clientY - rect.top])
+      onMapClickRef.current({ lat: at.lat, lng: at.lng })
     })
 
     // Zooming keeps you in the middle.

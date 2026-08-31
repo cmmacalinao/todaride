@@ -61,7 +61,16 @@ export function PublicHeader({ title = 'TODA SafeRide' }: { title?: string }) {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-20 border-b border-brand-700 bg-brand-600">
+      {/* sticky, not fixed. A fixed bar is lifted out of the flow, so the
+          page underneath has to be padded clear of it by a number written
+          down somewhere else — and that number was only right at the text
+          size it was measured at. Turn the text up (Android set to Large,
+          iOS Dynamic Type, a browser minimum font size) and the bar grew
+          while the padding did not, until the logo and the first field sat
+          behind an opaque blue bar and the screen read as broken. Sticky
+          keeps its own space in the flow, so it cannot overlap anything at
+          any text size, and no measurement has to stay in step. */}
+      <header className="sticky top-0 z-20 border-b border-brand-700 bg-brand-600">
         <div className="mx-auto flex max-w-lg items-center gap-2 px-4 py-1.5">
           <div className={`flex shrink-0 flex-col items-center gap-0.5 ${onLanding ? '' : '-mt-1'}`}>
             <button

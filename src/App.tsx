@@ -80,7 +80,9 @@ function AppShell() {
       <>
         <ScrollToTopOfPublicView pathname={location.pathname} />
         <PublicHeader title={publicTitle} />
-        <main className={location.pathname === '/' ? 'pt-[50px]' : 'pt-[70px]'}>
+        {/* No top padding: the header above is sticky, so it occupies its
+            own space and nothing has to be pushed clear of it. */}
+        <main>
           {location.pathname === '/' ? (
             <LandingPage />
           ) : location.pathname === '/welcome' ? (
@@ -166,7 +168,7 @@ function AppShell() {
           tall with the larger logo and the hamburger/back stack, so 70px
           clears it with a hair to spare. Re-measure if that header's contents
           change again — this number has no other way to stay honest. */}
-      <main className={isMinimalHeader ? 'pt-[70px]' : 'pt-2'}>
+      <main className={isMinimalHeader ? undefined : 'pt-2'}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/welcome" element={<RoleChooserPage />} />

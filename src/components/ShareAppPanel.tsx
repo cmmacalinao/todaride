@@ -25,6 +25,10 @@ export function ShareAppPanel({ onClose }: { onClose: () => void }) {
   const url = SHARE_URL
   const [copied, setCopied] = useState(false)
   const canShare = typeof navigator !== 'undefined' && !!navigator.share
+  // sms: only goes anywhere on something that can send a text. On a laptop
+  // nothing is registered to handle it, so the button was a dead control on
+  // the machine most likely to be showing this panel to a room.
+  const canText = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
 
   async function copyLink() {
     try {
@@ -81,7 +85,7 @@ export function ShareAppPanel({ onClose }: { onClose: () => void }) {
           {url}
         </p>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className={`mt-3 grid gap-2 ${canShare || canText ? 'grid-cols-2' : 'grid-cols-1'}`}>
           <button
             type="button"
             onClick={() => void copyLink()}
@@ -99,14 +103,14 @@ export function ShareAppPanel({ onClose }: { onClose: () => void }) {
             >
               📤 Share
             </button>
-          ) : (
+          ) : canText ? (
             <a
               href={`sms:?&body=${encodeURIComponent(`TODA SafeRide: ${url}`)}`}
               className="rounded-lg bg-brand-600 py-2 text-center text-xs font-bold text-white transition hover:bg-brand-700"
             >
               💬 Send by SMS
             </a>
-          )}
+          ) : null}
         </div>
 
         <p className="mt-3 border-t border-slate-100 pt-2 text-[11px] leading-snug text-slate-500">

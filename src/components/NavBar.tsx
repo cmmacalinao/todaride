@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
+import { useHeaderHeight } from '../lib/useHeaderHeight'
 import { useAdminViewMode } from '../lib/adminViewMode'
 import { AdminViewToggle } from './AdminViewToggle'
 import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
@@ -41,6 +42,9 @@ const DRAWER_ROLE_LABELS: Record<DrawerRole, string> = {
 }
 
 export function NavBar() {
+  // Declared up here, above the early return for the rider and driver apps:
+  // a hook placed after that return never runs on those screens at all.
+  const headerRef = useRef<HTMLElement>(null)
   const {
     role,
     setRole,
@@ -372,7 +376,8 @@ export function NavBar() {
   if (isRiderApp || isDriverApp || isPharmacyApp || isOperatorApp || isFranchiseApp) {
     return (
       <>
-      <header className="fixed inset-x-0 top-0 z-20 border-b border-brand-700 bg-brand-600">
+      {/* sticky rather than fixed — see PublicHeader for why. */}
+      <header className="sticky top-0 z-20 border-b border-brand-700 bg-brand-600">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-1.5">
           <div className="flex min-w-0 items-center gap-2">
             <div className="-mt-1 flex shrink-0 flex-col items-center gap-0.5">
@@ -479,6 +484,7 @@ export function NavBar() {
   // Compact chrome for the two-pane simulator only: everything that is
   // normally stacked collapses onto one row, halving the header.
   const isSimulatorPage = location.pathname === '/admin/simulator'
+  const headerHeight = useHeaderHeight(headerRef, [isSimulatorPage])
 
   // How tall the frozen block actually is, measured and republished as a CSS
   // variable. Two things need it and neither can know it in advance: the
@@ -486,25 +492,6 @@ export function NavBar() {
   // that wants to freeze directly underneath (see AdminSectionTabs). The
   // height moves — the ad strip comes and goes, the toolbar rewraps, the role
   // strip is absent on the simulator — so it is watched rather than sampled.
-  const headerRef = useRef<HTMLElement>(null)
-  const [headerHeight, setHeaderHeight] = useState(0)
-  useEffect(() => {
-    const el = headerRef.current
-    if (!el) return
-    const measure = () => {
-      const h = Math.round(el.getBoundingClientRect().height)
-      setHeaderHeight((prev) => (Math.abs(prev - h) > 1 ? h : prev))
-      document.documentElement.style.setProperty('--app-header-h', `${h}px`)
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    window.addEventListener('resize', measure)
-    return () => {
-      observer.disconnect()
-      window.removeEventListener('resize', measure)
-    }
-  }, [isSimulatorPage])
 
   // The role switcher, defined once and placed in one of two spots: its own
   // card under the header everywhere else, and up inside the header on the

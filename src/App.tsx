@@ -87,6 +87,22 @@ function AppShell() {
   // first: authedAccount resets on every fresh page load (see
   // SessionContext), so trying to reach any of those always means hitting
   // AuthGate first.
+  // The map bench, before the login wall.
+  //
+  // A session does not survive a full page reload here by design, and testing
+  // a map means reloading constantly — so the bench spent most of its life
+  // behind a sign-in form it has nothing to do with. It tests a map, not an
+  // account. Dev server only: import.meta.env.DEV is false in a build and
+  // this whole branch is compiled away, so it cannot open a hole in the
+  // deployed site.
+  if (import.meta.env.DEV && NavMapCheckPage && location.pathname === '/navcheck') {
+    return (
+      <Suspense fallback={null}>
+        <NavMapCheckPage />
+      </Suspense>
+    )
+  }
+
   if (!authedAccount) {
     const publicTitle =
       location.pathname === '/welcome'

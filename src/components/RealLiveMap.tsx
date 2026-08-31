@@ -8,21 +8,18 @@ import { markerBoxSize, markerHtml, type MarkerIcon } from './mapMarkerHtml'
 import { NavMapBoundary } from './NavMapBoundary'
 import type { GeoCoords } from '../types'
 
-// Loaded only when a trip is actually running. MapLibre and its worker are
-// most of a megabyte, and the great majority of sessions — booking a ride,
-// checking a fare, a driver watching the queue — never open this view at all.
-const NavLiveMap = lazy(() => import('./NavLiveMap').then((m) => ({ default: m.NavLiveMap })))
+// Still split out of the main bundle, and still worth splitting even though
+// nearly every screen now wants it: it is a fifth of a megabyte, and the
+// first thing anybody sees is a login form with no map on it. Splitting lets
+// that screen paint while the map arrives behind it.
+const VectorLiveMap = lazy(() => import('./VectorLiveMap').then((m) => ({ default: m.VectorLiveMap })))
 
-// Fetches that chunk ahead of time.
+// Fetches that chunk ahead of time, for a screen that knows a map is coming.
 //
-// Left to itself it downloads at the exact moment the trip starts: the driver
-// is pulling away, the passenger is looking at the screen, and a fifth of a
-// megabyte has to arrive over whatever signal the road has before the map
-// appears. Called while the driver is still on their way to the pickup, it is
-// already in cache by then. A failed preload is not worth reporting — the
-// lazy import will simply try again for real.
+// A failed preload is not worth reporting — the lazy import will simply try
+// again for real.
 export function preloadNavMap() {
-  void import('./NavLiveMap').catch(() => {})
+  void import('./VectorLiveMap').catch(() => {})
 }
 
 export interface MapPoint {
@@ -46,7 +43,7 @@ export interface MapPoint {
   callout?: boolean
 }
 
-interface RealLiveMapProps {
+export interface RealLiveMapProps {
   points: MapPoint[]
   // Either a real OSRM/Google road-network path (many points, follows actual
   // streets) or just the two leg endpoints as a fallback — routeIsReal picks
@@ -546,8 +543,11 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
   }, [unlocked])
 
   if (points.length === 0) return null
-  const useNav = !!nav && !navFailed
-  const useGoogle = !useNav && !!googleMapsApiKey() && !googleFailed
+  // The vector map is now the map. Leaflet stays behind it as the fallback:
+  // no WebGL, no vector tiles, or any error at all, and the old raster map
+  // takes over rather than the screen showing an empty rectangle.
+  const useVector = !navFailed
+  const useGoogle = !useVector && !!googleMapsApiKey() && !googleFailed
   const displayPoints = spreadOverlappingPoints(points)
 
   // Terminals are scenery: on every map, never changing, and their own pins
@@ -594,31 +594,51 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
           ))}
         </div>
       )}
-      {useNav && nav ? (
+      {useVector ? (
         <NavMapBoundary onFailed={() => setNavFailed(true)}>
-        <Suspense
-          fallback={
-            <div
-              className="flex items-center justify-center bg-slate-100 text-[11px] text-slate-500"
-              style={{ height: height ?? '260px' }}
-            >
-              Loading map…
-            </div>
-          }
-        >
-          <NavLiveMap
-            points={displayPoints}
-            routeLine={routeLine}
-            routeIsReal={routeIsReal}
-            routeVariant={routeVariant}
-            height={height}
-            center={nav.center}
-            heading={nav.heading}
-            speedMps={nav.speedMps}
-            rotatePointId={nav.rotatePointId}
-            onFailed={() => setNavFailed(true)}
-          />
-        </Suspense>
+          <Suspense
+            fallback={
+              <div
+                className="flex items-center justify-center bg-slate-100 text-[11px] text-slate-500"
+                style={{ height: height ?? '220px' }}
+              >
+                Loading map…
+              </div>
+            }
+          >
+            <VectorLiveMap
+              points={displayPoints}
+              areas={areas}
+              routeLine={routeLine}
+              hintLine={hintLine}
+              routeIsReal={routeIsReal}
+              routeVariant={routeVariant}
+              onMapClick={onMapClick}
+              onPointClick={onPointClick}
+              refitSignal={framingSignal}
+              fitPointIds={fitPointIds}
+              followAll={followAll}
+              centerOn={centerOn}
+              frozen={locked}
+              draggableIds={draggableIds}
+              onPointDragEnd={onPointDragEnd}
+              height={height}
+              nav={nav}
+              panLock={
+                interactive
+                  ? {
+                      unlocked,
+                      onToggle: () =>
+                        setUnlocked((v) => {
+                          if (v) setRelocks((n) => n + 1)
+                          return !v
+                        }),
+                    }
+                  : undefined
+              }
+              onFailed={() => setNavFailed(true)}
+            />
+          </Suspense>
         </NavMapBoundary>
       ) : useGoogle ? (
         <GoogleLiveMap

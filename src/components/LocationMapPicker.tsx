@@ -1,4 +1,6 @@
 import { LocationPermissionRow } from './LocationPermissionRow'
+import { useWatchPosition } from '../lib/liveTracking'
+import { useRides } from '../context/RideContext'
 import { formatAddressLine } from '../lib/addressFormat'
 import { useRef, useState, type ReactNode } from 'react'
 import { RealLiveMap, type MapPoint } from './RealLiveMap'
@@ -13,6 +15,12 @@ import type { GeoCoords, MockLocation, Terminal } from '../types'
 // placing one doesn't lose sight of the other. `target` is controlled by the
 // caller (not local state) so the caller can also use it to show only the
 // matching BarangayAddressPicker section below, instead of both at once.
+// How recent a driver's published position has to be to count as live. The
+// driver app publishes every 30 seconds, so three minutes allows a couple of
+// missed pushes — a phone in a pocket losing signal at a junction — without
+// keeping a marker alive for somebody who has finished for the day.
+const LIVE_DRIVER_WINDOW_MS = 3 * 60 * 1000
+
 export function LocationMapPicker({
   pickup,
   dropoff,
@@ -132,7 +140,53 @@ export function LocationMapPicker({
     }
   }
 
+  // Where the phone says it is, right now, following as the person moves.
+  //
+  // Distinct from the FROM pin, which is a decision somebody made and must
+  // stay where they put it. This is not a decision — it is the map answering
+  // "which of these dots is me", which is the question actually being asked
+  // when somebody stands at a terminal looking for their tricycle. Blue and
+  // pulsing, the way every map has taught people to read "you".
+  const { position: myPosition } = useWatchPosition(true)
+
+  // Every tricycle that is actually out there, moving.
+  //
+  // Drivers publish their position every 30 seconds while signed in, so this
+  // is a live picture rather than a roster — which is the difference between
+  // "there are twelve tricycles in this TODA" and "that one is two streets
+  // away". It is the question somebody standing at a rank is asking.
+  //
+  // Only recent readings are drawn. A position with no timestamp, or one
+  // older than the window below, is from a driver who has since closed the
+  // app or gone home — and a marker for a tricycle that is not there sends
+  // somebody walking toward nothing. Better to show fewer and mean them.
+  const { drivers } = useRides()
+  const liveTricycles = drivers.filter((d) => {
+    if (!d.online || !d.lastKnownGps || !d.lastKnownGpsAt) return false
+    return Date.now() - new Date(d.lastKnownGpsAt).getTime() < LIVE_DRIVER_WINDOW_MS
+  })
+
   const points: MapPoint[] = [
+    ...liveTricycles.map((d) => ({
+      id: `live-driver-${d.id}`,
+      gps: d.lastKnownGps!,
+      color: '#1d4ed8',
+      label: `${d.name} — ${d.plateNumber}`,
+      icon: 'tricycle' as const,
+      pulse: true,
+    })),
+    ...(myPosition
+      ? [
+          {
+            id: 'me',
+            gps: myPosition,
+            color: '#2563eb',
+            label: 'You are here',
+            pulse: true,
+            icon: 'me' as const,
+          },
+        ]
+      : []),
     ...(pickup.gps ? [{ id: 'pickup', gps: pickup.gps, color: '#0d9488', label: `${pickupLabel} — ${formatAddressLine(pickup.label)}` }] : []),
     ...(hasDropoff && dropoff.gps
       ? [{ id: 'dropoff', gps: dropoff.gps, color: '#e11d48', label: `${dropoffLabel} — ${formatAddressLine(dropoff.label)}` }]

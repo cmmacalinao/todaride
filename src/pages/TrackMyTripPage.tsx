@@ -113,6 +113,9 @@ export function TrackMyTripPage() {
         key={`track-to-${pickerSeed.key}`}
         label=""
         hideRegionSelects
+        // The destination may be in another town — this is a trip already
+        // under way, not one being planned from home.
+        showCitySelect
         defaultProvince={pickerSeed.province || DEFAULT_BOOKING_PROVINCE}
         defaultCity={pickerSeed.city || DEFAULT_BOOKING_CITY}
         defaultBarangay={pickerSeed.barangay}

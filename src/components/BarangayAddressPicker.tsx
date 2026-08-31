@@ -27,6 +27,16 @@ interface BarangayAddressPickerProps {
   // Province/City still come in through defaultProvince/defaultCity — remount
   // via `key` to change them, same as the other defaults.
   hideRegionSelects?: boolean
+  // Keeps the city visible while the province stays hidden.
+  //
+  // hideRegionSelects hides both, which is right where the province and the
+  // city are both settled — a passenger booking from the screen that already
+  // asked. On Track my trip nothing has been asked yet: the trip is being
+  // recorded mid-journey and the destination may well be in another town, so
+  // the city has to be answerable. The province does not: this pilot is one
+  // province wide, and a select with a single realistic answer is a question
+  // that wastes a tap.
+  showCitySelect?: boolean
   // "Use my exact GPS location" — its own control at the top of the picker
   // rather than an entry buried inside the barangay dropdown. Hidden inside
   // the select it read as a barangay you had never heard of, and you had to
@@ -65,6 +75,7 @@ export function BarangayAddressPicker({
   pinned: pinnedProp,
   onResolve,
   hideRegionSelects = false,
+  showCitySelect = false,
   gpsOption,
   topAction,
 }: BarangayAddressPickerProps) {
@@ -220,7 +231,7 @@ export function BarangayAddressPicker({
           </option>
         ))}
       </select>
-      <div className={hideRegionSelects ? '' : 'grid grid-cols-2 gap-2'}>
+      <div className={hideRegionSelects && !showCitySelect ? '' : 'grid grid-cols-2 gap-2'}>
         <select
           value={city}
           onChange={(e) => {
@@ -229,7 +240,7 @@ export function BarangayAddressPicker({
           }}
           disabled={!province}
           className={`w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 ${
-            hideRegionSelects ? 'hidden' : ''
+            hideRegionSelects && !showCitySelect ? 'hidden' : ''
           }`}
         >
           <option value="">Select city</option>

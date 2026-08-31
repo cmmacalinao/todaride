@@ -55,7 +55,7 @@ export function LocationPermissionRow({ onLocated }: { onLocated?: (coords: GeoC
       setRefreshedAt(new Date())
       onLocated?.(coords)
     } catch (err) {
-      setFailed(err instanceof Error ? err.message : 'Hindi makuha ang lokasyon.')
+      setFailed(err instanceof Error ? err.message : 'Could not get your location.')
     } finally {
       setBusy(false)
     }
@@ -69,8 +69,8 @@ export function LocationPermissionRow({ onLocated }: { onLocated?: (coords: GeoC
         </span>
         <span className="min-w-0 flex-1 text-[11px] font-semibold text-slate-700">
           Live location
-          {permission === 'granted' && <span className="ml-1 font-normal text-emerald-700">· pinayagan</span>}
-          {permission === 'denied' && <span className="ml-1 font-normal text-rose-700">· naka-block</span>}
+          {permission === 'granted' && <span className="ml-1 font-normal text-emerald-700">· allowed</span>}
+          {permission === 'denied' && <span className="ml-1 font-normal text-rose-700">· blocked</span>}
           {refreshedAt && (
             <span className="ml-1 font-normal text-slate-400">
               · {refreshedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -83,7 +83,7 @@ export function LocationPermissionRow({ onLocated }: { onLocated?: (coords: GeoC
           disabled={busy}
           className="shrink-0 rounded-lg border border-brand-300 bg-brand-50 px-2.5 py-1 text-[11px] font-bold text-brand-700 transition hover:bg-brand-100 disabled:opacity-60"
         >
-          {busy ? 'Hinahanap…' : '🔄 I-refresh'}
+          {busy ? 'Locating…' : '🔄 Refresh'}
         </button>
       </div>
 
@@ -92,16 +92,16 @@ export function LocationPermissionRow({ onLocated }: { onLocated?: (coords: GeoC
           them stops the question coming back every single visit. */}
       {permission === 'prompt' && (
         <p className="mt-1 text-[11px] leading-snug text-slate-500">
-          Kapag nagtanong ang browser, piliin ang <span className="font-semibold">Allow on every visit</span>{' '}
-          — kung <span className="font-semibold">Allow this time</span> ang pipiliin mo, magtatanong ulit ito
-          sa bawat pagbukas.
+          When your browser asks, choose <span className="font-semibold">Allow on every visit</span>. If you
+          choose <span className="font-semibold">Allow this time</span> it will ask again every time you open
+          the app.
         </p>
       )}
 
       {permission === 'denied' && (
         <p className="mt-1 text-[11px] leading-snug text-rose-700">
-          Naka-block ang location sa browser na ito, kaya hindi na ito makakapagtanong ulit. Pindutin ang
-          padlock 🔒 sa address bar → Location → Allow, tapos i-refresh.
+          Location is blocked in this browser, so it will not ask again however many times you press
+          Refresh. Tap the padlock 🔒 in the address bar → Location → Allow, then reload the page.
         </p>
       )}
 

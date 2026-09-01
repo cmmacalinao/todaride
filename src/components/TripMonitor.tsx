@@ -1131,6 +1131,23 @@ export function TripMonitor({
             fitPointIds={fitPointIds}
             frozen={framing.frozen}
             nav={navCamera}
+            // Full screen leaves this behind otherwise — it sits below the
+            // map in the normal layout, and full screen is a fixed layer
+            // over everything else on the page. Drawn over the map itself,
+            // it comes along. Matches the same header on the driver's own
+            // map: the same trip, read the same way from either seat.
+            overlayTop={
+              <div className="space-y-0.5 rounded-lg bg-white/75 px-2 py-1 text-[11px] leading-tight backdrop-blur-sm">
+                <p className="truncate">
+                  <span className="font-semibold text-pickup-accent">📍 </span>
+                  {formatAddressLine(ride.pickup.label)}
+                </p>
+                <p className="truncate">
+                  <span className="font-semibold text-dest-accent">🏁 </span>
+                  {formatAddressLine(ride.dropoff.label)}
+                </p>
+              </div>
+            }
             overlayBottom={onBoard ? () => liveFeedStrip : undefined}
             // This is the map a passenger or a parent is actually watching
             // for the length of a ride, not one sitting mid-page among other

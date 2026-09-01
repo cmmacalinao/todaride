@@ -47,10 +47,20 @@ describe('nextNavCamera', () => {
     expect(state).toEqual({ bearing: 0, pitch: 0, headingUp: false })
   })
 
-  it('stays flat until the first usable fix', () => {
+  // Tilt does not wait on a heading. Plenty of phones never report one — no
+  // speed below walking pace on Android, no heading at all from a fused or
+  // wifi fix — and gating the tilt on it left the map flat for entire rides.
+  it('tilts north-up before the first usable fix, without claiming to face the road', () => {
     const state = nextNavCamera({ heading: null, speedMps: null, previousBearing: null, enabled: true })
+    expect(state.pitch).toBe(NAV_PITCH_DEGREES)
+    expect(state.bearing).toBe(0)
     expect(state.headingUp).toBe(false)
+  })
+
+  it('stays flat when heading-up is switched off entirely', () => {
+    const state = nextNavCamera({ heading: 90, speedMps: 6, previousBearing: 40, enabled: false })
     expect(state.pitch).toBe(0)
+    expect(state.headingUp).toBe(false)
   })
 
   it('jumps straight to the first usable heading instead of easing from north', () => {

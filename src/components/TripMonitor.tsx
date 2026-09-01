@@ -111,10 +111,28 @@ export function TripMonitor({
     speedMps: livePassengerSpeed,
   } = useWatchPosition(liveGpsEnabled || shareLiveGps)
 
+  // Publish this phone's position for the driver to find us by — and stop the
+  // moment the trip starts.
+  //
+  // Both phones write the same ride row, and each write replaces it whole. At
+  // roughly a fix a second from each device, the driver's write carries this
+  // phone's last-known passenger position and this phone's write carries the
+  // driver's last-known position, so each device spends the trip reverting the
+  // other's newest coordinate to a stale copy. The tricycle marker on the
+  // passenger's screen is the visible casualty: it flips between where the
+  // driver is and where the driver was, which looks a great deal like a
+  // marker that has stopped moving.
+  //
+  // Nothing reads this during a trip anyway — getPassengerMapGps returns null
+  // unless the driver is still on their way, and once aboard the dot comes
+  // from this phone's own GPS rather than the ride. So the collision is not
+  // only harmful, it buys nothing: while riding, the tricycle's position is
+  // the only one worth publishing, and the driver's phone owns it.
+  const publishMyGps = shareLiveGps && ride.status !== 'ongoing'
   useEffect(() => {
-    updatePassengerLiveGps(ride.id, shareLiveGps ? livePassengerGps : null)
+    updatePassengerLiveGps(ride.id, publishMyGps ? livePassengerGps : null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [livePassengerGps, shareLiveGps, ride.id])
+  }, [livePassengerGps, publishMyGps, ride.id])
 
   const driver = ride.driverId ? MOCK_DRIVERS.find((d) => d.id === ride.driverId) : null
   // Who is driving and which tricycle it is, shown together while the trip

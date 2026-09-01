@@ -86,7 +86,19 @@ export function nextNavCamera({
   // degrees stale. Still tilted, and still reported as heading-up, because
   // the frame is the one the rider was last actually travelling along.
   if (!usable) {
-    if (previousBearing == null) return { bearing: 0, pitch: 0, headingUp: false }
+    // Nothing usable has arrived yet, so there is no direction to point at —
+    // but the trip has started, so the map tilts anyway, north up.
+    //
+    // Tilt and rotation used to stand or fall together, and that made the tilt
+    // hostage to a figure many phones never report: Android routinely gives no
+    // speed below walking pace, and a browser positioning by wifi or a fused
+    // provider often gives no heading at all. On those handsets the map stayed
+    // flat for the whole ride — the tilt never appeared once, because it was
+    // waiting on an answer that was never coming. A tilted north-up map is
+    // still the view a rider expects the moment the trip begins; whether it is
+    // also turned to face the road is a separate question, and headingUp goes
+    // on answering that one honestly.
+    if (previousBearing == null) return { bearing: 0, pitch: NAV_PITCH_DEGREES, headingUp: false }
     return { bearing: held, pitch: NAV_PITCH_DEGREES, headingUp: true }
   }
 

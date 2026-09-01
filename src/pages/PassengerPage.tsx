@@ -651,7 +651,7 @@ export function PassengerPage() {
   // FROM, not Pickup. The box answers where the trip starts, and on a
   // recorded ride the app fills it in itself with the same word, so the two
   // paths read alike.
-  const pickupLabel = isErrand ? 'Buy near to' : 'FROM'
+  const pickupLabel = isErrand ? 'Buy near to' : 'PICKUP'
   const dropoffLabel = isErrand ? 'Deliver to' : 'Destination'
   // The single question the rest of the form asks: is there a destination yet?
   const hasDestination = isErrand || dropoffChosen
@@ -1403,7 +1403,7 @@ export function PassengerPage() {
       type="button"
       onClick={openGroupRide}
       aria-expanded={groupRideOpen}
-      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 shadow-sm transition hover:bg-slate-50"
+      className="flex w-24 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-1 py-1.5 shadow-sm transition hover:bg-slate-50"
     >
       <span aria-hidden className="shrink-0 text-xs leading-none">👥</span>
       <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-700">Group ride</span>
@@ -1416,23 +1416,130 @@ export function PassengerPage() {
           className="scroll-mt-2 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm"
         >
           <div className="relative" ref={endpointsRef}>
+            {/* The dotted connector between the two rows is gone. It drew a
+                line from the pickup down to the destination, and the
+                destination is now the row on top — so it was pointing at the
+                wrong one, from a fixed offset that no longer matches either. */}
+            {/* The row and the other way to fill it, side by side.
+                Set on Map used to sit on its own line under the row, which
+                gave a secondary route the same vertical weight as the
+                question itself and cost a line of a sheet that has few to
+                spare. Beside it, narrow, it reads as the alternative it is. */}
+            <div className="mt-1.5 flex items-stretch gap-1.5">
+            <button
+              type="button"
+              onClick={() => openAddressPicker('dropoff')}
+              className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg bg-dest-fill px-3 py-1.5 text-left shadow-sm filter transition hover:brightness-95 ${
+                // pr-14 clears the swap control, which only exists when both
+                // ends are shown.
+                destinationOnly ? '' : 'pr-14'
+              }`}
+            >
+              {/* dest-fill is pale under dark teal text in the default theme,
+                  so the filled teal Pickup above is the one block carrying
+                  weight; a bold theme can instead make this a solid fill with
+                  white text — same four roles (fill/text/subtext/dot), theme
+                  decides which way they lean. See theme.css. */}
+              <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-dest-dot" />
+              <span className="min-w-0 flex-1">
+                {/* No "DESTINATION" eyebrow when it is the only row: the
+                    screen is asking one question, and labelling it costs a
+                    line of a strip that wants to be thin. */}
+                {!destinationOnly && (
+                  <span className="block text-[9px] font-semibold uppercase tracking-wide text-dest-subtext/70">{dropoffLabel}</span>
+                )}
+                <span
+                  className={`block truncate text-sm ${
+                    hasDestination ? 'font-semibold text-dest-text' : 'font-normal text-dest-subtext/70'
+                  }`}
+                >
+                  {hasDestination ? formatAddressLine(dropoff.label) : isErrand ? 'Where should it go?' : 'Where to?'}
+                </span>
+              </span>
+            </button>
+            {/* Tapping the map has always set the pin and nothing on the form
+                said so, leaving the address dropdowns reading as the only way
+                in — and typing a barangay and a street is far more work than
+                pointing at the place, especially for somewhere with no
+                address worth typing. This arms the map for the destination
+                and closes the form so the map is clear to tap. */}
+            <button
+              type="button"
+              onClick={() => {
+                setMapTarget('dropoff')
+                setOpenEnd(null)
+              }}
+              aria-label="Set the destination by tapping the map"
+              className="flex w-24 shrink-0 items-center justify-center gap-1 rounded-lg border border-dest-accent/40 bg-white px-1 text-[10px] font-bold leading-tight text-dest-accent transition hover:bg-dest-accent/10"
+            >
+              <span aria-hidden className="text-sm leading-none">📍</span>
+              Set on Map
+            </button>
+            </div>
+            {/* The escape hatch for the assumption above the fold: that the
+                pickup is wherever this phone is. True for most trips, wrong
+                for every trip booked on somebody else's behalf — and wrong
+                silently, quoting the fare from the wrong end and sending the
+                driver to the wrong street. */}
+            {destinationOnly && !pickupForSomeoneElse && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPickupForSomeoneElse(true)
+                  openAddressPicker('pickup')
+                }}
+                className="mt-1 w-full rounded-lg py-0.5 text-[10px] font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+              >
+                🧑 Booking for someone else? Set the pickup
+              </button>
+            )}
+            {openEnd === 'dropoff' && (
+              <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
+                {/* Saved places on the destination too, not only on an
+                    errand. A passenger going home, to school or to work is
+                    the ordinary case, and they had to type it every time
+                    while the pickup — the end the app can often guess by
+                    itself — was the one with the shortcuts. */}
+                {quickPlaceChips('dropoff')}
+                {cityRow}
+                <BarangayAddressPicker
+                  key={`to-${dropoffPickerSeed.key}`}
+                  label=""
+                  hideRegionSelects
+                  defaultProvince={dropoffPickerSeed.province || DEFAULT_BOOKING_PROVINCE}
+                  defaultCity={dropoffPickerSeed.city || cityScope || DEFAULT_BOOKING_CITY}
+                  defaultBarangay={dropoffPickerSeed.barangay}
+                  defaultAddressDetail={dropoffPickerSeed.addressDetail}
+                  onResolve={handleDropoffResolve}
+                  onConfirm={() => setOpenEnd(null)}
+                />
+                {isErrand && gpsStatus === 'error' && gpsError && (
+                  <p className="text-[11px] text-amber-700">{gpsError}</p>
+                )}
+              </div>
+            )}
             {(!destinationOnly || pickupForSomeoneElse) && (
             <>
             {/* Paired with Group Ride on the booking screen, the way the
                 destination row is paired with Set on Map — the row takes the
                 width and the secondary control sits beside it, rather than
                 each taking a line of its own. */}
-            <div className="flex items-stretch gap-1.5">
+            <div className="mt-2 flex items-stretch gap-1.5">
             <button
               type="button"
               onClick={() => openAddressPicker('pickup')}
-              className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg bg-pickup-accent px-3 py-2 text-left shadow-sm filter transition hover:brightness-90 ${
+              className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg bg-pickup-accent px-3 py-1.5 text-left shadow-sm filter transition hover:brightness-90 ${
                 destinationOnly ? '' : 'pr-14'
               }`}
             >
               <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-white" />
               <span className="min-w-0 flex-1">
-                <span className="block text-[9px] font-semibold uppercase tracking-wide text-white/75">{pickupLabel}</span>
+                {/* No eyebrow on the booking screen, same as the destination
+                    row: the colour and the placeholder already say which end
+                    this is, and the label cost a line of a thin strip. */}
+                {!destinationOnly && (
+                  <span className="block text-[9px] font-semibold uppercase tracking-wide text-white/75">{pickupLabel}</span>
+                )}
                 {/* Blank until the passenger says where they are, the same as
                     the destination below.
 
@@ -1489,113 +1596,6 @@ export function PassengerPage() {
               </div>
             )}
             </>
-            )}
-            {/* The connector only makes sense while the two rows are touching —
-                with a picker open between them it would be a dotted line to
-                nowhere. */}
-            {!openEnd && !destinationOnly && (
-              <span
-                aria-hidden
-                className="absolute left-[1.16rem] top-[2.85rem] h-2 border-l-2 border-dotted border-slate-300"
-              />
-            )}
-            {/* The row and the other way to fill it, side by side.
-                Set on Map used to sit on its own line under the row, which
-                gave a secondary route the same vertical weight as the
-                question itself and cost a line of a sheet that has few to
-                spare. Beside it, narrow, it reads as the alternative it is. */}
-            <div className="mt-1.5 flex items-stretch gap-1.5">
-            <button
-              type="button"
-              onClick={() => openAddressPicker('dropoff')}
-              className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg bg-dest-fill px-3 py-1.5 text-left shadow-sm filter transition hover:brightness-95 ${
-                // pr-14 clears the swap control, which only exists when both
-                // ends are shown.
-                destinationOnly ? '' : 'pr-14'
-              }`}
-            >
-              {/* dest-fill is pale under dark teal text in the default theme,
-                  so the filled teal Pickup above is the one block carrying
-                  weight; a bold theme can instead make this a solid fill with
-                  white text — same four roles (fill/text/subtext/dot), theme
-                  decides which way they lean. See theme.css. */}
-              <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-dest-dot" />
-              <span className="min-w-0 flex-1">
-                {/* No "DESTINATION" eyebrow when it is the only row: the
-                    screen is asking one question, and labelling it costs a
-                    line of a strip that wants to be thin. */}
-                {!destinationOnly && (
-                  <span className="block text-[9px] font-semibold uppercase tracking-wide text-dest-subtext/70">{dropoffLabel}</span>
-                )}
-                <span
-                  className={`block truncate text-sm ${
-                    hasDestination ? 'font-semibold text-dest-text' : 'font-normal text-dest-subtext/70'
-                  }`}
-                >
-                  {hasDestination ? formatAddressLine(dropoff.label) : isErrand ? 'Where should it go?' : 'Where to?'}
-                </span>
-              </span>
-            </button>
-            {/* Tapping the map has always set the pin and nothing on the form
-                said so, leaving the address dropdowns reading as the only way
-                in — and typing a barangay and a street is far more work than
-                pointing at the place, especially for somewhere with no
-                address worth typing. This arms the map for the destination
-                and closes the form so the map is clear to tap. */}
-            <button
-              type="button"
-              onClick={() => {
-                setMapTarget('dropoff')
-                setOpenEnd(null)
-              }}
-              aria-label="Set the destination by tapping the map"
-              className="flex shrink-0 items-center justify-center gap-1 rounded-lg border border-dest-accent/40 bg-white px-2 text-[10px] font-bold leading-tight text-dest-accent transition hover:bg-dest-accent/10"
-            >
-              <span aria-hidden className="text-sm leading-none">📍</span>
-              Set on Map
-            </button>
-            </div>
-            {/* The escape hatch for the assumption above the fold: that the
-                pickup is wherever this phone is. True for most trips, wrong
-                for every trip booked on somebody else's behalf — and wrong
-                silently, quoting the fare from the wrong end and sending the
-                driver to the wrong street. */}
-            {destinationOnly && !pickupForSomeoneElse && (
-              <button
-                type="button"
-                onClick={() => {
-                  setPickupForSomeoneElse(true)
-                  openAddressPicker('pickup')
-                }}
-                className="mt-1 w-full rounded-lg py-0.5 text-[10px] font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
-              >
-                🧑 Booking for someone else? Set the pickup
-              </button>
-            )}
-            {openEnd === 'dropoff' && (
-              <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
-                {/* Saved places on the destination too, not only on an
-                    errand. A passenger going home, to school or to work is
-                    the ordinary case, and they had to type it every time
-                    while the pickup — the end the app can often guess by
-                    itself — was the one with the shortcuts. */}
-                {quickPlaceChips('dropoff')}
-                {cityRow}
-                <BarangayAddressPicker
-                  key={`to-${dropoffPickerSeed.key}`}
-                  label=""
-                  hideRegionSelects
-                  defaultProvince={dropoffPickerSeed.province || DEFAULT_BOOKING_PROVINCE}
-                  defaultCity={dropoffPickerSeed.city || cityScope || DEFAULT_BOOKING_CITY}
-                  defaultBarangay={dropoffPickerSeed.barangay}
-                  defaultAddressDetail={dropoffPickerSeed.addressDetail}
-                  onResolve={handleDropoffResolve}
-                  onConfirm={() => setOpenEnd(null)}
-                />
-                {isErrand && gpsStatus === 'error' && gpsError && (
-                  <p className="text-[11px] text-amber-700">{gpsError}</p>
-                )}
-              </div>
             )}
             {/* Not while an address form is open. The strip offers a
                 different way to start a trip entirely, and putting that

@@ -1267,7 +1267,7 @@ export function DriverPage() {
         {myActiveRide ? (
           <ActiveTripCard
             rideId={myActiveRide.id}
-            onStart={() => startRide(myActiveRide.id)}
+            onStart={(gps) => startRide(myActiveRide.id, gps)}
             onComplete={(paidMethod) => completeRide(myActiveRide.id, paidMethod)}
             extraPoints={sharedStopPoints}
             hintLine={sharedHintLine}
@@ -1288,7 +1288,7 @@ export function DriverPage() {
         <ActiveTripCard
           key={extra.id}
           rideId={extra.id}
-          onStart={() => startRide(extra.id)}
+          onStart={(gps) => startRide(extra.id, gps)}
           onComplete={(paidMethod) => completeRide(extra.id, paidMethod)}
           showMap={false}
         />
@@ -1552,7 +1552,8 @@ function ActiveTripCard({
   showMap = true,
 }: {
   rideId: string
-  onStart: () => void
+  // Handed the driver's own fix, which becomes the pickup - see START_RIDE.
+  onStart: (driverGps: GeoCoords | null) => void
   onComplete: (paidMethod?: PaymentMethod) => void
   // One tricycle, one map. The other passengers' stops are drawn on this
   // driver's map rather than each trip bringing a second map of the same
@@ -1802,8 +1803,10 @@ function ActiveTripCard({
     // between arriving and the status actually changing.
     if (autoStartRef.current === ride.id) return
     autoStartRef.current = ride.id
-    onStart()
-  }, [ride, metersFromPassenger, shoppingDone, onStart])
+    // This fires because the driver reached the passenger, so the driver's own
+    // fix is the truest pickup there is.
+    onStart(driverGpsForPickup)
+  }, [ride, metersFromPassenger, shoppingDone, onStart, driverGpsForPickup])
   // Defensive: a MockLocation from before `gps` existed (stale localStorage)
   // has no real coordinate to plot — skip that point rather than crash.
   const mapPoints: MapPoint[] = [
@@ -2023,19 +2026,32 @@ function ActiveTripCard({
       {ride.status === 'driver_arriving' && (
         <>
           <button
-            onClick={onStart}
-            disabled={(!atPickup && !forgotStart.movedAway) || !shoppingDone}
+            onClick={() => onStart(driverGpsForPickup)}
+            disabled={!shoppingDone}
             className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
           >
             {!shoppingDone
               ? `Buy all ${shoppingList.length} item(s) first — ${boughtCount} done`
-              : atPickup || forgotStart.movedAway
-                ? 'Start trip'
-                : `Drive to the pickup to start — ${formatKm(metersFromPickup)} away`}
+              : 'Start trip'}
           </button>
-          {!atPickup && !forgotStart.movedAway && (
-            <p className="text-center text-[11px] text-slate-500">
-              Starts the fare, so it unlocks within {formatKm(PICKUP_PROXIMITY_METERS)} of {formatAddressLine(ride.pickup.label)}.
+          {/* The distance is a warning now, not a lock.
+              It used to disable this button until the driver was within 100m
+              of the pin, which is right when the pin is right and ruinous
+              when it is not: a pickup typed into an address form can land a
+              couple of kilometres from where the passenger is actually
+              standing, and a driver sitting beside them then could not start
+              at all. The trip never became 'ongoing', so the passenger's own
+              dot, the heading-up camera and the tricycle advancing along the
+              route never appeared either — the whole app looked dead over one
+              bad coordinate.
+              The driver's own fix rules instead: starting moves the pickup to
+              where they actually are. The number stays on screen, because
+              starting a fare a long way from where it was booked is worth a
+              second look before tapping. */}
+          {shoppingDone && !atPickup && !forgotStart.movedAway && metersFromPickup !== null && (
+            <p className="text-center text-[11px] leading-snug text-amber-700">
+              You are {formatKm(metersFromPickup)} from the booked pickup ({formatAddressLine(ride.pickup.label)}).
+              Starting here sets the pickup to where you are now.
             </p>
           )}
         </>

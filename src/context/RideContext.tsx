@@ -469,7 +469,13 @@ type RideAction =
   | { type: 'REPORT_DRIVER_GPS'; driverId: string; gps: GeoCoords }
   | { type: 'ACCEPT_RIDE'; rideId: string; driverId: string }
   | { type: 'DECLINE_RIDE'; rideId: string; driverId: string }
-  | { type: 'START_RIDE'; rideId: string }
+  | {
+      type: 'START_RIDE'
+      rideId: string
+      // Where the driver actually is as they start. The pickup moves to it —
+      // see the reducer.
+      driverGps?: GeoCoords | null
+    }
   | { type: 'PASSENGER_CONFIRM_ARRIVAL'; rideId: string; actualDropoff?: Ride['actualDropoff'] }
   | { type: 'CLEAR_ALL_RIDES' }
   | { type: 'COMPLETE_RIDE'; rideId: string; paidMethod?: PaymentMethod }
@@ -1934,6 +1940,7 @@ function buildMedsDeliveryRide(
     requestedAt: new Date().toISOString(),
     acceptedAt: null,
     startedAt: null,
+    startedAwayFromPickupMeters: null,
     completedAt: null,
     driverPosition: null,
     passengerPosition: null,
@@ -2220,6 +2227,7 @@ function reducer(state: RideState, action: RideAction): RideState {
         requestedAt: new Date().toISOString(),
         acceptedAt: null,
         startedAt: null,
+        startedAwayFromPickupMeters: null,
         completedAt: null,
         driverPosition: null,
         passengerPosition: null,
@@ -2362,6 +2370,7 @@ function reducer(state: RideState, action: RideAction): RideState {
           requestedAt: new Date().toISOString(),
           acceptedAt: null,
           startedAt: null,
+          startedAwayFromPickupMeters: null,
           completedAt: null,
           driverPosition: null,
           passengerPosition: null,
@@ -2628,23 +2637,44 @@ function reducer(state: RideState, action: RideAction): RideState {
             : withDecline
         }),
       }
+    // The trip starts where the driver actually is.
+    //
+    // The pickup pin is a guess made before anybody set off — typed into an
+    // address form, or tapped on a map at a zoom where a finger covers a
+    // block. The driver standing beside the passenger with a GPS fix is not a
+    // guess, and when the two disagree the fix is the one telling the truth.
+    // A pin a couple of kilometres out used to hold the whole trip: Start
+    // stayed locked, the ride never became 'ongoing', and everything that
+    // hangs off that — the passenger's own dot, the heading-up camera, the
+    // tricycle advancing along the route — never happened either. One bad
+    // coordinate, and the app looked completely dead.
+    //
+    // So the coordinate is corrected here rather than argued with. The booked
+    // label is left alone: it is what the passenger asked for and what any
+    // dispute will be read against. Only the point on the map moves, and how
+    // far it moved is recorded beside it.
     case 'START_RIDE':
       return {
         ...state,
-        rides: state.rides.map((r) =>
-          r.id === action.rideId
-            ? {
-                ...r,
-                status: 'ongoing',
-                startedAt: new Date().toISOString(),
-                driverPosition: r.pickup.coords,
-                passengerPosition: null,
-                legProgress: 0,
-                routeAlert: false,
-                deviationOffset: null,
-              }
-            : r,
-        ),
+        rides: state.rides.map((r) => {
+          if (r.id !== action.rideId) return r
+          const movedMeters =
+            action.driverGps && r.pickup.gps
+              ? Math.round(haversineDistanceMeters(action.driverGps, r.pickup.gps))
+              : null
+          return {
+            ...r,
+            status: 'ongoing',
+            startedAt: new Date().toISOString(),
+            pickup: action.driverGps ? { ...r.pickup, gps: action.driverGps } : r.pickup,
+            startedAwayFromPickupMeters: movedMeters,
+            driverPosition: r.pickup.coords,
+            passengerPosition: null,
+            legProgress: 0,
+            routeAlert: false,
+            deviationOffset: null,
+          }
+        }),
       }
     case 'CLEAR_ALL_RIDES':
       // Rides and their alerts only. Accounts, TODAs, settings and everything
@@ -5157,7 +5187,7 @@ interface RideContextValue extends RideState {
   reportDriverGps: (driverId: string, gps: GeoCoords) => void
   acceptRide: (rideId: string, driverId: string) => void
   declineRide: (rideId: string, driverId: string) => void
-  startRide: (rideId: string) => void
+  startRide: (rideId: string, driverGps?: GeoCoords | null) => void
   // The passenger saying they are off — hands the ride to the driver for
   // payment confirmation rather than completing it.
   confirmPassengerArrival: (rideId: string, actualDropoff?: Ride['actualDropoff']) => void
@@ -6197,7 +6227,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     reportDriverGps: (driverId, gps) => dispatch({ type: 'REPORT_DRIVER_GPS', driverId, gps }),
     acceptRide: (rideId, driverId) => dispatch({ type: 'ACCEPT_RIDE', rideId, driverId }),
     declineRide: (rideId, driverId) => dispatch({ type: 'DECLINE_RIDE', rideId, driverId }),
-    startRide: (rideId) => dispatch({ type: 'START_RIDE', rideId }),
+    startRide: (rideId, driverGps) => dispatch({ type: 'START_RIDE', rideId, driverGps }),
     confirmPassengerArrival: (rideId, actualDropoff) =>
       dispatch({ type: 'PASSENGER_CONFIRM_ARRIVAL', rideId, actualDropoff }),
     clearAllRides: () => dispatch({ type: 'CLEAR_ALL_RIDES' }),

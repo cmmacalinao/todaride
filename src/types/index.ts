@@ -808,6 +808,12 @@ export interface Ride {
   requestedAt: string
   acceptedAt: string | null
   startedAt: string | null
+  // How far the driver was from the booked pickup pin when they started, in
+  // metres. The pickup coordinate is moved to where the driver actually was
+  // (see START_RIDE), so this is the only record that the two ever disagreed
+  // - and a trip that began a kilometre from where it was booked is exactly
+  // what a dispute is about. Null when there was no position to compare.
+  startedAwayFromPickupMeters: number | null
   completedAt: string | null
   driverPosition: Coords | null
   passengerPosition: Coords | null

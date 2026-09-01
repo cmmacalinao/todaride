@@ -46,12 +46,18 @@ export function LocationMapPicker({
   // Rendered at the top of that sheet, above the picker's own controls — the
   // From/Destination address card, on the booking screen.
   sheetHeader,
+  // Lets the caller drive how open the sheet is — opening an address form
+  // inside it is no use if the sheet is too short to show it.
+  sheetSnap,
+  onSheetSnapChange,
   showGpsFor,
   terminals = [],
   extraPoints = [],
 }: {
   mapFirst?: boolean
   sheetHeader?: () => ReactNode
+  sheetSnap?: SheetSnap
+  onSheetSnapChange?: (snap: SheetSnap) => void
   pickup: MockLocation
   dropoff: MockLocation
   target: 'pickup' | 'dropoff'
@@ -113,7 +119,9 @@ export function LocationMapPicker({
   const [showFullAddress, setShowFullAddress] = useState(false)
   // Where the sheet sits in map-first layout. Starts half open: enough to
   // show From and Destination without hiding the map they refer to.
-  const [sheetSnap, setSheetSnap] = useState<SheetSnap>('half')
+  const [internalSheetSnap, setInternalSheetSnap] = useState<SheetSnap>('half')
+  const effectiveSnap = sheetSnap ?? internalSheetSnap
+  const changeSnap = onSheetSnapChange ?? setInternalSheetSnap
 
   // Switching Pickup/Destination scrolls this whole picker (toggle, GPS
   // button, map) to the top of the screen — the passenger just told us
@@ -337,7 +345,7 @@ export function LocationMapPicker({
         className="scroll-mt-24 relative h-[calc(100vh-13rem)] min-h-[26rem] overflow-hidden rounded-xl border border-slate-200"
       >
         <div className="absolute inset-0">{map}</div>
-        <BottomSheet snap={sheetSnap} onSnapChange={setSheetSnap} label="Where to">
+        <BottomSheet snap={effectiveSnap} onSnapChange={changeSnap} label="Where to">
           {sheetHeader?.()}
           {controls}
         </BottomSheet>

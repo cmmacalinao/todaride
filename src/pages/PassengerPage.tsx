@@ -45,6 +45,7 @@ import { PassengerRegisterForm } from '../components/PassengerRegisterForm'
 import { BarangayAddressPicker } from '../components/BarangayAddressPicker'
 import { FAR_DRIVER_METERS, formatDuration, formatKm, haversineDistanceMeters, minutesToCover } from '../lib/geo'
 import { LocationMapPicker } from '../components/LocationMapPicker'
+import type { SheetSnap } from '../components/BottomSheet'
 import type { MapPoint } from '../components/RealLiveMap'
 import { MedsBooking } from '../components/MedsBooking'
 import { EmergencyHotlines } from '../components/EmergencyHotlines'
@@ -189,6 +190,19 @@ export function PassengerPage() {
   // fields. Only one at a time: the card stays short, and it mirrors how the
   // map picker already scopes itself to one end.
   const [openEnd, setOpenEnd] = useState<'pickup' | 'dropoff' | null>(null)
+  // How open the booking sheet is.
+  //
+  // Driven by the address form rather than left to the reader: opening
+  // "Where to?" puts three dropdowns inside the sheet, and a sheet still at
+  // half height simply hides them below its own fold — the tap appears to do
+  // nothing. It opens to show them and drops back once the address is
+  // confirmed, so the map is the thing on screen whenever nothing is being
+  // typed. Dragging the handle still overrides it at any point.
+  const [bookingSheetSnap, setBookingSheetSnap] = useState<SheetSnap>('half')
+  useEffect(() => {
+    setBookingSheetSnap(openEnd ? 'full' : 'half')
+  }, [openEnd])
+
   // Which city the barangay list is showing. Scoped to the end being edited,
   // NOT to the booking — a trip from CLSU to San Jose City is two different
   // cities, and the picker has to be able to point at each in turn without
@@ -1242,6 +1256,8 @@ export function PassengerPage() {
         // panel arguing with the first.
         mapFirst={mapFirstBooking}
         sheetHeader={mapFirstBooking ? () => addressCard(true, true) : undefined}
+        sheetSnap={mapFirstBooking ? bookingSheetSnap : undefined}
+        onSheetSnapChange={mapFirstBooking ? setBookingSheetSnap : undefined}
         terminals={terminals}
         extraPoints={groupRideOpen ? groupMapPoints : undefined}
         showGpsFor={isErrand ? 'dropoff' : 'pickup'}

@@ -607,15 +607,23 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
   // Capture, because scroll does not bubble: the page scrolls #root here and
   // its own pane inside the split-screen simulator, and this has to catch
   // both without knowing which.
+  //
+  // Skipped entirely for alwaysInteractive: that map starts unlocked because
+  // there is no page below it worth protecting, and a trip screen fires
+  // plenty of scrolls of its own — a status change bringing the map back
+  // into view, a GPS tick nudging layout — none of which mean the reader
+  // stepped away from it. Without this exclusion every one of those silently
+  // undid an unlock (or a deliberate re-lock) a moment after it happened,
+  // which read as the palm icon simply not doing anything.
   useEffect(() => {
-    if (!unlocked) return
+    if (!unlocked || alwaysInteractive) return
     const relock = () => {
       setUnlocked(false)
       setRelocks((n) => n + 1)
     }
     document.addEventListener('scroll', relock, { capture: true, passive: true })
     return () => document.removeEventListener('scroll', relock, { capture: true })
-  }, [unlocked])
+  }, [unlocked, alwaysInteractive])
 
   if (points.length === 0) return null
   // The vector map is now the map. Leaflet stays behind it as the fallback:

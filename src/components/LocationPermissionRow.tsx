@@ -69,7 +69,7 @@ export function LocationPermissionRow({ onLocated }: { onLocated?: (coords: GeoC
         <span aria-hidden className="text-sm leading-none">
           📍
         </span>
-        <span className="min-w-0 flex-1 text-[11px] font-semibold text-slate-700">
+        <span className="min-w-0 shrink text-[11px] font-semibold text-slate-700">
           Live location
           {permission === 'granted' && <span className="ml-1 font-normal text-emerald-700">· allowed</span>}
           {permission === 'denied' && <span className="ml-1 font-normal text-rose-700">· blocked</span>}
@@ -79,6 +79,24 @@ export function LocationPermissionRow({ onLocated }: { onLocated?: (coords: GeoC
             </span>
           )}
         </span>
+        {/* Right against "blocked", the word it answers — not out at the far
+            edge of the row, where it reads as a third unrelated control
+            sitting beside Refresh. The label is short because it shares a
+            phone-width row; the full sentence is in the note it opens. */}
+        {permission === 'denied' && (
+          <button
+            type="button"
+            onClick={() => setHowToFixOpen((v) => !v)}
+            aria-expanded={howToFixOpen}
+            aria-label="How to turn location back on"
+            className="shrink-0 rounded-lg border border-rose-300 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700 transition hover:bg-rose-100"
+          >
+            {howToFixOpen ? '▼' : '▶'} How to fix
+          </button>
+        )}
+        {/* Pushes Refresh to the right edge on its own, now that the label no
+            longer stretches to do it. */}
+        <span className="flex-1" />
         <button
           type="button"
           onClick={() => void refresh()}
@@ -106,24 +124,11 @@ export function LocationPermissionRow({ onLocated }: { onLocated?: (coords: GeoC
           whose phone has location off — shouting at the many to help the few
           who are going to act on it. The state still shows in the row above
           ("· blocked"); this is only the how. */}
-      {permission === 'denied' && (
-        <>
-          <button
-            type="button"
-            onClick={() => setHowToFixOpen((v) => !v)}
-            aria-expanded={howToFixOpen}
-            className="mt-1 flex w-full items-center gap-1 text-left text-[11px] font-semibold text-rose-700"
-          >
-            <span aria-hidden className="text-[9px] leading-none">{howToFixOpen ? '▼' : '▶'}</span>
-            How to turn location back on
-          </button>
-          {howToFixOpen && (
-            <p className="mt-1 text-[11px] leading-snug text-rose-700">
-              Location is blocked in this browser, so it will not ask again however many times you press
-              Refresh. Tap the padlock 🔒 in the address bar → Location → Allow, then reload the page.
-            </p>
-          )}
-        </>
+      {permission === 'denied' && howToFixOpen && (
+        <p className="mt-1 text-[11px] leading-snug text-rose-700">
+          Location is blocked in this browser, so it will not ask again however many times you press
+          Refresh. Tap the padlock 🔒 in the address bar → Location → Allow, then reload the page.
+        </p>
       )}
 
       {failed && permission !== 'denied' && (

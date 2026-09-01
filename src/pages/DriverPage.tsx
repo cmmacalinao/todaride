@@ -10,7 +10,7 @@ import { GpsDiagnosticLine } from '../components/GpsDiagnosticLine'
 import { TricycleQrPanel } from '../components/TricycleQrPanel'
 import { NearbyRequestsBoard, buildNearbyRequests } from '../components/NearbyRequestsBoard'
 import type { DrawerSection } from '../components/NavDrawer'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { DRIVER_GPS_PUBLISH_MS } from '../lib/rideTogether'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ETA_SECONDS_PER_LEG, useRides } from '../context/RideContext'
@@ -1287,6 +1287,7 @@ export function DriverPage() {
             onComplete={(paidMethod) => completeRide(myActiveRide.id, paidMethod)}
             extraPoints={sharedStopPoints}
             hintLine={sharedHintLine}
+            footerBar={footerBar}
           />
         ) : (
           /* centerOn is deliberately not passed to the trip map below: while
@@ -1566,6 +1567,7 @@ function ActiveTripCard({
   extraPoints,
   hintLine,
   showMap = true,
+  footerBar,
 }: {
   rideId: string
   // Handed the driver's own fix, which becomes the pickup - see START_RIDE.
@@ -1577,6 +1579,12 @@ function ActiveTripCard({
   extraPoints?: MapPoint[]
   hintLine?: GeoCoords[]
   showMap?: boolean
+  // The section nav bar, drawn over the map in full screen — full screen is
+  // a fixed layer over the whole page, so the real, page-level footer bar
+  // underneath it is covered along with everything else. Only handed in by
+  // the caller that actually shows the map; the second trip on a shared ride
+  // has no map of its own to overlay it on.
+  footerBar?: ReactNode
 }) {
   const {
     rides,
@@ -2021,27 +2029,41 @@ function ActiveTripCard({
                 </p>
               </div>
             }
-            overlayBottom={
-              route
-                ? (fullscreen) =>
-                    // Only in full screen: the same line already sits below
-                    // the map in the normal layout, and showing it twice would
-                    // say the same distance twice on one screen.
-                    fullscreen ? (
-                      <div className="rounded-lg bg-white/90 px-3 py-1.5 text-center text-xs font-medium text-slate-700 shadow-lg">
-                        🛣️ {(route.distanceMeters / 1000).toFixed(1)} km · ~
-                        {Math.max(1, Math.round(route.durationSeconds / 60))} min drive
-                      </div>
-                    ) : null
-                : undefined
-            }
+            overlayBottom={(fullscreen) => (
+              // Not really one stack: footerBar carries its own fixed
+              // position (it is the real page-level nav bar, reused as-is)
+              // and ignores whatever flow it is rendered into, so it pins
+              // itself to the true bottom of the screen regardless of this
+              // wrapper's own layout. The route card gets an explicit margin
+              // clearing the bar's height instead, or the fixed bar simply
+              // paints over it — the two would otherwise land in the same
+              // strip of screen with no space actually reserved between them.
+              <div className={fullscreen && footerBar ? 'mb-16' : undefined}>
+                {/* The distance, the time, and what it pays — the same three
+                    facts, whichever screen they're read from. Only drawn here
+                    in full screen: the same line already sits in the normal
+                    flow below the map, and full screen is the one layout
+                    where that flow is covered rather than just scrolled past. */}
+                {route && fullscreen && (
+                  <div className="rounded-lg bg-white/90 px-3 py-1.5 text-center text-xs font-medium text-slate-700 shadow-lg">
+                    🛣️ {(route.distanceMeters / 1000).toFixed(1)} km · ~
+                    {Math.max(1, Math.round(route.durationSeconds / 60))} min drive · ₱{ride.fareEstimate} fare
+                  </div>
+                )}
+                {/* The section nav, covered by the same fixed full-screen
+                    layer as everything else below the map — brought along so
+                    Requests, Pila, Earnings and the rest stay one tap away
+                    without backing out of full screen first. */}
+                {fullscreen && footerBar}
+              </div>
+            )}
           />
         </div>
       )}
       {route && (
         <p className="text-center text-[11px] text-slate-400">
           🛣️ Real road route: {(route.distanceMeters / 1000).toFixed(1)} km · ~
-          {Math.max(1, Math.round(route.durationSeconds / 60))} min drive
+          {Math.max(1, Math.round(route.durationSeconds / 60))} min drive · ₱{ride.fareEstimate} fare
         </p>
       )}
       {/* In real-GPS mode the driver's location is the only thing that can

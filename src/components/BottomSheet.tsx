@@ -116,9 +116,21 @@ export function BottomSheet({
         aria-label={label}
         className="pointer-events-auto flex w-full flex-col overflow-hidden rounded-t-2xl border-t border-slate-200 bg-white shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.45)]"
         style={{
-          height: dragHeight ?? heightFor(snap),
+          // A snap is a ceiling, not a fixed size, at rest. Peek, half and
+          // full used to set the sheet's exact height, so a sheet holding
+          // three short rows was stretched to the same height as one holding
+          // ten — leaving a blank gap between the last row and whatever sat
+          // below the sheet, most often the Book button. maxHeight lets the
+          // section shrink to its own content and only grows to the snap's
+          // full height once the content actually needs it; the inner
+          // overflow-y-auto div still catches anything taller than that.
+          //
+          // While a finger is down this reverts to an explicit height, which
+          // a drag needs to track the finger in real time rather than the
+          // content's own size.
+          ...(dragHeight != null ? { height: dragHeight } : { maxHeight: heightFor(snap) }),
           // No transition while a finger is down, or the sheet lags behind it.
-          transition: dragHeight == null ? 'height .22s ease-out' : undefined,
+          transition: dragHeight == null ? 'max-height .22s ease-out' : undefined,
         }}
       >
         {/* The grab handle. The bar is 4px; the target around it is 28, which

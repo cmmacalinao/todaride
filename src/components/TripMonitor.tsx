@@ -354,12 +354,14 @@ export function TripMonitor({
             // now, drawn from this phone's own GPS, and one marker claiming
             // to be both was the reason the passenger's position looked
             // wrong.
-            // Riding: who is driving and which tricycle, together. The plate
-            // is what a passenger checks against the number in front of them
-            // and what they would give to anyone who asked where they were;
-            // the name is how they would refer to the person driving.
-            label: `${driver?.name ?? ride.driverName ?? 'Driver'}${
-              driver?.plateNumber ? ` · TRC ${driver.plateNumber}` : ''
+            // Riding: which tricycle, then who is driving it — plate first,
+            // same order the driver's own map uses for this dot (see
+            // DriverPage's cardPlate label). The two screens are describing
+            // the same tricycle and used to disagree about which fact leads;
+            // the plate is what a passenger actually checks against the
+            // number in front of them, so it goes first on both now.
+            label: `${driver?.plateNumber ? `TRC ${driver.plateNumber}` : 'Tricycle'} · ${
+              driver?.name ?? ride.driverName ?? 'Driver'
             }${onBoard && sharingWith > 0 ? ` · +${sharingWith}` : ''}`,
             // Named without waiting for the Names toggle, and named from the
             // moment a driver is assigned rather than only once aboard.

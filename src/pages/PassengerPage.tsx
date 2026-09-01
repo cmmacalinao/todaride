@@ -1328,7 +1328,7 @@ export function PassengerPage() {
           ▶
         </span>
         ⚙️ More options
-        <span className="font-normal text-slate-400">— special trip, favourite driver</span>
+        <span className="font-normal text-slate-400">— special trip, special pickup, favourite driver</span>
       </summary>
       <div className="mt-1.5 space-y-1.5">
             {!isErrand && (
@@ -1342,6 +1342,43 @@ export function PassengerPage() {
                 <span className="font-medium text-slate-800">Special trip — buong tricycle</span>
               </label>
             )}
+          {!isErrand && (
+            <>
+              {/* The button that used to sit here is now the first entry
+                  in the From barangay list on the card above, so this only
+                  has to report a failure — silently swallowing one would
+                  leave the special-pickup checkbox below unexplainably
+                  absent, since that appears only once GPS succeeds. */}
+              {gpsStatus === 'locating' && <p className="mt-1 text-[11px] text-slate-400">📍 Locating…</p>}
+              {/* The Live-location row above already reports a refused
+                  permission, with a How-to-fix beside it. */}
+              {gpsStatus === 'done' && terminalGps && (
+                <label className="mt-1.5 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={specialPickupRequested}
+                    onChange={(e) => setSpecialPickupRequested(e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="font-medium text-amber-800">
+                      Special request — Terminal is far, pick me up right here
+                    </span>
+                    <br />
+                    <span className="text-amber-700">
+                      ~{specialPickupBreakdown.distanceKm.toFixed(1)} km from the TODA Terminal
+                      {specialPickupBreakdown.fee > 0
+                        ? ` — adds ₱${specialPickupBreakdown.fee} (${specialPickupBreakdown.extraKm.toFixed(1)} km beyond the ${tariffSettings.standardKmCovered} km standard fare already covers)`
+                        : ' — within the standard fare’s covered distance, no extra fee'}
+                      <br />
+                      If no one from your TODA accepts within {Math.round(specialPickupEscalationMs / 60000)}{' '}
+                      minutes, it opens to any TODA member and freelance drivers nearby.
+                    </span>
+                  </span>
+                </label>
+              )}
+            </>
+          )}
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500">Favorite driver (optional)</label>
             {(() => {
@@ -2360,43 +2397,6 @@ export function PassengerPage() {
                   at wherever the passenger boards. An errand's exact-GPS
                   capture instead belongs on Deliver to below — the store
                   isn't where the passenger is standing. */}
-              {!isErrand && (
-                <>
-                  {/* The button that used to sit here is now the first entry
-                      in the From barangay list on the card above, so this only
-                      has to report a failure — silently swallowing one would
-                      leave the special-pickup checkbox below unexplainably
-                      absent, since that appears only once GPS succeeds. */}
-                  {gpsStatus === 'locating' && <p className="mt-1 text-[11px] text-slate-400">📍 Locating…</p>}
-                  {/* The Live-location row above already reports a refused
-                      permission, with a How-to-fix beside it. */}
-                  {gpsStatus === 'done' && terminalGps && (
-                    <label className="mt-1.5 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={specialPickupRequested}
-                        onChange={(e) => setSpecialPickupRequested(e.target.checked)}
-                        className="mt-0.5"
-                      />
-                      <span>
-                        <span className="font-medium text-amber-800">
-                          Special request — Terminal is far, pick me up right here
-                        </span>
-                        <br />
-                        <span className="text-amber-700">
-                          ~{specialPickupBreakdown.distanceKm.toFixed(1)} km from the TODA Terminal
-                          {specialPickupBreakdown.fee > 0
-                            ? ` — adds ₱${specialPickupBreakdown.fee} (${specialPickupBreakdown.extraKm.toFixed(1)} km beyond the ${tariffSettings.standardKmCovered} km standard fare already covers)`
-                            : ' — within the standard fare’s covered distance, no extra fee'}
-                          <br />
-                          If no one from your TODA accepts within {Math.round(specialPickupEscalationMs / 60000)}{' '}
-                          minutes, it opens to any TODA member and freelance drivers nearby.
-                        </span>
-                      </span>
-                    </label>
-                  )}
-                </>
-              )}
               {/* The Save Places strip is gone. Saving a place now happens
                   where the address is being set — the "Save as:" chips inside
                   the pickup and destination forms — rather than in a separate

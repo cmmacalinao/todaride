@@ -14,8 +14,9 @@ import { haversineDistanceMeters } from '../lib/geo'
 import { reverseGeocodeToPhAddress } from '../lib/customLocation'
 import { useNow, useWatchPosition } from '../lib/liveTracking'
 import { useRoute } from '../lib/routing'
+import { nextRerouteDecision } from '../lib/reroute'
 import { RIDE_CANCELLATION_REASON_LABELS } from '../types'
-import type { Ride } from '../types'
+import type { GeoCoords, Ride } from '../types'
 
 interface CallContact {
   label: string
@@ -173,7 +174,16 @@ export function TripMonitor({
     : hasDriver
       ? legRide.pickup.gps
       : legRide.dropoff.gps
-  const route = useRoute(routeLineOriginForRoute ?? null, routeLineDestinationForRoute ?? null)
+  // Where the drawn route starts from.
+  //
+  // Normally the leg's own origin — the pickup, or wherever the driver set
+  // out. Once the tricycle has demonstrably left that route (see reroute.ts)
+  // this becomes the position it actually reached, and useRoute fetches a
+  // fresh path from there. Without it the blue line kept describing a road
+  // nobody was on for the rest of the trip, along with the distance and the
+  // arrival time resting on it.
+  const [rerouteFrom, setRerouteFrom] = useState<GeoCoords | null>(null)
+  const route = useRoute(rerouteFrom ?? routeLineOriginForRoute ?? null, routeLineDestinationForRoute ?? null)
   // Independent of ride status/leg — always the pickup→destination trip
   // itself, so "how long will the actual ride take" stays visible even
   // while still waiting for a driver, alongside the driver's own ETA to
@@ -298,12 +308,13 @@ export function TripMonitor({
             id: 'driver',
             gps: driverGpsInfo.gps,
             color: '#2563eb',
-            // Riding: one marker carries both of them, because they are in
-            // the same tricycle. The number comes first — it is the thing
-            // being checked — and "Ako" says the passenger is aboard rather
-            // than watching a driver come towards them.
+            // Riding: the plate, which is the thing being checked. It no
+            // longer says "Me" as well — there is a separate dot for that
+            // now, drawn from this phone's own GPS, and one marker claiming
+            // to be both was the reason the passenger's position looked
+            // wrong.
             label: onBoard
-              ? `${driver?.plateNumber ?? 'Tricycle'} · 🧍 Me${sharingWith > 0 ? ` +${sharingWith}` : ''}`
+              ? `${driver?.plateNumber ?? 'Tricycle'}${sharingWith > 0 ? ` · +${sharingWith}` : ''}`
               : `${ride.driverName ?? 'Driver'} — ${driverGpsInfo.isLive ? 'live GPS' : 'estimated'}`,
             callout: onBoard,
             pulse: true,
@@ -330,6 +341,31 @@ export function TripMonitor({
             color: '#4f46e5',
             label: passengerGpsInfo.isLive ? 'You — live GPS' : 'You — shared pin',
             pulse: passengerGpsInfo.isLive,
+          },
+        ]
+      : []),
+    // Your own dot, from your own phone, while the trip is running.
+    //
+    // Until now the only marker aboard was the tricycle, drawn from the
+    // driver's published position — and drivers publish every 30 seconds. The
+    // camera meanwhile follows this phone's GPS, which arrives every second.
+    // At 25 km/h those are 200 metres apart, so the marker drifted off centre
+    // and snapped back twice a minute while the map underneath moved
+    // smoothly. On the driver's own screen both came from the same fix, which
+    // is why theirs looked right and the passenger's did not.
+    //
+    // Reading your position from the phone in your hand is both more accurate
+    // and more honest: it is where YOU are, not where the tricycle last said
+    // it was.
+    ...(onBoard && livePassengerGps
+      ? [
+          {
+            id: 'me',
+            gps: livePassengerGps,
+            color: '#2563eb',
+            label: 'You are here',
+            pulse: true,
+            icon: 'me' as const,
           },
         ]
       : []),
@@ -366,6 +402,27 @@ export function TripMonitor({
   useEffect(() => {
     if (ride.status === 'driver_arriving') preloadNavMap()
   }, [ride.status])
+
+  // Watches the tricycle against the route it is supposed to be on, and asks
+  // for a new one when it has clearly gone somewhere else. The streak and the
+  // distance thresholds live in reroute.ts, tested there; this only carries
+  // the count between readings and moves the origin when it trips.
+  const strayRef = useRef({ strayCount: 0 })
+  const followedGps = driverGpsInfo?.isLive ? driverGpsInfo.gps : livePassengerGps
+  useEffect(() => {
+    if (ride.status !== 'ongoing' && ride.status !== 'driver_arriving') return
+    const decision = nextRerouteDecision(followedGps ?? null, route?.points, strayRef.current)
+    strayRef.current = { strayCount: decision.strayCount }
+    if (decision.reroute && followedGps) setRerouteFrom(followedGps)
+  }, [followedGps, route, ride.status])
+
+  // A new leg is a new route. Without this the origin stays pinned to
+  // wherever the last re-route happened, and arriving at the pickup would
+  // draw the trip from a point already behind you.
+  useEffect(() => {
+    setRerouteFrom(null)
+    strayRef.current = { strayCount: 0 }
+  }, [ride.status, ride.dropoff.gps?.lat, ride.dropoff.gps?.lng])
 
   const navCamera =
     ride.status === 'ongoing' && onBoard && livePassengerGps

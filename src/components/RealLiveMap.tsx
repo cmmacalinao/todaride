@@ -362,7 +362,7 @@ function ClickHandler({ onMapClick }: { onMapClick: (gps: GeoCoords) => void }) 
 
 // The free, keyless renderer — OpenStreetMap tiles via Leaflet. Used
 // whenever no Google Maps API key is configured (see RealLiveMap below).
-function OsmLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen, draggableIds, onPointDragEnd, height = '220px', panLock }: RealLiveMapProps & { panLock?: { unlocked: boolean; onToggle: () => void } }) {
+function OsmLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen, draggableIds, onPointDragEnd, height = '320px', panLock }: RealLiveMapProps & { panLock?: { unlocked: boolean; onToggle: () => void } }) {
   const center: [number, number] = [points[0].gps.lat, points[0].gps.lng]
 
   return (
@@ -517,6 +517,11 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
   // again on its own, because a view that flickers between two different maps
   // mid-trip is worse than one that quietly settles for the plainer one.
   const [navFailed, setNavFailed] = useState(false)
+  // The map filling the phone, for following a route rather than glancing at
+  // one. Local to the map, so every screen that draws one gets it.
+  const [fullscreen, setFullscreen] = useState(false)
+  // Marker names, off until asked for — see the row above the map.
+  const [showLabels, setShowLabels] = useState(false)
   // Locked until asked otherwise — see PanLock.
   const [unlocked, setUnlocked] = useState(false)
   // Counts the times the map has gone back under glass. Feeding it into the
@@ -570,7 +575,42 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
     // header (z-20) and let the map paint over it while scrolling. Confining
     // them here fixes every map in the app at once, rather than escalating
     // the header z-index and losing the same race again later.
-    <div className={`relative z-0 overflow-hidden rounded-lg border border-slate-200 ${frozen ? 'map-frozen' : ''}`}>
+    <div
+      className={
+        fullscreen
+          ? 'fixed inset-0 z-[60] flex flex-col bg-white'
+          : `relative z-0 overflow-hidden rounded-lg border border-slate-200 ${frozen ? 'map-frozen' : ''}`
+      }
+    >
+      {/* Full screen, and the names, in one row above the map.
+          A 320px strip is enough to glance at and not enough to look at
+          properly — following a route or checking which street is coming
+          wants the whole phone. The names are off by default because on a
+          small map the pills cover the roads they are labelling; tapping
+          shows them. */}
+      <div className="flex items-center gap-1 border-b border-slate-200 bg-white px-2 py-1">
+        <button
+          type="button"
+          onClick={() => setFullscreen((v) => !v)}
+          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+        >
+          {fullscreen ? '✕ Close' : '⛶ Full screen'}
+        </button>
+        {!hideLegend && legendPoints.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowLabels((v) => !v)}
+            aria-pressed={showLabels}
+            className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition ${
+              showLabels
+                ? 'border-brand-300 bg-brand-50 text-brand-700'
+                : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            🏷️ Names
+          </button>
+        )}
+      </div>
       {interactive && useGoogle && (
         <PanLock
           unlocked={unlocked}
@@ -582,9 +622,9 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
           }
         />
       )}
-      {/* Above the map: it names what the pins mean, and a key you meet
-          after the picture is a key you have already tried to read without. */}
-      {!hideLegend && legendPoints.length > 0 && (
+      {/* The key, once asked for. It used to be always on, which is right for
+          a map you are reading and wrong for one you are riding with. */}
+      {showLabels && !hideLegend && legendPoints.length > 0 && (
         <div className="flex flex-wrap gap-x-3 gap-y-1 border-b border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-500">
           {legendPoints.map((p) => (
             <span key={p.id} className="flex items-center gap-1 truncate">
@@ -594,13 +634,14 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
           ))}
         </div>
       )}
+      <div className={fullscreen ? "min-h-0 flex-1" : ""}>
       {useVector ? (
         <NavMapBoundary onFailed={() => setNavFailed(true)}>
           <Suspense
             fallback={
               <div
                 className="flex items-center justify-center bg-slate-100 text-[11px] text-slate-500"
-                style={{ height: height ?? '220px' }}
+                style={{ height: height ?? '320px' }}
               >
                 Loading map…
               </div>
@@ -622,8 +663,9 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
               frozen={locked}
               draggableIds={draggableIds}
               onPointDragEnd={onPointDragEnd}
-              height={height}
+              height={fullscreen ? "100%" : height}
               nav={nav}
+              showLabels={showLabels}
               panLock={
                 interactive
                   ? {
@@ -652,7 +694,7 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
           fitPointIds={fitPointIds}
           followAll={followAll}
           frozen={locked}
-          height={height}
+          height={fullscreen ? "100%" : height}
           onFailed={() => setGoogleFailed(true)}
         />
       ) : (
@@ -670,7 +712,7 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
           followAll={followAll}
           centerOn={centerOn}
           frozen={locked}
-          height={height}
+          height={fullscreen ? "100%" : height}
           panLock={
             interactive
               ? {
@@ -687,6 +729,7 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
           onPointDragEnd={onPointDragEnd}
         />
       )}
+      </div>
     </div>
   )
 }

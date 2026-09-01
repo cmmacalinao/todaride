@@ -70,7 +70,7 @@ export function QuickBookingForm({
   // caller bumps a `key` to force a fresh mount when it changes.
   initialServiceType?: ServiceType
 }) {
-  const { tariffSettings, pabiliServiceFee, pabiliFareMode, pabiliFixedFare, specialPickupEscalationMs, todaOrganizations, drivers, requestRide, pharmacies, pabiliEnabled, medsEnabled } = useRides()
+  const { tariffSettings, pabiliServiceFee, pabiliFareMode, pabiliFixedFare, todaOrganizations, drivers, requestRide, pharmacies, pabiliEnabled, medsEnabled } = useRides()
   const isGuest = !rider
   const [guestName, setGuestName] = useState('')
   const [guestPhone, setGuestPhone] = useState('')
@@ -550,18 +550,19 @@ export function QuickBookingForm({
                         onChange={(e) => setSpecialPickupRequested(e.target.checked)}
                         className="mt-0.5"
                       />
+                      {/* The explanatory notes are gone — the distance and
+                          the escalation rule were four lines of small print
+                          on a checkbox. What stays is the money, because a
+                          box that quietly adds a fee is not one anybody
+                          should have to read the small print to notice. */}
                       <span>
                         <span className="font-medium text-amber-800">Special request — Terminal is far, pick up here</span>
-                        <br />
-                        <span className="text-amber-700">
-                          ~{specialPickupBreakdown.distanceKm.toFixed(1)} km from the TODA Terminal
-                          {specialPickupBreakdown.fee > 0
-                            ? ` — adds ₱${specialPickupBreakdown.fee} (${specialPickupBreakdown.extraKm.toFixed(1)} km beyond the ${tariffSettings.standardKmCovered} km covered)`
-                            : ' — within the covered distance, no extra fee'}
-                          <br />
-                          If no one from the TODA accepts within {Math.round(specialPickupEscalationMs / 60000)} minutes, it
-                          opens to any TODA member and freelance drivers nearby.
-                        </span>
+                        {specialPickupBreakdown.fee > 0 && (
+                          <>
+                            <br />
+                            <span className="text-amber-700">adds ₱{specialPickupBreakdown.fee}</span>
+                          </>
+                        )}
                       </span>
                     </label>
                   )}

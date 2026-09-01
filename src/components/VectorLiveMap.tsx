@@ -58,6 +58,9 @@ const TAP_MAX_MS = 700
 
 type VectorLiveMapProps = RealLiveMapProps & {
   panLock?: { unlocked: boolean; onToggle: () => void }
+  // Whether marker names are showing. Off by default: on a phone-sized map
+  // the pills cover the roads they label.
+  showLabels?: boolean
   onFailed?: () => void
 }
 
@@ -71,7 +74,7 @@ function calloutPill(label: string): string {
     padding:3px 8px;border-radius:9999px;box-shadow:0 1px 4px rgba(0,0,0,.35);pointer-events:none;">${safe}</div>`
 }
 
-function markerInnerHtml(p: MapPoint): string {
+function markerInnerHtml(p: MapPoint, showLabel: boolean): string {
   // The relative wrapper lives INSIDE the marker root, never on it.
   //
   // MapLibre positions every marker with `.maplibregl-marker { position:
@@ -84,17 +87,17 @@ function markerInnerHtml(p: MapPoint): string {
   return (
     `<div style="position:relative;width:100%;height:100%;">` +
     `<div data-art style="position:absolute;inset:0;">${markerHtml({ color: p.color, pulse: p.pulse, icon: p.icon, pointId: p.id })}</div>` +
-    (p.callout ? calloutPill(p.label) : '') +
+    (showLabel && p.callout ? calloutPill(p.label) : '') +
     `</div>`
   )
 }
 
-function buildMarkerElement(p: MapPoint): HTMLDivElement {
+function buildMarkerElement(p: MapPoint, showLabel: boolean): HTMLDivElement {
   const el = document.createElement('div')
   const box = markerBoxSize(p.icon)
   el.style.width = `${box}px`
   el.style.height = `${box}px`
-  el.innerHTML = markerInnerHtml(p)
+  el.innerHTML = markerInnerHtml(p, showLabel)
   // The hover label. Leaflet drew its own tooltip; the browser's is the same
   // information with none of the positioning problems on a phone.
   el.title = p.label
@@ -125,8 +128,9 @@ export function VectorLiveMap({
   frozen,
   draggableIds,
   onPointDragEnd,
-  height = '220px',
+  height = '320px',
   nav,
+  showLabels,
   panLock,
   onFailed,
 }: VectorLiveMapProps) {
@@ -419,7 +423,7 @@ export function VectorLiveMap({
       const draggable = !!draggableIds?.includes(p.id)
       let marker = live.get(p.id)
       if (!marker) {
-        const el = buildMarkerElement(p)
+        const el = buildMarkerElement(p, !!showLabels)
         marker = new maplibregl.Marker({ element: el, anchor: 'center', draggable })
           .setLngLat([p.gps.lng, p.gps.lat])
           .addTo(map)
@@ -465,13 +469,13 @@ export function VectorLiveMap({
     points.forEach((p) => {
       const marker = markersRef.current.get(p.id)
       if (!marker) return
-      const fresh = buildMarkerElement(p)
+      const fresh = buildMarkerElement(p, !!showLabels)
       const el = marker.getElement()
       if (el.innerHTML !== fresh.innerHTML) el.innerHTML = fresh.innerHTML
       el.title = p.label
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, pointKey])
+  }, [ready, pointKey, showLabels])
 
   // ---- lines and areas ---------------------------------------------------
 

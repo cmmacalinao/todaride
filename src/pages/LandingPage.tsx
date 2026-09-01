@@ -22,33 +22,60 @@ const MORE_FEATURES = [
 export function LandingPage() {
   return (
     <div className="mx-auto max-w-lg bg-white">
-      {/* Fills the rest of the viewport so the logo and the login form are the
-          whole first screen — everything below is reached by scrolling, which
-          is what makes this read as a launch screen rather than a list. */}
-      <section className="relative flex min-h-[calc(100vh-50px)] flex-col items-center justify-center overflow-hidden bg-white px-6 pb-14 pt-8 text-center">
-        <div className="relative -mt-6 flex w-full flex-col items-center">
+      {/* The hero: deep navy, a faint diagonal weave, the mark, and the one
+          line that says what this app is for. Sized to its own content
+          rather than the full viewport — the launch screen still fits above
+          the fold the way it always has, this just gives what fits there a
+          real background instead of bare white. */}
+      <section className="relative overflow-hidden bg-navy-900 px-6 pb-16 pt-8 text-center">
+        {/* Diagonal stripes, not a flat panel — the same texture a few pixels
+            of gradient give a hero without it needing to be a photograph.
+            Kept faint (8% white) so it reads as weave, not as a pattern
+            fighting the logo for attention. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-[0.08]"
+          style={{
+            backgroundImage:
+              'repeating-linear-gradient(-45deg, white 0, white 2px, transparent 2px, transparent 18px)',
+          }}
+        />
+        {/* Where the pilot is running — the one thing on this screen that
+            changes per city. A pill rather than a line of text, so it reads
+            as a location badge rather than another sentence to read. */}
+        <span className="absolute right-4 top-4 rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
+          Nueva Ecija
+        </span>
+
+        <div className="relative mx-auto flex max-w-xs flex-col items-center">
           {/* Bare, with no panel behind it. The mark is a transparent PNG and
               its white "SafeRide" wordmark carries a heavy black keyline, so it holds
-              up on the white page without a coloured backing — and the blue
+              up on a dark ground without a coloured backing — and the blue
               pin keeps its contrast instead of dissolving into one. */}
-          <img src="/logo.webp" alt="TODA SafeRide — Safe Rides for You and Your Family" className="w-48" />
+          <img src="/logo.webp" alt="TODA SafeRide — Safe Rides for You and Your Family" className="w-44" />
+          <p className="mt-3 text-sm font-semibold text-white/90">Every trip logged. Every driver verified.</p>
+        </div>
+      </section>
 
-          {/* One user name and password for everyone — the form works out
-              whether you're a rider, parent, driver, TODA officer, partner or
-              admin, and sends you to your own page.
+      {/* Pulled up over the hero's bottom edge rather than started fresh below
+          it — the card is the thing being handed to the reader, and it reads
+          as handed over only if it visibly overlaps the ground it came from. */}
+      <section className="relative -mt-8 flex flex-col items-center rounded-t-3xl bg-white px-6 pb-10 pt-7 text-center shadow-[0_-12px_28px_-16px_rgba(6,26,58,0.35)]">
+        {/* One user name and password for everyone — the form works out
+            whether you're a rider, parent, driver, TODA officer, partner or
+            admin, and sends you to your own page.
 
-              The partner entry point deliberately does NOT live here: signing
-              up a pharmacy, resto or store is an account-creation choice, so
-              it sits alongside the other account types on the role chooser
-              (see RoleChooserPage) rather than cluttering the launch screen. */}
-          <div className="mt-6 flex w-full flex-col items-center">
-            <AppLoginForm />
-          </div>
+            The partner entry point deliberately does NOT live here: signing
+            up a pharmacy, resto or store is an account-creation choice, so
+            it sits alongside the other account types on the role chooser
+            (see RoleChooserPage) rather than cluttering the launch screen. */}
+        <div className="flex w-full flex-col items-center">
+          <AppLoginForm />
         </div>
 
-        {/* Tells the reader there's more below — without it a full-height
-            launch screen looks like the entire page. */}
-        <span aria-hidden className="absolute bottom-5 animate-bounce text-lg text-slate-300">
+        {/* Tells the reader there's more below — without it a page that ends
+            right where a phone screen does looks like the entire page. */}
+        <span aria-hidden className="mt-2 animate-bounce text-lg text-slate-300">
           ⌄
         </span>
       </section>

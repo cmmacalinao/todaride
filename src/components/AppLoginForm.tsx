@@ -51,8 +51,10 @@ function asPhoneNumber(typed: string): string | null {
   return /^09\d{9}$/.test(local) ? local : null
 }
 
+// Left padding clears a leading icon; both fields carry one so the row reads
+// as a pair rather than one plain field and one dressed up.
 const INPUT_CLASS =
-  'w-full rounded-full bg-slate-100 px-5 py-3.5 text-sm text-slate-900 outline-none ring-1 ring-inset ring-transparent placeholder:text-slate-400 focus:ring-2 focus:ring-brand-600/30'
+  'w-full rounded-full bg-slate-100 py-3.5 pl-11 pr-5 text-sm text-slate-900 outline-none ring-1 ring-inset ring-transparent placeholder:text-slate-400 focus:ring-2 focus:ring-brand-600/30'
 
 // The single front door: one User Name / Password pair that resolves to
 // whichever account it belongs to — rider, parent, driver, TODA officer,
@@ -83,6 +85,7 @@ export function AppLoginForm() {
   const [notice, setNotice] = useState('')
   const [showTerms, setShowTerms] = useState(false)
   const [showForgot, setShowForgot] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [wantsBiometric, setWantsBiometric] = useState(false)
   const [biometricReady, setBiometricReady] = useState(false)
   const [enrollment, setEnrollment] = useState(() => getBiometricEnrollment())
@@ -359,29 +362,51 @@ export function AppLoginForm() {
   return (
     <div className="w-full max-w-xs">
       <div className="space-y-2.5">
-        <input
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          // Mobile first, spelled out as the eleven digits people actually
-          // type: it is the identifier nearly every rider and driver here
-          // knows by heart, and the one they can't misspell.
-          placeholder="09XXXXXXXXX, email, user name, or TRC no."
-          autoComplete="username"
-          aria-label="Mobile number, email, user name, or TRC number"
-          className={INPUT_CLASS}
-        />
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void handleLogin()
-          }}
-          placeholder="Password"
-          autoComplete="current-password"
-          aria-label="Password"
-          className={INPUT_CLASS}
-        />
+        <div className="relative">
+          <span aria-hidden className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+            👤
+          </span>
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            // Mobile first, spelled out as the eleven digits people actually
+            // type: it is the identifier nearly every rider and driver here
+            // knows by heart, and the one they can't misspell.
+            placeholder="09XXXXXXXXX, email, or TRC no."
+            autoComplete="username"
+            aria-label="Mobile number, email, user name, or TRC number"
+            className={INPUT_CLASS}
+          />
+        </div>
+        <div className="relative">
+          <span aria-hidden className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+            🔒
+          </span>
+          <input
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void handleLogin()
+            }}
+            placeholder="Password"
+            autoComplete="current-password"
+            aria-label="Password"
+            className={`${INPUT_CLASS} pr-16`}
+          />
+          {/* Only once there is something to reveal — a toggle sitting over
+              an empty field invites a tap that does nothing. */}
+          {password && (
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-brand-700"
+            >
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Same rule as the sign-up form: a device that cannot do this has
@@ -426,22 +451,25 @@ export function AppLoginForm() {
         Login / Register
       </button>
 
-      <button
-        type="button"
-        onClick={() => setShowForgot(true)}
-        className="mt-2 w-full text-center text-[11px] font-medium text-brand-600 underline hover:text-brand-700"
-      >
-        Forgot password?
-      </button>
+      {/* A line either side rather than a bare word — "OR" floating alone
+          reads as a stray label; between two rules it reads as the seam
+          between two ways in. */}
+      <div className="mt-4 flex items-center gap-3">
+        <span aria-hidden className="h-px flex-1 bg-slate-200" />
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Or</span>
+        <span aria-hidden className="h-px flex-1 bg-slate-200" />
+      </div>
 
-      <div className="mt-2.5 flex gap-2.5">
+      {/* Outlined, not filled — a second way in reads as optional next to the
+          solid button above it, which is what "Or" already said in words. */}
+      <div className="mt-3 flex gap-2.5">
         <button
           type="button"
           disabled={busy}
           onClick={() => void handleFingerprint()}
-          className="flex-1 rounded-full bg-brand-600 py-3 text-[11px] font-semibold uppercase tracking-wide text-white transition hover:bg-brand-700 disabled:opacity-60"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-brand-300 bg-white py-3 text-[11px] font-bold uppercase tracking-wide text-brand-700 transition hover:bg-brand-50 disabled:opacity-60"
         >
-          Fingerprint
+          <span aria-hidden>👆</span> Fingerprint
         </button>
         {/* Always the OTP door: registering is what the main Login/Register
             button does now, so this one has a single job and says so. */}
@@ -459,9 +487,9 @@ export function AppLoginForm() {
             setOtpCandidates(null)
             setOtpPhone(phone)
           }}
-          className="flex-1 rounded-full bg-brand-600 py-3 text-[11px] font-semibold uppercase tracking-wide text-white transition hover:bg-brand-700"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-brand-300 bg-white py-3 text-[11px] font-bold uppercase tracking-wide text-brand-700 transition hover:bg-brand-50"
         >
-          Send OTP
+          <span aria-hidden>✉️</span> Send OTP
         </button>
       </div>
 
@@ -473,6 +501,18 @@ export function AppLoginForm() {
           </button>
         </p>
       )}
+
+      {/* Moved down here from directly under Login/Register — this is the
+          "something went wrong" door, not part of the everyday sign-in flow
+          above it, so it sits with the fine print rather than competing with
+          the buttons someone actually taps every visit. */}
+      <button
+        type="button"
+        onClick={() => setShowForgot(true)}
+        className="mt-5 w-full text-center text-[11px] font-bold text-brand-700 underline hover:text-brand-800"
+      >
+        Forgot password?
+      </button>
 
       <p className="mt-3 px-1 text-center text-[11px] leading-relaxed text-slate-600">
         By using this device, you confirm that you have read, understood, and you accept our{' '}

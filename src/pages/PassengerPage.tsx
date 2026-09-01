@@ -1353,7 +1353,7 @@ export function PassengerPage() {
             </span>
           )
         }
-        fullscreenNote={etaFareRow}
+        sheetNote={mapFirstBooking ? etaFareRow : undefined}
         leadingAction={
           (
             <div className="space-y-1">
@@ -2155,7 +2155,9 @@ export function PassengerPage() {
               panel's own header instead so it never mounts twice. */}
           {sharedMap}
 
-          {etaFareRow}
+          {/* In map-first booking the sheet carries this instead — see
+              sharedMap's sheetNote — so it is not repeated here. */}
+          {!mapFirstBooking && etaFareRow}
 
           {/* What is left below the map is no longer an address form, so it
               no longer hides behind a Pickup/Destination tab: the GPS status,

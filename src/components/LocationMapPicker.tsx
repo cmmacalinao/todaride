@@ -35,7 +35,7 @@ export function LocationMapPicker({
   hasDropoff = true,
   hasPickup = true,
   leadingAction,
-  fullscreenNote,
+  sheetNote,
   mapFooter,
   underMapAction,
   // Rendered directly beneath the Pickup / Destination tabs, so an
@@ -104,10 +104,11 @@ export function LocationMapPicker({
   // sits with the map it is confirming, immediately after the pin the
   // passenger just placed rather than above it.
   leadingAction?: ReactNode
-  // Drawn over the bottom of the map only when it is full screen. Whatever a
-  // caller keeps under the map — times, fare — is off screen there, and those
-  // are exactly the numbers somebody studying the map still wants.
-  fullscreenNote?: ReactNode
+  // Rides at the top of the sheet, above the booking controls. Whatever a
+  // caller would otherwise keep under the map — the times, the fare — is off
+  // screen the moment the map is full screen, and those are exactly the
+  // numbers somebody studying the map is deciding on.
+  sheetNote?: ReactNode
   // Drawn across the bottom of the map at all times. For a strip that has to
   // stay readable while the map is being watched — "Recording", and the way
   // to stop it — beside the map is not good enough: it scrolls away, and it
@@ -396,6 +397,7 @@ export function LocationMapPicker({
           </span>
         </p>
       )}
+      {sheetNote}
       {/* Book on the left, how many are riding on the right. */}
       {(leadingAction || underMapAction) && (
         <div className="flex items-center gap-2">
@@ -405,6 +407,10 @@ export function LocationMapPicker({
       )}
     </>
   )
+
+  // Whether the map has taken the whole phone. The sheet follows it there —
+  // see the wrapper below.
+  const [mapFullscreen, setMapFullscreen] = useState(false)
 
   // centerOn: a pinch means "closer to me". Without it the map zooms about
   // whatever the frame happened to be centred on, and the person doing the
@@ -417,28 +423,12 @@ export function LocationMapPicker({
       refitSignal={refitSignal}
       centerOn={myPosition}
       fill={mapFirst}
+      onFullscreenChange={setMapFullscreen}
       // Drawn over the map rather than beside it, so the two things a person
       // needs while looking at the map — where their pins are, and the way
       // out to the booking — are still there when the map fills the phone.
       overlayTop={mapFirst ? summary : undefined}
-      overlayBottom={
-        mapFooter || (mapFirst && (leadingAction || fullscreenNote))
-          ? (fullscreen) => (
-              <div className="space-y-1.5">
-                {mapFooter}
-                {/* The booking action only in full screen: the rest of the
-                    time the bottom of the map is the sheet, and the same
-                    button is already in it. */}
-                {mapFirst && fullscreen && (leadingAction || fullscreenNote) && (
-                  <div className="space-y-1.5 rounded-xl bg-white/95 p-2 shadow-lg">
-                    {fullscreenNote}
-                    {leadingAction}
-                  </div>
-                )}
-              </div>
-            )
-          : undefined
-      }
+      overlayBottom={mapFooter ? () => mapFooter : undefined}
       // Draggable exactly when drawn — the same conditions the two points
       // above are built from, not the "has the passenger chosen one yet"
       // flags. The pickup is drawn from a default coordinate before anybody
@@ -453,6 +443,13 @@ export function LocationMapPicker({
     />
   )
 
+  const sheet = (
+    <BottomSheet snap={effectiveSnap} onSnapChange={changeSnap} label="Where to">
+      {sheetHeader?.()}
+      {controls}
+    </BottomSheet>
+  )
+
   if (mapFirst) {
     return (
       // A tall map with the form over it. The height leaves the header and
@@ -464,10 +461,21 @@ export function LocationMapPicker({
         className="scroll-mt-24 relative h-[calc(100vh-13rem)] min-h-[26rem] overflow-hidden rounded-xl border border-slate-200"
       >
         <div className="absolute inset-0">{map}</div>
-        <BottomSheet snap={effectiveSnap} onSnapChange={changeSnap} label="Where to">
-          {sheetHeader?.()}
-          {controls}
-        </BottomSheet>
+        {/* Full screen makes the map a fixed layer over the whole phone, so
+            the sheet becomes one too — above it, and filling the same box,
+            which is what keeps its snap heights meaning the same thing.
+            Otherwise the sheet is simply painted over, and going full screen
+            costs you the destination, the pickup and the Book button.
+
+            Two branches rather than one wrapper that changes class: the
+            sheet sizes itself from its parent's height, and a wrapper that
+            is `display: contents` the rest of the time has no height to
+            measure — which collapses the sheet to nothing. */}
+        {mapFullscreen ? (
+          <div className="pointer-events-none fixed inset-0 z-[70]">{sheet}</div>
+        ) : (
+          sheet
+        )}
       </div>
     )
   }

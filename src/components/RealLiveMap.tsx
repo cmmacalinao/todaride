@@ -57,6 +57,11 @@ export interface RealLiveMapProps {
   // map is often already spoken for — the booking sheet sits there — while in
   // full screen it is the only place left to put anything.
   overlayBottom?: (fullscreen: boolean) => ReactNode
+  // Told when the map fills the phone, so a caller can bring its own panels
+  // along. Full screen is a `fixed` layer over everything, and anything the
+  // caller drew beside the map — a bottom sheet, most of all — is painted
+  // over unless it is told to come too.
+  onFullscreenChange?: (fullscreen: boolean) => void
   // Either a real OSRM/Google road-network path (many points, follows actual
   // streets) or just the two leg endpoints as a fallback — routeIsReal picks
   // the line style so the two read differently (solid road path vs. dashed
@@ -520,7 +525,7 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, fill, overlayTop, overlayBottom, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, height, nav }: RealLiveMapProps) {
+export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, height, nav }: RealLiveMapProps) {
   // If the Google script fails to load (bad key, network block, CSP), fall
   // back to the OSM/Leaflet canvas instead of showing an empty map.
   const [googleFailed, setGoogleFailed] = useState(false)
@@ -540,6 +545,13 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, routeLine
   // framing signal is what makes re-locking resume automatic framing after a
   // reader has panned away.
   const [relocks, setRelocks] = useState(0)
+
+  // In an effect rather than in the button's onClick, so a caller is told
+  // however the state changed.
+  useEffect(() => {
+    onFullscreenChange?.(fullscreen)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullscreen])
 
   // Scrolling the page puts the map back under glass. Someone who has moved
   // on to read the fare or the driver's details is no longer working the map,

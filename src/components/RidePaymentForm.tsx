@@ -1,45 +1,38 @@
 import { useState } from 'react'
-import type { PaymentAccountDetails, PaymentMethod } from '../types'
+import { createMayaCheckout } from '../lib/mayaApi'
+import type { PaymentMethod } from '../types'
 
-// What the passenger is asked at the end of a trip, and it differs by how
-// they are paying. Cash needs no reference but does need change worked out
-// at the kerb; an e-wallet needs the number to send to and the reference off
-// the receipt. Asking one set of questions for both is how a passenger ends
-// up staring at a field that does not apply to them.
-// How you are paying, which is two answers and not three: cash, or a wallet.
-// See PAYMENT_METHODS for why the wallets are one choice at booking.
-const METHODS: { id: 'cash' | 'wallet'; label: string; icon: string }[] = [
-  { id: 'cash', label: 'Cash', icon: '💵' },
-  { id: 'wallet', label: 'E-Wallet', icon: '📱' },
-]
-
-// Which wallet, asked only once E-Wallet is chosen.
+// What the passenger is asked at the end of a trip.
 //
-// This is a different question from the one above and belongs after it. At
-// booking, "cash or wallet" is all the app acts on. Here at the kerb it
-// matters again, because the two are separate apps with separate accounts,
-// separate deep links and separate QR codes — a passenger sending to the
-// driver's Maya number from GCash sends it nowhere.
-const WALLETS: { id: PaymentMethod; label: string; icon: string }[] = [
-  { id: 'gcash', label: 'GCash', icon: '📱' },
-  { id: 'maya', label: 'Maya', icon: '💳' },
+// Two answers, and only two: cash, or the app. There used to be more — GCash
+// or Maya, then the driver's number, then their QR, then a box to type the
+// reference off your own receipt so the driver could match it by hand. Every
+// one of those steps was somebody doing a payment processor's job at a kerb
+// at night, and the whole chain rested on a passenger correctly copying a
+// twelve-digit number.
+//
+// E-Wallet now hands off to Maya's own checkout page, which is what a payment
+// processor is for: it offers whatever channels the merchant account has
+// enabled, it takes the card details on its own page so no card number ever
+// touches this app, and it tells us whether the money arrived instead of
+// asking the passenger to swear to it.
+const METHODS: { id: 'cash' | 'wallet'; label: string; icon: string; blurb: string }[] = [
+  { id: 'cash', label: 'Cash', icon: '💵', blurb: 'Hand it to your driver' },
+  { id: 'wallet', label: 'E-Wallet', icon: '📱', blurb: 'Wallet or card, in the app' },
 ]
 
 interface RidePaymentFormProps {
   open: boolean
   onClose: () => void
   driverName: string
-  // The driver's mobile number, used only when they have not saved a proper
-  // wallet account — in practice the two are usually the same number.
-  driverPhone: string | null
-  // The driver's saved e-wallet accounts, with their own QR if they uploaded
-  // one. This is what the passenger pays into.
-  gcashAccount: PaymentAccountDetails | null
-  mayaAccount: PaymentAccountDetails | null
   fare: number
   tip: number
   total: number
   initialMethod: PaymentMethod
+  // Ties a Maya checkout back to this fare — it becomes the request reference
+  // number, which is what a dispute is looked up by and what the server reads
+  // the payment's status back with.
+  rideId: string
   onConfirm: (method: PaymentMethod, referenceNo: string | null) => void
 }
 
@@ -47,42 +40,48 @@ export function RidePaymentForm({
   open,
   onClose,
   driverName,
-  driverPhone,
-  gcashAccount,
-  mayaAccount,
   fare,
   tip,
   total,
   initialMethod,
+  rideId,
   onConfirm,
 }: RidePaymentFormProps) {
-  const [method, setMethod] = useState<PaymentMethod>(initialMethod)
+  // 'cash' or 'wallet' — the two the passenger actually chooses between. The
+  // stored PaymentMethod behind a wallet is settled when the payment is made,
+  // not here.
+  const [choice, setChoice] = useState<'cash' | 'wallet'>(initialMethod === 'cash' ? 'cash' : 'wallet')
   const [handed, setHanded] = useState('')
-  const [reference, setReference] = useState('')
-  const [showQr, setShowQr] = useState(false)
+  const [paying, setPaying] = useState(false)
+  const [payError, setPayError] = useState<string | null>(null)
+
+  async function payOnline() {
+    setPaying(true)
+    setPayError(null)
+    const result = await createMayaCheckout({
+      rideId,
+      total,
+      description: `TODA SafeRide fare — ${driverName}`,
+    })
+    setPaying(false)
+    if (result.ok && result.data?.redirectUrl) {
+      // A full navigation, not a new tab: the passenger returns on the redirect
+      // URL, and a popup on a phone is as likely to be blocked as opened.
+      window.location.assign(result.data.redirectUrl)
+      return
+    }
+    setPayError(
+      result.unavailable
+        ? 'Online payment is not available right now. Pay your driver in cash instead.'
+        : (result.error ?? 'That payment could not be started. Try again, or pay in cash.'),
+    )
+  }
 
   if (!open) return null
 
-  const isCash = method === 'cash'
-  const wallet = method === 'gcash' ? gcashAccount : method === 'maya' ? mayaAccount : null
-  const payToName = wallet?.accountName ?? driverName
-  const payToNumber = wallet?.accountNumber ?? driverPhone
-  // Hands off to the wallet app with the amount already filled in. These
-  // schemes only resolve on a phone with the app installed — on anything
-  // else the tap does nothing, which is exactly why the QR below it is not
-  // an afterthought.
-  const walletLink =
-    payToNumber && method !== 'cash'
-      ? `${method === 'gcash' ? 'gcash' : 'maya'}://send?recipient=${encodeURIComponent(
-          payToNumber,
-        )}&amount=${total}`
-      : null
+  const isCash = choice === 'cash'
   const handedAmount = Number(handed) || 0
   const change = handedAmount - total
-  // Cash can always be confirmed — the driver is standing there and the
-  // amount handed over is optional help, not a gate. An e-wallet cannot,
-  // because without a reference there is nothing to reconcile against.
-  const canConfirm = isCash || reference.trim().length > 0
 
   return (
     <div
@@ -121,51 +120,32 @@ export function RidePaymentForm({
             How are you paying?
           </p>
           <div className="grid grid-cols-2 gap-1.5">
-            {METHODS.map((m) => {
-              const chosen = m.id === 'cash' ? isCash : !isCash
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  // Choosing E-Wallet lands on GCash, and the row below
-                  // changes it to Maya in one more tap. Landing on neither
-                  // would mean a screen that has been answered and still shows
-                  // nothing to do.
-                  onClick={() => setMethod(m.id === 'cash' ? 'cash' : 'gcash')}
-                  className={`rounded-lg border py-2 text-xs font-semibold transition ${
-                    chosen
-                      ? 'border-brand-600 bg-brand-600 text-white'
-                      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+            {METHODS.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => {
+                  setChoice(m.id)
+                  setPayError(null)
+                }}
+                className={`rounded-lg border px-2 py-2 text-xs font-semibold transition ${
+                  choice === m.id
+                    ? 'border-brand-600 bg-brand-600 text-white'
+                    : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <span className="block text-base leading-none">{m.icon}</span>
+                {m.label}
+                <span
+                  className={`mt-0.5 block text-[10px] font-normal leading-tight ${
+                    choice === m.id ? 'text-white/75' : 'text-slate-400'
                   }`}
                 >
-                  <span className="block text-base leading-none">{m.icon}</span>
-                  {m.label}
-                </button>
-              )
-            })}
+                  {m.blurb}
+                </span>
+              </button>
+            ))}
           </div>
-
-          {/* Which wallet — only once one is being used. */}
-          {!isCash && (
-            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-              {WALLETS.map((w) => (
-                <button
-                  key={w.id}
-                  type="button"
-                  onClick={() => setMethod(w.id)}
-                  aria-pressed={method === w.id}
-                  className={`flex items-center justify-center gap-1.5 rounded-lg border py-1.5 text-xs font-semibold transition ${
-                    method === w.id
-                      ? 'border-brand-500 bg-brand-50 text-brand-700'
-                      : 'border-slate-300 bg-white text-slate-500 hover:bg-slate-50'
-                  }`}
-                >
-                  <span className="text-sm leading-none">{w.icon}</span>
-                  {w.label}
-                </button>
-              ))}
-            </div>
-          )}
 
           {isCash ? (
             <div className="mt-3">
@@ -196,86 +176,15 @@ export function RidePaymentForm({
             </div>
           ) : (
             <div className="mt-3 space-y-2">
-              <div className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-700">
-                  Send ₱{total} to {method === 'gcash' ? 'GCash' : 'Maya'}
-                </p>
-                <p className="mt-0.5 text-sm font-bold text-slate-800">{payToName}</p>
-                <p className="text-sm font-semibold tracking-wide text-slate-700">
-                  {payToNumber ?? 'Ask the driver for their number'}
-                </p>
-              </div>
-
-              {/* Open the wallet first, scan second. The link fills in the
-                  driver and the amount so nothing is mistyped; the QR is
-                  what you fall back to when the hand-off does not happen —
-                  no app installed, a browser, a phone that refuses the
-                  scheme. The driver has the same QR on their own screen. */}
-              <div className="flex gap-1.5">
-                {walletLink && (
-                  <a
-                    href={walletLink}
-                    className="flex-1 rounded-lg bg-[#0f766e] py-2 text-center text-xs font-semibold text-white hover:bg-[#0b5f59]"
-                  >
-                    Open {method === 'gcash' ? 'GCash' : 'Maya'} · ₱{total}
-                  </a>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setShowQr((v) => !v)}
-                  className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
-                    showQr ? 'border-brand-500 bg-brand-50 text-brand-800' : 'border-slate-300 text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  ⬛ {showQr ? 'Hide QR' : 'Scan QR'}
-                </button>
-              </div>
-
-              {showQr && (
-                <div className="rounded-lg border border-slate-200 bg-white p-2 text-center">
-                  {wallet?.qrDataUrl ? (
-                    <>
-                      <img
-                        src={wallet.qrDataUrl}
-                        alt={`${payToName} ${method === 'gcash' ? 'GCash' : 'Maya'} QR code`}
-                        className="mx-auto aspect-square w-full max-w-[200px] rounded-lg border border-slate-200 object-contain"
-                      />
-                      <p className="mt-1 text-[10px] text-slate-500">Scan this in your {method === 'gcash' ? 'GCash' : 'Maya'} app.</p>
-                    </>
-                  ) : (
-                    <p className="px-2 py-6 text-[11px] text-slate-400">
-                      {payToName} has not saved a QR. Ask them to show theirs — there is a QR button on their
-                      screen — or send to the number above.
-                    </p>
-                  )}
-                </div>
-              )}
-              <label className="block">
-                <span className="mb-0.5 block text-[11px] font-medium text-slate-600">
-                  Reference number from your receipt
-                </span>
-                <input
-                  value={reference}
-                  onChange={(e) => setReference(e.target.value)}
-                  placeholder="e.g. 1234 5678 9012"
-                  className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                />
-              </label>
-              <p className="text-[10px] leading-snug text-slate-400">
-                Send it in {method === 'gcash' ? 'GCash' : 'Maya'} first, then enter the reference here so the
-                driver can match it.
+              <p className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] leading-snug text-slate-600">
+                You will be taken to Maya to pay. Choose your wallet or card there — your card details are
+                entered on Maya's page, never in this app. You come straight back when it is done.
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setMethod('cash')
-                  setReference('')
-                  setShowQr(false)
-                }}
-                className="w-full rounded-lg border border-dashed border-slate-300 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
-              >
-                💵 Payment didn&apos;t go through? Pay ₱{total} in cash instead
-              </button>
+              {payError && (
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] leading-snug text-amber-800">
+                  {payError}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -283,11 +192,15 @@ export function RidePaymentForm({
         <div className="space-y-1.5 border-t border-slate-200 px-4 py-3">
           <button
             type="button"
-            disabled={!canConfirm}
-            onClick={() => onConfirm(method, isCash ? null : reference.trim())}
+            disabled={paying}
+            // Cash is confirmed here because the driver is standing there and
+            // saw it. A wallet payment is not confirmed here at all — it is
+            // confirmed by Maya, and the app reads that back when the
+            // passenger returns. Nothing on this screen can mark it paid.
+            onClick={() => (isCash ? onConfirm('cash', null) : void payOnline())}
             className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-bold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
           >
-            {isCash ? `Paid ₱${total} in cash` : `I've sent ₱${total}`}
+            {isCash ? `Paid ₱${total} in cash` : paying ? 'Opening Maya…' : `Pay ₱${total} with Maya`}
           </button>
           <button
             type="button"

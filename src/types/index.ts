@@ -300,6 +300,39 @@ export interface PaymentAccountDetails {
 // can be produced at any level of the hierarchy.
 export type PlatformFeePayerRole = 'driver' | 'toda_org' | 'operator' | 'franchise'
 
+// A driver asking for money the platform is holding for them.
+//
+// Cash fares never appear here: those were handed over at the kerb and are
+// already in the driver's pocket. What accumulates is the online ones — the
+// passenger paid the platform's merchant account, so the driver's share of
+// that fare is money somebody else is holding, and there has to be a way to
+// ask for it.
+//
+// A request, not a transfer. Nothing here moves money: a real disbursement
+// needs Maya's payout API and a verified payout account per driver, and until
+// that exists this is the same shape as the platform fee payments above — a
+// record that a reconciliation is done against, settled by a person.
+export interface DriverWithdrawal {
+  id: string
+  driverId: string
+  driverName: string
+  amount: number
+  // Where the driver wants it sent, copied at the moment of asking. Copied
+  // rather than looked up later, because a driver who changes their wallet
+  // number afterwards must not silently redirect a payout already approved.
+  method: 'gcash' | 'maya'
+  accountName: string
+  accountNumber: string
+  requestedAt: string
+  status: 'pending' | 'paid' | 'rejected'
+  // Filled in when somebody settles it: the reference off the transfer, so
+  // the driver has something to check against their own wallet history.
+  reference: string | null
+  settledAt: string | null
+  // Why, when it is refused. A rejection with no reason is a support ticket.
+  note: string | null
+}
+
 export interface PlatformFeePayment {
   id: string
   payerRole: PlatformFeePayerRole

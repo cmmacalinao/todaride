@@ -3,6 +3,7 @@ import { formatTripRoute } from '../lib/addressFormat'
 import { showInMiddle, showInMiddleWhenSettled } from '../lib/showInMiddle'
 import { NearbyDriversPicker, buildNearbyDrivers } from '../components/NearbyDriversPicker'
 import { RidePaymentForm } from '../components/RidePaymentForm'
+import { checkMayaPayment } from '../lib/mayaApi'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ETA_SECONDS_PER_LEG, errandBaseFare, useRides } from '../context/RideContext'
@@ -876,6 +877,41 @@ export function PassengerPage() {
     (r) => r.status === 'completed' && !r.paymentAcknowledged && !r.safetyRecord,
   )
   const [showPayment, setShowPayment] = useState(false)
+  // Coming back from Maya.
+  //
+  // The redirect only says which ride was being paid for; whether it was
+  // actually paid is asked of the server, which asks Maya with the secret key.
+  // Trusting the URL would let anybody close a fare by typing ?paid=<ride-id>
+  // into the address bar.
+  //
+  // The query string is cleared either way, so a reload or a back-button does
+  // not re-run this — and so a failed payment does not leave the passenger
+  // staring at a URL that says "paid".
+  const [payReturn, setPayReturn] = useState<string | null>(null)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const paidRideId = params.get('paid')
+    const failed = params.get('payfailed') ?? params.get('paycancelled')
+    if (!paidRideId && !failed) return
+    window.history.replaceState({}, '', window.location.pathname)
+    if (!paidRideId) {
+      setPayReturn('That payment did not go through. You can try again, or pay your driver in cash.')
+      return
+    }
+    setPayReturn('Checking your payment…')
+    void checkMayaPayment(paidRideId).then((result) => {
+      if (result.ok && result.data?.paid) {
+        acknowledgeRidePayment(paidRideId, 'maya', result.data.reference)
+        setShowPayment(false)
+        setPayReturn(`Paid. Reference ${result.data.reference ?? '—'}.`)
+        return
+      }
+      setPayReturn(
+        'We could not confirm that payment yet. If it left your wallet it will settle shortly — otherwise pay your driver in cash.',
+      )
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const unpaidRideId = unpaidRide?.id ?? null
   useEffect(() => {
     if (unpaidRideId) setShowPayment(true)
@@ -2562,14 +2598,30 @@ export function PassengerPage() {
           they have already chosen to book, and it was a screen of marketing
           under the form they came to fill in. */}
 
+      {/* What came back from Maya, said on the screen the passenger lands on.
+          Dismissible rather than timed: somebody who has just paid a fare on a
+          phone at a kerb should be able to keep the reference in front of them
+          for as long as they want it. */}
+      {payReturn && (
+        <div className="flex items-start gap-2 rounded-lg border border-brand-300 bg-brand-50 px-3 py-2">
+          <p className="min-w-0 flex-1 text-[11px] leading-snug text-brand-800">{payReturn}</p>
+          <button
+            type="button"
+            onClick={() => setPayReturn(null)}
+            aria-label="Dismiss"
+            className="shrink-0 rounded px-1 text-brand-700 transition hover:bg-brand-100"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {unpaidRide && (
         <RidePaymentForm
           open={showPayment}
+          rideId={unpaidRide.id}
           onClose={() => setShowPayment(false)}
           driverName={unpaidRide.driverName ?? 'your driver'}
-          driverPhone={drivers.find((d) => d.id === unpaidRide.driverId)?.phone ?? null}
-          gcashAccount={drivers.find((d) => d.id === unpaidRide.driverId)?.gcashAccount ?? null}
-          mayaAccount={drivers.find((d) => d.id === unpaidRide.driverId)?.mayaAccount ?? null}
           fare={unpaidRide.fareEstimate}
           tip={unpaidRide.pabiliTip + (unpaidRide.tipOffer || 0)}
           total={unpaidRide.fareEstimate + unpaidRide.pabiliTip + (unpaidRide.tipOffer || 0)}

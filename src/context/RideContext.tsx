@@ -81,6 +81,7 @@ import type {
   PromoOffer,
   PromoOfferKind,
   PromoOfferStatus,
+  DriverWithdrawal,
   PlatformFeePayment,
   QueueOfferLogEntry,
   QueueOfferOutcome,
@@ -270,6 +271,7 @@ interface RideState {
   pilaBannerDataUrl: string | null
   requestedDrivers: Record<string, string | null>
   platformFeePayments: PlatformFeePayment[]
+  driverWithdrawals: DriverWithdrawal[]
   platformGcashAccount: PaymentAccountDetails
   pabiliFareMode: PabiliFareMode
   pabiliFixedFare: number
@@ -544,6 +546,8 @@ type RideAction =
   | { type: 'SET_RIDE_DESTINATION'; rideId: string; dropoff: MockLocation }
   | { type: 'SET_REQUESTED_DRIVER'; passengerId: string; driverId: string | null }
   | { type: 'RECORD_PLATFORM_FEE_PAYMENT'; payment: PlatformFeePayment }
+  | { type: 'REQUEST_DRIVER_WITHDRAWAL'; withdrawal: DriverWithdrawal }
+  | { type: 'SETTLE_DRIVER_WITHDRAWAL'; withdrawalId: string; status: 'paid' | 'rejected'; reference: string | null; note: string | null }
   | { type: 'SET_PLATFORM_GCASH_ACCOUNT'; account: PaymentAccountDetails }
   | { type: 'SET_TODA_QUEUE_WINDOW'; ms: number }
   | { type: 'SET_QUEUE_OFFER_TIMEOUT'; ms: number }
@@ -1322,6 +1326,7 @@ interface StoredState {
   pilaBannerDataUrl?: string | null
   requestedDrivers?: Record<string, string | null>
   platformFeePayments?: PlatformFeePayment[]
+  driverWithdrawals?: DriverWithdrawal[]
   platformGcashAccount?: PaymentAccountDetails
   todaQueueWindowMs?: number
   queueOfferTimeoutMs?: number
@@ -1498,6 +1503,7 @@ function fromStored(parsed: StoredState): RideState {
     pilaBannerDataUrl: parsed.pilaBannerDataUrl ?? null,
     requestedDrivers: parsed.requestedDrivers ?? {},
     platformFeePayments: parsed.platformFeePayments ?? [],
+    driverWithdrawals: parsed.driverWithdrawals ?? [],
     platformGcashAccount: parsed.platformGcashAccount ?? PLATFORM_GCASH_ACCOUNT,
     todaQueueWindowMs: parsed.todaQueueWindowMs ?? DEFAULT_TODA_QUEUE_WINDOW_MS,
     queueOfferTimeoutMs: parsed.queueOfferTimeoutMs ?? DEFAULT_QUEUE_OFFER_TIMEOUT_MS,
@@ -1693,7 +1699,7 @@ const STORAGE_BACKUP_KEY = `${STORAGE_KEY}.unreadable`
 function sanitiseStored(parsed: Record<string, unknown>): Record<string, unknown> {
   const ARRAYS = [
     'rides', 'alerts', 'drivers', 'passengers', 'parents', 'parentLinks', 'todaOrganizations',
-    'terminals', 'boundaries', 'platformFeePayments', 'pharmacies', 'medsOrders', 'announcements',
+    'terminals', 'boundaries', 'platformFeePayments', 'driverWithdrawals', 'pharmacies', 'medsOrders', 'announcements',
     'expenses', 'operators', 'franchises',
   ]
   const clean: Record<string, unknown> = {}
@@ -1765,6 +1771,7 @@ function loadInitialState(): RideState {
     pilaBannerDataUrl: null,
     requestedDrivers: {},
     platformFeePayments: [],
+    driverWithdrawals: [],
     platformGcashAccount: PLATFORM_GCASH_ACCOUNT,
     todaQueueWindowMs: DEFAULT_TODA_QUEUE_WINDOW_MS,
     queueOfferTimeoutMs: DEFAULT_QUEUE_OFFER_TIMEOUT_MS,
@@ -3306,6 +3313,24 @@ function reducer(state: RideState, action: RideAction): RideState {
       // Newest first — a statement is read from the most recent settlement
       // backwards, not forwards from the first one ever made.
       return { ...state, platformFeePayments: [action.payment, ...state.platformFeePayments] }
+    case 'REQUEST_DRIVER_WITHDRAWAL':
+      // Newest first, same as the statement above and for the same reason.
+      return { ...state, driverWithdrawals: [action.withdrawal, ...state.driverWithdrawals] }
+    case 'SETTLE_DRIVER_WITHDRAWAL':
+      return {
+        ...state,
+        driverWithdrawals: state.driverWithdrawals.map((w) =>
+          w.id === action.withdrawalId && w.status === 'pending'
+            ? {
+                ...w,
+                status: action.status,
+                reference: action.reference,
+                note: action.note,
+                settledAt: new Date().toISOString(),
+              }
+            : w,
+        ),
+      }
     case 'SET_PLATFORM_GCASH_ACCOUNT':
       return { ...state, platformGcashAccount: action.account }
     case 'SET_TODA_QUEUE_WINDOW':
@@ -5258,6 +5283,13 @@ interface RideContextValue extends RideState {
   setRideDestination: (rideId: string, dropoff: MockLocation) => void
   setRequestedDriver: (passengerId: string, driverId: string | null) => void
   recordPlatformFeePayment: (payment: PlatformFeePayment) => void
+  requestDriverWithdrawal: (withdrawal: DriverWithdrawal) => void
+  settleDriverWithdrawal: (
+    withdrawalId: string,
+    status: 'paid' | 'rejected',
+    reference: string | null,
+    note: string | null,
+  ) => void
   setPlatformGcashAccount: (account: PaymentAccountDetails) => void
   setTodaQueueWindowMs: (ms: number) => void
   setQueueOfferTimeoutMs: (ms: number) => void
@@ -5975,6 +6007,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           pilaBannerDataUrl: state.pilaBannerDataUrl,
           requestedDrivers: state.requestedDrivers,
           platformFeePayments: state.platformFeePayments,
+          driverWithdrawals: state.driverWithdrawals,
           platformGcashAccount: state.platformGcashAccount,
           todaQueueWindowMs: state.todaQueueWindowMs,
           queueOfferTimeoutMs: state.queueOfferTimeoutMs,
@@ -6072,6 +6105,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     state.pilaBannerDataUrl,
     state.requestedDrivers,
     state.platformFeePayments,
+    state.driverWithdrawals,
     state.platformGcashAccount,
     state.todaQueueWindowMs,
     state.queueOfferTimeoutMs,
@@ -6350,6 +6384,9 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setRideDestination: (rideId, dropoff) => dispatch({ type: 'SET_RIDE_DESTINATION', rideId, dropoff }),
     setRequestedDriver: (passengerId, driverId) => dispatch({ type: 'SET_REQUESTED_DRIVER', passengerId, driverId }),
     recordPlatformFeePayment: (payment) => dispatch({ type: 'RECORD_PLATFORM_FEE_PAYMENT', payment }),
+    requestDriverWithdrawal: (withdrawal) => dispatch({ type: 'REQUEST_DRIVER_WITHDRAWAL', withdrawal }),
+    settleDriverWithdrawal: (withdrawalId, status, reference, note) =>
+      dispatch({ type: 'SETTLE_DRIVER_WITHDRAWAL', withdrawalId, status, reference, note }),
     setPlatformGcashAccount: (account) => dispatch({ type: 'SET_PLATFORM_GCASH_ACCOUNT', account }),
     setTodaQueueWindowMs: (ms) => dispatch({ type: 'SET_TODA_QUEUE_WINDOW', ms }),
     setQueueOfferTimeoutMs: (ms) => dispatch({ type: 'SET_QUEUE_OFFER_TIMEOUT', ms }),

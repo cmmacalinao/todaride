@@ -5,6 +5,7 @@ import { DriverFooterNav } from '../components/DriverFooterNav'
 import { PlatformFeeSoa, buildSoa } from '../components/PlatformFeeSoa'
 import { DriverPilaPage } from '../components/DriverPilaPage'
 import { DriverWalletPanel } from '../components/DriverWalletPanel'
+import { DriverWithdrawPanel } from '../components/DriverWithdrawPanel'
 import { TricycleQrPanel } from '../components/TricycleQrPanel'
 import { NearbyRequestsBoard, buildNearbyRequests } from '../components/NearbyRequestsBoard'
 import type { DrawerSection } from '../components/NavDrawer'
@@ -108,6 +109,8 @@ export function DriverPage() {
     setDriverHomeTerminal,
     setDriverPabiliPriority,
     setDriverPaymentAccount,
+    driverWithdrawals,
+    requestDriverWithdrawal,
     pabiliEnabled,
     simulateMovementEnabled,
     triggerDriverSos,
@@ -931,6 +934,17 @@ export function DriverPage() {
             gcashAccount={driver.gcashAccount ?? null}
             mayaAccount={driver.mayaAccount ?? null}
             onSave={(wallet, details) => setDriverPaymentAccount(driver.id, wallet, details)}
+          />
+          {/* Directly under the wallets, because it pays into them and is
+              useless until one of them has a number in it. */}
+          <DriverWithdrawPanel
+            driverId={driver.id}
+            driverName={driver.name}
+            rides={rides}
+            withdrawals={driverWithdrawals}
+            gcashAccount={driver.gcashAccount ?? null}
+            mayaAccount={driver.mayaAccount ?? null}
+            onRequest={requestDriverWithdrawal}
           />
           {commissionSection}
         </div>

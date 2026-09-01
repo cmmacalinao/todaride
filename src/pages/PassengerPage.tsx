@@ -1554,11 +1554,28 @@ export function PassengerPage() {
                     pickupChosen ? 'font-semibold text-white' : 'font-normal text-white/70'
                   }`}
                 >
-                  {pickupChosen ? formatAddressLine(pickup.label) : 'Where are you now?'}
+                  {pickupChosen ? formatAddressLine(pickup.label) : 'Booking for others'}
                 </span>
               </span>
             </button>
-            {destinationOnly && !isErrand && groupRideButton}
+            {/* The pickup gets the same map route as the destination. Booking
+                for somebody else is exactly the case where an address is hard
+                to type and easy to point at — a sitio, a corner, a house with
+                no street number. */}
+            {destinationOnly && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMapTarget('pickup')
+                  setOpenEnd(null)
+                }}
+                aria-label="Set the pickup by tapping the map"
+                className="flex w-28 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-pickup-accent/40 bg-white px-1 text-[10px] font-bold leading-tight text-pickup-accent transition hover:bg-pickup-accent/10"
+              >
+                <span aria-hidden className="text-sm leading-none">📍</span>
+                Set on Map
+              </button>
+            )}
             </div>
             {openEnd === 'pickup' && (
               <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
@@ -1624,9 +1641,9 @@ export function PassengerPage() {
                   already offers it, as the whole other half of that screen.
                   Group Ride keeps its place: it changes the booking being
                   made here rather than replacing it. */}
-              {/* Only when it is not already sitting beside the pickup row
-                  above — otherwise the same button appears twice. */}
-              {!isErrand && !(destinationOnly && pickupForSomeoneElse) && (
+              {/* Its own line again: the pickup row now pairs with its own Set
+                  on Map, the way the destination row does. */}
+              {!isErrand && (
                 <div className="mt-2 flex justify-end">{groupRideButton}</div>
               )}
               </>

@@ -356,14 +356,18 @@ export function TripMonitor({
             // is what a passenger checks against the number in front of them
             // and what they would give to anyone who asked where they were;
             // the name is how they would refer to the person driving.
-            label: onBoard
-              ? `${driver?.name ?? ride.driverName ?? 'Driver'} · TRC ${driver?.plateNumber ?? '—'}${sharingWith > 0 ? ` · +${sharingWith}` : ''}`
-              : `${ride.driverName ?? 'Driver'} — ${driverGpsInfo.isLive ? 'live GPS' : 'estimated'}`,
-            callout: onBoard,
-            // Named without waiting for the Names toggle: while the trip is
-            // running, which dot is the tricycle is the first thing anybody
-            // asks of the map.
-            alwaysLabel: onBoard,
+            label: `${driver?.name ?? ride.driverName ?? 'Driver'}${
+              driver?.plateNumber ? ` · TRC ${driver.plateNumber}` : ''
+            }${onBoard && sharingWith > 0 ? ` · +${sharingWith}` : ''}`,
+            // Named without waiting for the Names toggle, and named from the
+            // moment a driver is assigned rather than only once aboard.
+            //
+            // Your own dot has always carried your name, so a map with only
+            // one label on it named the passenger and left the tricycle — the
+            // thing they are actually watching for — as an anonymous marker.
+            // Whichever dot is unnamed is the one you then have to work out.
+            callout: true,
+            alwaysLabel: true,
             pulse: true,
             icon: 'tricycle' as const,
           },

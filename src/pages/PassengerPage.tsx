@@ -262,8 +262,6 @@ export function PassengerPage() {
   // Whether this passenger has already been told how far the nearest driver
   // is, and said yes anyway. Reset when the pickup moves, because a different
   // pickup is a different question.
-  const [farDriverConfirmed, setFarDriverConfirmed] = useState(false)
-  const [farDriverPrompt, setFarDriverPrompt] = useState(false)
   // When set, the SAME pickup/destination map already on this page (see
   // LocationMapPicker below) is picking a destination for this group rider
   // instead of the page's own `dropoff` — there is no second map built just
@@ -1016,34 +1014,18 @@ export function PassengerPage() {
     return distances.length > 0 ? Math.min(...distances) : null
   })()
 
-  useEffect(() => {
-    setFarDriverConfirmed(false)
-  }, [pickup.id, pickupGps?.lat, pickupGps?.lng])
-
-  // farDriverAnswered: the passenger has just said "Ituloy" in the dialog
-  // below, and is saying it to THIS call.
+  // Book a tricycle books a tricycle.
   //
-  // It cannot be read off farDriverConfirmed, which is what this used to do.
-  // The dialog set that flag and then called this function, but the function
-  // it called was the one built by the render that is still on screen — where
-  // the flag is still false. So the guard fired again, the dialog reopened,
-  // and the passenger had to tap "Ituloy ang booking" a second time before
-  // anything was booked. Passing the answer in hands it to the call that
-  // needs it, instead of waiting for a re-render to deliver it.
-  function handleRequest(farDriverAnswered = false) {
+  // There used to be a stop here: when the nearest free driver was far away
+  // this opened a dialog saying how far and how long, and the booking waited
+  // on "Ituloy ang booking". The intent was sound — a kilometre on a tricycle
+  // is several minutes of standing on a road wondering whether the app heard
+  // you — but the cost was a second tap on the one button that is the whole
+  // point of the screen, in the one case where the passenger is already
+  // waiting longer than they would like. The distance is still shown beneath
+  // the button; it is information now rather than a gate.
+  function handleRequest() {
     if (!canSubmit) return
-    // Asked once, and only when the answer is far enough to matter. The
-    // passenger has already pressed the button, so the only honest reason to
-    // interrupt them is that the wait is longer than pressing it implied.
-    if (
-      !farDriverAnswered &&
-      !farDriverConfirmed &&
-      nearestDriverMeters !== null &&
-      nearestDriverMeters > FAR_DRIVER_METERS
-    ) {
-      setFarDriverPrompt(true)
-      return
-    }
     requestRide({
       passengerId: isGuestBooking ? makeGuestPassengerId() : passenger.id,
       passengerName: isGuestBooking ? guestRider.otherName.trim() : passenger.name,
@@ -1569,6 +1551,19 @@ export function PassengerPage() {
                       : 'Book a tricycle'}
                 </span>
               </button>
+              {/* Said, not asked.
+                  A kilometre on a tricycle is several minutes of standing on a
+                  road wondering whether the app heard you, and that is worth
+                  knowing before the wait rather than during it. It used to be a
+                  dialog the booking waited on, which put a second tap on the
+                  one button this screen exists for — in the very case where the
+                  passenger is already waiting longer than they would like. */}
+              {nearestDriverMeters !== null && nearestDriverMeters > FAR_DRIVER_METERS && (
+                <p className="text-[10px] leading-snug text-amber-700">
+                  Pinakamalapit na driver: {formatKm(nearestDriverMeters)} — mga{' '}
+                  {formatDuration(minutesToCover(nearestDriverMeters))} bago makarating.
+                </p>
+              )}
               {/* No "Drivers near you" button here. The Drivers tab in the
                   bottom bar opens the same list, and the map already shows
                   every tricycle that is actually out there — so this was a
@@ -2666,63 +2661,6 @@ export function PassengerPage() {
         />
       )}
 
-      {/* Told before the wait starts, not discovered during it.
-          //
-          A kilometre on a tricycle is not "just around the corner" — it is
-          several minutes of standing on a road wondering whether the app
-          heard you. This says the distance and the minutes, then lets the
-          passenger decide: waiting is fine when it is a thing you agreed to.
-          //
-          Not a block. The booking goes through if they say so — there may be
-          no nearer tricycle in the town, and refusing to book would leave
-          them with nothing but a walk. */}
-      {farDriverPrompt && nearestDriverMeters !== null && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-3 sm:items-center"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Malayo pa ang driver"
-        >
-          <div className="w-full max-w-sm space-y-3 rounded-2xl bg-white p-4 shadow-xl">
-            <p className="text-sm font-bold text-navy-900">🛺 Malayo pa ang pinakamalapit na driver</p>
-            <p className="text-xs leading-relaxed text-slate-600">
-              <span className="font-semibold text-navy-900">{formatKm(nearestDriverMeters)}</span> ang layo — mga{' '}
-              <span className="font-semibold text-navy-900">{formatDuration(minutesToCover(nearestDriverMeters))}</span>{' '}
-              bago makarating sa {formatAddressLine(pickup.label)}.
-            </p>
-            <p className="text-[11px] leading-relaxed text-slate-500">
-              Ituloy mo kung okay lang maghintay. Puwede ka rin munang maglipat ng pickup na mas malapit sa
-              kanila.
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setFarDriverPrompt(false)}
-                className="rounded-lg border border-slate-300 bg-white py-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
-              >
-                Hindi muna
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  // Remembered, so the same question is not asked twice for
-                  // the same pickup.
-                  // Still remembered, so the same question is not asked twice
-                  // for the same pickup — but the answer is also handed
-                  // straight to this booking rather than left for the next
-                  // render to deliver.
-                  setFarDriverConfirmed(true)
-                  setFarDriverPrompt(false)
-                  handleRequest(true)
-                }}
-                className="rounded-lg bg-brand-600 py-2.5 text-xs font-bold text-white transition hover:bg-brand-700"
-              >
-                Ituloy ang booking
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <NearbyDriversPicker
         open={showDrivers}

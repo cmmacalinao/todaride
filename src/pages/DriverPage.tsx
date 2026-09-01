@@ -1865,12 +1865,13 @@ function ActiveTripCard({
             // sidecar, pinned open the way it is on their phone — the driver
             // carrying two trips needs to see at a glance which one this
             // moving dot is, not just that it is them.
-            label: onBoard
-              ? `${cardPlate} · 🧍 ${aboardNames}`
-              : driverGpsInfo.isLive
-                ? 'You — live GPS'
-                : 'You — estimated',
-            callout: onBoard,
+            label: onBoard ? `${cardPlate} · 🧍 ${aboardNames}` : `You · ${cardPlate}`,
+            // Named from the moment there is a trip, not only once somebody is
+            // aboard. Two moving dots on one map with only one of them
+            // labelled reads as a bug: whichever is unnamed is the one you
+            // then have to work out.
+            callout: true,
+            alwaysLabel: true,
             pulse: true,
             icon: 'tricycle' as const,
           },
@@ -1882,7 +1883,11 @@ function ActiveTripCard({
             id: 'passenger',
             gps: passengerGpsInfo.gps,
             color: '#4f46e5',
-            label: `${ride.passengerName} — ${passengerGpsInfo.isLive ? 'live GPS' : 'shared pin'}`,
+            // The name first and the qualifier after it, because the name is
+            // what the driver is looking for on a street with people on it.
+            label: `${ride.passengerName}${passengerGpsInfo.isLive ? '' : ' (shared pin)'}`,
+            callout: true,
+            alwaysLabel: true,
             pulse: passengerGpsInfo.isLive,
           },
         ]

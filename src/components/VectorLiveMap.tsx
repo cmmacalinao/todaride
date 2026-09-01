@@ -137,6 +137,8 @@ export function VectorLiveMap({
   const holderRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map())
+  // Where a marker was dropped, until the caller's coordinate catches up.
+  const draggedRef = useRef<Map<string, { lat: number; lng: number }>>(new Map())
   const bearingRef = useRef<number | null>(null)
   const userMovedRef = useRef(false)
   const [ready, setReady] = useState(false)
@@ -435,11 +437,26 @@ export function VectorLiveMap({
         })
         marker.on('dragend', () => {
           const { lat, lng } = marker!.getLngLat()
+          // Remember where the finger left it. Placing a pin means a
+          // reverse-geocode round trip, and until that returns the caller
+          // still holds the old coordinate — so any re-render in between
+          // would snap this marker back to where it was dragged from, and
+          // then jump it forward again when the lookup lands. See the
+          // setLngLat below.
+          draggedRef.current.set(p.id, { lat, lng })
           onPointDragEndRef.current?.(p.id, { lat, lng })
         })
         live.set(p.id, marker)
       } else {
-        marker.setLngLat([p.gps.lng, p.gps.lat])
+        // A marker that has just been dropped stays where it was dropped
+        // until the caller's own coordinate catches up with it. Without this
+        // the pin snaps back for as long as the reverse-geocode takes and
+        // then jumps forward, which reads as the drag not having worked.
+        const dropped = draggedRef.current.get(p.id)
+        const caughtUp =
+          dropped && Math.abs(dropped.lat - p.gps.lat) < 1e-6 && Math.abs(dropped.lng - p.gps.lng) < 1e-6
+        if (caughtUp) draggedRef.current.delete(p.id)
+        if (!dropped || caughtUp) marker.setLngLat([p.gps.lng, p.gps.lat])
         marker.setDraggable(draggable)
       }
 

@@ -1558,7 +1558,7 @@ export function PassengerPage() {
                 className="flex w-28 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-pickup-accent/40 bg-white px-1 text-[10px] font-bold leading-tight text-pickup-accent transition hover:bg-pickup-accent/10"
               >
                 <span aria-hidden className="text-sm leading-none">📍</span>
-                Set Pickup
+                Set on Map
               </button>
             )}
             </div>

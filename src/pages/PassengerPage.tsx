@@ -1549,12 +1549,17 @@ export function PassengerPage() {
                     had to notice it was wrong and correct it, and the ones who
                     did not sent a tricycle to a gate they were nowhere near.
                     A guess presented as an answer is worse than an empty box. */}
+                {/* The placeholder is a sentence rather than a prompt, and at
+                    the address size it ran off the end of the row as "Set
+                    Pick up addre…". A chosen address keeps the larger size —
+                    that one has to be readable at a glance, because it is
+                    where a driver is being sent. */}
                 <span
-                  className={`block truncate text-sm ${
-                    pickupChosen ? 'font-semibold text-white' : 'font-normal text-white/70'
+                  className={`block truncate ${
+                    pickupChosen ? 'text-sm font-semibold text-white' : 'text-[11px] font-normal text-white/70'
                   }`}
                 >
-                  {pickupChosen ? formatAddressLine(pickup.label) : 'Booking for others'}
+                  {pickupChosen ? formatAddressLine(pickup.label) : 'Booking for others (Set Pick up address)'}
                 </span>
               </span>
             </button>
@@ -1573,7 +1578,7 @@ export function PassengerPage() {
                 className="flex w-28 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-pickup-accent/40 bg-white px-1 text-[10px] font-bold leading-tight text-pickup-accent transition hover:bg-pickup-accent/10"
               >
                 <span aria-hidden className="text-sm leading-none">📍</span>
-                Set on Map
+                Set Pickup
               </button>
             )}
             </div>

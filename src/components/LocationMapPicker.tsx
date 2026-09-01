@@ -317,7 +317,7 @@ export function LocationMapPicker({
       {/* Above the GPS button, because it governs it: this wakes location and
           reports what the browser decided; that one fills an address with it. */}
       <LocationPermissionRow />
-      {showGpsFor === target && (
+      {!mapFirst && showGpsFor === target && (
         <button
           type="button"
           onClick={() => void useMyGpsHere()}
@@ -327,15 +327,18 @@ export function LocationMapPicker({
           {status === 'locating' ? '📍 Locating…' : `📍 My GPS Location — set ${target === 'pickup' ? pickupLabel : dropoffLabel}`}
         </button>
       )}
-      {/* Sits between the toggle and the map because that is the order the
-         instruction applies in: pick which pin you are moving, then tap. It
-         names the selected end so it is obvious which marker a tap will move. */}
-      <p className="text-center text-[11px] text-slate-500">
-        Tap the map to Pin location —{' '}
-        <span className={target === 'pickup' ? 'font-semibold text-pickup-accent' : 'font-semibold text-dest-accent'}>
-          {target === 'pickup' ? pickupLabel : dropoffLabel}
-        </span>
-      </p>
+      {/* Named the armed end so a tap was unambiguous. On the booking screen
+         the two Set-on-Map buttons say which end they arm at the moment of
+         arming it, so this repeated an answer already given - and the GPS
+         button with it, which the pickup now takes from the phone anyway. */}
+      {!mapFirst && (
+        <p className="text-center text-[11px] text-slate-500">
+          Tap the map to Pin location -{' '}
+          <span className={target === 'pickup' ? 'font-semibold text-pickup-accent' : 'font-semibold text-dest-accent'}>
+            {target === 'pickup' ? pickupLabel : dropoffLabel}
+          </span>
+        </p>
+      )}
       {/* Book on the left, how many are riding on the right. */}
       {(leadingAction || underMapAction) && (
         <div className="flex items-center gap-2">

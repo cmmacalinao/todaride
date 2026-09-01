@@ -1467,7 +1467,7 @@ export function PassengerPage() {
             <button
               type="button"
               onClick={() => openAddressPicker('dropoff')}
-              className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg bg-dest-fill px-3 py-2 text-left shadow-sm filter transition hover:brightness-95 ${
+              className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg bg-dest-fill px-3 py-1.5 text-left shadow-sm filter transition hover:brightness-95 ${
                 // pr-14 clears the swap control, which only exists when both
                 // ends are shown.
                 destinationOnly ? '' : 'pr-14'
@@ -1480,7 +1480,12 @@ export function PassengerPage() {
                   decides which way they lean. See theme.css. */}
               <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-dest-dot" />
               <span className="min-w-0 flex-1">
-                <span className="block text-[9px] font-semibold uppercase tracking-wide text-dest-subtext/70">{dropoffLabel}</span>
+                {/* No "DESTINATION" eyebrow when it is the only row: the
+                    screen is asking one question, and labelling it costs a
+                    line of a strip that wants to be thin. */}
+                {!destinationOnly && (
+                  <span className="block text-[9px] font-semibold uppercase tracking-wide text-dest-subtext/70">{dropoffLabel}</span>
+                )}
                 <span
                   className={`block truncate text-sm ${
                     hasDestination ? 'font-semibold text-dest-text' : 'font-normal text-dest-subtext/70'
@@ -1503,7 +1508,7 @@ export function PassengerPage() {
                 setOpenEnd(null)
               }}
               aria-label="Set the destination by tapping the map"
-              className="flex w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg border border-dest-accent/40 bg-white px-1 text-[10px] font-bold leading-tight text-dest-accent transition hover:bg-dest-accent/10"
+              className="flex shrink-0 items-center justify-center gap-1 rounded-lg border border-dest-accent/40 bg-white px-2 text-[10px] font-bold leading-tight text-dest-accent transition hover:bg-dest-accent/10"
             >
               <span aria-hidden className="text-sm leading-none">📍</span>
               Set on Map
@@ -1539,7 +1544,7 @@ export function PassengerPage() {
                 beside the city and barangay boxes somebody is halfway
                 through filling in is an interruption, not an option. It
                 comes back the moment the form closes. */}
-            {showStrip && !openEnd && (
+            {showStrip && !openEnd && (!mapFirstBooking || bookingSheetSnap !== 'peek') && (
               <>
               {/* Two ways to start a trip that aren't the address form above,
                   side by side so both fit without pushing the page down: Sakay

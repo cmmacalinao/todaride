@@ -66,86 +66,102 @@ export function RoleChooserPage() {
   const [mode, setMode] = useState<AuthMode>(searchParams.get('mode') === 'login' ? 'login' : 'signup')
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-8">
-      <div className="mb-6 flex flex-col items-center text-center">
-        <Link to="/" aria-label="Back to home">
-          <img src="/logo.webp" alt="TODA SafeRide" className="h-16 w-auto object-contain" />
-        </Link>
-        <h1 className="mt-4 text-sm font-semibold text-slate-700">
-          {mode === 'signup' ? 'Create your account' : 'Welcome back'}
-        </h1>
-        <p className="mt-1 text-xs text-slate-500">
-          {mode === 'signup' ? 'What will you use TODA SafeRide for?' : 'Which account are you signing in to?'}
+    // Same pattern as the launch screen behind it: dark navy, the diagonal
+    // weave, an outlined mark rather than a filled panel — this and the main
+    // login are the two doors into the app, and a visitor bouncing between
+    // "use the main login" and "pick a role" should not land on two
+    // different products.
+    <div className="relative min-h-[calc(100vh-50px)] overflow-hidden bg-navy-950 px-4 py-8">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.08]"
+        style={{
+          backgroundImage: 'repeating-linear-gradient(-45deg, white 0, white 2px, transparent 2px, transparent 18px)',
+        }}
+      />
+      <div className="relative mx-auto max-w-lg">
+        <div className="mb-6 flex flex-col items-center text-center">
+          <Link to="/" aria-label="Back to home" className="rounded-2xl border-2 border-white/25 p-3">
+            <img src="/logo.webp" alt="TODA SafeRide" className="h-14 w-auto object-contain" />
+          </Link>
+          <h1 className="mt-4 text-sm font-semibold text-white">
+            {mode === 'signup' ? 'Create your account' : 'Welcome back'}
+          </h1>
+          <p className="mt-1 text-xs text-white/50">
+            {mode === 'signup' ? 'What will you use TODA SafeRide for?' : 'Which account are you signing in to?'}
+          </p>
+        </div>
+
+        <div className="mb-5 flex gap-1 rounded-lg bg-white/5 p-1">
+          {(['signup', 'login'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={`flex-1 rounded-md py-2 text-xs font-semibold transition ${
+                mode === m ? 'bg-gold-400 text-navy-900 shadow-sm' : 'text-white/60 hover:bg-white/10'
+              }`}
+            >
+              {m === 'signup' ? 'Sign up' : 'Login'}
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-2.5">
+          {ROLE_TILES.filter((tile) => mode === 'login' || !tile.loginOnly).map((tile) => (
+            <Link
+              key={tile.label}
+              to={mode === 'signup' ? tile.signupTo : tile.loginTo}
+              className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/5 p-3.5 transition hover:border-gold-400/50 hover:bg-white/10"
+            >
+              <span className="text-2xl leading-none">{tile.icon}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-white">{tile.label}</span>
+                <span className="mt-0.5 block text-[11px] text-white/50">{tile.blurb}</span>
+              </span>
+              <span aria-hidden className="text-white/30">
+                ›
+              </span>
+            </Link>
+          ))}
+        </div>
+
+        {(medsEnabled || vendorsEnabled) && (
+          <div className="mt-5">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="h-px flex-1 bg-white/15" />
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-white/40">Business account</span>
+              <span className="h-px flex-1 bg-white/15" />
+            </div>
+            <Link
+              to={vendorsEnabled ? '/vendor' : '/pharmacy'}
+              className="flex items-center gap-3 rounded-xl border border-gold-400/40 bg-gold-400/10 p-3.5 transition hover:border-gold-400 hover:bg-gold-400/20"
+            >
+              <span className="text-2xl leading-none">🏪</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-gold-400">
+                  Pharmacy/Food/Vendors — Partner with us
+                </span>
+                <span className="mt-0.5 block text-[11px] text-white/60">
+                  {mode === 'signup'
+                    ? 'Register your pharmacy, resto or store and sell through TODA SafeRide'
+                    : 'Sign in to your pharmacy, resto or store portal'}
+                </span>
+              </span>
+              <span aria-hidden className="text-gold-400">
+                ›
+              </span>
+            </Link>
+          </div>
+        )}
+
+        <p className="mt-6 text-center text-[11px] text-white/40">
+          {mode === 'signup' ? 'Already have an account? ' : 'Prefer one box for everything? '}
+          <Link to="/" className="font-medium text-gold-400 underline hover:text-gold-500">
+            {mode === 'signup' ? 'Log in' : 'Use the main login'}
+          </Link>
         </p>
       </div>
-
-      <div className="mb-5 flex gap-1 rounded-lg bg-slate-100 p-1">
-        {(['signup', 'login'] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => setMode(m)}
-            className={`flex-1 rounded-md py-2 text-xs font-semibold transition ${
-              mode === m ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'
-            }`}
-          >
-            {m === 'signup' ? 'Sign up' : 'Login'}
-          </button>
-        ))}
-      </div>
-
-      <div className="space-y-2.5">
-        {ROLE_TILES.filter((tile) => mode === 'login' || !tile.loginOnly).map((tile) => (
-          <Link
-            key={tile.label}
-            to={mode === 'signup' ? tile.signupTo : tile.loginTo}
-            className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition hover:border-brand-300 hover:bg-brand-50"
-          >
-            <span className="text-2xl leading-none">{tile.icon}</span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-slate-700">{tile.label}</span>
-              <span className="mt-0.5 block text-[11px] text-slate-500">{tile.blurb}</span>
-            </span>
-            <span aria-hidden className="text-slate-300">
-              ›
-            </span>
-          </Link>
-        ))}
-      </div>
-
-      {(medsEnabled || vendorsEnabled) && (
-        <div className="mt-5">
-          <div className="mb-2 flex items-center gap-2">
-            <span className="h-px flex-1 bg-slate-200" />
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Business account</span>
-            <span className="h-px flex-1 bg-slate-200" />
-          </div>
-          <Link
-            to={vendorsEnabled ? '/vendor' : '/pharmacy'}
-            className="flex items-center gap-3 rounded-xl border border-gold-400/60 bg-gold-50 p-3.5 shadow-sm transition hover:border-gold-500 hover:bg-gold-100"
-          >
-            <span className="text-2xl leading-none">🏪</span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-navy-900">Pharmacy/Food/Vendors — Partner with us</span>
-              <span className="mt-0.5 block text-[11px] text-slate-600">
-                {mode === 'signup'
-                  ? 'Register your pharmacy, resto or store and sell through TODA SafeRide'
-                  : 'Sign in to your pharmacy, resto or store portal'}
-              </span>
-            </span>
-            <span aria-hidden className="text-gold-600">
-              ›
-            </span>
-          </Link>
-        </div>
-      )}
-
-      <p className="mt-6 text-center text-[11px] text-slate-400">
-        {mode === 'signup' ? 'Already have an account? ' : 'Prefer one box for everything? '}
-        <Link to="/" className="font-medium text-brand-600 underline hover:text-brand-700">
-          {mode === 'signup' ? 'Log in' : 'Use the main login'}
-        </Link>
-      </p>
     </div>
   )
 }

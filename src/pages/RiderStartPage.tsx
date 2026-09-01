@@ -12,50 +12,64 @@ export function RiderStartPage() {
   const navigate = useNavigate()
   const { terminalQrFeeWaived, commissionPerRide } = useRides()
   return (
-    <div className="mx-auto max-w-lg space-y-3 px-4 py-4">
-      <div>
-        <h1 className="text-lg font-bold text-slate-800">How are you riding today?</h1>
-        <p className="text-xs text-slate-500">Pick one — you can always switch.</p>
+    // Same pattern as the launch and role-chooser screens before it — dark
+    // navy, the diagonal weave — so a passenger doesn't land somewhere that
+    // suddenly reads as a different, brighter product the moment they sign
+    // in. ScanSafeRideBanner already wore this look on its own; this brings
+    // the page it sits on into line with it, rather than the other way round.
+    <div className="relative min-h-[calc(100vh-50px)] overflow-hidden bg-navy-950 px-4 py-4">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.08]"
+        style={{
+          backgroundImage: 'repeating-linear-gradient(-45deg, white 0, white 2px, transparent 2px, transparent 18px)',
+        }}
+      />
+      <div className="relative mx-auto max-w-lg space-y-3">
+        <div>
+          <h1 className="text-lg font-bold text-white">How are you riding today?</h1>
+          <p className="text-xs text-white/50">Pick one — you can always switch.</p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => navigate('/book')}
+          className="flex w-full items-center gap-3 rounded-xl border-2 border-gold-400 bg-white/5 p-4 text-left shadow-sm transition hover:bg-white/10"
+        >
+          <span aria-hidden className="text-3xl">🛵</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-base font-bold text-gold-400">Book a Ride</span>
+            <span className="block text-xs text-white/60">
+              Set where you are and where you are going. We find you the nearest driver.
+            </span>
+          </span>
+          <span aria-hidden className="text-xl text-white/40">›</span>
+        </button>
+
+        {/* Straight to the tracking screen, rather than unfolding a QR
+            explainer here. That panel asked the passenger to point a camera
+            at a sticker, or type a plate, before anything happened — while
+            the screen it now opens does the same job without being asked:
+            it lists the tricycles beside them, takes a typed TRC, and
+            records the trip by itself once the tricycle pulls out. */}
+        <button
+          type="button"
+          onClick={() => navigate('/book/terminal')}
+          className="flex w-full items-center gap-3 rounded-xl border border-white/20 bg-white/5 p-4 text-left shadow-sm transition hover:bg-white/10"
+        >
+          <span aria-hidden className="text-3xl">⬛</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-base font-bold text-white">Record mo ang Biyahe</span>
+            <span className="block text-[11px] font-semibold text-white/40">for your safe ride</span>
+            <span className="block text-xs text-white/60">
+              Already at the terminal, already in a tricycle? I-track ang biyahe mo.
+            </span>
+          </span>
+          <span aria-hidden className="text-xl text-white/30">›</span>
+        </button>
+
+        <ScanSafeRideBanner feeFree={terminalRideIsFree(terminalQrFeeWaived, commissionPerRide)} />
       </div>
-
-      <button
-        type="button"
-        onClick={() => navigate('/book')}
-        className="flex w-full items-center gap-3 rounded-xl border-2 border-brand-600 bg-brand-600 p-4 text-left shadow-sm transition hover:bg-brand-700"
-      >
-        <span aria-hidden className="text-3xl">🛵</span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-base font-bold text-white">Book a Ride</span>
-          <span className="block text-xs text-white/80">
-            Set where you are and where you are going. We find you the nearest driver.
-          </span>
-        </span>
-        <span aria-hidden className="text-xl text-white/70">›</span>
-      </button>
-
-      {/* Straight to the tracking screen, rather than unfolding a QR
-          explainer here. That panel asked the passenger to point a camera
-          at a sticker, or type a plate, before anything happened — while
-          the screen it now opens does the same job without being asked:
-          it lists the tricycles beside them, takes a typed TRC, and
-          records the trip by itself once the tricycle pulls out. */}
-      <button
-        type="button"
-        onClick={() => navigate('/book/terminal')}
-        className="flex w-full items-center gap-3 rounded-xl border-2 border-gold-400 bg-gold-50 p-4 text-left shadow-sm transition hover:bg-gold-100"
-      >
-        <span aria-hidden className="text-3xl">⬛</span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-base font-bold text-navy-900">Record mo ang Biyahe</span>
-          <span className="block text-[11px] font-semibold text-slate-500">for your safe ride</span>
-          <span className="block text-xs text-slate-600">
-            Already at the terminal, already in a tricycle? I-track ang biyahe mo.
-          </span>
-        </span>
-        <span aria-hidden className="text-xl text-slate-400">›</span>
-      </button>
-
-      <ScanSafeRideBanner feeFree={terminalRideIsFree(terminalQrFeeWaived, commissionPerRide)} />
     </div>
   )
 }

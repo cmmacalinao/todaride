@@ -138,7 +138,7 @@ export function BottomSheet({
         </div>
         {/* Only this scrolls, so a drag on the handle is always a resize and
             never a scroll of what is underneath it. */}
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 pb-4">{children}</div>
+        <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain px-3 pb-4">{children}</div>
       </section>
     </div>
   )

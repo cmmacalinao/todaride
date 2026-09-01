@@ -274,6 +274,11 @@ export function LocationMapPicker({
             against the pins rather than in a panel that can be dragged shut
             over them. */}
         {!mapFirst && summary}
+        {/* Hidden on the booking screen. There is one pin to place there —
+            the destination — so a pair of tabs choosing between two ends is
+            a control with nothing to choose. Every other screen that shares
+            this picker still shows them. */}
+        {!mapFirst && (
         <div className="flex shrink-0 gap-1 rounded-lg bg-slate-100 p-1">
           <button
             type="button"
@@ -306,6 +311,7 @@ export function LocationMapPicker({
             {dropoffLabel}
           </button>
         </div>
+        )}
       </div>
       {belowTabs}
       {/* Above the GPS button, because it governs it: this wakes location and

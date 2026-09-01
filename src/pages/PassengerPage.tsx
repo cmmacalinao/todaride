@@ -186,6 +186,16 @@ export function PassengerPage() {
   // fields. Only one at a time: the card stays short, and it mirrors how the
   // map picker already scopes itself to one end.
   const [openEnd, setOpenEnd] = useState<'pickup' | 'dropoff' | null>(null)
+  // Booking for somebody else.
+  //
+  // The booking screen hides the pickup because it is normally where the
+  // phone already is. That assumption is wrong exactly once — when the trip
+  // is for a mother, a child, a neighbour standing somewhere else — and
+  // without a way to say so the fare is quoted from the wrong end and the
+  // driver is sent to the wrong street. Off by default so the common case
+  // stays one question; a tap brings the pickup row back with its address
+  // form.
+  const [pickupForSomeoneElse, setPickupForSomeoneElse] = useState(false)
   // How open the booking sheet is.
   //
   // Driven by the address form rather than left to the reader: opening
@@ -1216,6 +1226,14 @@ export function PassengerPage() {
   // map would cover it.
   const mapFirstBooking = !groupRideOpen
 
+  // With the FROM/Destination tabs gone from the booking screen, a tap on the
+  // map has to mean the destination — it is the only pin the screen asks for.
+  // Left at its default the tap would move the pickup, which is not shown
+  // there and has no control to switch back from.
+  useEffect(() => {
+    if (mapFirstBooking) setMapTarget('dropoff')
+  }, [mapFirstBooking])
+
   const sharedMap = (
     <div ref={bookingMapRef} className="scroll-mt-24">
       <LocationMapPicker
@@ -1381,10 +1399,10 @@ export function PassengerPage() {
   const addressCard = (showStrip: boolean, destinationOnly = false) => (
         <section
           ref={addressSectionRef}
-          className="scroll-mt-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm"
+          className="scroll-mt-2 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm"
         >
           <div className="relative" ref={endpointsRef}>
-            {!destinationOnly && (
+            {(!destinationOnly || pickupForSomeoneElse) && (
             <>
             <button
               type="button"
@@ -1514,6 +1532,26 @@ export function PassengerPage() {
               Set on Map
             </button>
             </div>
+            {/* The escape hatch for the assumption above the fold: that the
+                pickup is wherever this phone is. True for most trips, wrong
+                for every trip booked on somebody else's behalf — and wrong
+                silently, quoting the fare from the wrong end and sending the
+                driver to the wrong street. */}
+            {destinationOnly && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPickupForSomeoneElse((v) => !v)
+                  if (!pickupForSomeoneElse) openAddressPicker('pickup')
+                  else setOpenEnd(null)
+                }}
+                className="mt-1 w-full rounded-lg py-0.5 text-[10px] font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+              >
+                {pickupForSomeoneElse
+                  ? '✕ Pick me up where I am'
+                  : '🧑 Booking for someone else? Set the pickup'}
+              </button>
+            )}
             {openEnd === 'dropoff' && (
               <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
                 {/* Saved places on the destination too, not only on an

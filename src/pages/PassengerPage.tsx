@@ -1396,6 +1396,20 @@ export function PassengerPage() {
     </div>
   )
 
+  // Group Ride, defined once so it can sit in either place: beside the FROM
+  // row when that row is showing, and on its own line when it is not.
+  const groupRideButton = (
+    <button
+      type="button"
+      onClick={openGroupRide}
+      aria-expanded={groupRideOpen}
+      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 shadow-sm transition hover:bg-slate-50"
+    >
+      <span aria-hidden className="shrink-0 text-xs leading-none">👥</span>
+      <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-700">Group ride</span>
+    </button>
+  )
+
   const addressCard = (showStrip: boolean, destinationOnly = false) => (
         <section
           ref={addressSectionRef}
@@ -1404,10 +1418,17 @@ export function PassengerPage() {
           <div className="relative" ref={endpointsRef}>
             {(!destinationOnly || pickupForSomeoneElse) && (
             <>
+            {/* Paired with Group Ride on the booking screen, the way the
+                destination row is paired with Set on Map — the row takes the
+                width and the secondary control sits beside it, rather than
+                each taking a line of its own. */}
+            <div className="flex items-stretch gap-1.5">
             <button
               type="button"
               onClick={() => openAddressPicker('pickup')}
-              className="flex w-full items-center gap-2.5 rounded-lg bg-pickup-accent px-3 py-2 pr-14 text-left shadow-sm filter transition hover:brightness-90"
+              className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg bg-pickup-accent px-3 py-2 text-left shadow-sm filter transition hover:brightness-90 ${
+                destinationOnly ? '' : 'pr-14'
+              }`}
             >
               <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-white" />
               <span className="min-w-0 flex-1">
@@ -1430,6 +1451,8 @@ export function PassengerPage() {
                 </span>
               </span>
             </button>
+            {destinationOnly && !isErrand && groupRideButton}
+            </div>
             {openEnd === 'pickup' && (
               <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
               {!isErrand && quickPlaceChips('pickup')}
@@ -1537,19 +1560,16 @@ export function PassengerPage() {
                 for every trip booked on somebody else's behalf — and wrong
                 silently, quoting the fare from the wrong end and sending the
                 driver to the wrong street. */}
-            {destinationOnly && (
+            {destinationOnly && !pickupForSomeoneElse && (
               <button
                 type="button"
                 onClick={() => {
-                  setPickupForSomeoneElse((v) => !v)
-                  if (!pickupForSomeoneElse) openAddressPicker('pickup')
-                  else setOpenEnd(null)
+                  setPickupForSomeoneElse(true)
+                  openAddressPicker('pickup')
                 }}
                 className="mt-1 w-full rounded-lg py-0.5 text-[10px] font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
               >
-                {pickupForSomeoneElse
-                  ? '✕ Pick me up where I am'
-                  : '🧑 Booking for someone else? Set the pickup'}
+                🧑 Booking for someone else? Set the pickup
               </button>
             )}
             {openEnd === 'dropoff' && (
@@ -1604,20 +1624,10 @@ export function PassengerPage() {
                   already offers it, as the whole other half of that screen.
                   Group Ride keeps its place: it changes the booking being
                   made here rather than replacing it. */}
-              {!isErrand && (
-                <div className="mt-2 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={openGroupRide}
-                    aria-expanded={groupRideOpen}
-                    className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 shadow-sm transition hover:bg-slate-50"
-                  >
-                    <span aria-hidden className="shrink-0 text-xs leading-none">👥</span>
-                    <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-700">
-                      Group ride
-                    </span>
-                  </button>
-                </div>
+              {/* Only when it is not already sitting beside the pickup row
+                  above — otherwise the same button appears twice. */}
+              {!isErrand && !(destinationOnly && pickupForSomeoneElse) && (
+                <div className="mt-2 flex justify-end">{groupRideButton}</div>
               )}
               </>
             )}

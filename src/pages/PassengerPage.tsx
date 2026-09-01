@@ -192,9 +192,20 @@ export function PassengerPage() {
   // nothing. It opens to show them and drops back once the address is
   // confirmed, so the map is the thing on screen whenever nothing is being
   // typed. Dragging the handle still overrides it at any point.
-  const [bookingSheetSnap, setBookingSheetSnap] = useState<SheetSnap>('half')
+  // Down by default, on every arrival at this screen.
+  //
+  // The map is the answer to the first question anybody has here — where am I,
+  // and where is that — and a sheet opened halfway covers the half of it they
+  // are standing in. Somebody who wants the form pulls it up, which is one
+  // gesture; somebody who wants the map had to push it down before they could
+  // read anything, which is the same gesture spent on undoing a default.
+  //
+  // It still comes up by itself when an address form is opened, because that
+  // is the app being asked to type rather than to look, and it drops straight
+  // back down when the address is confirmed.
+  const [bookingSheetSnap, setBookingSheetSnap] = useState<SheetSnap>('peek')
   useEffect(() => {
-    setBookingSheetSnap(openEnd ? 'full' : 'half')
+    setBookingSheetSnap(openEnd ? 'full' : 'peek')
   }, [openEnd])
 
   // Which city the barangay list is showing. Scoped to the end being edited,
@@ -1321,6 +1332,135 @@ export function PassengerPage() {
     if (mapFirstBooking) setMapTarget('dropoff')
   }, [mapFirstBooking])
 
+  // The optional half of a booking, folded away.
+  //
+  // A special trip and a favourite driver are real choices and almost nobody
+  // makes either: they were two full-width blocks of the form standing between
+  // the two questions that matter and the button that sends them. One line
+  // that says what is behind it costs nothing to scroll past and is still
+  // there for the passenger who wants it.
+  const moreOptions = (
+    <details className="group rounded-lg border border-slate-200 bg-white px-2.5 py-1.5">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[11px] font-semibold text-slate-600 marker:hidden">
+        <span aria-hidden className="text-[10px] text-slate-400 transition group-open:rotate-90">
+          ▶
+        </span>
+        ⚙️ More options
+        <span className="font-normal text-slate-400">— special trip, favourite driver</span>
+      </summary>
+      <div className="mt-1.5 space-y-1.5">
+            {!isErrand && (
+              <label className="mt-1.5 flex items-start gap-2 rounded-lg border border-navy-900/20 bg-slate-50 px-2.5 py-1.5 text-xs">
+                <input
+                  type="checkbox"
+                  checked={specialTrip}
+                  onChange={(e) => setSpecialTrip(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span className="font-medium text-slate-800">Special trip — buong tricycle</span>
+              </label>
+            )}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-500">Favorite driver (optional)</label>
+            {(() => {
+            const bookable = drivers.filter(
+              (d) => d.verificationStatus === 'approved' && d.accessStatus === 'active',
+            )
+            const chosen = bookable.find((d) => d.id === passenger.favoriteDriverId) ?? null
+            // Plates are typed inconsistently ("TRC-1023", "trc 1023",
+            // "1023"), so both sides are stripped to alphanumerics before
+            // comparing — otherwise the punctuation decides whether a
+            // passenger finds their own driver.
+            const needle = driverQuery.trim().toLowerCase()
+            const bare = needle.replace(/[^a-z0-9]/g, '')
+            const matches = needle
+              ? bookable
+                  .filter(
+                    (d) =>
+                      d.name.toLowerCase().includes(needle) ||
+                      (!!bare && d.plateNumber.toLowerCase().replace(/[^a-z0-9]/g, '').includes(bare)),
+                  )
+                  .slice(0, 6)
+              : []
+
+            if (chosen) {
+              return (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-gold-400/60 bg-gold-50 px-3 py-2 text-sm">
+                  <span className="min-w-0 truncate font-medium text-slate-700">
+                    ⭐ {chosen.name} · {chosen.plateNumber}
+                  </span>
+                  <span className="flex shrink-0 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowDrivers(true)}
+                      className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      Change
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFavoriteDriver(passenger.id, null)
+                        setDriverQuery('')
+                      }}
+                      className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                    >
+                      Clear
+                    </button>
+                  </span>
+                </div>
+              )
+            }
+
+            return (
+              <div className="relative">
+                <input
+                  value={driverQuery}
+                  onChange={(e) => {
+                    setDriverQuery(e.target.value)
+                    setDriverPickerOpen(true)
+                  }}
+                  onFocus={() => setDriverPickerOpen(true)}
+                  placeholder="Type a driver name or TRC No."
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+                {driverPickerOpen && needle !== '' && (
+                  <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                    {matches.length === 0 ? (
+                      <p className="px-3 py-2 text-[11px] text-slate-400">
+                        No approved driver matches "{driverQuery.trim()}".
+                      </p>
+                    ) : (
+                      matches.map((d) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => {
+                            setFavoriteDriver(passenger.id, d.id)
+                            setDriverQuery('')
+                            setDriverPickerOpen(false)
+                          }}
+                          className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+                        >
+                          <span className="font-medium text-slate-700">{d.name}</span>{' '}
+                          <span className="text-xs text-slate-400">· {d.plateNumber}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+            })()}
+            <p className="mt-1 text-[11px] text-slate-400">
+            Leave blank for normal terminal Pila order. If set, your favorite driver is offered your next ride
+            first, ahead of the Pila.
+            </p>
+          </div>
+      </div>
+    </details>
+  )
+
   const sharedMap = (
     <div ref={bookingMapRef} className="scroll-mt-24">
       <LocationMapPicker
@@ -1406,6 +1546,7 @@ export function PassengerPage() {
           )
         }
         sheetNote={mapFirstBooking && !tripUnderway ? etaFareRow : undefined}
+        sheetExtras={mapFirstBooking && !tripUnderway ? moreOptions : undefined}
         leadingAction={
           tripUnderway ? null : (
             <div className="space-y-1">
@@ -2261,17 +2402,6 @@ export function PassengerPage() {
                   )}
                 </>
               )}
-              {!isErrand && (
-                <label className="mt-1.5 flex items-start gap-2 rounded-lg border border-navy-900/20 bg-slate-50 px-2.5 py-1.5 text-xs">
-                  <input
-                    type="checkbox"
-                    checked={specialTrip}
-                    onChange={(e) => setSpecialTrip(e.target.checked)}
-                    className="mt-0.5"
-                  />
-                  <span className="font-medium text-slate-800">Special trip — buong tricycle</span>
-                </label>
-              )}
               {/* The Save Places strip is gone. Saving a place now happens
                   where the address is being set — the "Save as:" chips inside
                   the pickup and destination forms — rather than in a separate
@@ -2337,103 +2467,6 @@ export function PassengerPage() {
             </div>
           )}
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Favorite driver (optional)</label>
-            {(() => {
-              const bookable = drivers.filter(
-                (d) => d.verificationStatus === 'approved' && d.accessStatus === 'active',
-              )
-              const chosen = bookable.find((d) => d.id === passenger.favoriteDriverId) ?? null
-              // Plates are typed inconsistently ("TRC-1023", "trc 1023",
-              // "1023"), so both sides are stripped to alphanumerics before
-              // comparing — otherwise the punctuation decides whether a
-              // passenger finds their own driver.
-              const needle = driverQuery.trim().toLowerCase()
-              const bare = needle.replace(/[^a-z0-9]/g, '')
-              const matches = needle
-                ? bookable
-                    .filter(
-                      (d) =>
-                        d.name.toLowerCase().includes(needle) ||
-                        (!!bare && d.plateNumber.toLowerCase().replace(/[^a-z0-9]/g, '').includes(bare)),
-                    )
-                    .slice(0, 6)
-                : []
-
-              if (chosen) {
-                return (
-                  <div className="flex items-center justify-between gap-2 rounded-lg border border-gold-400/60 bg-gold-50 px-3 py-2 text-sm">
-                    <span className="min-w-0 truncate font-medium text-slate-700">
-                      ⭐ {chosen.name} · {chosen.plateNumber}
-                    </span>
-                    <span className="flex shrink-0 gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setShowDrivers(true)}
-                        className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
-                      >
-                        Change
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFavoriteDriver(passenger.id, null)
-                          setDriverQuery('')
-                        }}
-                        className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
-                      >
-                        Clear
-                      </button>
-                    </span>
-                  </div>
-                )
-              }
-
-              return (
-                <div className="relative">
-                  <input
-                    value={driverQuery}
-                    onChange={(e) => {
-                      setDriverQuery(e.target.value)
-                      setDriverPickerOpen(true)
-                    }}
-                    onFocus={() => setDriverPickerOpen(true)}
-                    placeholder="Type a driver name or TRC No."
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  />
-                  {driverPickerOpen && needle !== '' && (
-                    <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-                      {matches.length === 0 ? (
-                        <p className="px-3 py-2 text-[11px] text-slate-400">
-                          No approved driver matches "{driverQuery.trim()}".
-                        </p>
-                      ) : (
-                        matches.map((d) => (
-                          <button
-                            key={d.id}
-                            type="button"
-                            onClick={() => {
-                              setFavoriteDriver(passenger.id, d.id)
-                              setDriverQuery('')
-                              setDriverPickerOpen(false)
-                            }}
-                            className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
-                          >
-                            <span className="font-medium text-slate-700">{d.name}</span>{' '}
-                            <span className="text-xs text-slate-400">· {d.plateNumber}</span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-            <p className="mt-1 text-[11px] text-slate-400">
-              Leave blank for normal terminal Pila order. If set, your favorite driver is offered your next ride
-              first, ahead of the Pila.
-            </p>
-          </div>
 
           {/* A second way to book, above the payment row rather than only
               at the top of the form.

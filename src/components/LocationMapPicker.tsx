@@ -38,6 +38,7 @@ export function LocationMapPicker({
   leadingAction,
   sheetNote,
   mapFooter,
+  sheetExtras,
   underMapAction,
   // Rendered directly beneath the Pickup / Destination tabs, so an
   // address form opens under the tab that asks for it rather than in a
@@ -115,6 +116,10 @@ export function LocationMapPicker({
   // to stop it — beside the map is not good enough: it scrolls away, and it
   // is gone entirely once the map is full screen.
   mapFooter?: ReactNode
+  // Rendered under the location row, at the bottom of the sheet. Whatever a
+  // caller has that is optional belongs here rather than above the button
+  // that sends the booking.
+  sheetExtras?: ReactNode
   // Sits to the right of the submit in that same under-map row — for the one
   // control that belongs with the booking action rather than in the form
   // below it: how many people are riding.
@@ -143,7 +148,9 @@ export function LocationMapPicker({
   const [showFullAddress, setShowFullAddress] = useState(false)
   // Where the sheet sits in map-first layout. Starts half open: enough to
   // show From and Destination without hiding the map they refer to.
-  const [internalSheetSnap, setInternalSheetSnap] = useState<SheetSnap>('half')
+  // Down by default - see the note on bookingSheetSnap in PassengerPage. Any
+  // screen with a map opens showing the map, not a panel covering it.
+  const [internalSheetSnap, setInternalSheetSnap] = useState<SheetSnap>('peek')
   const effectiveSnap = sheetSnap ?? internalSheetSnap
   const changeSnap = onSheetSnapChange ?? setInternalSheetSnap
 
@@ -389,6 +396,7 @@ export function LocationMapPicker({
       {/* Above the GPS button, because it governs it: this wakes location and
           reports what the browser decided; that one fills an address with it. */}
       <LocationPermissionRow trailing={permissionRowAction?.()} />
+      {sheetExtras}
       {!mapFirst && showGpsFor === target && (
         <button
           type="button"

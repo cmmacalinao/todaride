@@ -27,6 +27,8 @@ export function LocationPermissionRow({ onLocated }: { onLocated?: (coords: GeoC
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState<string | null>(null)
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
+  // The how-to-fix note, folded away by default.
+  const [howToFixOpen, setHowToFixOpen] = useState(false)
 
   useEffect(() => {
     let status: PermissionStatus | null = null
@@ -98,11 +100,30 @@ export function LocationPermissionRow({ onLocated }: { onLocated?: (coords: GeoC
         </p>
       )}
 
+      {/* Folded away until asked for.
+          The fix is four lines of instructions about browser settings, and it
+          was sitting open in red above the map on every screen for anyone
+          whose phone has location off — shouting at the many to help the few
+          who are going to act on it. The state still shows in the row above
+          ("· blocked"); this is only the how. */}
       {permission === 'denied' && (
-        <p className="mt-1 text-[11px] leading-snug text-rose-700">
-          Location is blocked in this browser, so it will not ask again however many times you press
-          Refresh. Tap the padlock 🔒 in the address bar → Location → Allow, then reload the page.
-        </p>
+        <>
+          <button
+            type="button"
+            onClick={() => setHowToFixOpen((v) => !v)}
+            aria-expanded={howToFixOpen}
+            className="mt-1 flex w-full items-center gap-1 text-left text-[11px] font-semibold text-rose-700"
+          >
+            <span aria-hidden className="text-[9px] leading-none">{howToFixOpen ? '▼' : '▶'}</span>
+            How to turn location back on
+          </button>
+          {howToFixOpen && (
+            <p className="mt-1 text-[11px] leading-snug text-rose-700">
+              Location is blocked in this browser, so it will not ask again however many times you press
+              Refresh. Tap the padlock 🔒 in the address bar → Location → Allow, then reload the page.
+            </p>
+          )}
+        </>
       )}
 
       {failed && permission !== 'denied' && (

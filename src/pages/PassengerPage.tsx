@@ -1398,12 +1398,16 @@ export function PassengerPage() {
 
   // Group Ride, defined once so it can sit in either place: beside the FROM
   // row when that row is showing, and on its own line when it is not.
+  // Whether the booking sheet is pushed all the way down. At that height it
+  // is a glance at the map with one question on it, so everything except the
+  // destination row steps out of the way.
+  const sheetIsPeeking = mapFirstBooking && bookingSheetSnap === 'peek'
   const groupRideButton = (
     <button
       type="button"
       onClick={openGroupRide}
       aria-expanded={groupRideOpen}
-      className="flex w-24 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-1 py-1.5 shadow-sm transition hover:bg-slate-50"
+      className="flex w-28 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-1 py-1.5 shadow-sm transition hover:bg-slate-50"
     >
       <span aria-hidden className="shrink-0 text-xs leading-none">👥</span>
       <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-700">Group ride</span>
@@ -1470,7 +1474,7 @@ export function PassengerPage() {
                 setOpenEnd(null)
               }}
               aria-label="Set the destination by tapping the map"
-              className="flex w-24 shrink-0 items-center justify-center gap-1 rounded-lg border border-dest-accent/40 bg-white px-1 text-[10px] font-bold leading-tight text-dest-accent transition hover:bg-dest-accent/10"
+              className="flex w-28 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-dest-accent/40 bg-white px-1 text-[10px] font-bold leading-tight text-dest-accent transition hover:bg-dest-accent/10"
             >
               <span aria-hidden className="text-sm leading-none">📍</span>
               Set on Map
@@ -1481,7 +1485,7 @@ export function PassengerPage() {
                 for every trip booked on somebody else's behalf — and wrong
                 silently, quoting the fare from the wrong end and sending the
                 driver to the wrong street. */}
-            {destinationOnly && !pickupForSomeoneElse && (
+            {destinationOnly && !pickupForSomeoneElse && !sheetIsPeeking && (
               <button
                 type="button"
                 onClick={() => {
@@ -1518,7 +1522,10 @@ export function PassengerPage() {
                 )}
               </div>
             )}
-            {(!destinationOnly || pickupForSomeoneElse) && (
+            {/* Collapsed, the sheet shows the one red strip and nothing else
+                — see sheetIsPeeking. Dragging it down is asking for the map,
+                and a second row is not part of that. */}
+            {(!destinationOnly || (pickupForSomeoneElse && !sheetIsPeeking)) && (
             <>
             {/* Paired with Group Ride on the booking screen, the way the
                 destination row is paired with Set on Map — the row takes the

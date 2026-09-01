@@ -237,6 +237,10 @@ export function TripMonitor({
   // Ticks while a driver is on the way, so "late" becomes true on its own
   // rather than waiting for something else to redraw the screen.
   const now = useNow(10000, ride.status === 'driver_arriving')
+  // Faster, and only while riding: the strip below counts the seconds since
+  // the driver's last published fix, and a ten-second tick would make a
+  // healthy feed look like it was stalling.
+  const tripTick = useNow(1000, ride.status === 'ongoing')
   // Held to the estimate the app actually showed: the real road route where
   // one resolved, the simulated leg otherwise.
   const overdue = driverPickupOverdue(ride, route ? route.durationSeconds : null, now)
@@ -254,6 +258,9 @@ export function TripMonitor({
   // has no real coordinate to plot — skip that point rather than crash.
   // Aboard, not waiting: the passenger and the tricycle are the same dot.
   const onBoard = ride.status === 'ongoing'
+  // Whoever is actually in the tricycle. A ride booked for somebody else
+  // carries their name on it, and that is the person the dot belongs to.
+  const passengerDisplayName = ride.passengerName?.trim() || 'You'
   // Anyone else riding with this driver. The "+N" on the tricycle marker
   // counts only who's actually aboard right now (ongoing) — that label is
   // about who's physically in the vehicle. The map dot for where they're
@@ -313,10 +320,18 @@ export function TripMonitor({
             // now, drawn from this phone's own GPS, and one marker claiming
             // to be both was the reason the passenger's position looked
             // wrong.
+            // Riding: who is driving and which tricycle, together. The plate
+            // is what a passenger checks against the number in front of them
+            // and what they would give to anyone who asked where they were;
+            // the name is how they would refer to the person driving.
             label: onBoard
-              ? `${driver?.plateNumber ?? 'Tricycle'}${sharingWith > 0 ? ` · +${sharingWith}` : ''}`
+              ? `${driver?.name ?? ride.driverName ?? 'Driver'} · TRC ${driver?.plateNumber ?? '—'}${sharingWith > 0 ? ` · +${sharingWith}` : ''}`
               : `${ride.driverName ?? 'Driver'} — ${driverGpsInfo.isLive ? 'live GPS' : 'estimated'}`,
             callout: onBoard,
+            // Named without waiting for the Names toggle: while the trip is
+            // running, which dot is the tricycle is the first thing anybody
+            // asks of the map.
+            alwaysLabel: onBoard,
             pulse: true,
             icon: 'tricycle' as const,
           },
@@ -363,13 +378,55 @@ export function TripMonitor({
             id: 'me',
             gps: livePassengerGps,
             color: '#2563eb',
-            label: 'You are here',
+            // Your own name, not "You": the same map is read over a
+            // passenger's shoulder and by a parent watching from home, and
+            // "You are here" answers a different question for each of them.
+            label: passengerDisplayName,
+            callout: true,
+            alwaysLabel: true,
             pulse: true,
             icon: 'me' as const,
           },
         ]
       : []),
   ]
+  // Whether the two moving dots are actually being fed, said on the map.
+  //
+  // A marker that has stopped updating looks exactly like one that is
+  // standing still, so "the tricycle and the passenger did not move" is a
+  // report nobody on either end can act on: it does not say whether the
+  // driver's phone stopped publishing, this phone's GPS was refused, or the
+  // two devices simply lost each other. Each dot now says where its position
+  // came from and how old it is, so the next trip that goes wrong says which
+  // half went wrong.
+  const liveFeedStrip = (() => {
+    const ageSeconds = (iso: string | null | undefined) =>
+      iso ? Math.max(0, Math.round((tripTick - new Date(iso).getTime()) / 1000)) : null
+    const driverAge = ageSeconds(legRide.driverLiveGpsAt)
+    const meState = liveGpsError
+      ? { tone: 'text-rose-700', text: 'no GPS' }
+      : livePassengerGps
+        ? { tone: 'text-emerald-700', text: 'live' }
+        : { tone: 'text-amber-700', text: 'waiting for GPS' }
+    const driverState = !driverGpsInfo
+      ? { tone: 'text-rose-700', text: 'no position' }
+      : driverGpsInfo.isLive
+        ? { tone: 'text-emerald-700', text: driverAge === null ? 'live' : `live ${driverAge}s ago` }
+        : { tone: 'text-amber-700', text: 'estimated — no GPS from driver' }
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white/95 px-2.5 py-1 text-[10px] shadow-lg">
+        <span className="flex min-w-0 flex-1 items-center gap-1 truncate">
+          <span aria-hidden>🛺</span>
+          <span className={`font-semibold ${driverState.tone}`}>{driverState.text}</span>
+        </span>
+        <span className="flex min-w-0 flex-1 items-center gap-1 truncate">
+          <span aria-hidden>🧍</span>
+          <span className={`font-semibold ${meState.tone}`}>{meState.text}</span>
+        </span>
+      </div>
+    )
+  })()
+
   const routeLine =
     route && route.points.length > 1
       ? route.points
@@ -848,6 +905,7 @@ export function TripMonitor({
             fitPointIds={fitPointIds}
             frozen={framing.frozen}
             nav={navCamera}
+            overlayBottom={onBoard ? () => liveFeedStrip : undefined}
           />
           {/* A trip nobody booked needs to say out loud that it exists.
               The passenger got into a tricycle off the street and the app

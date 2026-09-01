@@ -93,7 +93,7 @@ function markerInnerHtml(p: MapPoint, showLabel: boolean): string {
   return (
     `<div style="position:relative;width:100%;height:100%;">` +
     `<div data-art style="position:absolute;inset:0;">${markerHtml({ color: p.color, pulse: p.pulse, icon: p.icon, pointId: p.id })}</div>` +
-    (showLabel && p.callout ? calloutPill(p.label) : '') +
+    ((showLabel || p.alwaysLabel) && p.callout ? calloutPill(p.label) : '') +
     `</div>`
   )
 }

@@ -635,35 +635,30 @@ export function PassengerPage() {
     // the same per-leg figure when routing is unavailable.
     const travelSeconds = plannedRoute?.durationSeconds || ETA_SECONDS_PER_LEG
     const mins = (sec: number) => Math.max(1, Math.round(sec / 60))
-    const at = (sec: number) =>
-      new Date(Date.now() + sec * 1000)
-        .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-        .replace(/s?[AP]M$/i, '')
     return (
-      // One line each instead of three stacked: the minutes stay the
-      // biggest thing on the row, but the card no longer costs the
-      // height of a whole section to say two numbers.
-      <div className="flex items-stretch gap-1.5">
-        <div className="flex min-w-0 flex-1 items-baseline justify-between gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1">
-          <span className="shrink-0 text-[10px] font-medium text-pickup-accent">Arrives</span>
-          <span className="min-w-0 truncate text-right">
-            <span className="text-xs font-bold text-slate-800">~{mins(toPickupSeconds)} min</span>{' '}
-            <span className="text-[10px] text-slate-400">{at(toPickupSeconds)}</span>
-          </span>
+      // Label above, number below. Three cards on one line is more than a
+      // phone-width sheet can hold side by side — laid out in a row they
+      // truncated the minutes themselves, which is the one thing on the row
+      // anybody reads. Stacked, each card needs only its widest line.
+      //
+      // The arrival clock times are gone with the squeeze. "~6 min" and
+      // "7:16" are the same fact told twice, and the minutes are the half
+      // people decide on.
+      <div className="grid grid-cols-3 gap-1.5">
+        <div className="rounded-lg border border-slate-200 bg-white px-2 py-1">
+          <span className="block text-[10px] font-medium leading-tight text-pickup-accent">Arrives</span>
+          <span className="block text-xs font-bold leading-tight text-slate-800">~{mins(toPickupSeconds)} min</span>
         </div>
-        <div className="flex min-w-0 flex-1 items-baseline justify-between gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1">
-          <span className="shrink-0 text-[10px] font-medium text-dest-accent">Travel</span>
-          <span className="min-w-0 truncate text-right">
-            <span className="text-xs font-bold text-slate-800">~{mins(travelSeconds)} min</span>{' '}
-            <span className="text-[10px] text-slate-400">{at(toPickupSeconds + travelSeconds)}</span>
-          </span>
+        <div className="rounded-lg border border-slate-200 bg-white px-2 py-1">
+          <span className="block text-[10px] font-medium leading-tight text-dest-accent">Travel</span>
+          <span className="block text-xs font-bold leading-tight text-slate-800">~{mins(travelSeconds)} min</span>
         </div>
-        {/* On the same line as the two times, because the three of them are
+        {/* On the same row as the two times, because the three of them are
             one decision: how long until it comes, how long it takes, what it
             costs. */}
-        <div className="flex min-w-0 shrink-0 items-baseline justify-between gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1">
-          <span className="shrink-0 text-[10px] font-medium text-slate-500">Fare</span>
-          <span className="text-xs font-bold text-slate-800">₱{totalFare}</span>
+        <div className="rounded-lg border border-slate-200 bg-white px-2 py-1">
+          <span className="block text-[10px] font-medium leading-tight text-slate-500">Fare</span>
+          <span className="block text-xs font-bold leading-tight text-slate-800">₱{totalFare}</span>
         </div>
       </div>
     )
@@ -743,6 +738,12 @@ export function PassengerPage() {
     .filter((r) => r.status !== 'completed' && r.status !== 'cancelled')
     .sort(byNewest)
   const activeRide = running[0] ?? [...candidates].sort(byNewest)[0]
+  // A trip that has already started. The booking block — the two address
+  // strips, the fare and Book a tricycle — is asking a question that has been
+  // answered: the passenger is in the tricycle. Leaving it on the sheet puts
+  // a live "Book a tricycle" button over a live trip, and buries the map they
+  // are actually watching under a form.
+  const tripUnderway = activeRide?.status === 'ongoing'
   // A ride in one of its ending states: paid off, or called off. It still
   // has a card to show — the receipt, or the reason the driver stopped —
   // but it no longer owns the screen, because the passenger's next question
@@ -1305,7 +1306,7 @@ export function PassengerPage() {
         // layout and its own strip, and a sheet over it would be a second
         // panel arguing with the first.
         mapFirst={mapFirstBooking}
-        sheetHeader={mapFirstBooking ? () => addressCard(true, true) : undefined}
+        sheetHeader={mapFirstBooking && !tripUnderway ? () => addressCard(true, true) : undefined}
         sheetSnap={mapFirstBooking ? bookingSheetSnap : undefined}
         onSheetSnapChange={mapFirstBooking ? setBookingSheetSnap : undefined}
         // Taking a pin off the map is the same as never having set it: the
@@ -1353,9 +1354,9 @@ export function PassengerPage() {
             </span>
           )
         }
-        sheetNote={mapFirstBooking ? etaFareRow : undefined}
+        sheetNote={mapFirstBooking && !tripUnderway ? etaFareRow : undefined}
         leadingAction={
-          (
+          tripUnderway ? null : (
             <div className="space-y-1">
               <button
                 onClick={handleRequest}
@@ -1446,9 +1447,12 @@ export function PassengerPage() {
       type="button"
       onClick={openGroupRide}
       aria-expanded={groupRideOpen}
-      className="flex w-28 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-1 py-1.5 shadow-sm transition hover:bg-slate-50"
+      // Sized to its own words rather than a fixed w-28. It shares a 375px
+      // row with the location status and two other controls, and 112px of it
+      // was more than the row had to give.
+      className="flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-1.5 py-1 shadow-sm transition hover:bg-slate-50"
     >
-      <span aria-hidden className="shrink-0 text-xs leading-none">👥</span>
+      <span aria-hidden className="shrink-0 text-[11px] leading-none">👥</span>
       <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-700">Group ride</span>
     </button>
   )

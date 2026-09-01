@@ -41,6 +41,15 @@ export interface MapPoint {
   // are holding the phone one-handed on a moving road and will not hover
   // anything, but they will glance down to check the number is still theirs.
   callout?: boolean
+  // Shows that callout even while marker names are switched off.
+  //
+  // Names are hidden by default because on a phone-sized map the pills cover
+  // the roads they label. That is the right default for a map being read and
+  // the wrong one for a trip in progress: the two things moving are the
+  // tricycle and the person in it, and "which dot am I" is the first question
+  // anybody asks of a moving map. Those two, and nothing else, name
+  // themselves.
+  alwaysLabel?: boolean
 }
 
 export interface RealLiveMapProps {
@@ -605,9 +614,16 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
     // them here fixes every map in the app at once, rather than escalating
     // the header z-index and losing the same race again later.
     <div
+      // Full screen is the visible viewport, not the layout one. `inset-0`
+      // sizes to the layout viewport, which on a phone is taller than the
+      // screen whenever the browser's own address bar is showing — so the
+      // bottom of the map, and the sheet pinned to it, sat below the fold and
+      // could not be reached. 100dvh tracks what is actually on screen;
+      // h-screen underneath it is the fallback for a browser without dvh.
+      style={fullscreen ? { height: '100dvh' } : undefined}
       className={
         fullscreen
-          ? 'fixed inset-0 z-[60] flex flex-col bg-white'
+          ? 'fixed inset-x-0 top-0 z-[60] flex h-screen flex-col bg-white'
           : `relative z-0 flex flex-col overflow-hidden rounded-lg border border-slate-200 ${fill ? 'h-full' : ''} ${frozen ? 'map-frozen' : ''}`
       }
     >

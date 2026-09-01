@@ -69,15 +69,23 @@ export function LocationPermissionRow({
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
-      <div className="flex items-center gap-2">
-        <span aria-hidden className="text-sm leading-none">
+    // Everything on one line, and the line is 375px wide on the phones this
+    // is for. It was overflowing: the status wrapped onto a second line, the
+    // Fix pill landed on top of it and Refresh ran off the right edge. So the
+    // status truncates rather than wraps, the icons are a size down, and the
+    // two buttons say the shortest true thing rather than the fullest.
+    <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+      <div className="flex items-center gap-1.5">
+        <span aria-hidden className="shrink-0 text-xs leading-none">
           📍
         </span>
-        <span className="min-w-0 shrink text-[11px] font-semibold text-slate-700">
-          Live location
+        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-slate-700">
+          Location
           {permission === 'granted' && <span className="ml-1 font-normal text-emerald-700">· allowed</span>}
-          {permission === 'denied' && <span className="ml-1 font-normal text-rose-700">· blocked</span>}
+          {/* No "· blocked" here. The red Fix pill immediately to the right
+              exists only when it is blocked, so the word said it twice — and
+              on a 375px row the second telling is the half that gets cut to
+              "· bl…", which says nothing at all. */}
           {refreshedAt && (
             <span className="ml-1 font-normal text-slate-400">
               · {refreshedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -94,22 +102,24 @@ export function LocationPermissionRow({
             onClick={() => setHowToFixOpen((v) => !v)}
             aria-expanded={howToFixOpen}
             aria-label="How to turn location back on"
-            className="shrink-0 rounded-lg border border-rose-300 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700 transition hover:bg-rose-100"
+            className="shrink-0 rounded-lg border border-rose-300 bg-rose-50 px-1.5 py-1 text-[10px] font-bold text-rose-700 transition hover:bg-rose-100"
           >
-            {howToFixOpen ? '▼' : '▶'} How to fix
+            {howToFixOpen ? '▼' : '▶'} Fix
           </button>
         )}
-        {/* Pushes Refresh to the right edge on its own, now that the label no
-            longer stretches to do it. */}
-        <span className="flex-1" />
         {trailing}
         <button
           type="button"
           onClick={() => void refresh()}
           disabled={busy}
-          className="shrink-0 rounded-lg border border-brand-300 bg-brand-50 px-2.5 py-1 text-[11px] font-bold text-brand-700 transition hover:bg-brand-100 disabled:opacity-60"
+          // Icon only. "Refresh" beside a recognisable circular arrow is the
+          // word that was pushing the row past the edge of the phone, and it
+          // is the least surprising control here.
+          aria-label="Refresh your location"
+          title="Refresh your location"
+          className="shrink-0 rounded-lg border border-brand-300 bg-brand-50 px-2 py-1 text-[11px] font-bold text-brand-700 transition hover:bg-brand-100 disabled:opacity-60"
         >
-          {busy ? 'Locating…' : '🔄 Refresh'}
+          {busy ? '…' : '🔄'}
         </button>
       </div>
 

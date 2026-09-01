@@ -372,6 +372,19 @@ export function LocationMapPicker({
         )}
       </div>
       {belowTabs}
+      {/* Directly under the two address strips, which is where the sheet is
+          answering "where from, where to, go". The location status, Group
+          ride and the rest are settings around that decision and follow it
+          rather than stand between the destination and the way to act on it.
+          Book on the left, how many are riding on the right; the fare sits
+          with the button that commits to it. */}
+      {(leadingAction || underMapAction) && (
+        <div className="flex items-center gap-2">
+          {leadingAction && <div className="min-w-0 flex-1">{leadingAction}</div>}
+          {underMapAction && <div className="shrink-0">{underMapAction}</div>}
+        </div>
+      )}
+      {sheetNote}
       {/* Above the GPS button, because it governs it: this wakes location and
           reports what the browser decided; that one fills an address with it. */}
       <LocationPermissionRow trailing={permissionRowAction?.()} />
@@ -396,14 +409,6 @@ export function LocationMapPicker({
             {target === 'pickup' ? pickupLabel : dropoffLabel}
           </span>
         </p>
-      )}
-      {sheetNote}
-      {/* Book on the left, how many are riding on the right. */}
-      {(leadingAction || underMapAction) && (
-        <div className="flex items-center gap-2">
-          {leadingAction && <div className="min-w-0 flex-1">{leadingAction}</div>}
-          {underMapAction && <div className="shrink-0">{underMapAction}</div>}
-        </div>
       )}
     </>
   )
@@ -472,7 +477,10 @@ export function LocationMapPicker({
             is `display: contents` the rest of the time has no height to
             measure — which collapses the sheet to nothing. */}
         {mapFullscreen ? (
-          <div className="pointer-events-none fixed inset-0 z-[70]">{sheet}</div>
+          // Same visible-viewport sizing as the map it is riding over.
+          <div className="pointer-events-none fixed inset-x-0 top-0 z-[70] h-screen" style={{ height: '100dvh' }}>
+            {sheet}
+          </div>
         ) : (
           sheet
         )}

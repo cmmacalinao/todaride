@@ -52,9 +52,11 @@ function asPhoneNumber(typed: string): string | null {
 }
 
 // Left padding clears a leading icon; both fields carry one so the row reads
-// as a pair rather than one plain field and one dressed up.
+// as a pair rather than one plain field and one dressed up. Dark to match the
+// launch screen it lives on — a light pill here would be the one bright box
+// on an otherwise dark card, drawing the eye for no reason.
 const INPUT_CLASS =
-  'w-full rounded-full bg-slate-100 py-3.5 pl-11 pr-5 text-sm text-slate-900 outline-none ring-1 ring-inset ring-transparent placeholder:text-slate-400 focus:ring-2 focus:ring-brand-600/30'
+  'w-full rounded-full bg-white/10 py-3.5 pl-11 pr-5 text-sm text-white outline-none ring-1 ring-inset ring-white/10 placeholder:text-white/40 focus:ring-2 focus:ring-gold-400/50'
 
 // The single front door: one User Name / Password pair that resolves to
 // whichever account it belongs to — rider, parent, driver, TODA officer,
@@ -86,6 +88,15 @@ export function AppLoginForm() {
   const [showTerms, setShowTerms] = useState(false)
   const [showForgot, setShowForgot] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  // Which app someone came here meaning to open — set before they type
+  // anything, purely to put them in the right mindset. It does not gate or
+  // filter the login itself: the account being signed into is what actually
+  // decides the role, exactly as it did before this existed, so a passenger
+  // who leaves "Driver" selected and signs in with their own passenger
+  // credentials still lands on the passenger app, correctly. Nothing here
+  // depends on it staying that way, but changing that would be a deliberate
+  // decision, not a side effect of adding this toggle.
+  const [roleHint, setRoleHint] = useState<'passenger' | 'driver'>('passenger')
   const [wantsBiometric, setWantsBiometric] = useState(false)
   const [biometricReady, setBiometricReady] = useState(false)
   const [enrollment, setEnrollment] = useState(() => getBiometricEnrollment())
@@ -361,9 +372,32 @@ export function AppLoginForm() {
 
   return (
     <div className="w-full max-w-xs">
+      <div className="mb-3 grid grid-cols-2 gap-2">
+        {(
+          [
+            { id: 'passenger', label: 'Passenger', icon: '🧍' },
+            { id: 'driver', label: 'Driver', icon: '🛺' },
+          ] as const
+        ).map((r) => (
+          <button
+            key={r.id}
+            type="button"
+            onClick={() => setRoleHint(r.id)}
+            aria-pressed={roleHint === r.id}
+            className={`flex items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-bold transition ${
+              roleHint === r.id
+                ? 'bg-gold-400 text-navy-900'
+                : 'border border-white/15 bg-white/5 text-white/70 hover:bg-white/10'
+            }`}
+          >
+            <span aria-hidden>{r.icon}</span> {r.label}
+          </button>
+        ))}
+      </div>
+
       <div className="space-y-2.5">
         <div className="relative">
-          <span aria-hidden className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+          <span aria-hidden className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/40">
             👤
           </span>
           <input
@@ -379,7 +413,7 @@ export function AppLoginForm() {
           />
         </div>
         <div className="relative">
-          <span aria-hidden className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+          <span aria-hidden className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/40">
             🔒
           </span>
           <input
@@ -401,7 +435,7 @@ export function AppLoginForm() {
               type="button"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-brand-700"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gold-400"
             >
               {showPassword ? 'Hide' : 'Show'}
             </button>
@@ -416,7 +450,7 @@ export function AppLoginForm() {
         <div className="mt-2.5 px-1">
           <label
             className={`flex items-center gap-2 text-[11px] ${
-              biometricReady ? 'text-slate-600' : 'cursor-not-allowed text-slate-400'
+              biometricReady ? 'text-white/70' : 'cursor-not-allowed text-white/30'
             }`}
           >
             <input
@@ -424,11 +458,11 @@ export function AppLoginForm() {
               disabled={!biometricReady}
               checked={wantsBiometric && biometricReady}
               onChange={(e) => setWantsBiometric(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-slate-300"
+              className="h-3.5 w-3.5 rounded border-white/30 bg-white/10"
             />
             <span className="font-medium">🔒 Register my fingerprint on this device</span>
           </label>
-          <p className="mt-0.5 pl-5 text-[11px] text-slate-400">
+          <p className="mt-0.5 pl-5 text-[11px] text-white/40">
             {biometricReady
               ? // A fingerprint has to belong to somebody, so it can only be
                 // registered as part of a login that has already proved who
@@ -439,9 +473,13 @@ export function AppLoginForm() {
         </div>
       )}
 
-      {error && <p className="mt-2.5 px-1 text-xs font-medium text-amber-700">{error}</p>}
-      {notice && <p className="mt-2.5 px-1 text-xs text-slate-600">{notice}</p>}
+      {error && <p className="mt-2.5 px-1 text-xs font-medium text-amber-400">{error}</p>}
+      {notice && <p className="mt-2.5 px-1 text-xs text-white/70">{notice}</p>}
 
+      {/* The same blue as the header bar, not a dark-and-gold match for the
+          rest of this screen — the one button here that starts something
+          should read as the same brand blue every other primary action in
+          the app already uses, not a one-off invented for this screen. */}
       <button
         type="button"
         disabled={busy}
@@ -455,9 +493,9 @@ export function AppLoginForm() {
           reads as a stray label; between two rules it reads as the seam
           between two ways in. */}
       <div className="mt-4 flex items-center gap-3">
-        <span aria-hidden className="h-px flex-1 bg-slate-200" />
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Or</span>
-        <span aria-hidden className="h-px flex-1 bg-slate-200" />
+        <span aria-hidden className="h-px flex-1 bg-white/15" />
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-white/40">Or</span>
+        <span aria-hidden className="h-px flex-1 bg-white/15" />
       </div>
 
       {/* Outlined, not filled — a second way in reads as optional next to the
@@ -467,7 +505,7 @@ export function AppLoginForm() {
           type="button"
           disabled={busy}
           onClick={() => void handleFingerprint()}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-brand-300 bg-white py-3 text-[11px] font-bold uppercase tracking-wide text-brand-700 transition hover:bg-brand-50 disabled:opacity-60"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-white/20 bg-white/5 py-3 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-white/10 disabled:opacity-60"
         >
           <span aria-hidden>👆</span> Fingerprint
         </button>
@@ -487,16 +525,16 @@ export function AppLoginForm() {
             setOtpCandidates(null)
             setOtpPhone(phone)
           }}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-brand-300 bg-white py-3 text-[11px] font-bold uppercase tracking-wide text-brand-700 transition hover:bg-brand-50"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-white/20 bg-white/5 py-3 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-white/10"
         >
           <span aria-hidden>✉️</span> Send OTP
         </button>
       </div>
 
       {enrollment && (
-        <p className="mt-2 px-1 text-center text-[11px] text-slate-500">
+        <p className="mt-2 px-1 text-center text-[11px] text-white/50">
           Fingerprint set up for {enrollment.label} ·{' '}
-          <button type="button" onClick={handleForgetFingerprint} className="underline hover:text-slate-700">
+          <button type="button" onClick={handleForgetFingerprint} className="underline hover:text-white/80">
             remove
           </button>
         </p>
@@ -509,17 +547,17 @@ export function AppLoginForm() {
       <button
         type="button"
         onClick={() => setShowForgot(true)}
-        className="mt-5 w-full text-center text-[11px] font-bold text-brand-700 underline hover:text-brand-800"
+        className="mt-5 w-full text-center text-[11px] font-bold text-gold-400 underline hover:text-gold-500"
       >
         Forgot password?
       </button>
 
-      <p className="mt-3 px-1 text-center text-[11px] leading-relaxed text-slate-600">
+      <p className="mt-3 px-1 text-center text-[11px] leading-relaxed text-white/50">
         By using this device, you confirm that you have read, understood, and you accept our{' '}
         <button
           type="button"
           onClick={() => setShowTerms(true)}
-          className="font-medium text-brand-600 underline hover:text-brand-700"
+          className="font-medium text-white underline hover:text-gold-400"
         >
           Terms and Conditions
         </button>
@@ -530,7 +568,7 @@ export function AppLoginForm() {
           used to be printed here for demo convenience; they came out when
           the pilot moved to a shared database, where one visitor signing in
           as Super Admin changes the world for every other tester. */}
-      <p className="mt-2 px-1 text-center text-[10px] text-slate-400">Prototype · simulated data</p>
+      <p className="mt-2 px-1 text-center text-[10px] text-white/30">Prototype · simulated data</p>
 
       {showTerms && <TermsModal onClose={() => setShowTerms(false)} />}
       {showForgot && <ForgotPasswordFlow onClose={() => setShowForgot(false)} />}

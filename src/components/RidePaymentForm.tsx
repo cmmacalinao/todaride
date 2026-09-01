@@ -6,11 +6,23 @@ import type { PaymentAccountDetails, PaymentMethod } from '../types'
 // at the kerb; an e-wallet needs the number to send to and the reference off
 // the receipt. Asking one set of questions for both is how a passenger ends
 // up staring at a field that does not apply to them.
-// Two, matching PAYMENT_METHODS — see the note there on why the wallets are
-// one choice and why 'gcash' is still the value behind it.
-const METHODS: { id: PaymentMethod; label: string; icon: string }[] = [
+// How you are paying, which is two answers and not three: cash, or a wallet.
+// See PAYMENT_METHODS for why the wallets are one choice at booking.
+const METHODS: { id: 'cash' | 'wallet'; label: string; icon: string }[] = [
   { id: 'cash', label: 'Cash', icon: '💵' },
-  { id: 'gcash', label: 'E-Wallet', icon: '📱' },
+  { id: 'wallet', label: 'E-Wallet', icon: '📱' },
+]
+
+// Which wallet, asked only once E-Wallet is chosen.
+//
+// This is a different question from the one above and belongs after it. At
+// booking, "cash or wallet" is all the app acts on. Here at the kerb it
+// matters again, because the two are separate apps with separate accounts,
+// separate deep links and separate QR codes — a passenger sending to the
+// driver's Maya number from GCash sends it nowhere.
+const WALLETS: { id: PaymentMethod; label: string; icon: string }[] = [
+  { id: 'gcash', label: 'GCash', icon: '📱' },
+  { id: 'maya', label: 'Maya', icon: '💳' },
 ]
 
 interface RidePaymentFormProps {
@@ -108,23 +120,52 @@ export function RidePaymentForm({
           <p className="mb-1 mt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             How are you paying?
           </p>
-          <div className="grid grid-cols-3 gap-1.5">
-            {METHODS.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => setMethod(m.id)}
-                className={`rounded-lg border py-2 text-xs font-semibold transition ${
-                  method === m.id
-                    ? 'border-brand-600 bg-brand-600 text-white'
-                    : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <span className="block text-base leading-none">{m.icon}</span>
-                {m.label}
-              </button>
-            ))}
+          <div className="grid grid-cols-2 gap-1.5">
+            {METHODS.map((m) => {
+              const chosen = m.id === 'cash' ? isCash : !isCash
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  // Choosing E-Wallet lands on GCash, and the row below
+                  // changes it to Maya in one more tap. Landing on neither
+                  // would mean a screen that has been answered and still shows
+                  // nothing to do.
+                  onClick={() => setMethod(m.id === 'cash' ? 'cash' : 'gcash')}
+                  className={`rounded-lg border py-2 text-xs font-semibold transition ${
+                    chosen
+                      ? 'border-brand-600 bg-brand-600 text-white'
+                      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="block text-base leading-none">{m.icon}</span>
+                  {m.label}
+                </button>
+              )
+            })}
           </div>
+
+          {/* Which wallet — only once one is being used. */}
+          {!isCash && (
+            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+              {WALLETS.map((w) => (
+                <button
+                  key={w.id}
+                  type="button"
+                  onClick={() => setMethod(w.id)}
+                  aria-pressed={method === w.id}
+                  className={`flex items-center justify-center gap-1.5 rounded-lg border py-1.5 text-xs font-semibold transition ${
+                    method === w.id
+                      ? 'border-brand-500 bg-brand-50 text-brand-700'
+                      : 'border-slate-300 bg-white text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="text-sm leading-none">{w.icon}</span>
+                  {w.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {isCash ? (
             <div className="mt-3">

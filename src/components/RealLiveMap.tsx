@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { MapContainer, Marker, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -489,6 +490,27 @@ function spreadOverlappingPoints(points: MapPoint[]): MapPoint[] {
   })
 }
 
+// One legend row's marker, drawn by the same code that draws it on the map.
+//
+// Not an approximation of it: markerHtml is the single source of both, so a
+// change to the tricycle's artwork or the pulse ring shows up here without
+// anybody remembering to update a key. The markup is trusted because this
+// module wrote it — the only caller-supplied values reaching it are a colour
+// and an icon name, both of which it re-emits as CSS rather than as HTML.
+function MarkerArt({ point }: { point: MapPoint }) {
+  const box = markerBoxSize(point.icon)
+  return (
+    <span
+      aria-hidden
+      className="inline-flex shrink-0 items-center justify-center"
+      style={{ width: box, height: box }}
+      dangerouslySetInnerHTML={{
+        __html: markerHtml({ color: point.color, icon: point.icon }),
+      }}
+    />
+  )
+}
+
 // The map's own on/off switch for touch.
 //
 // A map inside a scrolling page is a trap on a phone: a finger dragged across
@@ -607,7 +629,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
   // permission to fit again, which is what clears the "reader has taken
   // over" flag their first pan set.
   const framingSignal = `${refitSignal ?? ''}|${relocks}`
-  return (
+  const body = (
     // relative z-0 makes this its own stacking context. Leaflet gives its
     // panes z-index 400 and its controls up to 1000, which beat the fixed
     // header (z-20) and let the map paint over it while scrolling. Confining
@@ -665,7 +687,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
                 : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
             }`}
           >
-            🏷️ Names
+            🏷️ Legend
           </button>
         )}
       </div>
@@ -681,12 +703,19 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
         />
       )}
       {/* The key, once asked for. It used to be always on, which is right for
-          a map you are reading and wrong for one you are riding with. */}
+          a map you are reading and wrong for one you are riding with.
+
+          Each row wears the marker it is describing, drawn by the same code
+          that draws it on the map — the tricycle's own artwork, the terminal
+          sign, the figure that is you. A coloured dot beside every line meant
+          the key answered "what colour is this" while the map was asking
+          "what is that little blue tricycle", and the reader had to translate
+          between the two. */}
       {showLabels && !hideLegend && legendPoints.length > 0 && (
-        <div className="flex flex-wrap gap-x-3 gap-y-1 border-b border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-500">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-500">
           {legendPoints.map((p) => (
-            <span key={p.id} className="flex items-center gap-1 truncate">
-              <span style={{ color: p.color }}>●</span>
+            <span key={p.id} className="flex items-center gap-1.5 truncate">
+              <MarkerArt point={p} />
               {p.label}
             </span>
           ))}
@@ -803,4 +832,17 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
       </div>
     </div>
   )
+
+  // Full screen leaves the component tree entirely.
+  //
+  // `position: fixed` is only fixed to the viewport while no ancestor has a
+  // transform, a filter, or a containment property - any one of those makes
+  // that ancestor the containing block instead, and the "full screen" map is
+  // then confined to a card halfway down a page. The same goes for stacking:
+  // an ancestor with its own z-index can seat a z-60 child underneath a z-20
+  // header. Neither is something this component can check for, and both were
+  // leaving the Close and Legend buttons clipped under the status bar on a
+  // phone. Rendered into the document body, there is no ancestor left to do
+  // it - the map is a sibling of the app, not a descendant.
+  return fullscreen && typeof document !== 'undefined' ? createPortal(body, document.body) : body
 }

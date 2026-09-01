@@ -4,6 +4,7 @@ import { useWatchPosition } from '../lib/liveTracking'
 import { useRides } from '../context/RideContext'
 import { formatAddressLine } from '../lib/addressFormat'
 import { useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { RealLiveMap, type MapPoint } from './RealLiveMap'
 import { createCustomLocation, reverseGeocodeToPhAddress, type PhAddressTags } from '../lib/customLocation'
 import { getCurrentGeoPosition } from '../lib/geo'
@@ -477,15 +478,24 @@ export function LocationMapPicker({
             is `display: contents` the rest of the time has no height to
             measure — which collapses the sheet to nothing. */}
         {mapFullscreen ? (
-          // Same visible-viewport sizing as the map it is riding over.
-          <div
-            className="pointer-events-none fixed inset-x-0 top-0 z-[70] h-screen"
-            // Matches the map it rides over, so the sheet's snap heights stay
-            // measured against the same box.
-            style={{ height: '100dvh', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
-          >
-            {sheet}
-          </div>
+          // Into the body, for the same reason the map goes there: a `fixed`
+          // layer is only fixed to the viewport while no ancestor has a
+          // transform or a containment property, and the sheet has to end up
+          // in the same coordinate space as the map it rides over. Sized to
+          // match it so the snap heights keep meaning the same thing.
+          createPortal(
+            <div
+              className="pointer-events-none fixed inset-x-0 top-0 z-[70] h-screen"
+              style={{
+                height: '100dvh',
+                paddingTop: 'env(safe-area-inset-top)',
+                paddingBottom: 'env(safe-area-inset-bottom)',
+              }}
+            >
+              {sheet}
+            </div>,
+            document.body,
+          )
         ) : (
           sheet
         )}

@@ -50,6 +50,14 @@ export function LocationMapPicker({
   // inside it is no use if the sheet is too short to show it.
   sheetSnap,
   onSheetSnapChange,
+  // Take a pin off the map again. Absent on screens where the two ends are
+  // not the reader's to change.
+  onClearPickup,
+  onClearDropoff,
+  // Shares the Live-location row rather than taking a line of its own.
+  // A function so the caller can build it after this component's props are
+  // read — it is defined further down the page than the map is.
+  permissionRowAction,
   showGpsFor,
   terminals = [],
   extraPoints = [],
@@ -58,6 +66,9 @@ export function LocationMapPicker({
   sheetHeader?: () => ReactNode
   sheetSnap?: SheetSnap
   onSheetSnapChange?: (snap: SheetSnap) => void
+  onClearPickup?: () => void
+  onClearDropoff?: () => void
+  permissionRowAction?: () => ReactNode
   pickup: MockLocation
   dropoff: MockLocation
   target: 'pickup' | 'dropoff'
@@ -137,12 +148,15 @@ export function LocationMapPicker({
     onTargetChange(next)
   }
 
-  async function placePin(gps: GeoCoords) {
+  // `end` defaults to whichever pin is armed, which is what a tap on the map
+  // means. A drag passes its own end instead: picking a marker up already
+  // says which one it is, whatever the toggle happens to be set to.
+  async function placePin(gps: GeoCoords, end: 'pickup' | 'dropoff' = target) {
     setStatus('locating')
     try {
       const { label, guess } = await reverseGeocodeToPhAddress(gps)
       const location = createCustomLocation(label ?? `Pinned location (${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)})`, gps, guess ?? undefined)
-      if (target === 'pickup') onPinPickup(location, guess)
+      if (end === 'pickup') onPinPickup(location, guess)
       else onPinDropoff(location, guess)
       setStatus('idle')
     } catch {
@@ -231,20 +245,52 @@ export function LocationMapPicker({
   // is identity — green is always the pickup, red always the destination —
   // and weight marks which one a tap will move. Tapping opens the full,
   // unshortened address for both ends.
+  // One row per pin: the address, and a way to take it off the map again.
+  // The ✕ only appears once there is something to clear — an empty row with a
+  // delete button beside it invites the question of what it would delete.
+  const summaryRow = (
+    end: 'pickup' | 'dropoff',
+    icon: string,
+    isSet: boolean,
+    label: string,
+    onClear?: () => void,
+  ) => (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => setShowFullAddress(true)}
+        title="Tap to see the complete address"
+        className={`min-w-0 flex-1 truncate text-left ${
+          end === 'pickup' ? 'text-pickup-accent' : 'text-dest-accent'
+        } ${target === end ? 'font-semibold' : 'font-normal'}`}
+      >
+        {icon} {isSet ? formatAddressLine(label) : <span className="text-slate-400">not set yet</span>}
+      </button>
+      {isSet && onClear && (
+        <button
+          type="button"
+          onClick={onClear}
+          aria-label={`Clear the ${end === 'pickup' ? 'pickup' : 'destination'}`}
+          title="Remove this pin"
+          className="shrink-0 rounded px-1 text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-700"
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  )
+
   const summary = (
-    <button
-      type="button"
-      onClick={() => setShowFullAddress(true)}
-      title="Tap to see the complete address"
-      className={`space-y-0.5 rounded-lg px-2 py-1 text-left text-[11px] leading-tight transition ${
+    <div
+      className={`space-y-0.5 rounded-lg px-2 py-1 text-[11px] leading-tight transition ${
         mapFirst
           ? 'w-full bg-white/60 backdrop-blur-sm hover:bg-white/85'
-          : 'min-w-0 flex-1 bg-slate-50 hover:bg-slate-100 active:bg-slate-200'
+          : 'min-w-0 flex-1 bg-slate-50 hover:bg-slate-100'
       }`}
     >
-      <span className={`block truncate text-pickup-accent ${target === 'pickup' ? 'font-semibold' : 'font-normal'}`}>📍 {hasPickup ? formatAddressLine(pickup.label) : <span className="text-slate-400">not set yet</span>}</span>
-      <span className={`block truncate text-dest-accent ${target === 'dropoff' ? 'font-semibold' : 'font-normal'}`}>🏁 {hasDropoff ? formatAddressLine(dropoff.label) : <span className="text-slate-400">not set yet</span>}</span>
-    </button>
+      {summaryRow('pickup', '📍', hasPickup, pickup.label, onClearPickup)}
+      {summaryRow('dropoff', '🏁', hasDropoff, dropoff.label, onClearDropoff)}
+    </div>
   )
 
   // Everything that is not the map. In the stacked layout it sits above and
@@ -316,7 +362,7 @@ export function LocationMapPicker({
       {belowTabs}
       {/* Above the GPS button, because it governs it: this wakes location and
           reports what the browser decided; that one fills an address with it. */}
-      <LocationPermissionRow />
+      <LocationPermissionRow trailing={permissionRowAction?.()} />
       {!mapFirst && showGpsFor === target && (
         <button
           type="button"
@@ -355,11 +401,17 @@ export function LocationMapPicker({
   const map = (
     <RealLiveMap
       points={points}
-      onMapClick={placePin}
+      onMapClick={(gps) => void placePin(gps)}
       hideLegend
       refitSignal={refitSignal}
       centerOn={myPosition}
       fill={mapFirst}
+      // Only pins that exist can be picked up. Dragging is the correction
+      // for a tap that landed a street out — far quicker than re-arming the
+      // end and tapping again, and it says which pin it means by which one
+      // the finger is on.
+      draggableIds={[...(hasPickup ? ['pickup'] : []), ...(hasDropoff ? ['dropoff'] : [])]}
+      onPointDragEnd={(id, gps) => void placePin(gps, id === 'pickup' ? 'pickup' : 'dropoff')}
     />
   )
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { getCurrentGeoPosition } from '../lib/geo'
 import type { GeoCoords } from '../types'
 
@@ -22,7 +22,12 @@ import type { GeoCoords } from '../types'
 // state is allowed to be unknown and the row simply offers the button.
 type PermissionState = 'granted' | 'denied' | 'prompt' | 'unknown'
 
-export function LocationPermissionRow({ onLocated }: { onLocated?: (coords: GeoCoords) => void }) {
+export function LocationPermissionRow({
+  onLocated,
+  // Rendered just before Refresh, so a caller can share this row rather than
+  // spend another line of a phone screen on one button.
+  trailing,
+}: { onLocated?: (coords: GeoCoords) => void; trailing?: ReactNode }) {
   const [permission, setPermission] = useState<PermissionState>('unknown')
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState<string | null>(null)
@@ -97,6 +102,7 @@ export function LocationPermissionRow({ onLocated }: { onLocated?: (coords: GeoC
         {/* Pushes Refresh to the right edge on its own, now that the label no
             longer stretches to do it. */}
         <span className="flex-1" />
+        {trailing}
         <button
           type="button"
           onClick={() => void refresh()}

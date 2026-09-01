@@ -118,9 +118,6 @@ export function PassengerPage() {
   const isAdminOpsView = authedAccount?.role === 'admin'
   const bookingMapRef = useRef<HTMLDivElement>(null)
   const [showDrivers, setShowDrivers] = useState(false)
-  // Which end the Save Places chips apply to. Starts on Pickup: it is the
-  // one that always has an address, and the one people save first.
-  const [savePlaceTarget, setSavePlaceTarget] = useState<'pickup' | 'dropoff'>('pickup')
   const [customLocations, setCustomLocations] = useState<MockLocation[]>([])
   const [pickupId, setPickupId] = useState(CLSU_MAIN_GATE_LOCATION.id)
   // Same city as the default pickup — see DEFAULT_DROPOFF_LOCATION for why.
@@ -186,16 +183,6 @@ export function PassengerPage() {
   // fields. Only one at a time: the card stays short, and it mirrors how the
   // map picker already scopes itself to one end.
   const [openEnd, setOpenEnd] = useState<'pickup' | 'dropoff' | null>(null)
-  // Booking for somebody else.
-  //
-  // The booking screen hides the pickup because it is normally where the
-  // phone already is. That assumption is wrong exactly once — when the trip
-  // is for a mother, a child, a neighbour standing somewhere else — and
-  // without a way to say so the fare is quoted from the wrong end and the
-  // driver is sent to the wrong street. Off by default so the common case
-  // stays one question; a tap brings the pickup row back with its address
-  // form.
-  const [pickupForSomeoneElse, setPickupForSomeoneElse] = useState(false)
   // How open the booking sheet is.
   //
   // Driven by the address form rather than left to the reader: opening
@@ -1273,6 +1260,13 @@ export function PassengerPage() {
         sheetHeader={mapFirstBooking ? () => addressCard(true, true) : undefined}
         sheetSnap={mapFirstBooking ? bookingSheetSnap : undefined}
         onSheetSnapChange={mapFirstBooking ? setBookingSheetSnap : undefined}
+        // Taking a pin off the map is the same as never having set it: the
+        // row goes back to "not set yet" and the marker disappears.
+        onClearPickup={() => setPickupChosen(false)}
+        onClearDropoff={() => setDropoffChosen(false)}
+        // Group Ride rides in the Live-location row rather than taking a line
+        // of its own on a sheet that has few to spare.
+        permissionRowAction={mapFirstBooking && !isErrand ? () => groupRideButton : undefined}
         terminals={terminals}
         extraPoints={groupRideOpen ? groupMapPoints : undefined}
         showGpsFor={isErrand ? 'dropoff' : 'pickup'}
@@ -1476,23 +1470,6 @@ export function PassengerPage() {
               Set on Map
             </button>
             </div>
-            {/* The escape hatch for the assumption above the fold: that the
-                pickup is wherever this phone is. True for most trips, wrong
-                for every trip booked on somebody else's behalf — and wrong
-                silently, quoting the fare from the wrong end and sending the
-                driver to the wrong street. */}
-            {destinationOnly && !pickupForSomeoneElse && (
-              <button
-                type="button"
-                onClick={() => {
-                  setPickupForSomeoneElse(true)
-                  openAddressPicker('pickup')
-                }}
-                className="mt-1 w-full rounded-lg py-0.5 text-[10px] font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
-              >
-                🧑 Booking for someone else? Set the pickup
-              </button>
-            )}
             {openEnd === 'dropoff' && (
               <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
                 {/* Saved places on the destination too, not only on an
@@ -1518,7 +1495,10 @@ export function PassengerPage() {
                 )}
               </div>
             )}
-            {(!destinationOnly || pickupForSomeoneElse) && (
+            {/* Both rows, always. The green row sets the pickup and the red one
+                the destination — there is no separate prompt to reveal one of
+                them, because the row itself is the way to set it. */}
+            {(
             <>
             {/* Paired with Group Ride on the booking screen, the way the
                 destination row is paired with Set on Map — the row takes the
@@ -1603,7 +1583,11 @@ export function PassengerPage() {
                 // landmark was being asked to answer.
                 pinned={pickupGps !== null || !!pickup.gps}
               />
-              {gpsStatus === 'error' && gpsError && <p className="text-[11px] text-amber-700">{gpsError}</p>}
+              {/* Only when the reader has nowhere else to learn it. The Live
+                  location row already reports "blocked" with a How-to-fix
+                  beside it, so on the booking sheet this was the same news a
+                  second time, in a second colour. */}
+              {!destinationOnly && gpsStatus === 'error' && gpsError && <p className="text-[11px] text-amber-700">{gpsError}</p>}
               {/* Shown only after a failure, and only inside an embedded
                   browser. Messenger and the like refuse geolocation without
                   saying so, which looks exactly like a broken feature:
@@ -1646,9 +1630,9 @@ export function PassengerPage() {
                   already offers it, as the whole other half of that screen.
                   Group Ride keeps its place: it changes the booking being
                   made here rather than replacing it. */}
-              {/* Its own line again: the pickup row now pairs with its own Set
-                  on Map, the way the destination row does. */}
-              {!isErrand && (
+              {/* On the booking screen it rides in the Live-location row instead
+                  — see permissionRowAction. Everywhere else it keeps a line. */}
+              {!isErrand && !mapFirstBooking && (
                 <div className="mt-2 flex justify-end">{groupRideButton}</div>
               )}
               </>
@@ -2154,7 +2138,8 @@ export function PassengerPage() {
                       leave the special-pickup checkbox below unexplainably
                       absent, since that appears only once GPS succeeds. */}
                   {gpsStatus === 'locating' && <p className="mt-1 text-[11px] text-slate-400">📍 Locating…</p>}
-                  {gpsStatus === 'error' && <p className="mt-1 text-[11px] text-amber-700">{gpsError}</p>}
+                  {/* The Live-location row above already reports a refused
+                      permission, with a How-to-fix beside it. */}
                   {gpsStatus === 'done' && terminalGps && (
                     <label className="mt-1.5 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs">
                       <input
@@ -2193,56 +2178,10 @@ export function PassengerPage() {
                   <span className="font-medium text-slate-800">Special trip — buong tricycle</span>
                 </label>
               )}
-              <div className="mt-1.5 rounded-lg border border-slate-200 bg-slate-50 p-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="shrink-0 text-[11px] font-semibold text-slate-600">Save Places</span>
-                  {/* Same colours as the map's own Pickup/Destination tabs
-                      and the two pins — green is always the pickup, red
-                      always the destination, everywhere in this app. */}
-                  <div className="flex gap-1 rounded-lg bg-slate-200/70 p-0.5">
-                    <button
-                      type="button"
-                      onClick={() => setSavePlaceTarget('pickup')}
-                      className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition ${
-                        savePlaceTarget === 'pickup' ? 'bg-pickup-accent text-white shadow-sm' : 'text-pickup-accent hover:bg-white'
-                      }`}
-                    >
-                      Pickup
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSavePlaceTarget('dropoff')}
-                      className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition ${
-                        savePlaceTarget === 'dropoff' ? 'bg-dest-accent text-white shadow-sm' : 'text-dest-accent hover:bg-white'
-                      }`}
-                    >
-                      Destination
-                    </button>
-                  </div>
-                </div>
-                {/* Which address the chips will actually save, said plainly —
-                    the tab names the end, this names the place. */}
-                <p className="mt-1 truncate text-[10px] text-slate-500">
-                  {savePlaceTarget === 'pickup'
-                    ? formatAddressLine(pickup.label)
-                    : hasDestination
-                      ? formatAddressLine(dropoff.label)
-                      : 'No destination set yet'}
-                </p>
-                <div className="mt-1.5 flex flex-wrap gap-1">
-                  {SAVED_LOCATION_LABELS.map((label) => (
-                    <button
-                      key={label}
-                      type="button"
-                      disabled={savePlaceTarget === 'dropoff' && !hasDestination}
-                      onClick={() => handleSaveLocation(label, savePlaceTarget === 'pickup' ? pickup : dropoff)}
-                      className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
-                    >
-                      {savedLocationButtonLabel(label)}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* The Save Places strip is gone. Saving a place now happens
+                  where the address is being set — the "Save as:" chips inside
+                  the pickup and destination forms — rather than in a separate
+                  panel repeating the same four names further down the page. */}
             </div>
             <div>
               {isErrand && (

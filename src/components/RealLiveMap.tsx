@@ -771,8 +771,14 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
               height={fullscreen || fill ? "100%" : height}
               nav={nav}
               showLabels={showLabels}
+              // Hidden once a map owns the screen (full screen, or map-first
+              // booking) everywhere except alwaysInteractive — there, full
+              // screen is precisely the moment a driver or a passenger most
+              // wants to be able to lock the map on purpose, rather than
+              // having the one control that could stop an accidental drag
+              // disappear the moment the map got bigger.
               panLock={
-                interactive && !ownsScreen
+                interactive && (alwaysInteractive || !ownsScreen)
                   ? {
                       unlocked,
                       onToggle: () =>

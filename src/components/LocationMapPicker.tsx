@@ -238,7 +238,7 @@ export function LocationMapPicker({
       title="Tap to see the complete address"
       className={`space-y-0.5 rounded-lg px-2 py-1 text-left text-[11px] leading-tight transition ${
         mapFirst
-          ? 'w-full bg-white/95 shadow-md backdrop-blur-sm hover:bg-white'
+          ? 'w-full bg-white/60 backdrop-blur-sm hover:bg-white/85'
           : 'min-w-0 flex-1 bg-slate-50 hover:bg-slate-100 active:bg-slate-200'
       }`}
     >
@@ -376,7 +376,11 @@ export function LocationMapPicker({
         <div className="absolute inset-0">{map}</div>
         {/* Floating over the map, above the sheet. The sheet can be dragged
             shut; where the two pins are must not go with it. */}
-        <div className="pointer-events-none absolute inset-x-2 top-2 z-10">
+        {/* Beside the zoom control rather than across the whole top, and
+            barely there: it is a caption on a map, so it should sit over the
+            map rather than cover a strip of it. Left clear of the +/- stack,
+            top clear of the Full screen row above the canvas. */}
+        <div className="pointer-events-none absolute left-[3.25rem] right-2 top-[2.75rem] z-10">
           <div className="pointer-events-auto">{summary}</div>
         </div>
         <BottomSheet snap={effectiveSnap} onSnapChange={changeSnap} label="Where to">

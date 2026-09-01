@@ -47,3 +47,10 @@ ios/App/App.xcodeproj/project.xcworkspace/xcuserdata
 # Backups the dev asset writer leaves behind. An earlier build shipped a
 # logo.png.bak inside the APK to every phone; once was enough.
 *.bak
+
+# A design-canvas export dropped here for local reference (a zip, exported
+# images, generated support files) — not part of the app, never meant to be
+# committed. Only this one folder; DOCUMENT GUIDES/ itself holds real
+# reference docs that stay tracked. Files stay on disk; git just stops
+# seeing them.
+DOCUMENT GUIDES/New folder/

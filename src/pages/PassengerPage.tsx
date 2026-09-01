@@ -1368,34 +1368,44 @@ export function PassengerPage() {
   // invites somebody to answer something that is about to be answered
   // better, and a Swap button between one real row and one about-to-be
   // filled row swaps nothing worth swapping.
+  // The city, above the barangay list it filters.
+  //
+  // It used to sit at the top of the card, above both address rows, where it
+  // was a setting rather than a step — and it filters the barangay dropdown,
+  // which is two taps further down inside whichever end you opened. Answering
+  // "which city" before being asked "which barangay" is the order the form
+  // actually works in, so that is where it now lives.
+  const cityRow = (
+    <div className="flex items-center gap-2">
+      <label
+        htmlFor="home-city"
+        className={`shrink-0 text-xs font-semibold uppercase tracking-wide ${
+          openEnd === 'dropoff' ? 'text-dest-accent' : 'text-pickup-accent'
+        }`}
+      >
+        City
+      </label>
+      <select
+        id="home-city"
+        value={cityScope}
+        onChange={(e) => handleHomeCityChange(e.target.value)}
+        className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
+      >
+        <option value="">Select city…</option>
+        {getCitiesForProvince(DEFAULT_BOOKING_PROVINCE).map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+
   const addressCard = (showStrip: boolean, destinationOnly = false) => (
         <section
           ref={addressSectionRef}
           className="scroll-mt-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm"
         >
-          <div className="mb-1.5 flex items-center gap-2 px-1">
-            <label
-              htmlFor="home-city"
-              className={`shrink-0 text-xs font-semibold uppercase tracking-wide ${
-                openEnd === 'dropoff' ? 'text-dest-accent' : 'text-pickup-accent'
-              }`}
-            >
-              City · {openEnd === 'dropoff' ? dropoffLabel : pickupLabel}
-            </label>
-            <select
-              id="home-city"
-              value={cityScope}
-              onChange={(e) => handleHomeCityChange(e.target.value)}
-              className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
-            >
-              <option value="">Select city…</option>
-              {getCitiesForProvince(DEFAULT_BOOKING_PROVINCE).map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
           <div className="relative" ref={endpointsRef}>
             {!destinationOnly && (
             <>
@@ -1428,6 +1438,7 @@ export function PassengerPage() {
             {openEnd === 'pickup' && (
               <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
               {!isErrand && quickPlaceChips('pickup')}
+              {cityRow}
               <BarangayAddressPicker
                 key={`from-${pickupPickerSeed.key}`}
                 label=""
@@ -1500,6 +1511,7 @@ export function PassengerPage() {
                     while the pickup — the end the app can often guess by
                     itself — was the one with the shortcuts. */}
                 {quickPlaceChips('dropoff')}
+                {cityRow}
                 <BarangayAddressPicker
                   key={`to-${dropoffPickerSeed.key}`}
                   label=""

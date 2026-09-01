@@ -2420,10 +2420,23 @@ function reducer(state: RideState, action: RideAction): RideState {
       })
       return { ...state, rides: [...newRides, ...state.rides] }
     }
-    // A driver offering to take the ride, from wherever they actually are.
-    // Nothing is assigned yet: the passenger has to agree to the fare this
-    // produces, because a driver parked two towns over turns a ₱26 trip into
-    // something the passenger never asked for.
+    // A driver taking the ride, from wherever they actually are. The ride is
+    // theirs on the spot.
+    //
+    // This used to be an offer: nothing was assigned until the passenger
+    // approved the fare it produced, because a driver parked two towns over
+    // adds an out-of-area fee to a trip that was quoted without one. The
+    // protection was real and the cost of it was worse — every acceptance
+    // stopped dead waiting for someone to look at their phone, and a
+    // passenger who has just booked a tricycle and been told one is coming
+    // does not expect to be asked a second question before it sets off. Most
+    // acceptances add nothing at all: the driver is inside the area and the
+    // approval card exists only to say the fare has not changed.
+    //
+    // The fee still applies and is still itemised in the fare breakdown, so
+    // nothing is hidden — it is shown rather than asked. A passenger who does
+    // not want it can still cancel, which is the same answer declining gave
+    // them, one step later.
     case 'DRIVER_PROPOSE_ACCEPT': {
       const ride = state.rides.find((r) => r.id === action.rideId)
       const driver = state.drivers.find((d) => d.id === action.driverId)
@@ -2436,21 +2449,25 @@ function reducer(state: RideState, action: RideAction): RideState {
           r.id === action.rideId
             ? {
                 ...r,
+                status: 'driver_arriving',
+                driverId: action.driverId,
+                driverName: driver.name,
+                acceptedAt: new Date().toISOString(),
+                driverPosition: DRIVER_BASE_COORDS,
+                passengerPosition: r.pickup.coords,
+                legProgress: 0,
                 driverOriginGps: action.originGps,
                 passengerDeclinedFare: false,
-                pendingApproval: {
-                  driverId: action.driverId,
-                  driverName: driver.name,
-                  driverOriginGps: action.originGps,
-                  outOfAreaKm: Number(area.extraKm.toFixed(2)),
-                  outOfAreaFee: area.fee,
-                  fareBefore: r.fareEstimate,
-                  fareAfter: r.fareEstimate + area.fee,
-                  proposedAt: new Date().toISOString(),
-                },
+                fareEstimate: r.fareEstimate + area.fee,
+                outOfAreaKm: Number(area.extraKm.toFixed(2)),
+                outOfAreaFee: area.fee,
+                pendingApproval: null,
               }
             : r,
         ),
+        // Their turn in the terminal queue is spent — the same bookkeeping
+        // the approval step used to do.
+        drivers: state.drivers.map((d) => (d.id === action.driverId ? { ...d, queueJoinedAt: null } : d)),
       }
     }
     // The passenger agrees to the quoted total, and only now does the ride

@@ -19,6 +19,7 @@ import { ScanArrivalChoice } from './components/ScanArrivalChoice'
 import { RideProvider } from './context/RideContext'
 import { SessionProvider, useSession } from './context/SessionContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { useAskForLocationOnOpen } from './lib/askForLocation'
 import { useKeepAwake } from './lib/keepAwake'
 
 // Split out of the main bundle, because almost nobody who opens this app
@@ -84,6 +85,11 @@ function AppShell() {
   // minutes of nobody touching the phone, which is exactly when the sleep
   // timer fires.
   useKeepAwake()
+
+  // And the location dialog goes up as the app opens, rather than appearing
+  // halfway through a booking - or never, on a phone that never reached the
+  // screen that would have asked. See askForLocation.
+  useAskForLocationOnOpen()
 
   // The landing page and the role chooser behind it are both public — they
   // only ask "log in or sign up" and "as who", nothing account-specific — so

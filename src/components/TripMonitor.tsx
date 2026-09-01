@@ -693,6 +693,19 @@ export function TripMonitor({
         </div>
       )}
 
+      {/* The out-of-area fee, said plainly rather than asked about.
+          The approval card above used to be the only place this appeared, and
+          the ride no longer waits on it — so without this line a passenger
+          whose driver set off from two towns over would simply find the fare
+          had changed, with nothing on the screen saying why. Shown once the
+          driver is assigned, and only when there is actually a fee. */}
+      {ride.outOfAreaFee > 0 && (ride.status === 'driver_arriving' || ride.status === 'ongoing') && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] leading-snug text-amber-900">
+          <span className="font-semibold">+₱{ride.outOfAreaFee}</span> added to your fare — {ride.driverName ?? 'your driver'} is
+          starting {ride.outOfAreaKm.toFixed(1)} km outside your TODA's area. Your total is ₱{ride.fareEstimate}.
+        </div>
+      )}
+
       {ride.status === 'cancelled' && ride.cancelledBy === 'driver' && (
         <div className="rounded-lg border-2 border-amber-400 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
           <p className="text-sm font-semibold">This trip was cancelled by your driver</p>

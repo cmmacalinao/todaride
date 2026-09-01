@@ -478,7 +478,12 @@ export function LocationMapPicker({
             measure — which collapses the sheet to nothing. */}
         {mapFullscreen ? (
           // Same visible-viewport sizing as the map it is riding over.
-          <div className="pointer-events-none fixed inset-x-0 top-0 z-[70] h-screen" style={{ height: '100dvh' }}>
+          <div
+            className="pointer-events-none fixed inset-x-0 top-0 z-[70] h-screen"
+            // Matches the map it rides over, so the sheet's snap heights stay
+            // measured against the same box.
+            style={{ height: '100dvh', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+          >
             {sheet}
           </div>
         ) : (

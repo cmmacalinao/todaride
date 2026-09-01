@@ -620,7 +620,20 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
       // bottom of the map, and the sheet pinned to it, sat below the fold and
       // could not be reached. 100dvh tracks what is actually on screen;
       // h-screen underneath it is the fallback for a browser without dvh.
-      style={fullscreen ? { height: '100dvh' } : undefined}
+      style={
+        fullscreen
+          ? {
+              height: '100dvh',
+              // Clear of the phone's own furniture. A full-screen layer at
+              // top:0 starts underneath the status bar — which this app tints
+              // with its brand colour, so it is an opaque blue strip lying
+              // across the Close and Names buttons rather than a transparent
+              // one. Zero on a desktop browser, so this costs nothing there.
+              paddingTop: 'env(safe-area-inset-top)',
+              paddingBottom: 'env(safe-area-inset-bottom)',
+            }
+          : undefined
+      }
       className={
         fullscreen
           ? 'fixed inset-x-0 top-0 z-[60] flex h-screen flex-col bg-white'

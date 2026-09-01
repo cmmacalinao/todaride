@@ -17,6 +17,7 @@ import { useRoute } from '../lib/routing'
 import { nextRerouteDecision } from '../lib/reroute'
 import { nextSeparationDecision, type SeparationState } from '../lib/separation'
 import { GpsDiagnosticLine } from './GpsDiagnosticLine'
+import { EmergencyHotlines } from './EmergencyHotlines'
 import { RIDE_CANCELLATION_REASON_LABELS } from '../types'
 import type { GeoCoords, Ride } from '../types'
 
@@ -50,6 +51,12 @@ interface TripMonitorProps {
   // out of it — a parent watching from home, or someone tracking a Pabili
   // errand with no passenger aboard, shouldn't see this at all.
   allowGotOffCheck?: boolean
+  // Look up this passenger's own guardian and offer to call them directly —
+  // set only on the passenger's own screen (PassengerPage). A parent's own
+  // screen already names who to call via extraContacts; looking a guardian
+  // up there would either point them at their own number or, worse, at a
+  // parent link that has nothing to do with who they actually are.
+  showGuardianContact?: boolean
 }
 
 export function TripMonitor({
@@ -64,6 +71,7 @@ export function TripMonitor({
   extraContacts,
   allowLiveGpsToggle,
   allowGotOffCheck,
+  showGuardianContact,
 }: TripMonitorProps) {
   const navigate = useNavigate()
   const {
@@ -84,6 +92,8 @@ export function TripMonitor({
     declineProposedFare,
     terminals,
     liveGpsEnabled,
+    parents,
+    parentLinks,
   } = useRides()
   // On by default. Live position is the whole point of the trip screen —
   // it is how the driver finds the passenger and how the family watching at
@@ -180,9 +190,18 @@ export function TripMonitor({
     return () => cancelAnimationFrame(id)
   }, [awaitingFareApproval])
   const hasDriver = ride.status === 'driver_arriving' || ride.status === 'ongoing'
+  // Only a link the parent has actually consented to counts. An unconsented
+  // link exists as a pending request, not a working relationship — calling
+  // someone who never agreed to be a passenger's guardian is not a safety
+  // feature, it's a stranger's phone ringing.
+  const guardianLink = showGuardianContact
+    ? parentLinks.find((l) => l.studentPassengerId === ride.passengerId && l.consentGiven)
+    : null
+  const guardian = guardianLink ? parents.find((p) => p.id === guardianLink.parentId) : null
   const contacts: CallContact[] = [
     ...(hasDriver && driver?.phone ? [{ label: `Call ${driver.name}`, phone: driver.phone }] : []),
     ...(hasDriver ? (extraContacts ?? []).filter((c) => c.phone) : []),
+    ...(guardian?.phone ? [{ label: `Call ${guardian.name} (guardian)`, phone: guardian.phone }] : []),
   ]
 
   const isOngoingLeg = ride.status === 'ongoing'
@@ -356,12 +375,14 @@ export function TripMonitor({
             // wrong.
             // Riding: which tricycle, then who is driving it — plate first,
             // same order the driver's own map uses for this dot (see
-            // DriverPage's cardPlate label). The two screens are describing
-            // the same tricycle and used to disagree about which fact leads;
-            // the plate is what a passenger actually checks against the
-            // number in front of them, so it goes first on both now.
-            label: `${driver?.plateNumber ? `TRC ${driver.plateNumber}` : 'Tricycle'} · ${
-              driver?.name ?? ride.driverName ?? 'Driver'
+            // Short: the plate's own digits, then who is riding — mirrors how
+            // a driver reads a call sheet ("2005, Celeste"), not the fuller
+            // "TRC UTS-2005 · Kuya Nilo" this used to say. The passenger's
+            // own name here, not the driver's: the callout is answering
+            // "which tricycle is mine", and the fastest check against the
+            // plate bolted to the sidecar is the digits, not the letters.
+            label: `${driver?.plateNumber?.match(/\d+/)?.[0] ?? driver?.plateNumber ?? 'Tricycle'}-${
+              ride.passengerName?.trim().split(/\s+/)[0] ?? 'You'
             }${onBoard && sharingWith > 0 ? ` · +${sharingWith}` : ''}`,
             // Named without waiting for the Names toggle, and named from the
             // moment a driver is assigned rather than only once aboard.
@@ -506,11 +527,26 @@ export function TripMonitor({
   // the count between readings and moves the origin when it trips.
   const strayRef = useRef({ strayCount: 0 })
   const followedGps = driverGpsInfo?.isLive ? driverGpsInfo.gps : livePassengerGps
+  // Said out loud, not only acted on. The reroute above was silent by design
+  // — nobody wants a popup for a detour around a jeepney — but silent is the
+  // wrong choice for the one case that also matters for safety: the tricycle
+  // is now somewhere the plan never described, and family watching from home
+  // deserve to know that in the same moment the app does, not by noticing the
+  // line on the map has moved.
+  const [offRouteMeters, setOffRouteMeters] = useState<number | null>(null)
+  // Folded away until asked for. The dialog's real job is answered in one
+  // line — a new way is already being found — so a full directory of numbers
+  // sitting open by default would make the one time it is actually needed
+  // look like every other time it fires.
+  const [offRouteNumbersOpen, setOffRouteNumbersOpen] = useState(false)
   useEffect(() => {
     if (ride.status !== 'ongoing' && ride.status !== 'driver_arriving') return
     const decision = nextRerouteDecision(followedGps ?? null, route?.points, strayRef.current)
     strayRef.current = { strayCount: decision.strayCount }
-    if (decision.reroute && followedGps) setRerouteFrom(followedGps)
+    if (decision.reroute && followedGps) {
+      setRerouteFrom(followedGps)
+      setOffRouteMeters(Math.round(decision.metersOff))
+    }
   }, [followedGps, route, ride.status])
 
   // Noticing that you have got out.
@@ -550,6 +586,8 @@ export function TripMonitor({
   // draw the trip from a point already behind you.
   useEffect(() => {
     setRerouteFrom(null)
+    setOffRouteMeters(null)
+    setOffRouteNumbersOpen(false)
     strayRef.current = { strayCount: 0 }
   }, [ride.status, ride.dropoff.gps?.lat, ride.dropoff.gps?.lng])
 
@@ -565,6 +603,101 @@ export function TripMonitor({
 
   return (
     <section className="space-y-3 rounded-xl border border-brand-200 bg-brand-50 p-4 shadow-sm">
+      {/* The tricycle has plainly left the planned road.
+          A quiet reroute already fixed the route the moment this fired — see
+          the effect above — so this dialog is not asking permission to do
+          that. It exists for the other half of "the road changed": somebody
+          should be told, on purpose, rather than left to notice the blue line
+          had moved on its own. Proceed says the detour is expected — a closed
+          street, a shortcut, a passenger picked up along the way — and SOS
+          and the numbers below stay one tap away for the times it is not.
+
+          Held back while the got-off check or an open SOS is already up. A
+          single large jump in position can trip both the reroute detector and
+          the separation detector at once — the tricycle looks like it left
+          the road AND the passenger looks like they left the tricycle — and
+          showing both asks the same underlying question twice in two
+          different costumes. The got-off check is the more direct one:
+          it is asking about the passenger's own safety, not the road's, so
+          it wins. */}
+      {offRouteMeters !== null && !gotOffAsked && !openSos && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-3 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Off the planned route"
+        >
+          <div className="max-h-[85vh] w-full max-w-sm overflow-y-auto rounded-xl border border-amber-300 bg-white shadow-xl">
+            <div className="border-b border-amber-200 bg-amber-50 px-4 py-2.5">
+              <p className="text-sm font-bold text-amber-900">🚧 OFF WAY</p>
+              <p className="mt-0.5 text-[11px] leading-snug text-amber-800">
+                {tricycleLabel ?? 'The tricycle'} is now {offRouteMeters}m off the planned road. A new way to{' '}
+                {formatAddressLine(ride.dropoff.label)} is already being found.
+              </p>
+            </div>
+
+            <div className="space-y-2 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setOffRouteMeters(null)
+                  setOffRouteNumbersOpen(false)
+                }}
+                className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-bold text-white transition hover:bg-brand-700"
+              >
+                ✅ Proceed — this is expected
+              </button>
+              <button
+                type="button"
+                onClick={() => triggerSos(ride.id, sosActorId)}
+                disabled={!!openSos}
+                className="w-full rounded-lg border border-danger-500 bg-danger-600 py-2.5 text-sm font-bold text-white transition hover:bg-danger-700 disabled:cursor-not-allowed disabled:border-danger-300 disabled:bg-danger-300"
+              >
+                {openSos ? '🆘 SOS sent' : '🆘 Send SOS'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setOffRouteNumbersOpen((v) => !v)}
+                aria-expanded={offRouteNumbersOpen}
+                className="w-full rounded-lg border border-slate-300 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+              >
+                {offRouteNumbersOpen ? '▼' : '▶'} 📞 Contact numbers
+              </button>
+
+              {offRouteNumbersOpen && (
+                <div className="space-y-2">
+                  {contacts.length > 0 && (
+                    <div className="space-y-1.5">
+                      {contacts.map((c) => (
+                        <a
+                          key={c.phone}
+                          href={`tel:${c.phone}`}
+                          className="flex items-center justify-between gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs font-semibold text-brand-800 hover:bg-brand-100"
+                        >
+                          <span className="truncate">📞 {c.label}</span>
+                          <span className="shrink-0 text-brand-600">{c.phone}</span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {/* The full directory, scoped to where this trip is — a
+                      guardian and the driver are two numbers; a genuine
+                      emergency may need police, fire or medical instead, and
+                      those live here rather than being invented on this
+                      screen. */}
+                  <EmergencyHotlines
+                    province={ride.pickup.province}
+                    city={ride.pickup.city}
+                    title="SOS numbers"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {ride.status === 'completed' && onDismiss && (
         <button
           type="button"
@@ -999,6 +1132,12 @@ export function TripMonitor({
             frozen={framing.frozen}
             nav={navCamera}
             overlayBottom={onBoard ? () => liveFeedStrip : undefined}
+            // This is the map a passenger or a parent is actually watching
+            // for the length of a ride, not one sitting mid-page among other
+            // things to read — the trap a locked map protects against on a
+            // booking form doesn't apply here, and a lock only cost every
+            // reader a tap on the palm icon before they could look closer.
+            alwaysInteractive
           />
           {/* A trip nobody booked needs to say out loud that it exists.
               The passenger got into a tricycle off the street and the app

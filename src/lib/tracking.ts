@@ -129,17 +129,24 @@ export function tripMapFraming(status: RideStatus, legProgress: number): {
   // drifted off to one side. FitBounds still yields to a reader who has
   // touched the map, so this is "keep it centered until they say otherwise",
   // not a forced camera.
-  // While the trip is running the frame holds everyone in it — the tricycle,
-  // every passenger aboard, and the pickup and drop-off dots at either end —
-  // and re-fits as they move. Naming pickup/dropoff alone was not enough: the
-  // tricycle is the thing actually travelling, and it kept sliding out of a
-  // frame built around two fixed points. Terminals are left out (see
-  // followAll): they are scenery, and fitting them drags the view across the
-  // province.
+  // While the trip is actually running the frame holds everyone in it — the
+  // tricycle, every passenger aboard, and the pickup and drop-off dots at
+  // either end — and re-fits as they move. Naming pickup/dropoff alone was
+  // not enough: the tricycle is the thing actually travelling, and it kept
+  // sliding out of a frame built around two fixed points. Terminals are left
+  // out (see followAll): they are scenery, and fitting them drags the view
+  // across the province.
+  //
+  // Waiting for a driver is a different screen even though it shares this
+  // component: nothing is moving yet that the passenger cannot already see,
+  // and there is no reason the map should keep recentring itself under
+  // someone who is trying to look at a street a few blocks over. It still
+  // gets one fit the moment the screen appears — see the fallback below
+  // followAll gates in VectorLiveMap's FitBounds — it just does not keep
+  // reasserting that fit as the driver's estimated position ticks forward.
   if (status === 'ongoing') return { phase: 'ongoing', followAll: true, frozen: false }
-  if (status === 'driver_arriving' && legProgress >= 1)
-    return { phase: 'at-pickup', followAll: true, frozen: false }
-  if (status === 'driver_arriving') return { phase: 'driver_arriving', followAll: true, frozen: false }
+  if (status === 'driver_arriving' && legProgress >= 1) return { phase: 'at-pickup', frozen: false }
+  if (status === 'driver_arriving') return { phase: 'driver_arriving', frozen: false }
   return { phase: status, frozen: false }
 }
 

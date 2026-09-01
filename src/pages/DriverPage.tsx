@@ -2001,6 +2001,10 @@ function ActiveTripCard({
             }
             frozen={framing.frozen}
             nav={navCamera}
+            // The map a driver is actually watching for the length of the
+            // trip, not one sitting mid-page among other things to read —
+            // the lock exists for that other case.
+            alwaysInteractive
             // Full screen leaves the address strip and the distance line
             // behind — both sit below the map in the normal layout, and full
             // screen is a fixed layer over everything else on the page.

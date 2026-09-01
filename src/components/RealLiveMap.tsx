@@ -107,6 +107,16 @@ export interface RealLiveMapProps {
   // rather than print the same two addresses twice. Defaults to showing it:
   // everywhere else it is the only thing naming what the dots mean.
   hideLegend?: boolean
+  // Starts unlocked rather than skipping the lock: drag and the zoom buttons
+  // work from the first render, but the palm icon stays on screen so it can
+  // still be locked back down deliberately. Set on the two trip-tracking
+  // maps (TripMonitor, DriverPage's active trip), which are what a driver or
+  // a passenger is actually looking at for the length of a ride, not a map
+  // sitting in the middle of a page of other things to read. Left off
+  // everywhere else — a booking map with a long form above and below it is
+  // exactly the page a stray swipe traps someone on, which is what the lock
+  // exists for.
+  alwaysInteractive?: boolean
   // Keeps every participant in view for the length of a trip: the frame is
   // rebuilt as the markers move, rather than fitted once and left behind by
   // the one marker that travels. Terminal pins are excluded — they are on
@@ -556,7 +566,7 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, height, nav }: RealLiveMapProps) {
+export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, alwaysInteractive = false, height, nav }: RealLiveMapProps) {
   // If the Google script fails to load (bad key, network block, CSP), fall
   // back to the OSM/Leaflet canvas instead of showing an empty map.
   const [googleFailed, setGoogleFailed] = useState(false)
@@ -570,8 +580,13 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
   const [fullscreen, setFullscreen] = useState(false)
   // Marker names, off until asked for — see the row above the map.
   const [showLabels, setShowLabels] = useState(false)
-  // Locked until asked otherwise — see PanLock.
-  const [unlocked, setUnlocked] = useState(false)
+  // Locked until asked otherwise — see PanLock. alwaysInteractive starts
+  // already unlocked instead of skipping the control: a driver or a
+  // passenger watching a trip should not have to tap anything before they
+  // can look closer, but the icon stays, so they can still lock it back down
+  // deliberately — before scrolling past it, say — rather than it vanishing
+  // the moment panning stopped needing a first tap.
+  const [unlocked, setUnlocked] = useState(alwaysInteractive)
   // Counts the times the map has gone back under glass. Feeding it into the
   // framing signal is what makes re-locking resume automatic framing after a
   // reader has panned away.

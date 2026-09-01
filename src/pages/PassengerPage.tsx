@@ -2690,6 +2690,7 @@ function ActiveRideCard({
       onDismiss={onDismiss}
       allowLiveGpsToggle
       allowGotOffCheck
+      showGuardianContact
     />
   )
 }

@@ -1273,8 +1273,13 @@ export function TripMonitor({
 
       {/* Safety check for getting out of the tricycle. Only offered while a
           trip is actually underway — before that the rider hasn't boarded,
-          and afterwards the ride is already closed. */}
-      {allowGotOffCheck && isOngoingLeg && !openSos && (
+          and afterwards the ride is already closed. Withdrawn once arrival
+          is already confirmed: without this, a passenger who has just
+          answered "yes, I got off safely" kept seeing the exact same
+          question sitting right next to "Tapusin ang biyahe" — the fallback
+          for a driver who never closed the ride — as if nothing had
+          happened yet. */}
+      {allowGotOffCheck && isOngoingLeg && !openSos && !ride.passengerArrivedAt && (
         <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
           {!gotOffAsked ? (
             <button

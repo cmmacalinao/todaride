@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState, type ReactNode } from 'react'
 import { MapContainer, Marker, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -49,6 +49,14 @@ export interface RealLiveMapProps {
   // layout where the parent decides how tall the map is. The parent must
   // have a real height of its own.
   fill?: boolean
+  // Rendered over the map itself, so they stay put when it goes full screen —
+  // a caption or a summary drawn outside the map disappears the moment the
+  // map fills the phone, which is when it is most wanted.
+  overlayTop?: ReactNode
+  // Told whether the map is full screen, because the bottom of an embedded
+  // map is often already spoken for — the booking sheet sits there — while in
+  // full screen it is the only place left to put anything.
+  overlayBottom?: (fullscreen: boolean) => ReactNode
   // Either a real OSRM/Google road-network path (many points, follows actual
   // streets) or just the two leg endpoints as a fallback — routeIsReal picks
   // the line style so the two read differently (solid road path vs. dashed
@@ -512,7 +520,7 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, fill, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, height, nav }: RealLiveMapProps) {
+export function RealLiveMap({ points, fill, overlayTop, overlayBottom, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, height, nav }: RealLiveMapProps) {
   // If the Google script fails to load (bad key, network block, CSP), fall
   // back to the OSM/Leaflet canvas instead of showing an empty map.
   const [googleFailed, setGoogleFailed] = useState(false)
@@ -567,7 +575,12 @@ export function RealLiveMap({ points, fill, routeLine, hintLine, routeIsReal, ro
   // A caller that froze this map meant it — a finished trip is a picture, not
   // a thing to explore, and no button should offer to move it.
   const interactive = !frozen
-  const locked = frozen || !unlocked
+  // A map that has the screen to itself is not sitting in a scrolling page,
+  // so there is no swipe for it to steal and nothing for the lock to protect.
+  // Making people find a padlock before they can pan or pinch their own map
+  // is the wrong trade the moment the map *is* the page.
+  const ownsScreen = fullscreen || !!fill
+  const locked = frozen || (!unlocked && !ownsScreen)
   // Re-locking the map is the reader saying they are done with it, so the
   // frame comes back to the app: FitBounds treats a changed signal as
   // permission to fit again, which is what clears the "reader has taken
@@ -638,7 +651,10 @@ export function RealLiveMap({ points, fill, routeLine, hintLine, routeIsReal, ro
           ))}
         </div>
       )}
-      <div className={fullscreen || fill ? "min-h-0 flex-1" : ""}>
+      {/* The map and anything drawn over it. Relative so the overlays below
+          anchor to the map itself, which is what keeps them on screen when it
+          goes full screen. */}
+      <div className={`relative ${fullscreen || fill ? "min-h-0 flex-1" : ""}`}>
       {useVector ? (
         <NavMapBoundary onFailed={() => setNavFailed(true)}>
           <Suspense
@@ -671,7 +687,7 @@ export function RealLiveMap({ points, fill, routeLine, hintLine, routeIsReal, ro
               nav={nav}
               showLabels={showLabels}
               panLock={
-                interactive
+                interactive && !ownsScreen
                   ? {
                       unlocked,
                       onToggle: () =>
@@ -732,6 +748,16 @@ export function RealLiveMap({ points, fill, routeLine, hintLine, routeIsReal, ro
           draggableIds={draggableIds}
           onPointDragEnd={onPointDragEnd}
         />
+      )}
+      {overlayTop && (
+        <div className="pointer-events-none absolute left-[3.25rem] right-2 top-2 z-10">
+          <div className="pointer-events-auto">{overlayTop}</div>
+        </div>
+      )}
+      {overlayBottom && (
+        <div className="pointer-events-none absolute inset-x-2 bottom-2 z-10">
+          <div className="pointer-events-auto">{overlayBottom(fullscreen)}</div>
+        </div>
       )}
       </div>
     </div>

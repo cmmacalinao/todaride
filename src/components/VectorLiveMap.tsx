@@ -45,10 +45,16 @@ const NAV_ZOOM = 16.5
 // travel.
 const NAV_TRICYCLE_ART_OFFSET_DEGREES = 90
 
-// In navigation mode the rider sits low on the screen, so most of the map is
-// road they have not driven yet. A fraction of the map's height to pad the
-// top by - padding the top pushes the centre down.
-const AHEAD_BIAS = 0.28
+// Where the rider sits on screen during a trip, as a fraction of the map's
+// height to pad the top by — padding the top pushes the centre down.
+//
+// Zero: dead centre. A bias down the screen buys road not yet driven, which
+// is the right trade for a driver reading the next junction and the wrong one
+// here — this map's job is "where are we now", and a passenger, a parent
+// watching from home, and anyone comparing the dot to what is out of the
+// window all look at the middle of the screen first. Off-centre, the dot
+// reads as drifting away and people pan after it.
+const AHEAD_BIAS = 0
 
 // How far a finger may slide and how long it may rest and still count as a
 // tap rather than a drag. Generous on distance, because a thumb on a moving
@@ -393,12 +399,17 @@ export function VectorLiveMap({
     const map = mapRef.current
     if (!map || !ready) return
     const locked = !!frozen
-    const handlers = [map.dragPan, map.touchZoomRotate, map.doubleClickZoom, map.keyboard]
+    const handlers = [map.dragPan, map.doubleClickZoom, map.keyboard]
     handlers.forEach((h) => {
       if (!h) return
       if (locked) h.disable()
       else h.enable()
     })
+    // Pinch stays live even under the lock. Two fingers on a map are never a
+    // page scroll, so zooming costs the page nothing — and "I cannot zoom
+    // this map" is the complaint the lock was producing.
+    map.touchZoomRotate?.enable()
+    map.touchZoomRotate?.disableRotation()
   }, [ready, frozen])
 
   useEffect(() => {
@@ -624,26 +635,28 @@ export function VectorLiveMap({
         </button>
       )}
 
-      {/* Only while the camera is driving. On an ordinary north-up map these
-          would be two pieces of furniture explaining nothing. */}
+      {/* Only while the camera is driving. On an ordinary north-up map this
+          would be a piece of furniture explaining nothing. */}
       {nav && (
-        <>
-          {/* Offset clear of the zoom stack in the same corner, which it was
-              sitting underneath. */}
-          <div className="pointer-events-none absolute left-[48px] top-2 rounded-lg bg-white/92 px-2 py-1 text-[10px] font-semibold text-slate-700 shadow-sm">
-            {camera.headingUp ? '🧭 Facing your direction' : '🧭 Waiting for direction…'}
-          </div>
-          <div className="pointer-events-none absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-white/92 shadow-sm">
-            <span
-              aria-label={`North is ${Math.round(normalizeDegrees(-camera.bearing))} degrees from the top of the map`}
-              className="text-[13px] leading-none"
-              style={{ transform: `rotate(${-camera.bearing}deg)`, transition: 'transform .3s linear' }}
-            >
-              ⬆️
-            </span>
-          </div>
-        </>
+        <div className="pointer-events-none absolute left-[48px] top-2 rounded-lg bg-white/92 px-2 py-1 text-[10px] font-semibold text-slate-700 shadow-sm">
+          {camera.headingUp ? '🧭 Facing your direction' : '🧭 Waiting for direction…'}
+        </div>
       )}
+
+      {/* North, on every map rather than only the rotating one.
+          On a north-up map it is a fixed reference — the thing you check a
+          street sign or a shouted direction against — and during a trip it
+          turns with the map, which is the only way a rotated view can still
+          be related to the world outside the phone. */}
+      <div className="pointer-events-none absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-white/85 shadow-sm backdrop-blur-sm">
+        <span
+          aria-label={`North is ${Math.round(normalizeDegrees(-camera.bearing))} degrees from the top of the map`}
+          className="text-[13px] leading-none"
+          style={{ transform: `rotate(${-camera.bearing}deg)`, transition: 'transform .3s linear' }}
+        >
+          ⬆️
+        </span>
+      </div>
     </div>
   )
 }

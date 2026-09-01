@@ -24,7 +24,7 @@ const SAME_TRICYCLE_METERS = 80
 // next to them right now. mapSlot is that same page map, handed down by
 // PassengerPage so it renders here — right where "tap map above" actually
 // points — instead of a second instance.
-export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => void; mapSlot?: ReactNode }) {
+export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => void; mapSlot?: (footer: ReactNode) => ReactNode }) {
   const {
     drivers,
     passengers,
@@ -247,6 +247,67 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
     // is on the screen they were already looking at.
   }
 
+  // The strip that says whether anything is being recorded yet.
+  //
+  // Nothing is, on this screen — recording begins when the phone and one
+  // tricycle are measurably travelling together, and at that moment the panel
+  // closes and the trip screen takes over with the same strip reading
+  // "Recording". Saying "Record your Trip" here, greyed, is the honest half of
+  // that pair: this is what is about to happen, and it has not happened yet.
+  //
+  // The line beneath is what the app is actually doing meanwhile — without it
+  // the panel looks inert during the seconds it spends deciding, and a
+  // passenger who has just sat down starts hunting for a button to press,
+  // which is the tapping this whole rule exists to remove. Shown even with no
+  // GPS fix and no tricycle in range: the one person who most needs telling is
+  // whoever's phone has not answered.
+  //
+  // Handed to the map to draw across its bottom rather than placed under it,
+  // so the answer to "is this recording?" is still on screen while the map is
+  // being watched — and when the map is full screen, where nothing beside it
+  // is on screen at all.
+  const recordingStrip =
+    isRecordingTrip && activeRide ? (
+      <div className="rounded-lg border-2 border-danger-300 bg-danger-50 px-3 py-2 shadow-lg">
+        <div className="flex items-center gap-2">
+          <span className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-extrabold text-danger-800">
+            <span aria-hidden className="animate-pulse text-sm leading-none">🔴</span>
+            Recording
+          </span>
+          <button
+            type="button"
+            onClick={() => completeRide(activeRide.id, activeRide.paymentMethod)}
+            className="shrink-0 rounded-lg border border-danger-400 bg-white px-2.5 py-1 text-[11px] font-bold text-danger-800 transition hover:bg-danger-100"
+          >
+            ⏹ Stop Recording
+          </button>
+        </div>
+        {/* Who, in one line. No address box: the destination is set with the
+            red Destination tab and the map itself, which is one place to
+            answer it and a tap rather than three dropdowns typed on a moving
+            tricycle. */}
+        <p className="mt-1 text-[11px] leading-snug text-danger-800/80">
+          {activeRide.driverName ?? 'Ang driver'}
+          {/* Some plates already carry the TRC prefix in the data and some do
+              not, so prefixing unconditionally printed "TRC TRC-1023". */}
+          {recordedDriver?.plateNumber
+            ? ` · ${/^TRC/i.test(recordedDriver.plateNumber) ? '' : 'TRC '}${recordedDriver.plateNumber}`
+            : ''}
+        </p>
+      </div>
+    ) : (
+      !passengerHasTrip && (
+        <div className="rounded-lg border-2 border-slate-200 bg-white/95 px-3 py-2 shadow-lg">
+          <p className="flex items-center gap-1.5 text-xs font-extrabold text-slate-700">
+            <span aria-hidden className="text-sm leading-none opacity-40">🔴</span>
+            Record your Trip
+          </p>
+          <p className="mt-1 text-[11px] leading-snug text-slate-600">{recordingStatus}</p>
+        </div>
+      )
+    )
+
+
   return (
     <section className="space-y-2 rounded-xl border border-gold-400 bg-white p-3 shadow-sm">
       <div className="overflow-hidden rounded-lg border-2 border-gold-400 bg-navy-900">
@@ -262,61 +323,7 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
         </div>
       </div>
 
-      {mapSlot}
-
-      {/* The strip that says whether anything is being recorded yet.
-          Nothing is, on this screen — recording begins when the phone and one
-          tricycle are measurably travelling together, and at that moment the
-          panel closes and the trip screen takes over with the same strip
-          reading "Recording". Saying "Record your Trip" here, greyed, is the
-          honest half of that pair: this is what is about to happen, and it
-          has not happened yet.
-
-          The line beneath is what the app is actually doing meanwhile —
-          without it the panel looks inert during the seconds it spends
-          deciding, and a passenger who has just sat down starts hunting for a
-          button to press, which is the tapping this whole rule exists to
-          remove. Shown even with no GPS fix and no tricycle in range: the one
-          person who most needs telling is whoever's phone has not answered. */}
-      {isRecordingTrip && activeRide ? (
-        <div className="rounded-lg border-2 border-danger-300 bg-danger-50 px-3 py-2">
-          <div className="flex items-center gap-2">
-            <span className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-extrabold text-danger-800">
-              <span aria-hidden className="animate-pulse text-sm leading-none">🔴</span>
-              Recording
-            </span>
-            <button
-              type="button"
-              onClick={() => completeRide(activeRide.id, activeRide.paymentMethod)}
-              className="shrink-0 rounded-lg border border-danger-400 bg-white px-2.5 py-1 text-[11px] font-bold text-danger-800 transition hover:bg-danger-100"
-            >
-              ⏹ Stop Recording
-            </button>
-          </div>
-          {/* Who, in one line. No address box: the destination is set with
-              the red Destination tab and the map above, which is one place to
-              answer it and a tap rather than three dropdowns typed on a
-              moving tricycle. */}
-          <p className="mt-1 text-[11px] leading-snug text-danger-800/80">
-            {activeRide.driverName ?? 'Ang driver'}
-            {/* Some plates already carry the TRC prefix in the data and some
-                do not, so prefixing unconditionally printed "TRC TRC-1023". */}
-            {recordedDriver?.plateNumber
-              ? ` · ${/^TRC/i.test(recordedDriver.plateNumber) ? '' : 'TRC '}${recordedDriver.plateNumber}`
-              : ''}
-          </p>
-        </div>
-      ) : (
-        !passengerHasTrip && (
-          <div className="rounded-lg border-2 border-slate-200 bg-white px-3 py-2">
-            <p className="flex items-center gap-1.5 text-xs font-extrabold text-slate-700">
-              <span aria-hidden className="text-sm leading-none opacity-40">🔴</span>
-              Record your Trip
-            </p>
-            <p className="mt-1 text-[11px] leading-snug text-slate-600">{recordingStatus}</p>
-          </div>
-        )
-      )}
+      {mapSlot?.(recordingStrip)}
 
       {/* The camera and the panic button, before boarding rather than after.
           Both used to appear only once a trip existed, which put them on the

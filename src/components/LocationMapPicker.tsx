@@ -35,6 +35,8 @@ export function LocationMapPicker({
   hasDropoff = true,
   hasPickup = true,
   leadingAction,
+  fullscreenNote,
+  mapFooter,
   underMapAction,
   // Rendered directly beneath the Pickup / Destination tabs, so an
   // address form opens under the tab that asks for it rather than in a
@@ -102,6 +104,15 @@ export function LocationMapPicker({
   // sits with the map it is confirming, immediately after the pin the
   // passenger just placed rather than above it.
   leadingAction?: ReactNode
+  // Drawn over the bottom of the map only when it is full screen. Whatever a
+  // caller keeps under the map — times, fare — is off screen there, and those
+  // are exactly the numbers somebody studying the map still wants.
+  fullscreenNote?: ReactNode
+  // Drawn across the bottom of the map at all times. For a strip that has to
+  // stay readable while the map is being watched — "Recording", and the way
+  // to stop it — beside the map is not good enough: it scrolls away, and it
+  // is gone entirely once the map is full screen.
+  mapFooter?: ReactNode
   // Sits to the right of the submit in that same under-map row — for the one
   // control that belongs with the booking action rather than in the form
   // below it: how many people are riding.
@@ -406,11 +417,38 @@ export function LocationMapPicker({
       refitSignal={refitSignal}
       centerOn={myPosition}
       fill={mapFirst}
-      // Only pins that exist can be picked up. Dragging is the correction
-      // for a tap that landed a street out — far quicker than re-arming the
-      // end and tapping again, and it says which pin it means by which one
-      // the finger is on.
-      draggableIds={[...(hasPickup ? ['pickup'] : []), ...(hasDropoff ? ['dropoff'] : [])]}
+      // Drawn over the map rather than beside it, so the two things a person
+      // needs while looking at the map — where their pins are, and the way
+      // out to the booking — are still there when the map fills the phone.
+      overlayTop={mapFirst ? summary : undefined}
+      overlayBottom={
+        mapFooter || (mapFirst && (leadingAction || fullscreenNote))
+          ? (fullscreen) => (
+              <div className="space-y-1.5">
+                {mapFooter}
+                {/* The booking action only in full screen: the rest of the
+                    time the bottom of the map is the sheet, and the same
+                    button is already in it. */}
+                {mapFirst && fullscreen && (leadingAction || fullscreenNote) && (
+                  <div className="space-y-1.5 rounded-xl bg-white/95 p-2 shadow-lg">
+                    {fullscreenNote}
+                    {leadingAction}
+                  </div>
+                )}
+              </div>
+            )
+          : undefined
+      }
+      // Draggable exactly when drawn — the same conditions the two points
+      // above are built from, not the "has the passenger chosen one yet"
+      // flags. The pickup is drawn from a default coordinate before anybody
+      // has chosen it, so gating the drag on `hasPickup` left a green dot
+      // sitting on the map that could not be moved.
+      //
+      // Dragging is the correction for a tap that landed a street out: far
+      // quicker than re-arming the end and tapping again, and it says which
+      // pin it means by which one the finger is on.
+      draggableIds={[...(pickup.gps ? ['pickup'] : []), ...(hasDropoff && dropoff.gps ? ['dropoff'] : [])]}
       onPointDragEnd={(id, gps) => void placePin(gps, id === 'pickup' ? 'pickup' : 'dropoff')}
     />
   )
@@ -426,15 +464,6 @@ export function LocationMapPicker({
         className="scroll-mt-24 relative h-[calc(100vh-13rem)] min-h-[26rem] overflow-hidden rounded-xl border border-slate-200"
       >
         <div className="absolute inset-0">{map}</div>
-        {/* Floating over the map, above the sheet. The sheet can be dragged
-            shut; where the two pins are must not go with it. */}
-        {/* Beside the zoom control rather than across the whole top, and
-            barely there: it is a caption on a map, so it should sit over the
-            map rather than cover a strip of it. Left clear of the +/- stack,
-            top clear of the Full screen row above the canvas. */}
-        <div className="pointer-events-none absolute left-[3.25rem] right-2 top-[2.75rem] z-10">
-          <div className="pointer-events-auto">{summary}</div>
-        </div>
         <BottomSheet snap={effectiveSnap} onSnapChange={changeSnap} label="Where to">
           {sheetHeader?.()}
           {controls}

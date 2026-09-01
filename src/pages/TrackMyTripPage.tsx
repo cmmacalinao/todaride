@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarangayAddressPicker } from '../components/BarangayAddressPicker'
 import { LocationMapPicker } from '../components/LocationMapPicker'
@@ -127,7 +127,8 @@ export function TrackMyTripPage() {
     </div>
   )
 
-  const map = (
+  // Takes the strip the panel wants riding on the map — see mapFooter.
+  const map = (mapFooter: ReactNode) => (
     <div className="scroll-mt-24">
       <LocationMapPicker
         pickup={pickup}
@@ -149,6 +150,7 @@ export function TrackMyTripPage() {
         hasDropoff={dropoffChosen}
         hasPickup={false}
         terminals={terminals}
+        mapFooter={mapFooter}
       />
     </div>
   )

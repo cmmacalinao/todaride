@@ -620,6 +620,54 @@ export function PassengerPage() {
   const baseFare = isErrand ? errandBaseFare(oneWayFare, pabiliFareMode, pabiliFixedFare) : oneWayFare
   const serviceFee = isErrand ? pabiliServiceFee : 0
   const totalFare = baseFare + serviceFee + specialPickupFee + (isErrand ? tip : 0)
+
+  // When it gets here, when you are there, and what it costs — the three
+  // numbers most passengers decide on, on one line.
+  //
+  // Named rather than written where it is drawn, because the same row is
+  // wanted in two places: under the map on the booking screen, and over the
+  // map when it goes full screen, where nothing below the map is visible.
+  const etaFareRow = (() => {
+    // Driver → pickup uses the standard per-leg estimate; there is no
+    // assigned driver yet, so no real distance to measure from.
+    const toPickupSeconds = ETA_SECONDS_PER_LEG
+    // Pickup → dropoff prefers the real road route, falling back to
+    // the same per-leg figure when routing is unavailable.
+    const travelSeconds = plannedRoute?.durationSeconds || ETA_SECONDS_PER_LEG
+    const mins = (sec: number) => Math.max(1, Math.round(sec / 60))
+    const at = (sec: number) =>
+      new Date(Date.now() + sec * 1000)
+        .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+        .replace(/s?[AP]M$/i, '')
+    return (
+      // One line each instead of three stacked: the minutes stay the
+      // biggest thing on the row, but the card no longer costs the
+      // height of a whole section to say two numbers.
+      <div className="flex items-stretch gap-1.5">
+        <div className="flex min-w-0 flex-1 items-baseline justify-between gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1">
+          <span className="shrink-0 text-[10px] font-medium text-pickup-accent">Arrives</span>
+          <span className="min-w-0 truncate text-right">
+            <span className="text-xs font-bold text-slate-800">~{mins(toPickupSeconds)} min</span>{' '}
+            <span className="text-[10px] text-slate-400">{at(toPickupSeconds)}</span>
+          </span>
+        </div>
+        <div className="flex min-w-0 flex-1 items-baseline justify-between gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1">
+          <span className="shrink-0 text-[10px] font-medium text-dest-accent">Travel</span>
+          <span className="min-w-0 truncate text-right">
+            <span className="text-xs font-bold text-slate-800">~{mins(travelSeconds)} min</span>{' '}
+            <span className="text-[10px] text-slate-400">{at(toPickupSeconds + travelSeconds)}</span>
+          </span>
+        </div>
+        {/* On the same line as the two times, because the three of them are
+            one decision: how long until it comes, how long it takes, what it
+            costs. */}
+        <div className="flex min-w-0 shrink-0 items-baseline justify-between gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1">
+          <span className="shrink-0 text-[10px] font-medium text-slate-500">Fare</span>
+          <span className="text-xs font-bold text-slate-800">₱{totalFare}</span>
+        </div>
+      </div>
+    )
+  })()
   // Split for the passenger-facing breakdown: standard rate vs. distance
   // overage. The extra-km fee rounds once and the standard-rate portion
   // absorbs whatever is left, so the two lines always add up to exactly
@@ -1305,6 +1353,7 @@ export function PassengerPage() {
             </span>
           )
         }
+        fullscreenNote={etaFareRow}
         leadingAction={
           (
             <div className="space-y-1">
@@ -1447,7 +1496,23 @@ export function PassengerPage() {
                     hasDestination ? 'font-semibold text-dest-text' : 'font-normal text-dest-subtext/70'
                   }`}
                 >
-                  {hasDestination ? formatAddressLine(dropoff.label) : isErrand ? 'Where should it go?' : 'Where to?'}
+                  {/* The question the empty row asks stays on it once it is
+                      answered, as the answer's label. Without it the two
+                      filled rows are two addresses in two colours, and which
+                      one the tricycle is being sent to is left to the colour
+                      alone. */}
+                  {hasDestination ? (
+                    <>
+                      <span className="font-normal text-dest-subtext/80">
+                        {isErrand ? 'Deliver to: ' : 'Where to: '}
+                      </span>
+                      {formatAddressLine(dropoff.label)}
+                    </>
+                  ) : isErrand ? (
+                    'Where should it go?'
+                  ) : (
+                    'Where to?'
+                  )}
                 </span>
               </span>
             </button>
@@ -1539,7 +1604,14 @@ export function PassengerPage() {
                     pickupChosen ? 'text-sm font-semibold text-white' : 'text-[11px] font-normal text-white/70'
                   }`}
                 >
-                  {pickupChosen ? formatAddressLine(pickup.label) : 'Booking for others (Set Pick up address)'}
+                  {pickupChosen ? (
+                    <>
+                      <span className="font-normal text-white/75">Pickup: </span>
+                      {formatAddressLine(pickup.label)}
+                    </>
+                  ) : (
+                    'Booking for others (Set Pick up address)'
+                  )}
                 </span>
               </span>
             </button>
@@ -2083,42 +2155,7 @@ export function PassengerPage() {
               panel's own header instead so it never mounts twice. */}
           {sharedMap}
 
-          {/* When it gets here and when you are there — the two numbers most
-              passengers decide on, kept small enough to sit on one line. */}
-          {(() => {
-            // Driver → pickup uses the standard per-leg estimate; there is no
-            // assigned driver yet, so no real distance to measure from.
-            const toPickupSeconds = ETA_SECONDS_PER_LEG
-            // Pickup → dropoff prefers the real road route, falling back to
-            // the same per-leg figure when routing is unavailable.
-            const travelSeconds = plannedRoute?.durationSeconds || ETA_SECONDS_PER_LEG
-            const mins = (sec: number) => Math.max(1, Math.round(sec / 60))
-            const at = (sec: number) =>
-              new Date(Date.now() + sec * 1000)
-                .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-                .replace(/s?[AP]M$/i, '')
-            return (
-              // One line each instead of three stacked: the minutes stay the
-              // biggest thing on the row, but the card no longer costs the
-              // height of a whole section to say two numbers.
-              <div className="flex items-stretch gap-1.5">
-                <div className="flex min-w-0 flex-1 items-baseline justify-between gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1">
-                  <span className="shrink-0 text-[10px] font-medium text-pickup-accent">Arrives</span>
-                  <span className="min-w-0 truncate text-right">
-                    <span className="text-xs font-bold text-slate-800">~{mins(toPickupSeconds)} min</span>{' '}
-                    <span className="text-[10px] text-slate-400">{at(toPickupSeconds)}</span>
-                  </span>
-                </div>
-                <div className="flex min-w-0 flex-1 items-baseline justify-between gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1">
-                  <span className="shrink-0 text-[10px] font-medium text-dest-accent">Travel</span>
-                  <span className="min-w-0 truncate text-right">
-                    <span className="text-xs font-bold text-slate-800">~{mins(travelSeconds)} min</span>{' '}
-                    <span className="text-[10px] text-slate-400">{at(toPickupSeconds + travelSeconds)}</span>
-                  </span>
-                </div>
-              </div>
-            )
-          })()}
+          {etaFareRow}
 
           {/* What is left below the map is no longer an address form, so it
               no longer hides behind a Pickup/Destination tab: the GPS status,

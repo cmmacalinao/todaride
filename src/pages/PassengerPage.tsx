@@ -1161,30 +1161,14 @@ export function PassengerPage() {
     const applyPlace = target === 'pickup' ? handlePickupQuickPick : handleDropoffQuickPick
     const current = target === 'pickup' ? pickup : dropoff
     const fieldName = target === 'pickup' ? pickupLabel : dropoffLabel
-    // "My location" means where I am standing, which is an answer to FROM
-    // and not to where you are going. On a destination row it offered to
-    // book a trip from a place to itself.
-    //
-    // An errand keeps it: Pabili's "Deliver to" is the customer's own
-    // address, so their current position is exactly the right answer there.
-    const offerMyLocation = target === 'pickup' || isErrand
+    // No "My location" chip here. The row already has two ways to say where
+    // you are — the GPS button under the map, and tapping the map itself —
+    // and a third one wedged in front of Home/School/Work made the row read
+    // as a mix of "use this place" and "remember this place", which are
+    // opposite actions sitting in identical pills.
     return (
-      <div className="-mx-1 flex flex-nowrap gap-1 overflow-x-auto px-1 pb-0.5">
-        {offerMyLocation && (
-        <button
-          type="button"
-          onClick={() => void handleUseMyGps(target)}
-          disabled={gpsStatus === 'locating'}
-          title={`Set ${fieldName} to where I am right now`}
-          className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold transition disabled:opacity-60 ${
-            gpsStatus === 'done'
-              ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-              : 'border-brand-300 bg-brand-50 text-brand-700 hover:bg-brand-100'
-          }`}
-        >
-          {gpsStatus === 'locating' ? '📍 Locating…' : gpsStatus === 'done' ? '✓ My location' : '📍 My location'}
-        </button>
-        )}
+      <div className="-mx-1 flex flex-nowrap items-center gap-1 overflow-x-auto px-1 pb-0.5">
+        <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold text-slate-500">Save as:</span>
         {SAVED_LOCATION_LABELS.filter((label) => label !== 'Favorite').map((label) => {
           const saved = savedLocations.find((sl) => sl.label === label)
           return (

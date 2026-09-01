@@ -1481,10 +1481,20 @@ export function PassengerPage() {
                 className="absolute left-[1.16rem] top-[2.85rem] h-2 border-l-2 border-dotted border-slate-300"
               />
             )}
+            {/* The row and the other way to fill it, side by side.
+                Set on Map used to sit on its own line under the row, which
+                gave a secondary route the same vertical weight as the
+                question itself and cost a line of a sheet that has few to
+                spare. Beside it, narrow, it reads as the alternative it is. */}
+            <div className="mt-1.5 flex items-stretch gap-1.5">
             <button
               type="button"
               onClick={() => openAddressPicker('dropoff')}
-              className="mt-1.5 flex w-full items-center gap-2.5 rounded-lg bg-dest-fill px-3 py-2 pr-14 text-left shadow-sm filter transition hover:brightness-95"
+              className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg bg-dest-fill px-3 py-2 text-left shadow-sm filter transition hover:brightness-95 ${
+                // pr-14 clears the swap control, which only exists when both
+                // ends are shown.
+                destinationOnly ? '' : 'pr-14'
+              }`}
             >
               {/* dest-fill is pale under dark teal text in the default theme,
                   so the filled teal Pickup above is the one block carrying
@@ -1503,10 +1513,9 @@ export function PassengerPage() {
                 </span>
               </span>
             </button>
-            {/* The other way to answer this, said out loud.
-                Tapping the map has always set the pin and nothing on the form
-                mentioned it, so the address dropdowns read as the only way in
-                — and typing a barangay and a street is far more work than
+            {/* Tapping the map has always set the pin and nothing on the form
+                said so, leaving the address dropdowns reading as the only way
+                in — and typing a barangay and a street is far more work than
                 pointing at the place, especially for somewhere with no
                 address worth typing. This arms the map for the destination
                 and closes the form so the map is clear to tap. */}
@@ -1516,10 +1525,13 @@ export function PassengerPage() {
                 setMapTarget('dropoff')
                 setOpenEnd(null)
               }}
-              className="mt-1 flex w-full items-center justify-center gap-1 rounded-lg py-1 text-[11px] font-semibold text-dest-accent transition hover:bg-dest-accent/10"
+              aria-label="Set the destination by tapping the map"
+              className="flex w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg border border-dest-accent/40 bg-white px-1 text-[10px] font-bold leading-tight text-dest-accent transition hover:bg-dest-accent/10"
             >
-              📍 Set on Map
+              <span aria-hidden className="text-sm leading-none">📍</span>
+              Set on Map
             </button>
+            </div>
             {openEnd === 'dropoff' && (
               <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
                 {/* Saved places on the destination too, not only on an

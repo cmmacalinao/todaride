@@ -1545,7 +1545,12 @@ export function PassengerPage() {
                 )}
               </div>
             )}
-            {showStrip && (
+            {/* Not while an address form is open. The strip offers a
+                different way to start a trip entirely, and putting that
+                beside the city and barangay boxes somebody is halfway
+                through filling in is an interruption, not an option. It
+                comes back the moment the form closes. */}
+            {showStrip && !openEnd && (
               <>
               {/* Two ways to start a trip that aren't the address form above,
                   side by side so both fit without pushing the page down: Sakay

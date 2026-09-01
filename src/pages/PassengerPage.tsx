@@ -3,7 +3,6 @@ import { formatTripRoute } from '../lib/addressFormat'
 import { showInMiddle, showInMiddleWhenSettled } from '../lib/showInMiddle'
 import { NearbyDriversPicker, buildNearbyDrivers } from '../components/NearbyDriversPicker'
 import { RidePaymentForm } from '../components/RidePaymentForm'
-import { ScanSafeRideBanner } from './RiderStartPage'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ETA_SECONDS_PER_LEG, errandBaseFare, useRides } from '../context/RideContext'
@@ -1216,6 +1215,12 @@ export function PassengerPage() {
   // with it there too, so they are swapped out while Terminal is open: that
   // flow submits through its own "Record my Trip" button and is always a
   // single rider, neither of which apply here.
+  // Map-first on the ordinary booking form. Group Ride keeps the stacked
+  // layout: it lists every rider's destination under the map, which is a
+  // list to read rather than a single answer to give, and a sheet over the
+  // map would cover it.
+  const mapFirstBooking = !groupRideOpen
+
   const sharedMap = (
     <div ref={bookingMapRef} className="scroll-mt-24">
       <LocationMapPicker
@@ -1246,6 +1251,13 @@ export function PassengerPage() {
         refitSignal={`${pickup.id}|${hasDestination ? dropoff.id : 'none'}|${groupMapPoints.length}`}
         hasDropoff={hasDestination}
         hasPickup={pickupChosen}
+        // Map-first on the booking screen: the map takes the height and the
+        // From/Destination card rides over it in a draggable sheet. Not while
+        // the Terminal panel has borrowed this map — that screen has its own
+        // layout and its own strip, and a sheet over it would be a second
+        // panel arguing with the first.
+        mapFirst={mapFirstBooking}
+        sheetHeader={mapFirstBooking ? () => addressCard(true) : undefined}
         terminals={terminals}
         extraPoints={groupRideOpen ? groupMapPoints : undefined}
         showGpsFor={isErrand ? 'dropoff' : 'pickup'}
@@ -1409,7 +1421,7 @@ export function PassengerPage() {
                     pickupChosen ? 'font-semibold text-white' : 'font-normal text-white/70'
                   }`}
                 >
-                  {pickupChosen ? formatAddressLine(pickup.label) : 'Where are you now?'}
+                  {pickupChosen ? formatAddressLine(pickup.label) : 'Where to?'}
                 </span>
               </span>
             </button>
@@ -1797,7 +1809,9 @@ export function PassengerPage() {
       {/* From / Where to. Tapping either row expands it into the barangay
           list and sub-address for that end; the city above drives both. Only
           on the booking tab — Rewards and Emergency have nothing to address. */}
-      {pageTab === 'book' && !isBuyMedicine && (!isPabili || showErrandBooking) && (
+      {/* In map-first booking this card lives at the top of the sheet over
+          the map (see sharedMap's sheetHeader), so it is not repeated here. */}
+      {pageTab === 'book' && !mapFirstBooking && !isBuyMedicine && (!isPabili || showErrandBooking) && (
         addressCard(true)
       )}
 
@@ -2464,7 +2478,10 @@ export function PassengerPage() {
       </>
       )}
 
-      {!activeRide && <ScanSafeRideBanner feeFree={terminalTripIsFree} />}
+      {/* The big "Sakay sa Terminal" banner is on the Record-your-trip
+          chooser, where somebody is deciding between the two ways in. Here
+          they have already chosen to book, and it was a screen of marketing
+          under the form they came to fill in. */}
 
       {unpaidRide && (
         <RidePaymentForm

@@ -45,6 +45,10 @@ export interface MapPoint {
 
 export interface RealLiveMapProps {
   points: MapPoint[]
+  // Fills its parent instead of taking a fixed height — for a map-first
+  // layout where the parent decides how tall the map is. The parent must
+  // have a real height of its own.
+  fill?: boolean
   // Either a real OSRM/Google road-network path (many points, follows actual
   // streets) or just the two leg endpoints as a fallback — routeIsReal picks
   // the line style so the two read differently (solid road path vs. dashed
@@ -508,7 +512,7 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, height, nav }: RealLiveMapProps) {
+export function RealLiveMap({ points, fill, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, height, nav }: RealLiveMapProps) {
   // If the Google script fails to load (bad key, network block, CSP), fall
   // back to the OSM/Leaflet canvas instead of showing an empty map.
   const [googleFailed, setGoogleFailed] = useState(false)
@@ -579,7 +583,7 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
       className={
         fullscreen
           ? 'fixed inset-0 z-[60] flex flex-col bg-white'
-          : `relative z-0 overflow-hidden rounded-lg border border-slate-200 ${frozen ? 'map-frozen' : ''}`
+          : `relative z-0 flex flex-col overflow-hidden rounded-lg border border-slate-200 ${fill ? 'h-full' : ''} ${frozen ? 'map-frozen' : ''}`
       }
     >
       {/* Full screen, and the names, in one row above the map.
@@ -634,7 +638,7 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
           ))}
         </div>
       )}
-      <div className={fullscreen ? "min-h-0 flex-1" : ""}>
+      <div className={fullscreen || fill ? "min-h-0 flex-1" : ""}>
       {useVector ? (
         <NavMapBoundary onFailed={() => setNavFailed(true)}>
           <Suspense
@@ -663,7 +667,7 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
               frozen={locked}
               draggableIds={draggableIds}
               onPointDragEnd={onPointDragEnd}
-              height={fullscreen ? "100%" : height}
+              height={fullscreen || fill ? "100%" : height}
               nav={nav}
               showLabels={showLabels}
               panLock={
@@ -694,7 +698,7 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
           fitPointIds={fitPointIds}
           followAll={followAll}
           frozen={locked}
-          height={fullscreen ? "100%" : height}
+          height={fullscreen || fill ? "100%" : height}
           onFailed={() => setGoogleFailed(true)}
         />
       ) : (
@@ -712,7 +716,7 @@ export function RealLiveMap({ points, routeLine, hintLine, routeIsReal, routeVar
           followAll={followAll}
           centerOn={centerOn}
           frozen={locked}
-          height={fullscreen ? "100%" : height}
+          height={fullscreen || fill ? "100%" : height}
           panLock={
             interactive
               ? {

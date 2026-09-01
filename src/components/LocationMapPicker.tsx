@@ -1,4 +1,5 @@
 import { LocationPermissionRow } from './LocationPermissionRow'
+import { BottomSheet, type SheetSnap } from './BottomSheet'
 import { useWatchPosition } from '../lib/liveTracking'
 import { useRides } from '../context/RideContext'
 import { formatAddressLine } from '../lib/addressFormat'
@@ -39,10 +40,18 @@ export function LocationMapPicker({
   // address form opens under the tab that asks for it rather than in a
   // strip somewhere else on the page.
   belowTabs,
+  // Map-first: the map fills a tall area and everything else rides over it in
+  // a sheet that drags up and down. See BottomSheet.
+  mapFirst = false,
+  // Rendered at the top of that sheet, above the picker's own controls — the
+  // From/Destination address card, on the booking screen.
+  sheetHeader,
   showGpsFor,
   terminals = [],
   extraPoints = [],
 }: {
+  mapFirst?: boolean
+  sheetHeader?: () => ReactNode
   pickup: MockLocation
   dropoff: MockLocation
   target: 'pickup' | 'dropoff'
@@ -102,6 +111,9 @@ export function LocationMapPicker({
   // the full postal chain for the times someone needs to check the exact
   // spot — a sitio, a house number, the province — that shortening removed.
   const [showFullAddress, setShowFullAddress] = useState(false)
+  // Where the sheet sits in map-first layout. Starts half open: enough to
+  // show From and Destination without hiding the map they refer to.
+  const [sheetSnap, setSheetSnap] = useState<SheetSnap>('half')
 
   // Switching Pickup/Destination scrolls this whole picker (toggle, GPS
   // button, map) to the top of the screen — the passenger just told us
@@ -203,13 +215,10 @@ export function LocationMapPicker({
       })),
   ]
 
-  return (
-    // scroll-mt-24 keeps the toggle row clear of the sticky header
-    // (~81px tall) when selectTarget scrolls this into view — without it,
-    // scrollIntoView's default 'start' alignment tucks the top of this
-    // section directly under the header, hiding the very controls the
-    // passenger just asked to see.
-    <div ref={containerRef} className="scroll-mt-24 space-y-1">
+  // Everything that is not the map. In the stacked layout it sits above and
+  // below the map as it always has; in map-first it all moves into the sheet.
+  const controls = (
+    <>
       <div className="flex items-center justify-end gap-2">
         {/* Fills the half of this row the tabs were already leaving empty,
             and sits beside the very tabs that choose which of the two a tap
@@ -293,23 +302,57 @@ export function LocationMapPicker({
           {target === 'pickup' ? pickupLabel : dropoffLabel}
         </span>
       </p>
-      {/* centerOn: a pinch means "closer to me". Without it the map zooms
-          about whatever the frame happened to be centred on, and the person
-          doing the pinching slides off the edge. */}
-      <RealLiveMap
-        points={points}
-        onMapClick={placePin}
-        hideLegend
-        refitSignal={refitSignal}
-        centerOn={myPosition}
-      />
-      {/* Under the map: book on the left, how many are riding on the right. */}
+      {/* Book on the left, how many are riding on the right. */}
       {(leadingAction || underMapAction) && (
         <div className="flex items-center gap-2">
           {leadingAction && <div className="min-w-0 flex-1">{leadingAction}</div>}
           {underMapAction && <div className="shrink-0">{underMapAction}</div>}
         </div>
       )}
+    </>
+  )
+
+  // centerOn: a pinch means "closer to me". Without it the map zooms about
+  // whatever the frame happened to be centred on, and the person doing the
+  // pinching slides off the edge.
+  const map = (
+    <RealLiveMap
+      points={points}
+      onMapClick={placePin}
+      hideLegend
+      refitSignal={refitSignal}
+      centerOn={myPosition}
+      fill={mapFirst}
+    />
+  )
+
+  if (mapFirst) {
+    return (
+      // A tall map with the form over it. The height leaves the header and
+      // the bottom navigation visible, and the rest of the page carries on
+      // below — scrolling past the map still reaches trip history and the
+      // rest, which a window-fixed map would have buried.
+      <div
+        ref={containerRef}
+        className="scroll-mt-24 relative h-[calc(100vh-13rem)] min-h-[26rem] overflow-hidden rounded-xl border border-slate-200"
+      >
+        <div className="absolute inset-0">{map}</div>
+        <BottomSheet snap={sheetSnap} onSnapChange={setSheetSnap} label="Where to">
+          {sheetHeader?.()}
+          {controls}
+        </BottomSheet>
+      </div>
+    )
+  }
+
+  return (
+    // scroll-mt-24 keeps the toggle row clear of the sticky header (~81px)
+    // when selectTarget scrolls this into view — without it, scrollIntoView's
+    // default 'start' alignment tucks the top of this section directly under
+    // the header, hiding the very controls the passenger just asked to see.
+    <div ref={containerRef} className="scroll-mt-24 space-y-1">
+      {controls}
+      {map}
       {showFullAddress && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"

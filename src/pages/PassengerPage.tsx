@@ -1398,10 +1398,6 @@ export function PassengerPage() {
 
   // Group Ride, defined once so it can sit in either place: beside the FROM
   // row when that row is showing, and on its own line when it is not.
-  // Whether the booking sheet is pushed all the way down. At that height it
-  // is a glance at the map with one question on it, so everything except the
-  // destination row steps out of the way.
-  const sheetIsPeeking = mapFirstBooking && bookingSheetSnap === 'peek'
   const groupRideButton = (
     <button
       type="button"
@@ -1485,7 +1481,7 @@ export function PassengerPage() {
                 for every trip booked on somebody else's behalf — and wrong
                 silently, quoting the fare from the wrong end and sending the
                 driver to the wrong street. */}
-            {destinationOnly && !pickupForSomeoneElse && !sheetIsPeeking && (
+            {destinationOnly && !pickupForSomeoneElse && (
               <button
                 type="button"
                 onClick={() => {
@@ -1522,10 +1518,7 @@ export function PassengerPage() {
                 )}
               </div>
             )}
-            {/* Collapsed, the sheet shows the one red strip and nothing else
-                — see sheetIsPeeking. Dragging it down is asking for the map,
-                and a second row is not part of that. */}
-            {(!destinationOnly || (pickupForSomeoneElse && !sheetIsPeeking)) && (
+            {(!destinationOnly || pickupForSomeoneElse) && (
             <>
             {/* Paired with Group Ride on the booking screen, the way the
                 destination row is paired with Set on Map — the row takes the

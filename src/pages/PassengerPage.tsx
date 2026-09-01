@@ -1241,7 +1241,7 @@ export function PassengerPage() {
         // layout and its own strip, and a sheet over it would be a second
         // panel arguing with the first.
         mapFirst={mapFirstBooking}
-        sheetHeader={mapFirstBooking ? () => addressCard(true) : undefined}
+        sheetHeader={mapFirstBooking ? () => addressCard(true, true) : undefined}
         terminals={terminals}
         extraPoints={groupRideOpen ? groupMapPoints : undefined}
         showGpsFor={isErrand ? 'dropoff' : 'pickup'}
@@ -1415,26 +1415,9 @@ export function PassengerPage() {
                     pickupChosen ? 'font-semibold text-white' : 'font-normal text-white/70'
                   }`}
                 >
-                  {pickupChosen ? formatAddressLine(pickup.label) : 'Where to?'}
+                  {pickupChosen ? formatAddressLine(pickup.label) : 'Where are you now?'}
                 </span>
               </span>
-            </button>
-            {/* The other way to answer this, said out loud.
-                Tapping the map has always worked and nothing on the form
-                mentioned it, so the address dropdowns read as the only way —
-                and typing a barangay and a street is far more work than
-                pointing at the place, especially for somewhere with no
-                address worth typing. This arms the map for this end and gets
-                out of the way. */}
-            <button
-              type="button"
-              onClick={() => {
-                setMapTarget('pickup')
-                setOpenEnd(null)
-              }}
-              className="mt-1 flex w-full items-center justify-center gap-1 rounded-lg py-1 text-[11px] font-semibold text-pickup-accent transition hover:bg-pickup-accent/10"
-            >
-              📍 Set on Map
             </button>
             {openEnd === 'pickup' && (
               <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
@@ -1500,9 +1483,26 @@ export function PassengerPage() {
                     hasDestination ? 'font-semibold text-dest-text' : 'font-normal text-dest-subtext/70'
                   }`}
                 >
-                  {hasDestination ? formatAddressLine(dropoff.label) : isErrand ? 'Where should it go?' : 'Where are you going?'}
+                  {hasDestination ? formatAddressLine(dropoff.label) : isErrand ? 'Where should it go?' : 'Where to?'}
                 </span>
               </span>
+            </button>
+            {/* The other way to answer this, said out loud.
+                Tapping the map has always set the pin and nothing on the form
+                mentioned it, so the address dropdowns read as the only way in
+                — and typing a barangay and a street is far more work than
+                pointing at the place, especially for somewhere with no
+                address worth typing. This arms the map for the destination
+                and closes the form so the map is clear to tap. */}
+            <button
+              type="button"
+              onClick={() => {
+                setMapTarget('dropoff')
+                setOpenEnd(null)
+              }}
+              className="mt-1 flex w-full items-center justify-center gap-1 rounded-lg py-1 text-[11px] font-semibold text-dest-accent transition hover:bg-dest-accent/10"
+            >
+              📍 Set on Map
             </button>
             {openEnd === 'dropoff' && (
               <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">

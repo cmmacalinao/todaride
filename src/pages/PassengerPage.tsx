@@ -52,7 +52,6 @@ import { EmergencyHotlines } from '../components/EmergencyHotlines'
 import { PabiliItemsInput } from '../components/PabiliItemsInput'
 import { makeGuestPassengerId, useGuestRider } from '../components/GuestRiderFields'
 import { PassengerRewardsCard } from '../components/PassengerRewardsCard'
-import { terminalRideIsFree } from '../lib/terminalFee'
 import { GroupRideInlinePanel, type GroupRiderEntry } from '../components/GroupRideInlinePanel'
 import type {
   DriverReportReason,
@@ -100,8 +99,6 @@ export function PassengerPage() {
     todaRadiusKm,
     outOfAreaPerKm,
     setFavoriteDriver,
-    terminalQrFeeWaived,
-    commissionPerRide,
     acknowledgeRidePayment,
     requestedDrivers,
     setRequestedDriver,
@@ -114,7 +111,6 @@ export function PassengerPage() {
     vendorsEnabled,
   } = useRides()
   // The "no booking app fee" promise, only where it is still true.
-  const terminalTripIsFree = terminalRideIsFree(terminalQrFeeWaived, commissionPerRide)
   const { currentPassengerId, setCurrentPassengerId, authedAccount } = useSession()
   // Only the Admin ops view (/passenger) needs to switch between accounts to
   // test as anyone — a real logged-in passenger's identity is fixed to
@@ -297,7 +293,9 @@ export function PassengerPage() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  // Sakay sa Terminal has its own address again (/book/terminal). It shares
+  // Sakay sa Terminal has its own address again (/book/terminal). Reached
+  // from the Record-mo-ang-Biyahe card on the chooser (RiderStartPage), not
+  // from a strip under the booking form. It shares
   // this page's state — the same pickup, the same destination, the same one
   // map instance — so it stays this component rather than a second one that
   // would have to rebuild all of it. What the route buys is that it behaves
@@ -306,7 +304,6 @@ export function PassengerPage() {
   //
   // Group Ride is still a panel on this page; it is a variation on booking
   // rather than a different thing to be doing.
-  const openTrackMyTrip = () => navigate('/book/terminal')
   // Group Ride, the same way. It needs the page's map as much as the
   // terminal screen does — pinning each rider's own destination is done on
   // it — so it also stays this component and takes the map with it.
@@ -1318,31 +1315,11 @@ export function PassengerPage() {
                       : 'Book a tricycle'}
                 </span>
               </button>
-              {/* Directly under the booking button, because picking a
-                  driver is a decision about the booking you are on the
-                  point of making — not a separate errand. Once one is
-                  picked it says who, so the choice is visible without
-                  reopening the list. */}
-              <button
-                type="button"
-                onClick={() => setShowDrivers(true)}
-                className={`w-full rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
-                  requestedDriverId
-                    ? 'border-brand-500 bg-brand-50 text-brand-800 hover:bg-brand-100'
-                    : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                {/* The tab keeps its name whether or not one is picked —
-                    a control that renames itself is one you have to find
-                    twice. The chosen driver is appended, and the blue tint
-                    carries the state on a narrow screen where the name
-                    truncates. */}
-                <span className="block truncate">
-                  🧑‍✈️ Drivers near you
-                  {requestedDriverId &&
-                    ` · ${drivers.find((d) => d.id === requestedDriverId)?.name ?? 'Driver'}`}
-                </span>
-              </button>
+              {/* No "Drivers near you" button here. The Drivers tab in the
+                  bottom bar opens the same list, and the map already shows
+                  every tricycle that is actually out there — so this was a
+                  third way to the same place, taking a line of the sheet
+                  under the button people came here to press. */}
             </div>
           )
         }
@@ -1578,39 +1555,23 @@ export function PassengerPage() {
                   between the destination row and the picker that opens from it,
                   so expanding a destination split the two apart and pushed this
                   row into the middle of a form it has nothing to do with. */}
+              {/* The yellow "Track your trip" strip is gone from here. It was
+                  a second way to start a trip, sitting under the form for the
+                  first one — and the chooser this screen is reached through
+                  already offers it, as the whole other half of that screen.
+                  Group Ride keeps its place: it changes the booking being
+                  made here rather than replacing it. */}
               {!isErrand && (
-                <div className="mt-2 flex items-stretch gap-1.5">
-                  <button
-                    type="button"
-                    onClick={openTrackMyTrip}
-                    className="flex min-w-0 flex-[4] items-center gap-1.5 rounded-lg bg-[#ffe066] px-2.5 py-1.5 text-left shadow-sm transition hover:bg-[#ffd633]"
-                  >
-                    <span aria-hidden className="shrink-0 text-sm leading-none">🚏</span>
-                    {/* Two lines, because the strip is answering two
-                        different questions. The first says what this is for —
-                        safety, not booking — and the second says who it is
-                        for and what it costs. Run together on one line they
-                        read as a single slogan and the "no charge" gets lost
-                        at the end of it. */}
-                    <span className="min-w-0 flex-1 leading-tight text-navy-900">
-                      <span className="block text-[10px] font-extrabold uppercase tracking-wide">
-                        Track your trip for your safety
-                      </span>
-                      <span className="block text-[9px] font-semibold">
-                        Kung sumakay sa terminal o pumara lang — record your trip
-                        {terminalTripIsFree && ' (no app fee)'}
-                      </span>
-                    </span>
-                  </button>
+                <div className="mt-2 flex justify-end">
                   <button
                     type="button"
                     onClick={openGroupRide}
                     aria-expanded={groupRideOpen}
-                    className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg border border-slate-300 bg-white px-1.5 py-1.5 text-center shadow-sm transition hover:bg-slate-50"
+                    className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 shadow-sm transition hover:bg-slate-50"
                   >
                     <span aria-hidden className="shrink-0 text-xs leading-none">👥</span>
-                    <span className="min-w-0 text-[9px] font-extrabold uppercase leading-tight tracking-wide text-slate-700">
-                      Group
+                    <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-700">
+                      Group ride
                     </span>
                   </button>
                 </div>

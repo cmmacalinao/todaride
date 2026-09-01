@@ -223,6 +223,30 @@ export function LocationMapPicker({
       })),
   ]
 
+  // What the two pins currently say, in one tappable block.
+  //
+  // It confirms a tap actually landed: the province/city/barangay form has no
+  // structured address for a freeform map tap, so without this there is no
+  // visible sign anything happened until the marker is noticed moving. Colour
+  // is identity — green is always the pickup, red always the destination —
+  // and weight marks which one a tap will move. Tapping opens the full,
+  // unshortened address for both ends.
+  const summary = (
+    <button
+      type="button"
+      onClick={() => setShowFullAddress(true)}
+      title="Tap to see the complete address"
+      className={`space-y-0.5 rounded-lg px-2 py-1 text-left text-[11px] leading-tight transition ${
+        mapFirst
+          ? 'w-full bg-white/95 shadow-md backdrop-blur-sm hover:bg-white'
+          : 'min-w-0 flex-1 bg-slate-50 hover:bg-slate-100 active:bg-slate-200'
+      }`}
+    >
+      <span className={`block truncate text-pickup-accent ${target === 'pickup' ? 'font-semibold' : 'font-normal'}`}>📍 {hasPickup ? formatAddressLine(pickup.label) : <span className="text-slate-400">not set yet</span>}</span>
+      <span className={`block truncate text-dest-accent ${target === 'dropoff' ? 'font-semibold' : 'font-normal'}`}>🏁 {hasDropoff ? formatAddressLine(dropoff.label) : <span className="text-slate-400">not set yet</span>}</span>
+    </button>
+  )
+
   // Everything that is not the map. In the stacked layout it sits above and
   // below the map as it always has; in map-first it all moves into the sheet.
   const controls = (
@@ -245,15 +269,11 @@ export function LocationMapPicker({
             the tabs immediately to the right already say them, and at this
             width they were costing the end of the address itself. Tapping
             opens the full, unshortened address for both ends. */}
-        <button
-          type="button"
-          onClick={() => setShowFullAddress(true)}
-          title="Tap to see the complete address"
-          className="min-w-0 flex-1 space-y-0.5 rounded-lg bg-slate-50 px-2 py-1 text-left text-[11px] leading-tight transition hover:bg-slate-100 active:bg-slate-200"
-        >
-          <span className={`block truncate text-pickup-accent ${target === 'pickup' ? 'font-semibold' : 'font-normal'}`}>📍 {hasPickup ? formatAddressLine(pickup.label) : <span className="text-slate-400">not set yet</span>}</span>
-          <span className={`block truncate text-dest-accent ${target === 'dropoff' ? 'font-semibold' : 'font-normal'}`}>🏁 {hasDropoff ? formatAddressLine(dropoff.label) : <span className="text-slate-400">not set yet</span>}</span>
-        </button>
+        {/* In map-first this floats over the top of the map instead — see
+            summary below. It is a caption for the two pins, and it belongs
+            against the pins rather than in a panel that can be dragged shut
+            over them. */}
+        {!mapFirst && summary}
         <div className="flex shrink-0 gap-1 rounded-lg bg-slate-100 p-1">
           <button
             type="button"
@@ -345,6 +365,11 @@ export function LocationMapPicker({
         className="scroll-mt-24 relative h-[calc(100vh-13rem)] min-h-[26rem] overflow-hidden rounded-xl border border-slate-200"
       >
         <div className="absolute inset-0">{map}</div>
+        {/* Floating over the map, above the sheet. The sheet can be dragged
+            shut; where the two pins are must not go with it. */}
+        <div className="pointer-events-none absolute inset-x-2 top-2 z-10">
+          <div className="pointer-events-auto">{summary}</div>
+        </div>
         <BottomSheet snap={effectiveSnap} onSnapChange={changeSnap} label="Where to">
           {sheetHeader?.()}
           {controls}

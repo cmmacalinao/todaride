@@ -15,6 +15,7 @@ import { reverseGeocodeToPhAddress } from '../lib/customLocation'
 import { useNow, useWatchPosition } from '../lib/liveTracking'
 import { useRoute } from '../lib/routing'
 import { nextRerouteDecision } from '../lib/reroute'
+import { nextSeparationDecision, type SeparationState } from '../lib/separation'
 import { RIDE_CANCELLATION_REASON_LABELS } from '../types'
 import type { GeoCoords, Ride } from '../types'
 
@@ -111,28 +112,41 @@ export function TripMonitor({
     speedMps: livePassengerSpeed,
   } = useWatchPosition(liveGpsEnabled || shareLiveGps)
 
-  // Publish this phone's position for the driver to find us by — and stop the
-  // moment the trip starts.
+  // Publish this phone's position — often while the driver is still coming,
+  // sparingly once the trip is under way.
   //
-  // Both phones write the same ride row, and each write replaces it whole. At
+  // Both phones write the same ride row and each write replaces it whole. At
   // roughly a fix a second from each device, the driver's write carries this
   // phone's last-known passenger position and this phone's write carries the
-  // driver's last-known position, so each device spends the trip reverting the
-  // other's newest coordinate to a stale copy. The tricycle marker on the
-  // passenger's screen is the visible casualty: it flips between where the
-  // driver is and where the driver was, which looks a great deal like a
-  // marker that has stopped moving.
+  // driver's last-known position, so the two spend the trip reverting each
+  // other's newest coordinate to a stale copy. The tricycle marker is the
+  // visible casualty: it flips between where the driver is and where the
+  // driver was, which looks a great deal like a marker that has stopped.
   //
-  // Nothing reads this during a trip anyway — getPassengerMapGps returns null
-  // unless the driver is still on their way, and once aboard the dot comes
-  // from this phone's own GPS rather than the ride. So the collision is not
-  // only harmful, it buys nothing: while riding, the tricycle's position is
-  // the only one worth publishing, and the driver's phone owns it.
-  const publishMyGps = shareLiveGps && ride.status !== 'ongoing'
+  // While the driver is still on their way, this position is how they find
+  // the passenger, so it goes out at full rate; the tricycle marker is
+  // interpolated then anyway, so there is little to lose.
+  //
+  // Once aboard, it goes out every ten seconds instead. Nothing draws it —
+  // the passenger's dot comes from this phone directly — but the driver's
+  // screen needs it to notice the two phones parting at the kerb (see
+  // separation.ts), and that question is asked in tens of seconds, not tenths.
+  // One write per ten driver writes is a collision the marker survives.
+  const ONGOING_PUBLISH_MS = 10000
+  const lastPublishedAtRef = useRef(0)
   useEffect(() => {
-    updatePassengerLiveGps(ride.id, publishMyGps ? livePassengerGps : null)
+    if (!shareLiveGps) {
+      updatePassengerLiveGps(ride.id, null)
+      return
+    }
+    if (ride.status === 'ongoing') {
+      const now = Date.now()
+      if (now - lastPublishedAtRef.current < ONGOING_PUBLISH_MS) return
+      lastPublishedAtRef.current = now
+    }
+    updatePassengerLiveGps(ride.id, livePassengerGps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [livePassengerGps, publishMyGps, ride.id])
+  }, [livePassengerGps, shareLiveGps, ride.status, ride.id])
 
   const driver = ride.driverId ? MOCK_DRIVERS.find((d) => d.id === ride.driverId) : null
   // Who is driving and which tricycle it is, shown together while the trip
@@ -490,6 +504,38 @@ export function TripMonitor({
     strayRef.current = { strayCount: decision.strayCount }
     if (decision.reroute && followedGps) setRerouteFrom(followedGps)
   }, [followedGps, route, ride.status])
+
+  // Noticing that you have got out.
+  //
+  // Nobody presses anything at the kerb. The passenger has their bag and
+  // their fare in hand and walks off, and the trip stays open behind them —
+  // which is how a ride ends at midnight three barangays away, and how a
+  // driver's next job starts with the last one still running.
+  //
+  // When this phone and the tricycle have plainly parted, the safety check
+  // this screen already has is opened for them: same question, same answers,
+  // just asked at the moment it applies instead of waiting to be found. See
+  // separation.ts for why it takes three readings and not one.
+  const separationRef = useRef<SeparationState>({ apartCount: 0, asked: false })
+  const [apartMeters, setApartMeters] = useState<number | null>(null)
+  useEffect(() => {
+    if (ride.status !== 'ongoing') {
+      separationRef.current = { apartCount: 0, asked: false }
+      return
+    }
+    // Only against a real published position. The interpolated one is drawn
+    // from legProgress and would part from this phone the moment the
+    // simulation and the road disagree, which is not the passenger leaving.
+    const tricycleGps = driverGpsInfo?.isLive ? driverGpsInfo.gps : null
+    const decision = nextSeparationDecision(livePassengerGps, tricycleGps, separationRef.current)
+    separationRef.current = { apartCount: decision.apartCount, asked: decision.asked }
+    if (decision.separated) {
+      setApartMeters(Math.round(decision.metersApart ?? 0))
+      setGotOffAsked(true)
+      setGotOffHelpOpen(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [livePassengerGps, driverGpsInfo?.gps.lat, driverGpsInfo?.gps.lng, ride.status])
 
   // A new leg is a new route. Without this the origin stays pinned to
   // wherever the last re-route happened, and arriving at the pickup would
@@ -1070,7 +1116,12 @@ export function TripMonitor({
           ) : (
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold text-amber-900">Did you get off safely?</p>
+                <p className="text-xs font-semibold text-amber-900">
+                  {apartMeters === null
+                    ? 'Did you get off safely?'
+                    : `You have moved ${apartMeters}m from the tricycle — did you get off safely?`}
+                </p>
+
                 <button
                   type="button"
                   onClick={() => setGotOffHelpOpen((v) => !v)}
@@ -1097,6 +1148,7 @@ export function TripMonitor({
                 onClick={() => {
                   void confirmArrivalHere()
                   setGotOffAsked(false)
+                  setApartMeters(null)
                 }}
                 className="w-full rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
               >
@@ -1107,6 +1159,7 @@ export function TripMonitor({
                 onClick={() => {
                   triggerSos(ride.id, sosActorId)
                   setGotOffAsked(false)
+                  setApartMeters(null)
                 }}
                 className="w-full rounded-lg border border-danger-500 bg-danger-600 py-2 text-xs font-semibold text-white hover:bg-danger-700"
               >
@@ -1114,7 +1167,10 @@ export function TripMonitor({
               </button>
               <button
                 type="button"
-                onClick={() => setGotOffAsked(false)}
+                onClick={() => {
+                  setGotOffAsked(false)
+                  setApartMeters(null)
+                }}
                 className="w-full text-[11px] font-medium text-amber-800 underline"
               >
                 Never mind, I'm still on board

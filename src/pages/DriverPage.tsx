@@ -46,6 +46,7 @@ import {
 } from '../lib/geo'
 import { useNow, useWatchPosition } from '../lib/liveTracking'
 import { useRoute } from '../lib/routing'
+import { nextSeparationDecision, type SeparationState } from '../lib/separation'
 import { TodaAdminPage } from './TodaAdminPage'
 import { alertsForToda } from '../lib/alertRouting'
 import { AnnouncementFeed } from '../components/AnnouncementFeed'
@@ -825,7 +826,7 @@ export function DriverPage() {
             onClick={() => setShowSoa(true)}
             className="flex-1 rounded-lg bg-[#0f766e] py-2 text-xs font-semibold text-white hover:bg-[#0b5f59]"
           >
-            Pay via GCash
+            Pay via E-Wallet
           </button>
         )}
       </div>
@@ -1792,6 +1793,34 @@ function ActiveTripCard({
     driverGpsForPickup && passengerGpsInfo?.gps
       ? Math.round(haversineDistanceMeters(driverGpsForPickup, passengerGpsInfo.gps))
       : null
+  // Noticing that the passenger has got out.
+  //
+  // A trip ends at the kerb, where nobody is looking at a phone: the fare is
+  // handed over, the passenger walks off, and the ride stays open behind them
+  // until the driver remembers — with the next job starting while the last one
+  // is still running. The two phones parting is the plainest signal there is
+  // that it is over, so the driver is asked rather than left to remember.
+  //
+  // Measured against the passenger's own published position, which during a
+  // trip arrives every ten seconds (see TripMonitor), so this settles within
+  // about half a minute of them walking away rather than instantly. See
+  // separation.ts for why it waits for three readings and not one.
+  const separationRef = useRef<SeparationState>({ apartCount: 0, asked: false })
+  const [passengerLeftMeters, setPassengerLeftMeters] = useState<number | null>(null)
+  const [passengerLeftDismissed, setPassengerLeftDismissed] = useState(false)
+  const passengerLiveGps = ride?.passengerLiveGps ?? null
+  useEffect(() => {
+    if (!ride || ride.status !== 'ongoing') {
+      separationRef.current = { apartCount: 0, asked: false }
+      return
+    }
+    const decision = nextSeparationDecision(driverGpsForPickup, passengerLiveGps, separationRef.current)
+    separationRef.current = { apartCount: decision.apartCount, asked: decision.asked }
+    if (decision.separated) setPassengerLeftMeters(Math.round(decision.metersApart ?? 0))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [driverGpsForPickup, passengerLiveGps, ride?.status])
+  const passengerLeft = passengerLeftMeters !== null && !passengerLeftDismissed
+
   const autoStartRef = useRef<string | null>(null)
   useEffect(() => {
     if (!ride || ride.status !== 'driver_arriving') return
@@ -2056,16 +2085,44 @@ function ActiveTripCard({
           )}
         </>
       )}
+      {/* Said as soon as the two phones part, which is when it is true and
+          while the driver is still beside the passenger. */}
+      {ride.status === 'ongoing' && passengerLeft && (
+        <div className="rounded-lg border-2 border-amber-400 bg-amber-50 px-3 py-2.5">
+          <p className="text-sm font-bold text-amber-900">🚶 Passenger left</p>
+          <p className="mt-0.5 text-[11px] leading-snug text-amber-800">
+            {ride.passengerName} is {formatKm(passengerLeftMeters ?? 0)} from the tricycle. If the trip is done,
+            finish it here so the fare is closed and your next job can start.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (needsDriverPaymentCheck) setConfirmingPayment(true)
+              else onComplete()
+            }}
+            className="mt-2 w-full rounded-lg bg-amber-600 py-2 text-xs font-bold text-white transition hover:bg-amber-700"
+          >
+            ✅ Complete the trip
+          </button>
+          <button
+            type="button"
+            onClick={() => setPassengerLeftDismissed(true)}
+            className="mt-1 w-full text-[11px] font-medium text-amber-800 underline"
+          >
+            Not yet — still on board
+          </button>
+        </div>
+      )}
       {/* Locked while the trip is still running, the same way Start is locked
           until the driver reaches the pickup. A fare ended mid-journey charges
           the full amount for half a ride and opens a payment form on a moving
-          tricycle. Two things unlock it, and they are the only two ways a trip
-          really ends: arriving, or the passenger saying they are getting off
-          here. */}
+          tricycle. Three things unlock it, and they are the ways a trip really
+          ends: arriving, the passenger saying they are getting off here, and
+          the two phones having plainly parted. */}
       {ride.status === 'ongoing' && !(needsDriverPaymentCheck && confirmingPayment) && (
         <>
           <button
-            disabled={!atDropoff && !ride.passengerArrivedAt}
+            disabled={!atDropoff && !ride.passengerArrivedAt && !passengerLeft}
             onClick={() => {
               if (needsDriverPaymentCheck) setConfirmingPayment(true)
               else onComplete()

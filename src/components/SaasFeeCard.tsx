@@ -115,7 +115,7 @@ export function SaasFeeCard({
             onClick={() => setShowSoa(true)}
             className="flex-1 rounded-lg bg-[#0f766e] py-2 text-xs font-semibold text-white hover:bg-[#0b5f59]"
           >
-            Pay via GCash
+            Pay via E-Wallet
           </button>
         )}
       </div>

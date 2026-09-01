@@ -6,10 +6,11 @@ import type { PaymentAccountDetails, PaymentMethod } from '../types'
 // at the kerb; an e-wallet needs the number to send to and the reference off
 // the receipt. Asking one set of questions for both is how a passenger ends
 // up staring at a field that does not apply to them.
+// Two, matching PAYMENT_METHODS — see the note there on why the wallets are
+// one choice and why 'gcash' is still the value behind it.
 const METHODS: { id: PaymentMethod; label: string; icon: string }[] = [
   { id: 'cash', label: 'Cash', icon: '💵' },
-  { id: 'gcash', label: 'GCash', icon: '📱' },
-  { id: 'maya', label: 'Maya', icon: '💳' },
+  { id: 'gcash', label: 'E-Wallet', icon: '📱' },
 ]
 
 interface RidePaymentFormProps {

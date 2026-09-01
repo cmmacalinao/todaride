@@ -3574,16 +3574,27 @@ export const MOCK_MEDICINE_PRODUCTS: MedicineProduct[] = [
 export const DEFAULT_MEDS_DELIVERY_FEE = 25
 export const DEFAULT_MEDS_SERVICE_FEE = 15
 
+// Two ways to pay, not three.
+//
+// GCash and Maya were separate buttons, which asked the passenger to decide
+// something the app does not act on: both settle the same way, between the
+// passenger and the driver, and every rule in here that cares reads them
+// together as "e-wallet" anyway. Three buttons on a phone-width row for a
+// two-way choice cost a third of the row and a moment's thought each time.
+//
+// 'gcash' remains the stored value behind E-Wallet — it is what the ledger,
+// the SOA and the driver's saved account already speak, and renaming a value
+// that a year of records is written in buys nothing the label does not.
 export const PAYMENT_METHODS: { id: PaymentMethod; label: string }[] = [
   { id: 'cash', label: 'Cash' },
-  { id: 'gcash', label: 'GCash' },
-  { id: 'maya', label: 'Maya' },
+  { id: 'gcash', label: 'E-Wallet' },
 ]
 
+// 'maya' still resolves, because rides booked before this change carry it.
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   cash: 'Cash',
-  gcash: 'GCash',
-  maya: 'Maya',
+  gcash: 'E-Wallet',
+  maya: 'E-Wallet',
   card: 'Card',
 }
 

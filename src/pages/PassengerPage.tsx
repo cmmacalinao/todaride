@@ -973,12 +973,27 @@ export function PassengerPage() {
     setFarDriverConfirmed(false)
   }, [pickup.id, pickupGps?.lat, pickupGps?.lng])
 
-  function handleRequest() {
+  // farDriverAnswered: the passenger has just said "Ituloy" in the dialog
+  // below, and is saying it to THIS call.
+  //
+  // It cannot be read off farDriverConfirmed, which is what this used to do.
+  // The dialog set that flag and then called this function, but the function
+  // it called was the one built by the render that is still on screen — where
+  // the flag is still false. So the guard fired again, the dialog reopened,
+  // and the passenger had to tap "Ituloy ang booking" a second time before
+  // anything was booked. Passing the answer in hands it to the call that
+  // needs it, instead of waiting for a re-render to deliver it.
+  function handleRequest(farDriverAnswered = false) {
     if (!canSubmit) return
     // Asked once, and only when the answer is far enough to matter. The
     // passenger has already pressed the button, so the only honest reason to
     // interrupt them is that the wait is longer than pressing it implied.
-    if (!farDriverConfirmed && nearestDriverMeters !== null && nearestDriverMeters > FAR_DRIVER_METERS) {
+    if (
+      !farDriverAnswered &&
+      !farDriverConfirmed &&
+      nearestDriverMeters !== null &&
+      nearestDriverMeters > FAR_DRIVER_METERS
+    ) {
       setFarDriverPrompt(true)
       return
     }
@@ -1359,7 +1374,7 @@ export function PassengerPage() {
           tripUnderway ? null : (
             <div className="space-y-1">
               <button
-                onClick={handleRequest}
+                onClick={() => handleRequest()}
                 disabled={!canSubmit}
                 // Fixed light yellow, not the `gold` token — that token
                 // turns a muted blue-grey under this theme and reads as
@@ -2398,7 +2413,7 @@ export function PassengerPage() {
               ready to send. */}
           <button
             type="button"
-            onClick={handleRequest}
+            onClick={() => handleRequest()}
             disabled={!canSubmit}
             className="w-full rounded-lg bg-[#ffe066] px-3 py-2 text-sm font-bold text-navy-900 shadow-sm transition hover:bg-[#ffd633] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
           >
@@ -2607,9 +2622,13 @@ export function PassengerPage() {
                 onClick={() => {
                   // Remembered, so the same question is not asked twice for
                   // the same pickup.
+                  // Still remembered, so the same question is not asked twice
+                  // for the same pickup — but the answer is also handed
+                  // straight to this booking rather than left for the next
+                  // render to deliver.
                   setFarDriverConfirmed(true)
                   setFarDriverPrompt(false)
-                  requestAnimationFrame(() => handleRequest())
+                  handleRequest(true)
                 }}
                 className="rounded-lg bg-brand-600 py-2.5 text-xs font-bold text-white transition hover:bg-brand-700"
               >

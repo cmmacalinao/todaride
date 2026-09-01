@@ -6,6 +6,7 @@ import { PlatformFeeSoa, buildSoa } from '../components/PlatformFeeSoa'
 import { DriverPilaPage } from '../components/DriverPilaPage'
 import { DriverWalletPanel } from '../components/DriverWalletPanel'
 import { DriverWithdrawPanel } from '../components/DriverWithdrawPanel'
+import { GpsDiagnosticLine } from '../components/GpsDiagnosticLine'
 import { TricycleQrPanel } from '../components/TricycleQrPanel'
 import { NearbyRequestsBoard, buildNearbyRequests } from '../components/NearbyRequestsBoard'
 import type { DrawerSection } from '../components/NavDrawer'
@@ -1623,6 +1624,10 @@ function ActiveTripCard({
   const {
     position: liveDriverGps,
     error: liveGpsError,
+    // How wide the fix is. Surfaced rather than kept, because a phone
+    // reporting hundreds of metres of error has every small movement
+    // discarded as noise — which looks exactly like tracking that has stopped.
+    accuracy: liveDriverAccuracy,
     // Direction and speed of the tricycle, for the heading-up map below.
     headingDegrees: liveDriverHeading,
     speedMps: liveDriverSpeed,
@@ -2027,7 +2032,16 @@ function ActiveTripCard({
           {shareLiveGps ? '📡 Sharing your live GPS location — tap to stop' : '📡 Share my live GPS location'}
         </button>
       )}
-      {effectiveShareGps && liveGpsError && <p className="text-[11px] text-amber-700">{liveGpsError}</p>}
+      {/* What this phone's GPS is actually doing, in one line. See
+          GpsDiagnosticLine — "location is on but not detected" has four
+          distinct causes that look identical on a map, and only the person
+          holding the phone can fix any of them. */}
+      <GpsDiagnosticLine
+        enabled={effectiveShareGps}
+        position={liveDriverGps}
+        accuracy={liveDriverAccuracy}
+        error={liveGpsError}
+      />
 
       {ride.status === 'driver_arriving' && shoppingList.length > 0 && atPickup && (
         <div className="space-y-2 rounded-lg border border-gold-400/70 bg-gold-50 p-3">

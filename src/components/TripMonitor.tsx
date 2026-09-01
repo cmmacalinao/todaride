@@ -16,6 +16,7 @@ import { useNow, useWatchPosition } from '../lib/liveTracking'
 import { useRoute } from '../lib/routing'
 import { nextRerouteDecision } from '../lib/reroute'
 import { nextSeparationDecision, type SeparationState } from '../lib/separation'
+import { GpsDiagnosticLine } from './GpsDiagnosticLine'
 import { RIDE_CANCELLATION_REASON_LABELS } from '../types'
 import type { GeoCoords, Ride } from '../types'
 
@@ -106,6 +107,7 @@ export function TripMonitor({
   const {
     position: livePassengerGps,
     error: liveGpsError,
+    accuracy: livePassengerAccuracy,
     // The passenger's own phone is in the tricycle once they are aboard, so
     // its heading is the tricycle's heading — see navCamera below.
     headingDegrees: livePassengerHeading,
@@ -973,7 +975,15 @@ export function TripMonitor({
                   ? '📡 Sharing your live GPS location — tap to stop'
                   : '📡 Share my live GPS location while I wait'}
               </button>
-              {shareLiveGps && liveGpsError && <p className="text-[11px] text-amber-700">{liveGpsError}</p>}
+              {/* Same line the driver gets, for the same reason: a dot that
+                  does not move has several causes and they are indistinguish-
+                  able from the map. See GpsDiagnosticLine. */}
+              <GpsDiagnosticLine
+                enabled={shareLiveGps}
+                position={livePassengerGps}
+                accuracy={livePassengerAccuracy}
+                error={liveGpsError}
+              />
             </>
           )}
           <RealLiveMap

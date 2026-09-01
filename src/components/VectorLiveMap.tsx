@@ -325,10 +325,18 @@ export function VectorLiveMap({
     setCamera(next)
   }, [nav, nav?.heading, nav?.speedMps])
 
+  // Whether the camera was already following on the last render. The first
+  // easeTo into navigation mode gets its own, much shorter duration — see
+  // below — and this is what tells that render apart from every one after it.
+  const wasNavigatingRef = useRef(false)
+
   // Navigation camera: sits on the rider and points where they are going.
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !ready || !nav) return
+    if (!map || !ready || !nav) {
+      wasNavigatingRef.current = false
+      return
+    }
     const box = map.getContainer().getBoundingClientRect()
     if (box.height === 0) return
     map.easeTo({
@@ -341,11 +349,19 @@ export function VectorLiveMap({
       // Padding the bottom does the exact opposite, which is the easy way to
       // get this backwards.
       padding: { top: Math.round(box.height * AHEAD_BIAS), bottom: 0, left: 0, right: 0 },
-      // Roughly one GPS tick, so each move finishes about as the next reading
-      // lands and the map glides rather than steps.
-      duration: 900,
+      // Roughly one GPS tick for ordinary following, so each move finishes
+      // about as the next reading lands and the map glides rather than
+      // steps. The very first entry into navigation mode is the one glide
+      // this general rule gets wrong: that move is flat-to-tilted and often
+      // a real distance across the map (from wherever it was framed before
+      // boarding), and riding it out at GPS-tick pace read as "the tilt is
+      // slow" — it was doing a whole reframe in slow motion. A quick, fixed
+      // duration for that one transition only; every tick after it still
+      // glides at the pace new fixes actually arrive.
+      duration: wasNavigatingRef.current ? 900 : 350,
       essential: true,
     })
+    wasNavigatingRef.current = true
   }, [ready, nav, nav?.center.lat, nav?.center.lng, camera.bearing, camera.pitch])
 
   // A changed signal hands the viewport back for one fit. The first run is

@@ -2001,6 +2001,36 @@ function ActiveTripCard({
             }
             frozen={framing.frozen}
             nav={navCamera}
+            // Full screen leaves the address strip and the distance line
+            // behind — both sit below the map in the normal layout, and full
+            // screen is a fixed layer over everything else on the page.
+            // Drawn over the map itself, they come along.
+            overlayTop={
+              <div className="space-y-0.5 rounded-lg bg-white/75 px-2 py-1 text-[11px] leading-tight backdrop-blur-sm">
+                <p className="truncate">
+                  <span className="font-semibold text-pickup-accent">📍 </span>
+                  {formatAddressLine(ride.pickup.label)}
+                </p>
+                <p className="truncate">
+                  <span className="font-semibold text-dest-accent">🏁 </span>
+                  {formatAddressLine(ride.dropoff.label)}
+                </p>
+              </div>
+            }
+            overlayBottom={
+              route
+                ? (fullscreen) =>
+                    // Only in full screen: the same line already sits below
+                    // the map in the normal layout, and showing it twice would
+                    // say the same distance twice on one screen.
+                    fullscreen ? (
+                      <div className="rounded-lg bg-white/90 px-3 py-1.5 text-center text-xs font-medium text-slate-700 shadow-lg">
+                        🛣️ {(route.distanceMeters / 1000).toFixed(1)} km · ~
+                        {Math.max(1, Math.round(route.durationSeconds / 60))} min drive
+                      </div>
+                    ) : null
+                : undefined
+            }
           />
         </div>
       )}

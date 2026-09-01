@@ -433,7 +433,6 @@ export function LocationMapPicker({
     <RealLiveMap
       points={points}
       onMapClick={(gps) => void placePin(gps)}
-      hideLegend
       refitSignal={refitSignal}
       centerOn={myPosition}
       fill={mapFirst}

@@ -648,12 +648,19 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
   // A caller that froze this map meant it — a finished trip is a picture, not
   // a thing to explore, and no button should offer to move it.
   const interactive = !frozen
-  // A map that has the screen to itself is not sitting in a scrolling page,
-  // so there is no swipe for it to steal and nothing for the lock to protect.
-  // Making people find a padlock before they can pan or pinch their own map
-  // is the wrong trade the moment the map *is* the page.
-  const ownsScreen = fullscreen || !!fill
-  const locked = frozen || (!unlocked && !ownsScreen)
+  // Map-first booking is the one place the lock is genuinely pointless: the
+  // sheet sitting over that map is the thing being dragged, and a padlock
+  // between somebody and their own pickup pin is the wrong trade.
+  //
+  // Full screen used to be lumped in with it, on the reasoning that a map
+  // filling the phone has no page underneath for a swipe to mean anything
+  // else. True, but it missed the other reason to lock: a driver with the
+  // phone mounted on the handlebars wants to pin the frame so a knee or a
+  // stray thumb cannot shove it off the route mid-trip. Nothing is stolen
+  // from them by offering the choice — it starts unlocked either way (see
+  // the `unlocked` state, which follows alwaysInteractive).
+  const noLockNeeded = !!fill
+  const locked = frozen || (!unlocked && !noLockNeeded)
   // Re-locking the map is the reader saying they are done with it, so the
   // frame comes back to the app: FitBounds treats a changed signal as
   // permission to fit again, which is what clears the "reader has taken
@@ -798,15 +805,10 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
               height={fullscreen || fill ? "100%" : height}
               nav={nav}
               showLabels={showLabels}
-              // Hidden once a map owns the screen — full screen, or map-first
-              // booking — including alwaysInteractive. The lock exists to
-              // answer "is this swipe meant for the map or for scrolling past
-              // it", and a map that fills the whole screen has no page below
-              // it for a swipe to mean anything else. Every touch on it is
-              // already unambiguously for the map, which is the same reason
-              // every other full-screen map in the app has never shown this.
+              // Offered everywhere except map-first booking — see
+              // noLockNeeded above for why full screen keeps it.
               panLock={
-                interactive && !ownsScreen
+                interactive && !noLockNeeded
                   ? {
                       unlocked,
                       onToggle: () =>

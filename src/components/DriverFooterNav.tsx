@@ -42,7 +42,14 @@ export function DriverFooterNav({
       // Fixed to the bottom edge of the screen, not to the end of the
       // page — the safe-area inset keeps it above the home indicator on a
       // real handset. The page below reserves room for it with pb-20.
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur"
+      //
+      // z-65 clears the full-screen map (z-60) so this one bar stays put
+      // when a map takes the screen, rather than being covered and then
+      // drawn a second time inside the map's own overlay — which is what
+      // used to happen, and showed as two strips stacked on a phone where
+      // the map layer did not quite reach the bottom edge. Still under the
+      // drawers and modals (z-70 and up), which are meant to cover it.
+      className="fixed inset-x-0 bottom-0 z-[65] border-t border-slate-200 bg-white/95 backdrop-blur"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       <div className="mx-auto flex max-w-lg items-stretch justify-between px-1 py-1">

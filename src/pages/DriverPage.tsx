@@ -10,7 +10,7 @@ import { GpsDiagnosticLine } from '../components/GpsDiagnosticLine'
 import { TricycleQrPanel } from '../components/TricycleQrPanel'
 import { NearbyRequestsBoard, buildNearbyRequests } from '../components/NearbyRequestsBoard'
 import type { DrawerSection } from '../components/NavDrawer'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { DRIVER_GPS_PUBLISH_MS } from '../lib/rideTogether'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ETA_SECONDS_PER_LEG, useRides } from '../context/RideContext'
@@ -1296,7 +1296,6 @@ export function DriverPage() {
             onComplete={(paidMethod) => completeRide(myActiveRide.id, paidMethod)}
             extraPoints={sharedStopPoints}
             hintLine={sharedHintLine}
-            footerBar={footerBar}
           />
         ) : (
           /* centerOn is deliberately not passed to the trip map below: while
@@ -1307,15 +1306,6 @@ export function DriverPage() {
             points={dashboardMapPoints}
             height="calc(100vh - 300px)"
             centerOn={myLiveGps}
-            // The section nav comes along into full screen, as it does on the
-            // trip map. Without it this map was the one screen where the only
-            // way back to Requests or Pila was to leave full screen first —
-            // and a driver waiting for a job is exactly who is watching this
-            // map full screen and then wants Requests.
-            //
-            // Nothing above it: with no ride there is no pickup, destination,
-            // ETA or fare to name, and a strip that said so would be furniture.
-            overlayBottom={(fullscreen) => (fullscreen ? footerBar : null)}
           />
         )}
       </div>
@@ -1589,7 +1579,6 @@ function ActiveTripCard({
   extraPoints,
   hintLine,
   showMap = true,
-  footerBar,
 }: {
   rideId: string
   // Handed the driver's own fix, which becomes the pickup - see START_RIDE.
@@ -1601,12 +1590,6 @@ function ActiveTripCard({
   extraPoints?: MapPoint[]
   hintLine?: GeoCoords[]
   showMap?: boolean
-  // The section nav bar, drawn over the map in full screen — full screen is
-  // a fixed layer over the whole page, so the real, page-level footer bar
-  // underneath it is covered along with everything else. Only handed in by
-  // the caller that actually shows the map; the second trip on a shared ride
-  // has no map of its own to overlay it on.
-  footerBar?: ReactNode
 }) {
   const {
     rides,
@@ -2083,20 +2066,10 @@ function ActiveTripCard({
                 </div>
               </div>
             }
-            overlayBottom={(fullscreen) => (
-              // Not really one stack: footerBar carries its own fixed
-              // position (it is the real page-level nav bar, reused as-is)
-              // and ignores whatever flow it is rendered into, so it pins
-              // itself to the true bottom of the screen regardless of this
-              // wrapper's own layout.
-              <div>
-                {/* The section nav, covered by the same fixed full-screen
-                    layer as everything else below the map — brought along so
-                    Requests, Pila, Earnings and the rest stay one tap away
-                    without backing out of full screen first. */}
-                {fullscreen && footerBar}
-              </div>
-            )}
+            // No section nav drawn here. It used to be copied in, because the
+            // full-screen layer covered the real one; the real one now
+            // outranks that layer instead (see DriverFooterNav's z-index), so
+            // a copy would be a second strip stacked on the first.
           />
         </div>
       )}

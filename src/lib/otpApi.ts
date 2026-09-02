@@ -1,4 +1,5 @@
 import { isNativeApp } from './platform'
+import { PILOT_ORIGIN } from './pilotOrigin'
 
 // Talks to the local Express server (see server/index.js) which holds the
 // Semaphore API key and actually sends the SMS — a browser-only app can't
@@ -15,8 +16,8 @@ import { isNativeApp } from './platform'
 // caller reads that as "the OTP server is not running", and quietly shows a
 // simulated code instead. With simulated codes now off by default, that is
 // signup and password recovery failing outright on every phone with the app
-// installed. So the app is pointed at the pilot's real origin.
-const PILOT_ORIGIN = 'https://todasaferide.com'
+// installed. So the app is pointed at the pilot's real origin, which lives in
+// lib/pilotOrigin — mayaApi and the share sheet need the same one.
 const OTP_API_BASE =
   import.meta.env.VITE_OTP_API_BASE ??
   (import.meta.env.DEV ? 'http://localhost:4000' : isNativeApp() ? PILOT_ORIGIN : '')

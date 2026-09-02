@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
+import { PILOT_ORIGIN } from '../lib/pilotOrigin'
 
 // Handing the app to somebody standing next to you.
 //
@@ -10,9 +11,10 @@ import { QRCodeSVG } from 'qrcode.react'
 //
 // The address is written down here rather than read off window.location. The
 // point of the sheet is to hand somebody the pilot, and the pilot lives at one
-// address — a code generated on a laptop at localhost, or off the netlify.app
-// preview, would scan cleanly and go nowhere the recipient can reach.
-export const APP_URL = 'https://todasaferide.com'
+// address — a code generated on a laptop at localhost would scan cleanly and
+// go nowhere the recipient can reach. Which address that is lives in
+// lib/pilotOrigin, since the OTP and payment calls have to agree with it.
+export const APP_URL = PILOT_ORIGIN
 
 // What actually gets handed out. The ?fresh tells the app at the other end
 // to throw away whatever build that phone had cached before it opens — see

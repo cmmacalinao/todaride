@@ -1,4 +1,5 @@
 import { isNativeApp } from './platform'
+import { PILOT_ORIGIN } from './pilotOrigin'
 
 // Talks to the two Maya functions, which hold the secret key.
 //
@@ -12,7 +13,7 @@ import { isNativeApp } from './platform'
 // Same base-URL reasoning as otpApi: the website calls its own origin, and the
 // installed app has to be pointed at the pilot's, because Capacitor serves
 // from https://localhost where a relative /api path resolves to nothing.
-const PILOT_ORIGIN = 'https://todasaferide.com'
+// The origin itself lives in lib/pilotOrigin — otpApi needs the same one.
 const API_BASE =
   import.meta.env.VITE_OTP_API_BASE ??
   (import.meta.env.DEV ? 'http://localhost:4000' : isNativeApp() ? PILOT_ORIGIN : '')

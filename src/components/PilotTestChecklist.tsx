@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { SHARE_URL } from './ShareAppPanel'
 
 // The pilot testing guide, inside the app rather than on a printout.
 //
@@ -34,7 +35,10 @@ const RUNS: Run[] = [
     who: 'Both phones · on wifi, before you go anywhere',
     steps: [
       {
-        do: 'Open todasaferide.com/?fresh=1 on BOTH phones.',
+        // Reads the same address the share sheet hands out, so a tester is
+        // never told to open one host while the QR beside them points at
+        // another — see lib/pilotOrigin.
+        do: `Open ${SHARE_URL} on BOTH phones.`,
         expect:
           'Without ?fresh=1 a phone serves its cached copy, and you spend the morning testing last week’s build.',
       },

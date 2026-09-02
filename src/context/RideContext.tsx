@@ -1625,6 +1625,14 @@ function fromStored(parsed: StoredState): RideState {
       barangay: o.barangay ?? '',
       addressDetail: o.addressDetail ?? '',
       businessRegistrationNo: o.businessRegistrationNo ?? null,
+      // Absent, not null: a record saved before the partner logo existed has
+      // no such key and should take the seeded mark, while one an Operator
+      // deliberately cleared holds null and must stay cleared. `??` cannot
+      // tell those apart and would resurrect a logo they just removed.
+      logoDataUrl:
+        'logoDataUrl' in o
+          ? o.logoDataUrl
+          : (MOCK_OPERATORS.find((seed) => seed.id === o.id)?.logoDataUrl ?? null),
     })),
     franchises: (parsed.franchises ?? MOCK_FRANCHISES).map((f) => ({
       ...f,

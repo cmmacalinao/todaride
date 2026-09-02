@@ -76,7 +76,11 @@ export function PublicHeader({ title = 'TODA SafeRide' }: { title?: string }) {
           keeps its own space in the flow, so it cannot overlap anything at
           any text size, and no measurement has to stay in step. */}
       <header className="sticky top-0 z-20 border-b border-brand-700 bg-brand-600">
-        <div className="mx-auto flex max-w-lg items-center gap-2 px-4 py-1.5">
+        {/* Tighter on the left than the right: the menu and the back/forward
+            arrows are edge controls, and a thumb reaches them at the edge.
+            The right keeps its padding so the partner mark is not flush
+            against the screen. */}
+        <div className="mx-auto flex max-w-lg items-center gap-2 py-1.5 pl-1 pr-4">
           <div className={`flex shrink-0 flex-col items-center gap-0.5 ${onLanding ? '' : '-mt-1'}`}>
             <button
               type="button"

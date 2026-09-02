@@ -385,7 +385,8 @@ export function NavBar() {
       <>
       {/* sticky rather than fixed — see PublicHeader for why. */}
       <header className="sticky top-0 z-20 border-b border-brand-700 bg-brand-600">
-        <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-1.5">
+        {/* Same edge treatment as PublicHeader — see the note there. */}
+        <div className="mx-auto flex max-w-lg items-center justify-between py-1.5 pl-1 pr-4">
           <div className="flex min-w-0 items-center gap-2">
             <div className="-mt-1 flex shrink-0 flex-col items-center gap-0.5">
               {hamburgerButton}

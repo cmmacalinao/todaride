@@ -1303,7 +1303,20 @@ export function DriverPage() {
              a trip is running the frame holds the driver, the passenger and
              both ends of the journey, and re-centring on one of them would
              push the other three out. */
-          <RealLiveMap points={dashboardMapPoints} height="calc(100vh - 300px)" centerOn={myLiveGps} />
+          <RealLiveMap
+            points={dashboardMapPoints}
+            height="calc(100vh - 300px)"
+            centerOn={myLiveGps}
+            // The section nav comes along into full screen, as it does on the
+            // trip map. Without it this map was the one screen where the only
+            // way back to Requests or Pila was to leave full screen first —
+            // and a driver waiting for a job is exactly who is watching this
+            // map full screen and then wants Requests.
+            //
+            // Nothing above it: with no ride there is no pickup, destination,
+            // ETA or fare to name, and a strip that said so would be furniture.
+            overlayBottom={(fullscreen) => (fullscreen ? footerBar : null)}
+          />
         )}
       </div>
 

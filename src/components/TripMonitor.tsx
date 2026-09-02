@@ -443,8 +443,13 @@ export function TripMonitor({
             // passenger's shoulder and by a parent watching from home, and
             // "You are here" answers a different question for each of them.
             label: passengerDisplayName,
-            callout: true,
-            alwaysLabel: true,
+            // No callout of its own. The tricycle above already floats one
+            // reading "<plate digits>-<your first name>", so a second bubble
+            // naming the passenger put the same name on the map twice, on two
+            // dots a few metres apart — and the one worth reading is the one
+            // carrying the plate, since that is what gets checked against the
+            // sidecar. The name stays on the marker for the legend and the
+            // Names toggle; it just stops floating.
             pulse: true,
             icon: 'me' as const,
           },

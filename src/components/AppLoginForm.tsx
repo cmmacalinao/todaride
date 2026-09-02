@@ -67,6 +67,7 @@ export function AppLoginForm() {
   const navigate = useNavigate()
   const { passengers, parents, drivers, todaOrganizations, pharmacies, operators, franchises } = useRides()
   const {
+    loggedInDriverId: rememberedDriverId,
     setAuthedAccount,
     setRole,
     setCurrentPassengerId,
@@ -96,7 +97,13 @@ export function AppLoginForm() {
   // credentials still lands on the passenger app, correctly. Nothing here
   // depends on it staying that way, but changing that would be a deliberate
   // decision, not a side effect of adding this toggle.
-  const [roleHint, setRoleHint] = useState<'passenger' | 'driver'>('passenger')
+  // Starts on Driver rather than the usual Passenger default when this
+  // device is already remembered as a particular driver's own (see
+  // loggedInDriverId in SessionContext, and the matching pilot-branding
+  // logic in usePilotBranding) — the same phone that greets them with their
+  // own TODA's name should also open on their own tab, not the passenger
+  // one they'd have to switch away from every time.
+  const [roleHint, setRoleHint] = useState<'passenger' | 'driver'>(rememberedDriverId ? 'driver' : 'passenger')
   const [wantsBiometric, setWantsBiometric] = useState(false)
   const [biometricReady, setBiometricReady] = useState(false)
   const [enrollment, setEnrollment] = useState(() => getBiometricEnrollment())

@@ -107,6 +107,13 @@ export interface RealLiveMapProps {
   // rather than print the same two addresses twice. Defaults to showing it:
   // everywhere else it is the only thing naming what the dots mean.
   hideLegend?: boolean
+  // A shortcut to the "Sakay sa Terminal" trip-recording screen, offered
+  // right on the map a passenger is already looking at while booking one.
+  // A callback rather than a route this component navigates to itself: it
+  // keeps this file free of react-router-dom, and lets a caller that has no
+  // business offering the shortcut (the driver's own map, admin monitoring)
+  // simply not pass it — the button only exists where it is given.
+  onScanQr?: () => void
   // Starts unlocked rather than skipping the lock: drag and the zoom buttons
   // work from the first render, but the palm icon stays on screen so it can
   // still be locked back down deliberately. Set on the two trip-tracking
@@ -566,7 +573,7 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, alwaysInteractive = false, height, nav }: RealLiveMapProps) {
+export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, alwaysInteractive = false, height, nav, onScanQr }: RealLiveMapProps) {
   // If the Google script fails to load (bad key, network block, CSP), fall
   // back to the OSM/Leaflet canvas instead of showing an empty map.
   const [googleFailed, setGoogleFailed] = useState(false)
@@ -713,6 +720,18 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
             🏷️ Legend
           </button>
         )}
+        {/* The way to a trip already under way, offered right where a
+            passenger deciding how to get one is already looking. Pushed to
+            the far side of the row (ml-auto) rather than queued after
+            Legend, so it reads as a separate path rather than a third view
+            option alongside Full screen and Legend. Named for the outcome
+            ("Record my Trip"), not the mechanism the camera icon already
+            says — kept short so the row stays one line on a phone screen. */}
+        {onScanQr && (
+          <button type="button" onClick={onScanQr} className="ml-auto whitespace-nowrap rounded-md border border-brand-300 bg-brand-50 px-2 py-1 text-[11px] font-semibold text-brand-700 transition hover:bg-brand-100">
+            📷 Record my Trip
+          </button>
+        )}
       </div>
       {interactive && useGoogle && (
         <PanLock
@@ -779,14 +798,15 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
               height={fullscreen || fill ? "100%" : height}
               nav={nav}
               showLabels={showLabels}
-              // Hidden once a map owns the screen (full screen, or map-first
-              // booking) everywhere except alwaysInteractive — there, full
-              // screen is precisely the moment a driver or a passenger most
-              // wants to be able to lock the map on purpose, rather than
-              // having the one control that could stop an accidental drag
-              // disappear the moment the map got bigger.
+              // Hidden once a map owns the screen — full screen, or map-first
+              // booking — including alwaysInteractive. The lock exists to
+              // answer "is this swipe meant for the map or for scrolling past
+              // it", and a map that fills the whole screen has no page below
+              // it for a swipe to mean anything else. Every touch on it is
+              // already unambiguously for the map, which is the same reason
+              // every other full-screen map in the app has never shown this.
               panLock={
-                interactive && (alwaysInteractive || !ownsScreen)
+                interactive && !ownsScreen
                   ? {
                       unlocked,
                       onToggle: () =>

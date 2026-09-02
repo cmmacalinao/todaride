@@ -35,6 +35,7 @@ export function LocationMapPicker({
   refitSignal,
   hasDropoff = true,
   hasPickup = true,
+  pickupIsMyLocation = false,
   leadingAction,
   sheetNote,
   mapFooter,
@@ -54,6 +55,7 @@ export function LocationMapPicker({
   // inside it is no use if the sheet is too short to show it.
   sheetSnap,
   onSheetSnapChange,
+  sheetPeekFraction,
   // Take a pin off the map again. Absent on screens where the two ends are
   // not the reader's to change.
   onClearPickup,
@@ -65,11 +67,16 @@ export function LocationMapPicker({
   showGpsFor,
   terminals = [],
   extraPoints = [],
+  onScanQr,
 }: {
   mapFirst?: boolean
   sheetHeader?: () => ReactNode
   sheetSnap?: SheetSnap
   onSheetSnapChange?: (snap: SheetSnap) => void
+  // A taller "peek" for a caller whose sheetHeader just grew a second
+  // address row — enough to show that row without also surfacing the rest
+  // of the form, which stays behind "half"/"full" as usual.
+  sheetPeekFraction?: number
   onClearPickup?: () => void
   onClearDropoff?: () => void
   permissionRowAction?: () => ReactNode
@@ -98,9 +105,19 @@ export function LocationMapPicker({
   // Same as hasDropoff: the pickup object always holds something, so only
   // the caller knows whether the passenger actually chose it.
   hasPickup?: boolean
+  // The pickup is the passenger's own live position, found automatically
+  // rather than picked — labelled that way on the summary so it reads as
+  // "here is where you are", not as an address someone typed and might have
+  // gotten wrong. False the moment it is a chosen address instead: a pin
+  // dropped on the map, a saved place, or wherever a guest booking's pickup
+  // was set — none of those are "my location" for whoever is booking.
+  pickupIsMyLocation?: boolean
   // Terminals to draw alongside the two pins — where tricycles wait. Shown,
   // never selectable: tapping the map still moves whichever pin is armed.
   terminals?: Terminal[]
+  // Passed straight through to RealLiveMap's own button row — see there for
+  // why this is a callback rather than a route.
+  onScanQr?: () => void
   // Rendered directly under the map, filling the row's width to the left
   // of underMapAction. The booking form's submit lives here so the action
   // sits with the map it is confirming, immediately after the pin the
@@ -274,6 +291,11 @@ export function LocationMapPicker({
     isSet: boolean,
     label: string,
     onClear?: () => void,
+    // "My Location — " ahead of the address, only for an auto-found pickup.
+    // Said once, here, rather than folded into the address itself — the
+    // address is still the real, useful thing to show (it is what gets read
+    // out to a driver), this just names where it came from.
+    prefix?: string,
   ) => (
     <div className="flex items-center gap-1">
       <button
@@ -284,7 +306,15 @@ export function LocationMapPicker({
           end === 'pickup' ? 'text-pickup-accent' : 'text-dest-accent'
         } ${target === end ? 'font-semibold' : 'font-normal'}`}
       >
-        {icon} {isSet ? formatAddressLine(label) : <span className="text-slate-400">not set yet</span>}
+        {icon}{' '}
+        {isSet ? (
+          <>
+            {prefix && <span className="font-normal opacity-75">{prefix} — </span>}
+            {formatAddressLine(label)}
+          </>
+        ) : (
+          <span className="text-slate-400">not set yet</span>
+        )}
       </button>
       {isSet && onClear && (
         <button
@@ -308,7 +338,7 @@ export function LocationMapPicker({
           : 'min-w-0 flex-1 bg-slate-50 hover:bg-slate-100'
       }`}
     >
-      {summaryRow('pickup', '📍', hasPickup, pickup.label, onClearPickup)}
+      {summaryRow('pickup', '📍', hasPickup, pickup.label, onClearPickup, pickupIsMyLocation ? 'My Location' : undefined)}
       {summaryRow('dropoff', '🏁', hasDropoff, dropoff.label, onClearDropoff)}
     </div>
   )
@@ -392,7 +422,9 @@ export function LocationMapPicker({
           {underMapAction && <div className="shrink-0">{underMapAction}</div>}
         </div>
       )}
-      {sheetNote}
+      {/* Map-first shows this over the map instead, under the address
+          summary — see overlayTop above. */}
+      {!mapFirst && sheetNote}
       {/* Above the GPS button, because it governs it: this wakes location and
           reports what the browser decided; that one fills an address with it. */}
       <LocationPermissionRow trailing={permissionRowAction?.()} />
@@ -437,10 +469,22 @@ export function LocationMapPicker({
       centerOn={myPosition}
       fill={mapFirst}
       onFullscreenChange={setMapFullscreen}
+      onScanQr={onScanQr}
       // Drawn over the map rather than beside it, so the two things a person
       // needs while looking at the map — where their pins are, and the way
       // out to the booking — are still there when the map fills the phone.
-      overlayTop={mapFirst ? summary : undefined}
+      overlayTop={
+        mapFirst ? (
+          // Stacked under the address summary rather than beside it — the
+          // eta/fare numbers follow straight from "here to there", so they
+          // read as its next line rather than a separate card competing with
+          // it for the same strip of map.
+          <div className="space-y-1.5">
+            {summary}
+            {sheetNote}
+          </div>
+        ) : undefined
+      }
       overlayBottom={mapFooter ? () => mapFooter : undefined}
       // Draggable exactly when drawn — the same conditions the two points
       // above are built from, not the "has the passenger chosen one yet"
@@ -457,7 +501,7 @@ export function LocationMapPicker({
   )
 
   const sheet = (
-    <BottomSheet snap={effectiveSnap} onSnapChange={changeSnap} label="Where to">
+    <BottomSheet snap={effectiveSnap} onSnapChange={changeSnap} label="Where to" peekFraction={sheetPeekFraction}>
       {sheetHeader?.()}
       {controls}
     </BottomSheet>

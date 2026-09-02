@@ -53,6 +53,8 @@ export function SuperAdminPage() {
     documentGraceDays,
     setDocumentGraceDays,
     publicBaseUrl,
+    pilotTodaName,
+    setPilotTodaName,
     setPabiliEnabled,
     setMedsEnabled,
     setVendorsEnabled,
@@ -151,6 +153,8 @@ export function SuperAdminPage() {
               <p className="mt-0.5 text-[11px] text-emerald-700">Revenue, campaigns, rewards &amp; ads</p>
             </Link>
           </div>
+
+          <PilotTodaNamePanel value={pilotTodaName} onSave={setPilotTodaName} />
 
           <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div>
@@ -663,6 +667,56 @@ function AccessLinkCard({
             'Opens the registration form. The application arrives pending — approve it (and set its fees) from the Admin Pila.')
           : 'Opens the portal login. They sign in with the PIN set on their account.'}
       </p>
+    </section>
+  )
+}
+
+// Names the one TODA a pilot is being run with, printed on the welcome
+// screen (LandingPage) so the app reads as that TODA's own booking app
+// rather than a generic multi-operator platform. Blank keeps the generic
+// welcome screen — right for the day-to-day multi-TODA deployment, not just
+// a placeholder state.
+function PilotTodaNamePanel({ value, onSave }: { value: string; onSave: (name: string) => void }) {
+  const [draft, setDraft] = useState(value)
+  const dirty = draft.trim() !== value
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 className="text-sm font-semibold text-slate-700">Pilot branding (fallback)</h2>
+      <p className="mt-0.5 text-[11px] text-slate-500">
+        The welcome screen already names whichever TODA's terminal is nearest the passenger, detected from their
+        phone's location. This name only shows when that can't be — location is off, or nothing is close enough — so
+        a device-bound pilot still greets riders as one TODA's app. E.g. "Roseville TODA" prints as "Roseville TODA /
+        Booking App". Leave blank to fall all the way back to the ordinary, unbranded welcome screen.
+      </p>
+      <div className="mt-2 flex items-center gap-2">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="e.g. Roseville TODA"
+          className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
+        />
+        <button
+          type="button"
+          disabled={!dirty}
+          onClick={() => onSave(draft)}
+          className="shrink-0 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Save
+        </button>
+      </div>
+      {value && (
+        <button
+          type="button"
+          onClick={() => {
+            setDraft('')
+            onSave('')
+          }}
+          className="mt-2 text-[11px] font-medium text-brand-600 underline hover:text-brand-700"
+        >
+          Clear — back to the unbranded welcome screen
+        </button>
+      )}
     </section>
   )
 }

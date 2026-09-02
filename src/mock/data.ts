@@ -2441,6 +2441,12 @@ export const MOCK_OPERATORS: Operator[] = [
     barangay: 'CLSU',
     addressDetail: 'Unit 2B, Muñoz Commercial Complex',
     businessRegistrationNo: 'DTI-2024-00512',
+    // The pilot's sponsoring civic partner. A path under /public rather than
+    // a data: URL — same as the seeded banner ad — because a file the build
+    // ships is smaller in state and cheaper to load than base64. An Operator
+    // replacing it from their own portal writes a data: URL here instead;
+    // both render through the same <img> (see NavBar/PublicHeader).
+    logoDataUrl: '/partner-logo.png',
     activationFee: 45000,
     monthlyPlatformFee: 8000,
     perBookingFee: 2,

@@ -1,6 +1,9 @@
 import { Link } from 'react-router-dom'
 import { AppLoginForm } from '../components/AppLoginForm'
 import { AndroidAppBanner } from '../components/AndroidAppBanner'
+import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
+import { PilotBranding } from '../components/PilotBranding'
+import { usePilotBranding } from '../lib/usePilotBranding'
 
 // Trimmed from ten to the four the brand board leads with — a first screen
 // that lists everything sells nothing. The rest still describe the product,
@@ -20,6 +23,7 @@ const MORE_FEATURES = [
 ]
 
 export function LandingPage() {
+  const pilotBranding = usePilotBranding()
   return (
     <div className="mx-auto max-w-lg bg-white">
       {/* One dark screen, sized to fill the phone rather than just its own
@@ -27,7 +31,16 @@ export function LandingPage() {
           screen on its own, with the logo and the "there's more below" arrow
           landing where a phone's own top and bottom would put them, not
           wherever the content happened to end. */}
-      <section className="relative flex min-h-[calc(100vh-50px)] flex-col overflow-hidden bg-navy-950 px-6 pb-6 pt-8 text-center">
+      <section
+        className="relative flex min-h-[calc(100vh-50px)] flex-col overflow-hidden px-6 pb-6 pt-8 text-center"
+        // Bright royal blue at the top-left, the app's own near-black navy
+        // at the bottom-right — the transition is over by 60% of the way
+        // across (the 60%/100% stops share a colour) rather than still
+        // fading right up to the corner, so the bottom-right sits on a
+        // settled dark rather than a gradient that ran out of room.
+        // Diagonal, matching the angle of the stripe texture drawn over it.
+        style={{ backgroundImage: 'linear-gradient(135deg, #3e6fe4 0%, #0a1529 60%, #0a1529 100%)' }}
+      >
         {/* Diagonal stripes, not a flat panel — the same texture a few pixels
             of gradient give a hero without it needing to be a photograph.
             Kept faint (8% white) so it reads as weave, not as a pattern
@@ -43,7 +56,7 @@ export function LandingPage() {
         {/* Where the pilot is running — the one thing on this screen that
             changes per city. A pill rather than a line of text, so it reads
             as a location badge rather than another sentence to read. */}
-        <span className="absolute right-4 top-4 flex items-center gap-1 rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
+        <span className="absolute right-4 top-1 flex items-center gap-1 rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
           <span aria-hidden>📍</span> Nueva Ecija
         </span>
 
@@ -54,9 +67,30 @@ export function LandingPage() {
               ring is what still separates it from the stripe texture behind
               it. */}
           <div className="rounded-2xl border-2 border-white/25 p-4">
-            <img src="/logo.webp" alt="TODA SafeRide — Safe Rides for You and Your Family" className="w-40" />
+            {/* mx-auto because Tailwind's reset makes img a block element —
+                text-align:center (inherited from the section) only centers
+                inline content, so without this the image sat flush at the
+                box's left edge while the tagline's text centered normally,
+                the two visibly off from each other. */}
+            <img src="/logo.webp" alt="TODA SafeRide — Safe Rides for You and Your Family" className="mx-auto w-36" />
+            {/* Read as the logo's own strapline rather than a separate
+                sentence on the page — tight against the mark, inside the
+                same outlined box, the way a wordmark and its tagline sit
+                together on a print logo. */}
+            <p className="mt-1 text-sm font-semibold text-white/80">Safe Rides for You and Your Family</p>
           </div>
-          <p className="mt-3 text-sm font-semibold text-white/80">Safe Rides for You and Your Family</p>
+          {/* Whichever TODA's terminal is nearest right now (or Super
+              Admin's manual override, or — if neither — the app's own
+              generic name) — see usePilotBranding. A specific org gets the
+              ad-like card; the generic name renders plainly, since the app
+              naming itself isn't a promotion. */}
+          {pilotBranding.specific ? (
+            <NearbyTodaAdCard name={pilotBranding.name} showNearYouTag={pilotBranding.showNearYouTag} />
+          ) : (
+            <div className="mt-4">
+              <PilotBranding name={pilotBranding.name} />
+            </div>
+          )}
 
           {/* One user name and password for everyone — the form works out
               whether you're a rider, parent, driver, TODA officer, partner or

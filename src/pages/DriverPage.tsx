@@ -982,6 +982,15 @@ export function DriverPage() {
   return (
     <div className="mx-auto max-w-lg space-y-3 px-4 pb-20 pt-2">
       <div ref={topSentinelRef} />
+      {/* Fixed to the driver's own membership, not location-detected like
+          the passenger-side welcome screens (see usePilotBranding) — a
+          driver already belongs to one TODA, so there's nothing to guess.
+          A freelance driver (no todaOrgId) has no org to name here. */}
+      {homeToda && (
+        <div className="flex items-center justify-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700">
+          <span aria-hidden>🏢</span> {homeToda.name}
+        </div>
+      )}
       <AnnouncementFeed viewer="drivers" />
 
       {/* Whether this phone is actually giving a position, said out loud.
@@ -2018,15 +2027,34 @@ function ActiveTripCard({
             // screen is a fixed layer over everything else on the page.
             // Drawn over the map itself, they come along.
             overlayTop={
-              <div className="space-y-0.5 rounded-lg bg-white/75 px-2 py-1 text-[11px] leading-tight backdrop-blur-sm">
-                <p className="truncate">
-                  <span className="font-semibold text-pickup-accent">📍 </span>
-                  {formatAddressLine(ride.pickup.label)}
-                </p>
-                <p className="truncate">
-                  <span className="font-semibold text-dest-accent">🏁 </span>
-                  {formatAddressLine(ride.dropoff.label)}
-                </p>
+              <div className="space-y-1.5">
+                <div className="space-y-0.5 rounded-lg bg-white/75 px-2 py-1 text-[11px] leading-tight backdrop-blur-sm">
+                  <p className="truncate">
+                    <span className="font-semibold text-pickup-accent">📍 </span>
+                    {formatAddressLine(ride.pickup.label)}
+                  </p>
+                  <p className="truncate">
+                    <span className="font-semibold text-dest-accent">🏁 </span>
+                    {formatAddressLine(ride.dropoff.label)}
+                  </p>
+                </div>
+                {/* The distance, the time, and what it pays, on one line
+                    under the addresses they follow from — drawn on the map
+                    itself so it rides along into full screen instead of
+                    being left behind under it. */}
+                {route && (
+                  <div className="flex items-center divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white/90 px-2 py-1 text-[11px] leading-tight text-slate-700">
+                    <span className="flex-1 truncate pr-1.5">
+                      🛣️ <span className="font-bold">{(route.distanceMeters / 1000).toFixed(1)} km</span>
+                    </span>
+                    <span className="flex-1 truncate px-1.5">
+                      ~<span className="font-bold">{Math.max(1, Math.round(route.durationSeconds / 60))} min</span> drive
+                    </span>
+                    <span className="flex-1 truncate pl-1.5">
+                      Fare <span className="font-bold">₱{ride.fareEstimate}</span>
+                    </span>
+                  </div>
+                )}
               </div>
             }
             overlayBottom={(fullscreen) => (
@@ -2034,22 +2062,8 @@ function ActiveTripCard({
               // position (it is the real page-level nav bar, reused as-is)
               // and ignores whatever flow it is rendered into, so it pins
               // itself to the true bottom of the screen regardless of this
-              // wrapper's own layout. The route card gets an explicit margin
-              // clearing the bar's height instead, or the fixed bar simply
-              // paints over it — the two would otherwise land in the same
-              // strip of screen with no space actually reserved between them.
-              <div className={fullscreen && footerBar ? 'mb-16' : undefined}>
-                {/* The distance, the time, and what it pays — the same three
-                    facts, whichever screen they're read from. Only drawn here
-                    in full screen: the same line already sits in the normal
-                    flow below the map, and full screen is the one layout
-                    where that flow is covered rather than just scrolled past. */}
-                {route && fullscreen && (
-                  <div className="rounded-lg bg-white/90 px-3 py-1.5 text-center text-xs font-medium text-slate-700 shadow-lg">
-                    🛣️ {(route.distanceMeters / 1000).toFixed(1)} km · ~
-                    {Math.max(1, Math.round(route.durationSeconds / 60))} min drive · ₱{ride.fareEstimate} fare
-                  </div>
-                )}
+              // wrapper's own layout.
+              <div>
                 {/* The section nav, covered by the same fixed full-screen
                     layer as everything else below the map — brought along so
                     Requests, Pila, Earnings and the rest stay one tap away
@@ -2060,7 +2074,10 @@ function ActiveTripCard({
           />
         </div>
       )}
-      {route && (
+      {/* Map-visible mode carries this on the map itself now (see
+          overlayTop above) — only the map-less list view still needs it
+          written out below. */}
+      {!showMap && route && (
         <p className="text-center text-[11px] text-slate-400">
           🛣️ Real road route: {(route.distanceMeters / 1000).toFixed(1)} km · ~
           {Math.max(1, Math.round(route.durationSeconds / 60))} min drive · ₱{ride.fareEstimate} fare

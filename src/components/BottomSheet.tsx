@@ -16,7 +16,7 @@ export type SheetSnap = 'peek' | 'half' | 'full'
 // As a fraction of the map area's height. Peek shows the handle and the first
 // row; full stops short of the top so the map is never entirely hidden and
 // the sheet still reads as a sheet rather than a page.
-const SNAP_FRACTION: Record<SheetSnap, number> = {
+const DEFAULT_SNAP_FRACTION: Record<SheetSnap, number> = {
   peek: 0.26,
   half: 0.58,
   full: 0.92,
@@ -33,11 +33,18 @@ export function BottomSheet({
   snap,
   onSnapChange,
   label = 'Booking panel',
+  // Overrides how tall "peek" is, as a fraction of the map area's height.
+  // The header riding above `children` is not a fixed height — booking for
+  // someone else adds a second address row above it — so a caller whose
+  // header just grew can ask for a taller peek without also pulling "half"
+  // and "full" in, which would surface the rest of the form too.
+  peekFraction = DEFAULT_SNAP_FRACTION.peek,
 }: {
   children: ReactNode
   snap: SheetSnap
   onSnapChange: (snap: SheetSnap) => void
   label?: string
+  peekFraction?: number
 }) {
   const outerRef = useRef<HTMLDivElement | null>(null)
   const handleRef = useRef<HTMLDivElement | null>(null)
@@ -49,10 +56,11 @@ export function BottomSheet({
   const dragRef = useRef<{ startY: number; startHeight: number; moved: boolean } | null>(null)
   const snapRef = useRef(snap)
   snapRef.current = snap
+  const snapFraction: Record<SheetSnap, number> = { ...DEFAULT_SNAP_FRACTION, peek: peekFraction }
 
   // The map area this sheet is laid over.
   const areaHeight = () => outerRef.current?.parentElement?.clientHeight ?? 480
-  const heightFor = (s: SheetSnap) => Math.round(areaHeight() * SNAP_FRACTION[s])
+  const heightFor = (s: SheetSnap) => Math.round(areaHeight() * snapFraction[s])
   const nearestSnap = (height: number): SheetSnap =>
     ORDER.reduce((best, s) =>
       Math.abs(heightFor(s) - height) < Math.abs(heightFor(best) - height) ? s : best,

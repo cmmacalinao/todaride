@@ -370,6 +370,13 @@ interface RideState {
   // "capacitor://localhost" on iOS). Empty means "fall back to the current
   // origin", which is right only when genuinely served from a public host.
   publicBaseUrl: string
+  // The one TODA a pilot is being run with — printed on the welcome screen
+  // (see LandingPage) so the app reads as that TODA's own booking app rather
+  // than a generic multi-operator platform. Empty means "no pilot branding",
+  // which is right for the general/multi-TODA deployment. A name typed here
+  // rather than an id from MOCK_TODA_ORGANIZATIONS: this only ever changes
+  // what the welcome screen prints, not which org anything is scoped to.
+  pilotTodaName: string
   // Drives the fake tricycle movement (see TICK_POSITIONS): the marker
   // glides along the leg on a timer regardless of where anyone actually is.
   // Off means nothing moves on its own — the map only shows the driver's
@@ -524,6 +531,7 @@ type RideAction =
   | { type: 'SET_VENDORS_ENABLED'; enabled: boolean }
   | { type: 'SET_SIMULATED_OTP_ENABLED'; enabled: boolean }
   | { type: 'SET_PUBLIC_BASE_URL'; url: string }
+  | { type: 'SET_PILOT_TODA_NAME'; name: string }
   | { type: 'SET_SIMULATE_MOVEMENT_ENABLED'; enabled: boolean }
   | { type: 'SET_LIVE_GPS_ENABLED'; enabled: boolean }
   | { type: 'SET_OPEN_DRIVER_SIGNUP'; enabled: boolean }
@@ -666,6 +674,7 @@ type RideAction =
       perBookingFee: number
     }
   | { type: 'SET_OPERATOR_FRANCHISE'; operatorId: string; franchiseId: string | null }
+  | { type: 'SET_OPERATOR_LOGO'; operatorId: string; logoDataUrl: string | null }
   | {
       type: 'UPDATE_OPERATOR_PROFILE'
       operatorId: string
@@ -1395,6 +1404,7 @@ interface StoredState {
   vendorsEnabled?: boolean
   simulatedOtpEnabled?: boolean
   publicBaseUrl?: string
+  pilotTodaName?: string
   simulateMovementEnabled?: boolean
   liveGpsEnabled?: boolean
   openDriverSignup?: boolean
@@ -1642,6 +1652,7 @@ function fromStored(parsed: StoredState): RideState {
     // choice — this only changes what a fresh one starts with.
     simulatedOtpEnabled: parsed.simulatedOtpEnabled ?? false,
     publicBaseUrl: parsed.publicBaseUrl ?? '',
+    pilotTodaName: parsed.pilotTodaName ?? '',
     // Off unless somebody has said otherwise. The pilot is on real roads
     // now, so the map should move because a tricycle moved. An install that
     // has already chosen keeps its choice — this only changes what a fresh
@@ -1837,6 +1848,7 @@ function loadInitialState(): RideState {
     vendorsEnabled: false,
     simulatedOtpEnabled: false,
     publicBaseUrl: '',
+    pilotTodaName: '',
     simulateMovementEnabled: false,
     liveGpsEnabled: true,
     openDriverSignup: true,
@@ -3221,6 +3233,8 @@ function reducer(state: RideState, action: RideAction): RideState {
       // Trailing slash stripped so callers can append paths without
       // producing a double slash.
       return { ...state, publicBaseUrl: action.url.trim().replace(/\/+$/, '') }
+    case 'SET_PILOT_TODA_NAME':
+      return { ...state, pilotTodaName: action.name.trim() }
     case 'JOIN_TERMINAL_QUEUE': {
       const joiningDriver = state.drivers.find((d) => d.id === action.driverId)
       const joiningOrg = joiningDriver?.todaOrgId
@@ -3778,6 +3792,13 @@ function reducer(state: RideState, action: RideAction): RideState {
         ...state,
         operators: state.operators.map((o) =>
           o.id === action.operatorId ? { ...o, franchiseId: action.franchiseId } : o,
+        ),
+      }
+    case 'SET_OPERATOR_LOGO':
+      return {
+        ...state,
+        operators: state.operators.map((o) =>
+          o.id === action.operatorId ? { ...o, logoDataUrl: action.logoDataUrl } : o,
         ),
       }
     case 'REGISTER_FRANCHISE': {
@@ -5262,6 +5283,7 @@ interface RideContextValue extends RideState {
   setVendorsEnabled: (enabled: boolean) => void
   setSimulatedOtpEnabled: (enabled: boolean) => void
   setPublicBaseUrl: (url: string) => void
+  setPilotTodaName: (name: string) => void
   setSimulateMovementEnabled: (enabled: boolean) => void
   setLiveGpsEnabled: (enabled: boolean) => void
   setOpenDriverSignup: (enabled: boolean) => void
@@ -5397,6 +5419,7 @@ interface RideContextValue extends RideState {
   rejectOperator: (operatorId: string) => void
   setOperatorFees: (operatorId: string, activationFee: number | null, monthlyPlatformFee: number, perBookingFee: number) => void
   setOperatorFranchise: (operatorId: string, franchiseId: string | null) => void
+  setOperatorLogo: (operatorId: string, logoDataUrl: string | null) => void
   updateOperatorProfile: (
     operatorId: string,
     updates: {
@@ -6073,6 +6096,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           vendorsEnabled: state.vendorsEnabled,
           simulatedOtpEnabled: state.simulatedOtpEnabled,
           publicBaseUrl: state.publicBaseUrl,
+          pilotTodaName: state.pilotTodaName,
           simulateMovementEnabled: state.simulateMovementEnabled,
           emergencyHotlines: state.emergencyHotlines,
       } as unknown) as StoredState
@@ -6170,6 +6194,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     state.vendorsEnabled,
     state.simulatedOtpEnabled,
     state.publicBaseUrl,
+    state.pilotTodaName,
     state.simulateMovementEnabled,
     state.emergencyHotlines,
   ])
@@ -6361,6 +6386,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setVendorsEnabled: (enabled) => dispatch({ type: 'SET_VENDORS_ENABLED', enabled }),
     setSimulatedOtpEnabled: (enabled) => dispatch({ type: 'SET_SIMULATED_OTP_ENABLED', enabled }),
     setPublicBaseUrl: (url) => dispatch({ type: 'SET_PUBLIC_BASE_URL', url }),
+    setPilotTodaName: (name) => dispatch({ type: 'SET_PILOT_TODA_NAME', name }),
     setSimulateMovementEnabled: (enabled) => dispatch({ type: 'SET_SIMULATE_MOVEMENT_ENABLED', enabled }),
     setLiveGpsEnabled: (enabled) => dispatch({ type: 'SET_LIVE_GPS_ENABLED', enabled }),
     setOpenDriverSignup: (enabled) => dispatch({ type: 'SET_OPEN_DRIVER_SIGNUP', enabled }),
@@ -6448,6 +6474,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'SET_OPERATOR_FEES', operatorId, activationFee, monthlyPlatformFee, perBookingFee }),
     setOperatorFranchise: (operatorId, franchiseId) =>
       dispatch({ type: 'SET_OPERATOR_FRANCHISE', operatorId, franchiseId }),
+    setOperatorLogo: (operatorId, logoDataUrl) => dispatch({ type: 'SET_OPERATOR_LOGO', operatorId, logoDataUrl }),
     updateOperatorProfile: (operatorId, updates) => dispatch({ type: 'UPDATE_OPERATOR_PROFILE', operatorId, ...updates }),
     registerFranchise: (args) => {
       const id = `fr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`

@@ -1,5 +1,5 @@
 import { SaasFeeCard } from '../components/SaasFeeCard'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useSession } from '../context/SessionContext'
 import { useRides, usePublicOrigin } from '../context/RideContext'
@@ -53,6 +53,7 @@ export function OperatorPortalPage({ operatorId: operatorIdProp }: { operatorId?
     drivers,
     rides,
     updateOperatorProfile,
+    setOperatorLogo,
     registerTodaOrganization,
     setTodaOperator,
     approveTodaOrg,
@@ -118,6 +119,12 @@ export function OperatorPortalPage({ operatorId: operatorIdProp }: { operatorId?
       <PortfolioOverviewSection portfolio={portfolio} />
 
       <BusinessProfileSection operator={operator} readOnly={readOnly} onSave={(updates) => updateOperatorProfile(operator.id, updates)} />
+
+      <PartnerLogoSection
+        logoDataUrl={operator.logoDataUrl ?? null}
+        readOnly={readOnly}
+        onSave={(logoDataUrl) => setOperatorLogo(operator.id, logoDataUrl)}
+      />
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="mb-1 text-sm font-semibold text-slate-700">My Subscription (Level 2)</h2>
@@ -427,6 +434,117 @@ interface BusinessProfileValues {
   barangay: string
   addressDetail: string
   businessRegistrationNo: string | null
+}
+
+// Downscaled the same way BannerAdManager.tsx resizes ad artwork, and for
+// the same reason — this app's whole database is one JSON blob in
+// localStorage, and a raw phone photo as base64 risks the ~5MB quota. A
+// header mark is read small, so 400px is plenty; no separate shared helper
+// with the banner uploader since the two run at different sizes and have
+// nothing else in common.
+const LOGO_MAX_WIDTH = 400
+const LOGO_JPEG_QUALITY = 0.8
+
+async function downscaleLogoToDataUrl(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file)
+  const scale = Math.min(1, LOGO_MAX_WIDTH / bitmap.width)
+  const width = Math.round(bitmap.width * scale)
+  const height = Math.round(bitmap.height * scale)
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas not available')
+  // White behind the image so a transparent PNG doesn't turn black once
+  // flattened into JPEG — most partner marks arrive with a transparent
+  // background, and the header itself isn't white everywhere it might sit.
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, width, height)
+  ctx.drawImage(bitmap, 0, 0, width, height)
+  bitmap.close()
+  return canvas.toDataURL('image/jpeg', LOGO_JPEG_QUALITY)
+}
+
+// A sponsor/partner mark (a civic club, a funder) shown on the right side of
+// the app header for every visitor — see NavBar.tsx — not just inside this
+// portal. Editable here because the Operator is the one relationship this
+// app models above a single TODA, so it's the natural owner of "who is
+// backing this pilot," the same way Super Admin owns the platform-wide
+// "Pilot branding" name.
+function PartnerLogoSection({
+  logoDataUrl,
+  readOnly,
+  onSave,
+}: {
+  logoDataUrl: string | null
+  readOnly: boolean
+  onSave: (logoDataUrl: string | null) => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
+  async function handleFile(file: File | undefined) {
+    if (!file) return
+    setError('')
+    setBusy(true)
+    try {
+      onSave(await downscaleLogoToDataUrl(file))
+    } catch {
+      setError('Could not read that image — try a JPG or PNG.')
+    } finally {
+      setBusy(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 className="text-sm font-semibold text-slate-700">Partner logo</h2>
+      <p className="mt-0.5 text-xs text-slate-500">
+        Shown on the right side of the app header for every rider and driver — a sponsor or civic partner backing
+        this pilot (e.g. a Rotary club). Leave blank and nothing extra shows there.
+      </p>
+      {error && <p className="mt-1.5 text-[11px] font-medium text-amber-700">{error}</p>}
+      <div className="mt-2 flex items-center gap-3">
+        <div className="flex h-14 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+          {logoDataUrl ? (
+            <img src={logoDataUrl} alt="Partner logo" className="h-full w-full object-contain" />
+          ) : (
+            <span className="text-[10px] text-slate-400">None set</span>
+          )}
+        </div>
+        {!readOnly && (
+          <div className="flex flex-col gap-1.5">
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => void handleFile(e.target.files?.[0])}
+            />
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => inputRef.current?.click()}
+              className="rounded-md border border-slate-300 px-3 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+            >
+              {busy ? 'Resizing…' : logoDataUrl ? 'Change' : 'Upload'}
+            </button>
+            {logoDataUrl && (
+              <button
+                type="button"
+                onClick={() => onSave(null)}
+                className="rounded-md border border-amber-300 px-3 py-1 text-[11px] font-medium text-amber-700 hover:bg-amber-50"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  )
 }
 
 function BusinessProfileSection({

@@ -54,3 +54,20 @@ ios/App/App.xcodeproj/project.xcworkspace/xcuserdata
 # reference docs that stay tracked. Files stay on disk; git just stops
 # seeing them.
 DOCUMENT GUIDES/New folder/
+
+# Deploy archives. Both are outputs of a build that is itself ignored above,
+# so committing them stored the same thing twice — once as source, once
+# zipped — and neither copy is what the site actually serves.
+/todasaferide-dist.zip
+/todasaferide-cloudflare.zip
+
+# Master artwork left in the repo root: six full-resolution logo files,
+# ~10MB between them, none of them referenced by the app. What ships is
+# public/logo.webp at 59KB, exported from these. They stay on disk as the
+# originals to re-export from; git just stops carrying them.
+/TODA RIDE LOGO.png
+/TODASAFERIDE LOGO.JPG
+/TODA SAFE RIDE -transparent logo.png
+/TODA SAFE RIDE LOGO V3.png
+/TODA SAFE RIDE LOGO V3-transparent.png
+/TODA SAFE RIDE LOGO black.png

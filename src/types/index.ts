@@ -206,6 +206,11 @@ export interface Operator {
   barangay: string
   addressDetail: string
   businessRegistrationNo: string | null
+  // A sponsor/partner mark (e.g. a civic club or funder's logo) shown on the
+  // right side of the app header — see NavBar.tsx. A data: URL, same as
+  // every other admin-uploaded image in this app (BannerAd, driver
+  // documents); null/undefined shows nothing rather than a broken image.
+  logoDataUrl?: string | null
   // One-time activation fee, set by the App Admin on approval (typical
   // ₱25,000–75,000 per the roadmap) — null until approved.
   activationFee: number | null

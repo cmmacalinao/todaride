@@ -1,6 +1,6 @@
 import { Capacitor } from '@capacitor/core'
 import { Geolocation } from '@capacitor/geolocation'
-import type { GeoCoords } from '../types'
+import type { GeoCoords, TodaOrganization } from '../types'
 
 // A driver must be roughly at the terminal to join its queue — this is the
 // radius we treat as "at the terminal." Real GPS on a phone is typically
@@ -22,6 +22,37 @@ export const PICKUP_PROXIMITY_METERS = 100
 export const DROPOFF_PROXIMITY_METERS = 100
 
 const EARTH_RADIUS_METERS = 6371000
+
+// How far a passenger can be from a TODA's terminal and still count as
+// "near" it for pilot-branding purposes — wide enough to cover someone a
+// few streets off, narrow enough that a pilot two towns over never lights
+// up. Distinct from TERMINAL_PROXIMITY_METERS above: that one is "are you
+// standing in the yard," this is "are you in the neighbourhood."
+export const TODA_JURISDICTION_METERS = 5000
+
+// Whichever TODA's terminal is closest to a position, within
+// TODA_JURISDICTION_METERS — or null if nothing registered a terminal that
+// close. Deliberately real haversine distance against `terminalGps`, not the
+// abstract 0-100 mock grid `getPriorityTodaOrgId` (mock/data.ts) dispatches
+// on — that one only covers the three original seed orgs and has no
+// relationship to real coordinates, so it can't answer "is this org nearby."
+export function findNearbyTodaOrg(
+  position: GeoCoords,
+  orgs: TodaOrganization[],
+  maxMeters: number = TODA_JURISDICTION_METERS,
+): TodaOrganization | null {
+  let closest: TodaOrganization | null = null
+  let closestMeters = Infinity
+  for (const org of orgs) {
+    if (!org.terminalGps) continue
+    const meters = haversineDistanceMeters(position, org.terminalGps)
+    if (meters < closestMeters) {
+      closestMeters = meters
+      closest = org
+    }
+  }
+  return closest && closestMeters <= maxMeters ? closest : null
+}
 
 export function haversineDistanceMeters(a: GeoCoords, b: GeoCoords): number {
   const toRad = (deg: number) => (deg * Math.PI) / 180

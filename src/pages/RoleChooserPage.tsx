@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
+import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
+import { PilotBranding } from '../components/PilotBranding'
+import { usePilotBranding } from '../lib/usePilotBranding'
 type AuthMode = 'login' | 'signup'
 
 interface RoleTile {
@@ -64,6 +67,7 @@ export function RoleChooserPage() {
   const { medsEnabled, vendorsEnabled } = useRides()
   const [searchParams] = useSearchParams()
   const [mode, setMode] = useState<AuthMode>(searchParams.get('mode') === 'login' ? 'login' : 'signup')
+  const pilotBranding = usePilotBranding()
 
   return (
     // Same pattern as the launch screen behind it: dark navy, the diagonal
@@ -71,7 +75,14 @@ export function RoleChooserPage() {
     // login are the two doors into the app, and a visitor bouncing between
     // "use the main login" and "pick a role" should not land on two
     // different products.
-    <div className="relative min-h-[calc(100vh-50px)] overflow-hidden bg-navy-950 px-4 py-8">
+    <div
+      className="relative min-h-[calc(100vh-50px)] overflow-hidden px-4 py-8"
+      // Same royal-blue-to-navy diagonal as the landing page (see
+      // LandingPage.tsx) — this is the other door into the app, and a
+      // visitor bouncing between the two should land on one product, not
+      // two differently-lit versions of it.
+      style={{ backgroundImage: 'linear-gradient(135deg, #3e6fe4 0%, #0a1529 60%, #0a1529 100%)' }}
+    >
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-[0.08]"
@@ -84,6 +95,16 @@ export function RoleChooserPage() {
           <Link to="/" aria-label="Back to home" className="rounded-2xl border-2 border-white/25 p-3">
             <img src="/logo.webp" alt="TODA SafeRide" className="h-14 w-auto object-contain" />
           </Link>
+          {/* Same resolution as the launch screen behind this one — see
+              usePilotBranding — so the two doors into the app never
+              disagree about which TODA a visitor is looking at. */}
+          {pilotBranding.specific ? (
+            <NearbyTodaAdCard name={pilotBranding.name} showNearYouTag={pilotBranding.showNearYouTag} />
+          ) : (
+            <div className="mt-3">
+              <PilotBranding name={pilotBranding.name} />
+            </div>
+          )}
           <h1 className="mt-4 text-sm font-semibold text-white">
             {mode === 'signup' ? 'Create your account' : 'Welcome back'}
           </h1>

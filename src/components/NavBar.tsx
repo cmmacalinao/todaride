@@ -83,6 +83,13 @@ export function NavBar() {
   const currentTodaOrg = todaOrganizations.find((o) => o.id === loggedInTodaAdminOrgId)
   const currentOperator = operators.find((o) => o.id === loggedInOperatorAdminId)
   const currentFranchise = franchises.find((f) => f.id === loggedInFranchiseAdminId)
+  // Whichever Operator set a partner mark first — see PartnerLogoSection in
+  // OperatorPortalPage.tsx. Not scoped to whoever is logged in: a passenger
+  // or driver has no Operator session of their own, but the sponsor backing
+  // their TODA's Operator is exactly who this is meant to be shown to.
+  // First match rather than something fancier because today's app runs one
+  // Operator at a time in practice, even though the data model allows more.
+  const sponsorLogoDataUrl = operators.find((o) => o.logoDataUrl)?.logoDataUrl
 
   // Hamburger drawer + its two overlay concerns (the slide-out menu itself,
   // and the stub panels its menu items open — Profile/Settings/Help/Privacy/
@@ -431,6 +438,17 @@ export function NavBar() {
                 Log out
               </button>
             </div>
+            {/* Set by the Operator backing this pilot — see
+                PartnerLogoSection in OperatorPortalPage.tsx. No background
+                chip: the seeded mark carries its own white outline so it
+                reads directly on the header's blue. */}
+            {sponsorLogoDataUrl && (
+              <img
+                src={sponsorLogoDataUrl}
+                alt="Pilot partner"
+                className="h-9 w-auto max-w-[6rem] shrink-0 object-contain"
+              />
+            )}
           </div>
         </div>
       </header>

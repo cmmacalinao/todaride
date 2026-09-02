@@ -79,6 +79,14 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
   // past SAME_TRICYCLE_METERS. Typing the plate number everyone can already
   // see painted on the tricycle works regardless of GPS.
   const [trcInput, setTrcInput] = useState('')
+  // The sticker route, done in-app instead of by switching to the phone's
+  // own camera app. A photo, not a live video feed: capture="environment"
+  // already opens the native camera UI for one shot, so there is no
+  // getUserMedia permission prompt to ask for and no video frame loop to
+  // run — just the one image, decoded once it comes back.
+  const qrFileInputRef = useRef<HTMLInputElement | null>(null)
+  const [qrError, setQrError] = useState<string | null>(null)
+  const [qrDecoding, setQrDecoding] = useState(false)
 
   const passengerHasTrip = rides.some(
     (r) => r.passengerId === currentPassengerId && ['requested', 'accepted', 'driver_arriving', 'ongoing'].includes(r.status),
@@ -247,6 +255,68 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
     // is on the screen they were already looking at.
   }
 
+  // The sticker's QR encodes the same link TerminalScanPage answers to
+  // (see TricycleQrPanel): "<base>/scan/<driverId>". Decoded here rather than
+  // followed as a link, so scanning from inside this panel records the trip
+  // in place instead of bouncing through a page built for someone arriving
+  // from outside the app with no session yet.
+  //
+  // The decoder is fetched on the tap rather than imported at the top: it is
+  // a quarter-megabyte of source that only matters to someone who actually
+  // photographs a sticker, and a static import put it in the bundle every
+  // rider downloads before they have booked anything.
+  async function handleQrPhoto(file: File) {
+    setQrError(null)
+    setQrDecoding(true)
+    let jsQR: typeof import('jsqr').default
+    try {
+      jsQR = (await import('jsqr')).default
+    } catch {
+      setQrDecoding(false)
+      setQrError('Could not load the QR reader — check your connection, or type the TRC No. below.')
+      return
+    }
+    const reader = new FileReader()
+    reader.onerror = () => {
+      setQrDecoding(false)
+      setQrError('Could not read that photo. Try again.')
+    }
+    reader.onload = () => {
+      const img = new Image()
+      img.onerror = () => {
+        setQrDecoding(false)
+        setQrError('Could not read that photo. Try again.')
+      }
+      img.onload = () => {
+        setQrDecoding(false)
+        const canvas = document.createElement('canvas')
+        canvas.width = img.naturalWidth
+        canvas.height = img.naturalHeight
+        const ctx = canvas.getContext('2d')
+        ctx?.drawImage(img, 0, 0)
+        const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height)
+        const code = imageData && jsQR(imageData.data, imageData.width, imageData.height)
+        if (!code) {
+          setQrError('No QR code found in that photo — try again with the sticker centred and well lit.')
+          return
+        }
+        const driverId = code.data.match(/\/scan\/([^/?#]+)/)?.[1]
+        const driver = driverId ? drivers.find((d) => d.id === decodeURIComponent(driverId)) : undefined
+        if (!driver) {
+          setQrError("That QR code isn't a TODA SafeRide tricycle sticker — type the TRC No. below instead.")
+          return
+        }
+        if (driver.verificationStatus !== 'approved' || driver.accessStatus !== 'active' || busyIds.has(driver.id)) {
+          setQrError(`${driver.name}'s tricycle isn't available to record right now — type the TRC No. below instead.`)
+          return
+        }
+        startRecording(driver)
+      }
+      img.src = reader.result as string
+    }
+    reader.readAsDataURL(file)
+  }
+
   // The strip that says whether anything is being recorded yet.
   //
   // Nothing is, on this screen — recording begins when the phone and one
@@ -310,6 +380,45 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
 
   return (
     <section className="space-y-2 rounded-xl border border-gold-400 bg-white p-3 shadow-sm">
+      {/* The sticker route, ahead of the banner itself — it is the fastest
+          way to record a trip, and the whole reason this screen has a
+          "Scan QR" shortcut leading to it, so it is the first thing here
+          rather than something found after reading past the intro. The QR
+          itself is an ordinary link opened by the phone's own camera app, so
+          pointing that at the sticker never asks this app for camera
+          permission; the button below is the in-app alternative for whoever
+          would rather not switch apps. */}
+      {!passengerHasTrip && (
+        <div className="rounded-lg border border-gold-400/60 bg-gold-50 px-3 py-2">
+          <p className="text-xs font-semibold text-navy-900">Point your phone camera at the sticker</p>
+          <p className="mt-0.5 text-[11px] leading-snug text-navy-900/70">
+            Open your camera and hold it over the QR inside the tricycle. It opens this app on your driver&apos;s
+            trip — no typing. Or scan it right here:
+          </p>
+          <input
+            ref={qrFileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              if (file) void handleQrPhoto(file)
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => qrFileInputRef.current?.click()}
+            disabled={qrDecoding}
+            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-gold-500 bg-gold-400 py-1.5 text-xs font-bold text-navy-900 shadow-sm transition hover:bg-gold-500 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            📷 {qrDecoding ? 'Reading…' : 'Scan QR Code'}
+          </button>
+          {qrError && <p className="mt-1.5 text-[11px] font-medium text-amber-800">{qrError}</p>}
+        </div>
+      )}
+
       <div className="overflow-hidden rounded-lg border-2 border-gold-400 bg-navy-900">
         <p className="bg-gold-400 px-3 py-1.5 text-xs font-extrabold italic tracking-tight text-navy-900">
           Nasa tricycle ka na?
@@ -391,20 +500,6 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
 
       {!passengerHasTrip && (
         <div>
-          {/* The sticker route, which used to live on the previous screen
-              and sent people back a page to use. It belongs here, beside
-              the typed TRC it is the shortcut for: scanning is the same
-              answer to the same question, arrived at without typing. The QR
-              is an ordinary link opened by the phone's own camera, so the
-              app never asks for camera permission. */}
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-            <p className="text-xs font-semibold text-slate-700">Point your phone camera at the sticker</p>
-            <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
-              Open your camera and hold it over the QR inside the tricycle. It opens this app on your
-              driver&apos;s trip — no typing.
-            </p>
-          </div>
-
           <h2 className="mt-2.5 text-xs font-semibold text-slate-700">Sticker missing? Alin ang TRC No. sa loob?</h2>
 
           {/* Type it in — the fallback for whenever the tricycle you're

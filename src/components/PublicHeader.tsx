@@ -19,7 +19,12 @@ import { THEME_OPTIONS, useTheme } from '../context/ThemeContext'
 export function PublicHeader({ title = 'TODA SafeRide' }: { title?: string }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { medsEnabled, vendorsEnabled } = useRides()
+  const { medsEnabled, vendorsEnabled, operators } = useRides()
+  // Same resolution as NavBar's signed-in header — see sponsorLogoDataUrl
+  // there. A logged-out visitor has no Operator session at all, but the
+  // sponsor mark isn't tied to who's logged in; it's tied to which Operator
+  // is running this pilot, which is knowable from the shared org data alone.
+  const sponsorLogoDataUrl = operators.find((o) => o.logoDataUrl)?.logoDataUrl
   // The landing page already shows the full mark in the middle of the screen,
   // so a second copy in the header is a duplicate, and back/forward arrows
   // have nowhere to go from the first screen of the app. Every other public
@@ -109,6 +114,20 @@ export function PublicHeader({ title = 'TODA SafeRide' }: { title?: string }) {
             </Link>
           )}
           <span className="min-w-0 truncate text-sm font-semibold text-gold-400">{title}</span>
+          {/* Set by the Operator backing this pilot — see
+              PartnerLogoSection in OperatorPortalPage.tsx. Shown here too,
+              not just the signed-in header, since a visitor who hasn't
+              logged in yet is exactly who a sponsor mark is for.
+              No background chip: the seeded mark carries its own white
+              outline so it reads directly on the header's blue, and an
+              Operator uploading their own gets the same treatment. */}
+          {sponsorLogoDataUrl && (
+            <img
+              src={sponsorLogoDataUrl}
+              alt="Pilot partner"
+              className="ml-auto h-9 w-auto max-w-[6rem] shrink-0 object-contain"
+            />
+          )}
         </div>
       </header>
 

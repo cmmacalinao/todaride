@@ -20,7 +20,6 @@ import {
   DRIVER_REPORT_REASONS,
   DRIVER_REPORT_REASON_LABELS,
   MOCK_LOCATIONS,
-  PAYMENT_METHODS,
   estimateFare,
   estimateFareBreakdown,
   estimateSpecialPickupBreakdown,
@@ -136,7 +135,11 @@ export function PassengerPage() {
   // Whether the pickup is still the app's opening guess rather than the
   // passenger's answer — a guess should say so.
   const [pickupChosen, setPickupChosen] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
+  // Cash only on this screen now — see the removed Payment method picker.
+  // The type still carries E-Wallet for the ride records that pay that way
+  // already (recorded terminal rides, MedsBooking), so this stays a
+  // PaymentMethod rather than narrowing to the literal 'cash'.
+  const [paymentMethod] = useState<PaymentMethod>('cash')
   const [passengerCount, setPassengerCount] = useState(1)
   const [showRegister, setShowRegister] = useState(false)
   const [pageTab, setPageTab] = useState<'book' | 'rewards' | 'emergency'>('book')
@@ -646,30 +649,26 @@ export function PassengerPage() {
     const travelSeconds = plannedRoute?.durationSeconds || ETA_SECONDS_PER_LEG
     const mins = (sec: number) => Math.max(1, Math.round(sec / 60))
     return (
-      // Label above, number below. Three cards on one line is more than a
-      // phone-width sheet can hold side by side — laid out in a row they
-      // truncated the minutes themselves, which is the one thing on the row
-      // anybody reads. Stacked, each card needs only its widest line.
+      // One line, one card: label and number read together per segment
+      // ("Arrives ~1 min") rather than stacked, so all three fit the width
+      // of a phone sheet without the card growing a second line.
       //
       // The arrival clock times are gone with the squeeze. "~6 min" and
       // "7:16" are the same fact told twice, and the minutes are the half
       // people decide on.
-      <div className="grid grid-cols-3 gap-1.5">
-        <div className="rounded-lg border border-slate-200 bg-white px-2 py-1">
-          <span className="block text-[10px] font-medium leading-tight text-pickup-accent">Arrives</span>
-          <span className="block text-xs font-bold leading-tight text-slate-800">~{mins(toPickupSeconds)} min</span>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white px-2 py-1">
-          <span className="block text-[10px] font-medium leading-tight text-dest-accent">Travel</span>
-          <span className="block text-xs font-bold leading-tight text-slate-800">~{mins(travelSeconds)} min</span>
-        </div>
-        {/* On the same row as the two times, because the three of them are
+      <div className="flex items-center divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white/90 px-2 py-1">
+        <span className="flex-1 truncate pr-1.5 text-[11px] leading-tight text-slate-800">
+          <span className="font-medium text-pickup-accent">Arrives</span> <span className="font-bold">~{mins(toPickupSeconds)} min</span>
+        </span>
+        <span className="flex-1 truncate px-1.5 text-[11px] leading-tight text-slate-800">
+          <span className="font-medium text-dest-accent">Travel</span> <span className="font-bold">~{mins(travelSeconds)} min</span>
+        </span>
+        {/* On the same line as the two times, because the three of them are
             one decision: how long until it comes, how long it takes, what it
             costs. */}
-        <div className="rounded-lg border border-slate-200 bg-white px-2 py-1">
-          <span className="block text-[10px] font-medium leading-tight text-slate-500">Fare</span>
-          <span className="block text-xs font-bold leading-tight text-slate-800">₱{totalFare}</span>
-        </div>
+        <span className="flex-1 truncate pl-1.5 text-[11px] leading-tight text-slate-800">
+          <span className="font-medium text-slate-500">Fare</span> <span className="font-bold">₱{totalFare}</span>
+        </span>
       </div>
     )
   })()
@@ -978,6 +977,16 @@ export function PassengerPage() {
   }, [finishedRideId])
 
   const isGuestBooking = guestRider.bookingFor === 'other'
+  // Said when Book is pressed with nothing behind the pickup — a phone that
+  // refused location, or one still waiting on the auto-locate fix to land.
+  // canSubmit does not gate on this: booking for yourself with no pickup
+  // coordinate at all would send a driver nowhere, and a disabled button
+  // with no explanation reads as the app being broken rather than as
+  // location being off. This says which it is and what fixes it, instead.
+  const [pickupMissingNotice, setPickupMissingNotice] = useState(false)
+  useEffect(() => {
+    if (pickup.gps || isGuestBooking) setPickupMissingNotice(false)
+  }, [pickup.gps, isGuestBooking])
   // Two entries can carry different ids and still be the same spot — a city
   // quick-pick and a saved place resolving to one market, say. Comparing ids
   // alone let that through and booked a ride from a place to itself.
@@ -1026,6 +1035,14 @@ export function PassengerPage() {
   // the button; it is information now rather than a gate.
   function handleRequest() {
     if (!canSubmit) return
+    // Nothing to send a driver to. This is booking-for-yourself only — a
+    // guest booking's pickup was never meant to auto-fill from this phone
+    // (see the auto-locate effect), so an empty pickup there just means the
+    // pin has not been set yet, which the pickup row itself already says.
+    if (!isGuestBooking && !pickup.gps) {
+      setPickupMissingNotice(true)
+      return
+    }
     requestRide({
       passengerId: isGuestBooking ? makeGuestPassengerId() : passenger.id,
       passengerName: isGuestBooking ? guestRider.otherName.trim() : passenger.name,
@@ -1243,13 +1260,19 @@ export function PassengerPage() {
   // and never interrupts an errand or a trip already underway. A refused or
   // failed fix is not retried: handleUseMyGps already reports it, and asking
   // the phone again on a loop would only pester someone who has said no.
+  //
+  // Also stands down while booking for someone else — this phone's position
+  // is not their pickup, and filling it in with the wrong person's location
+  // would be a worse start than leaving the field empty for them to set by
+  // hand. Not marked as done in that case, so switching back to booking for
+  // yourself still gets the one automatic try.
   const autoLocatedRef = useRef(false)
   useEffect(() => {
     if (autoLocatedRef.current) return
-    if (pickupChosen || isErrand || activeRide) return
+    if (pickupChosen || isErrand || activeRide || guestRider.bookingFor === 'other') return
     autoLocatedRef.current = true
     void handleUseMyGps('pickup')
-  }, [pickupChosen, isErrand, activeRide])
+  }, [pickupChosen, isErrand, activeRide, guestRider.bookingFor])
 
   // Admin-configurable — see AdminPage's "Trip history retention" setting.
   // Older rides aren't lost, they just drop out of this list (earnings
@@ -1510,15 +1533,26 @@ export function PassengerPage() {
         refitSignal={`${pickup.id}|${hasDestination ? dropoff.id : 'none'}|${groupMapPoints.length}`}
         hasDropoff={hasDestination}
         hasPickup={pickupChosen}
+        pickupIsMyLocation={!isErrand && guestRider.bookingFor === 'self'}
         // Map-first on the booking screen: the map takes the height and the
         // From/Destination card rides over it in a draggable sheet. Not while
         // the Terminal panel has borrowed this map — that screen has its own
         // layout and its own strip, and a sheet over it would be a second
         // panel arguing with the first.
+        // Only while there is no trip already underway to record — once one
+        // exists this same map is showing it, and the shortcut back to a
+        // screen for starting a trip would be offering to start a second one.
+        onScanQr={!tripUnderway && !isErrand ? () => navigate('/book/terminal') : undefined}
         mapFirst={mapFirstBooking}
         sheetHeader={mapFirstBooking && !tripUnderway ? () => addressCard(true, true) : undefined}
         sheetSnap={mapFirstBooking ? bookingSheetSnap : undefined}
         onSheetSnapChange={mapFirstBooking ? setBookingSheetSnap : undefined}
+        // Booking for someone else adds the destination row above the
+        // toggle's own header, so the same peek fraction that used to clear
+        // one row now stops short of it. Bumped just enough to bring that
+        // row into view — the guest name/phone inputs and the rest of the
+        // form stay below the fold until the sheet is pulled up.
+        sheetPeekFraction={mapFirstBooking && guestRider.bookingFor === 'other' ? 0.34 : undefined}
         // Taking a pin off the map is the same as never having set it: the
         // row goes back to "not set yet" and the marker disappears.
         onClearPickup={() => setPickupChosen(false)}
@@ -1569,6 +1603,13 @@ export function PassengerPage() {
         leadingAction={
           tripUnderway ? null : (
             <div className="space-y-1">
+              {pickupMissingNotice && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] leading-snug text-amber-800">
+                  📍 We couldn't get your location. Reload the page and choose{' '}
+                  <span className="font-semibold">Allow</span> when it asks, or tap{' '}
+                  <span className="font-semibold">Set on Map</span> above to pin your pickup yourself.
+                </div>
+              )}
               <button
                 onClick={() => handleRequest()}
                 disabled={!canSubmit}
@@ -1687,16 +1728,194 @@ export function PassengerPage() {
           className="scroll-mt-2 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm"
         >
           <div className="relative" ref={endpointsRef}>
+            {/* Who this ride is for, asked before either address. It decides
+                whether the pickup row below has anything to do: booking for
+                yourself already has a pickup — wherever you are standing,
+                found automatically (see the auto-locate effect) — so asking
+                you to also set it on a strip is asking a question already
+                answered. Booking for someone else has no such answer; their
+                phone isn't this one, so the pickup has to be set by hand,
+                and their name has to go on the ride somewhere. */}
+            {!isErrand && (
+              <div className="mb-1.5">
+                <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
+                  <button
+                    type="button"
+                    onClick={() => guestRider.setBookingFor('self')}
+                    className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
+                      guestRider.bookingFor === 'self'
+                        ? 'bg-brand-600 text-white shadow-sm'
+                        : 'text-slate-500 hover:bg-slate-200'
+                    }`}
+                  >
+                    Book for myself
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => guestRider.setBookingFor('other')}
+                    className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
+                      guestRider.bookingFor === 'other'
+                        ? 'bg-brand-600 text-white shadow-sm'
+                        : 'text-slate-500 hover:bg-slate-200'
+                    }`}
+                  >
+                    Book for someone
+                  </button>
+                </div>
+                {guestRider.bookingFor === 'other' && (
+                  <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                    <input
+                      value={guestRider.otherName}
+                      onChange={(e) => guestRider.setOtherName(e.target.value)}
+                      placeholder="Their name"
+                      className="min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
+                    />
+                    <input
+                      value={guestRider.otherPhone}
+                      onChange={(e) => guestRider.setOtherPhone(e.target.value)}
+                      placeholder="Their mobile number"
+                      className="min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
             {/* The dotted connector between the two rows is gone. It drew a
                 line from the pickup down to the destination, and the
                 destination is now the row on top — so it was pointing at the
                 wrong one, from a fixed offset that no longer matches either. */}
-            {/* The row and the other way to fill it, side by side.
-                Set on Map used to sit on its own line under the row, which
-                gave a secondary route the same vertical weight as the
-                question itself and cost a line of a sheet that has few to
-                spare. Beside it, narrow, it reads as the alternative it is. */}
+            {/* The pickup row, only when it is actually a question, and
+                first when it shows at all. Booking for yourself already has
+                an answer — the auto-locate effect above filled it with
+                wherever you are standing — so the row stays hidden rather
+                than asking you to confirm a decision already made. Booking
+                for someone else has no such answer, so it comes back, and
+                comes back ahead of the destination: "where are they" is the
+                first question for somebody who isn't you, before "where are
+                they going". */}
+            {guestRider.bookingFor === 'other' && (
+            <>
+            {/* Paired with Group Ride on the booking screen, the way the
+                destination row is paired with Set on Map — the row takes the
+                width and the secondary control sits beside it, rather than
+                each taking a line of its own. */}
             <div className="mt-1.5 flex items-stretch gap-1.5">
+            <button
+              type="button"
+              onClick={() => openAddressPicker('pickup')}
+              className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg bg-pickup-accent px-3 py-1.5 text-left shadow-sm filter transition hover:brightness-90 ${
+                destinationOnly ? '' : 'pr-14'
+              }`}
+            >
+              <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-white" />
+              <span className="min-w-0 flex-1">
+                {/* No eyebrow on the booking screen, same as the destination
+                    row: the colour and the placeholder already say which end
+                    this is, and the label cost a line of a thin strip. */}
+                {!destinationOnly && (
+                  <span className="block text-[9px] font-semibold uppercase tracking-wide text-white/75">{pickupLabel}</span>
+                )}
+                {/* Blank until the passenger says where they are, the same as
+                    the destination below.
+
+                    It used to open reading "CLSU Main Gate" — a real address,
+                    in the field the fare and the driver are dispatched from,
+                    that nobody had chosen. Anyone booking from anywhere else
+                    had to notice it was wrong and correct it, and the ones who
+                    did not sent a tricycle to a gate they were nowhere near.
+                    A guess presented as an answer is worse than an empty box. */}
+                {/* The placeholder is a sentence rather than a prompt, and at
+                    the address size it ran off the end of the row as "Set
+                    Pick up addre…". A chosen address keeps the larger size —
+                    that one has to be readable at a glance, because it is
+                    where a driver is being sent. */}
+                <span
+                  className={`block truncate ${
+                    pickupChosen ? 'text-sm font-semibold text-white' : 'text-[11px] font-normal text-white/70'
+                  }`}
+                >
+                  {pickupChosen ? (
+                    <>
+                      <span className="font-normal text-white/75">Pickup: </span>
+                      {formatAddressLine(pickup.label)}
+                    </>
+                  ) : (
+                    // "Booking for others" used to carry that context on its
+                    // own, before the row even had a reason to be hidden most
+                    // of the time. The toggle above it says that now — this
+                    // row only shows once "Book for someone" is picked — so
+                    // the placeholder just has to say what to do here.
+                    'Set PICKUP address'
+                  )}
+                </span>
+              </span>
+            </button>
+            {/* The pickup gets the same map route as the destination. Booking
+                for somebody else is exactly the case where an address is hard
+                to type and easy to point at — a sitio, a corner, a house with
+                no street number. */}
+            {destinationOnly && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMapTarget('pickup')
+                  setOpenEnd(null)
+                }}
+                aria-label="Set the pickup by tapping the map"
+                className="flex w-28 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-pickup-accent/40 bg-white px-1 text-[10px] font-bold leading-tight text-pickup-accent transition hover:bg-pickup-accent/10"
+              >
+                <span aria-hidden className="text-sm leading-none">📍</span>
+                Set on Map
+              </button>
+            )}
+            </div>
+            {openEnd === 'pickup' && (
+              <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
+              {!isErrand && quickPlaceChips('pickup')}
+              {cityRow}
+              <BarangayAddressPicker
+                key={`from-${pickupPickerSeed.key}`}
+                label=""
+                hideRegionSelects
+                defaultProvince={pickupPickerSeed.province || DEFAULT_BOOKING_PROVINCE}
+                defaultCity={pickupPickerSeed.city || DEFAULT_BOOKING_CITY}
+                defaultBarangay={pickupPickerSeed.barangay}
+                defaultAddressDetail={pickupPickerSeed.addressDetail}
+                onResolve={handlePickupResolve}
+                onConfirm={() => setOpenEnd(null)}
+                // Anything with real coordinates behind it counts, not just
+                // the GPS button: a spot tapped on the map, a saved place, or
+                // a fix taken earlier in this session. The exact point is
+                // known either way, and that is the whole question the
+                // landmark was being asked to answer.
+                pinned={pickupGps !== null || !!pickup.gps}
+              />
+              {/* Only when the reader has nowhere else to learn it. The Live
+                  location row already reports "blocked" with a How-to-fix
+                  beside it, so on the booking sheet this was the same news a
+                  second time, in a second colour. */}
+              {!destinationOnly && gpsStatus === 'error' && gpsError && <p className="text-[11px] text-amber-700">{gpsError}</p>}
+              {/* Shown only after a failure, and only inside an embedded
+                  browser. Messenger and the like refuse geolocation without
+                  saying so, which looks exactly like a broken feature:
+                  everything works except finding where you are. Two pilot
+                  testers hit this and nothing on screen could tell them why. */}
+              {gpsStatus === 'error' && inApp && (
+                <p className="mt-1 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] leading-snug text-amber-800">
+                  You opened this inside another app, and it will not share your location.{' '}
+                  {openInBrowserHint()}
+                </p>
+              )}
+              </div>
+            )}
+            </>
+            )}
+            {/* The destination row. Second when the pickup row is showing
+                beside it — booking for someone else answers "where are
+                they" first — first on its own the rest of the time, which
+                is most of the time: booking for yourself never shows the
+                row above this one. */}
+            <div className={guestRider.bookingFor === 'other' ? 'mt-2 flex items-stretch gap-1.5' : 'mt-1.5 flex items-stretch gap-1.5'}>
             <button
               type="button"
               onClick={() => openAddressPicker('dropoff')}
@@ -1787,121 +2006,6 @@ export function PassengerPage() {
                   <p className="text-[11px] text-amber-700">{gpsError}</p>
                 )}
               </div>
-            )}
-            {/* Both rows, always. The green row sets the pickup and the red one
-                the destination — there is no separate prompt to reveal one of
-                them, because the row itself is the way to set it. */}
-            {(
-            <>
-            {/* Paired with Group Ride on the booking screen, the way the
-                destination row is paired with Set on Map — the row takes the
-                width and the secondary control sits beside it, rather than
-                each taking a line of its own. */}
-            <div className="mt-2 flex items-stretch gap-1.5">
-            <button
-              type="button"
-              onClick={() => openAddressPicker('pickup')}
-              className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg bg-pickup-accent px-3 py-1.5 text-left shadow-sm filter transition hover:brightness-90 ${
-                destinationOnly ? '' : 'pr-14'
-              }`}
-            >
-              <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-white" />
-              <span className="min-w-0 flex-1">
-                {/* No eyebrow on the booking screen, same as the destination
-                    row: the colour and the placeholder already say which end
-                    this is, and the label cost a line of a thin strip. */}
-                {!destinationOnly && (
-                  <span className="block text-[9px] font-semibold uppercase tracking-wide text-white/75">{pickupLabel}</span>
-                )}
-                {/* Blank until the passenger says where they are, the same as
-                    the destination below.
-
-                    It used to open reading "CLSU Main Gate" — a real address,
-                    in the field the fare and the driver are dispatched from,
-                    that nobody had chosen. Anyone booking from anywhere else
-                    had to notice it was wrong and correct it, and the ones who
-                    did not sent a tricycle to a gate they were nowhere near.
-                    A guess presented as an answer is worse than an empty box. */}
-                {/* The placeholder is a sentence rather than a prompt, and at
-                    the address size it ran off the end of the row as "Set
-                    Pick up addre…". A chosen address keeps the larger size —
-                    that one has to be readable at a glance, because it is
-                    where a driver is being sent. */}
-                <span
-                  className={`block truncate ${
-                    pickupChosen ? 'text-sm font-semibold text-white' : 'text-[11px] font-normal text-white/70'
-                  }`}
-                >
-                  {pickupChosen ? (
-                    <>
-                      <span className="font-normal text-white/75">Pickup: </span>
-                      {formatAddressLine(pickup.label)}
-                    </>
-                  ) : (
-                    'Booking for others (Set Pick up address)'
-                  )}
-                </span>
-              </span>
-            </button>
-            {/* The pickup gets the same map route as the destination. Booking
-                for somebody else is exactly the case where an address is hard
-                to type and easy to point at — a sitio, a corner, a house with
-                no street number. */}
-            {destinationOnly && (
-              <button
-                type="button"
-                onClick={() => {
-                  setMapTarget('pickup')
-                  setOpenEnd(null)
-                }}
-                aria-label="Set the pickup by tapping the map"
-                className="flex w-28 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-pickup-accent/40 bg-white px-1 text-[10px] font-bold leading-tight text-pickup-accent transition hover:bg-pickup-accent/10"
-              >
-                <span aria-hidden className="text-sm leading-none">📍</span>
-                Set on Map
-              </button>
-            )}
-            </div>
-            {openEnd === 'pickup' && (
-              <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
-              {!isErrand && quickPlaceChips('pickup')}
-              {cityRow}
-              <BarangayAddressPicker
-                key={`from-${pickupPickerSeed.key}`}
-                label=""
-                hideRegionSelects
-                defaultProvince={pickupPickerSeed.province || DEFAULT_BOOKING_PROVINCE}
-                defaultCity={pickupPickerSeed.city || DEFAULT_BOOKING_CITY}
-                defaultBarangay={pickupPickerSeed.barangay}
-                defaultAddressDetail={pickupPickerSeed.addressDetail}
-                onResolve={handlePickupResolve}
-                onConfirm={() => setOpenEnd(null)}
-                // Anything with real coordinates behind it counts, not just
-                // the GPS button: a spot tapped on the map, a saved place, or
-                // a fix taken earlier in this session. The exact point is
-                // known either way, and that is the whole question the
-                // landmark was being asked to answer.
-                pinned={pickupGps !== null || !!pickup.gps}
-              />
-              {/* Only when the reader has nowhere else to learn it. The Live
-                  location row already reports "blocked" with a How-to-fix
-                  beside it, so on the booking sheet this was the same news a
-                  second time, in a second colour. */}
-              {!destinationOnly && gpsStatus === 'error' && gpsError && <p className="text-[11px] text-amber-700">{gpsError}</p>}
-              {/* Shown only after a failure, and only inside an embedded
-                  browser. Messenger and the like refuse geolocation without
-                  saying so, which looks exactly like a broken feature:
-                  everything works except finding where you are. Two pilot
-                  testers hit this and nothing on screen could tell them why. */}
-              {gpsStatus === 'error' && inApp && (
-                <p className="mt-1 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] leading-snug text-amber-800">
-                  You opened this inside another app, and it will not share your location.{' '}
-                  {openInBrowserHint()}
-                </p>
-              )}
-              </div>
-            )}
-            </>
             )}
             {/* Not while an address form is open. The strip offers a
                 different way to start a trip entirely, and putting that
@@ -2470,26 +2574,6 @@ export function PassengerPage() {
               strips, one line below where a passenger's eyes already are.
               A second gold button further down the same short sheet was
               answering a problem that no longer exists. */}
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Payment method</label>
-            <div className="grid grid-cols-4 gap-2">
-              {PAYMENT_METHODS.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setPaymentMethod(m.id)}
-                  className={`rounded-lg border py-2 text-xs font-medium transition ${
-                    paymentMethod === m.id
-                      ? 'border-brand-600 bg-brand-600 text-white'
-                      : 'border-slate-300 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-          </div>
 
           {!hasDestination && (
             <p className="rounded-lg bg-slate-50 px-3 py-2 text-center text-xs text-slate-400">

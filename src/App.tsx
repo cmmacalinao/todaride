@@ -78,6 +78,25 @@ function ScrollToTopOfPublicView({ pathname }: { pathname: string }) {
   return null
 }
 
+// The counterpart to ScrollToTopOfPublicView, for the other direction: the
+// login form can be scrolled down while someone fills it in (typing a
+// password on a phone pulls the field, and the page under it, up), and that
+// scroll position outlives the form once it succeeds — the rider app it
+// switches to renders at the same offset, arriving with its header (and, on
+// the booking screen, the Full screen/Legend row above the map) already
+// scrolled past. Keyed on the account's id rather than the pathname: it
+// should fire once when a session starts, not on every navigation a
+// signed-in visitor makes inside the app, several of which scroll somewhere
+// on purpose (see the section-based scrolls in PassengerPage).
+function ScrollToTopOnLogin({ accountId }: { accountId: string }) {
+  useLayoutEffect(() => {
+    document.getElementById('root')?.scrollTo({ top: 0 })
+    window.scrollTo(0, 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountId])
+  return null
+}
+
 function AppShell() {
   const { authedAccount } = useSession()
   const location = useLocation()
@@ -216,6 +235,7 @@ function AppShell() {
 
   return (
     <>
+      <ScrollToTopOnLogin accountId={authedAccount.id} />
       <NavBar />
       {/* Measured against the real header: the minimal one renders 67px
           tall with the larger logo and the hamburger/back stack, so 70px

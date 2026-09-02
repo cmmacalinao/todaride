@@ -41,9 +41,10 @@ export function AndroidAppBanner() {
           </a>
 
           {/* Said before it happens, not after. Android interrupts a sideload
-              with a security warning, and somebody who was not expecting one
-              reads it as "this app is unsafe" and stops — which is the correct
-              instinct, and the reason to say plainly that it is coming. */}
+              with two security warnings, and somebody who was not expecting
+              them reads it as "this app is unsafe" and stops — which is the
+              correct instinct, and the reason to say plainly that they are
+              coming. */}
           <button
             type="button"
             onClick={() => setShowHow((v) => !v)}
@@ -59,9 +60,23 @@ export function AndroidAppBanner() {
                 installing. TODA SafeRide is not on the Play Store yet — this is the pilot.
               </p>
               <p className="mt-1.5">
-                Kapag lumabas ang <span className="font-semibold">&ldquo;unknown apps&rdquo;</span>, piliin ang{' '}
+                <span className="font-semibold">1.</span> Kapag lumabas ang{' '}
+                <span className="font-semibold">&ldquo;unknown apps&rdquo;</span>, piliin ang{' '}
                 <span className="font-semibold">Settings</span> → payagan ang browser →{' '}
                 <span className="font-semibold">Install</span>.
+              </p>
+              {/* The second prompt, named on purpose. Play Protect says
+                  "Unsafe app blocked", which reads as a virus warning rather
+                  than the routine unsigned-app notice it is — and it is the
+                  step pilot testers stop at, having already got past the
+                  first one and not expecting another. */}
+              <p className="mt-1.5">
+                <span className="font-semibold">2.</span> Kung may lumabas na{' '}
+                <span className="font-semibold">&ldquo;Unsafe app blocked&rdquo;</span> o{' '}
+                <span className="font-semibold">&ldquo;Scan app?&rdquo;</span> mula sa Play Protect, piliin ang{' '}
+                <span className="font-semibold">More details</span> →{' '}
+                <span className="font-semibold">Install anyway</span>. Normal ito sa lahat ng app na hindi
+                galing sa Play Store — hindi ibig sabihin na may virus.
               </p>
               <p className="mt-1.5">
                 Ayaw mag-install? Gamitin lang ang app dito sa browser — gumagana rin ang lahat.

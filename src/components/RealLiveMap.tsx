@@ -659,7 +659,12 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
   // stray thumb cannot shove it off the route mid-trip. Nothing is stolen
   // from them by offering the choice — it starts unlocked either way (see
   // the `unlocked` state, which follows alwaysInteractive).
-  const noLockNeeded = !!fill
+  // ...and only while that sheet is actually there. Going full screen lifts
+  // the map out from under it, so the reason to withhold the lock goes with
+  // it — leaving it hidden made the booking map the one screen in the app
+  // where full screen still had no palm, for a conflict that was no longer
+  // on screen.
+  const noLockNeeded = !!fill && !fullscreen
   const locked = frozen || (!unlocked && !noLockNeeded)
   // Re-locking the map is the reader saying they are done with it, so the
   // frame comes back to the app: FitBounds treats a changed signal as

@@ -1709,7 +1709,14 @@ function ActiveTripCard({
   // switched off mid-journey and the first passenger vanished from the map.
   const onBoard = rides.some((r) => r.driverId === ride.driverId && r.status === 'ongoing')
   const aboardRides = rides.filter((r) => r.driverId === ride.driverId && r.status === 'ongoing')
-  const cardPlate = drivers.find((d) => d.id === ride.driverId)?.plateNumber ?? 'Tricycle'
+  // Just the digits. A callout floating over a moving map has room for one
+  // fact, and "TRC-" is on every plate in the pilot — it is the number that
+  // tells two tricycles apart, and the prefix was pushing the passenger's
+  // name off the edge of the bubble. Same choice the passenger's own map
+  // already makes (see TripMonitor). Falls back to the whole plate if it
+  // carries no digits at all.
+  const cardPlateFull = drivers.find((d) => d.id === ride.driverId)?.plateNumber
+  const cardPlate = cardPlateFull?.match(/\d+/)?.[0] ?? cardPlateFull ?? 'Tricycle'
   // "Cut the trip": the passenger said para, so the ride ends where the
   // tricycle is, not where the booking said. Recorded as an early drop-off
   // with the distance it fell short — the same thing the passenger's own

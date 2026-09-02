@@ -868,8 +868,15 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
           onPointDragEnd={onPointDragEnd}
         />
       )}
+      {/* Clear of the zoom buttons, which sit at the map's own top-left and
+          are drawn by the map library above this. 3.25rem was measured
+          against a one-line overlay; the driver's now carries two addresses
+          and a distance/fare row, and on a 390px phone the buttons landed on
+          top of its left edge. 4rem clears them, and the overlay is capped
+          rather than stretched to the far edge so a long address wraps inside
+          the bubble instead of running under the screen edge. */}
       {overlayTop && (
-        <div className="pointer-events-none absolute left-[3.25rem] right-2 top-2 z-10">
+        <div className="pointer-events-none absolute left-16 right-2 top-2 z-10">
           <div className="pointer-events-auto">{overlayTop}</div>
         </div>
       )}

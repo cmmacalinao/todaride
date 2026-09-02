@@ -2045,23 +2045,29 @@ function ActiveTripCard({
                     {formatAddressLine(ride.dropoff.label)}
                   </p>
                 </div>
-                {/* The distance, the time, and what it pays, on one line
-                    under the addresses they follow from — drawn on the map
-                    itself so it rides along into full screen instead of
-                    being left behind under it. */}
-                {route && (
-                  <div className="flex items-center divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white/90 px-2 py-1 text-[11px] leading-tight text-slate-700">
-                    <span className="flex-1 truncate pr-1.5">
-                      🛣️ <span className="font-bold">{(route.distanceMeters / 1000).toFixed(1)} km</span>
-                    </span>
-                    <span className="flex-1 truncate px-1.5">
-                      ~<span className="font-bold">{Math.max(1, Math.round(route.durationSeconds / 60))} min</span> drive
-                    </span>
-                    <span className="flex-1 truncate pl-1.5">
-                      Fare <span className="font-bold">₱{ride.fareEstimate}</span>
-                    </span>
-                  </div>
-                )}
+                {/* When it reaches the passenger, how long the trip runs, and
+                    what it pays — the same three the passenger reads on their
+                    own map, so the two people on one ride are looking at the
+                    same numbers rather than each doing arithmetic on the
+                    other's. It replaced a raw distance, which told a driver
+                    who is already on the route the one thing they can see out
+                    of the windscreen.
+                    Drawn on the map itself so it rides along into full screen
+                    instead of being left behind under it. */}
+                <div className="flex items-center divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white/90 px-2 py-1 text-[11px] leading-tight text-slate-700">
+                  <span className="flex-1 truncate pr-1.5">
+                    <span className="font-medium text-pickup-accent">Arrives</span>{' '}
+                    <span className="font-bold">{formatEta(leg.etaSeconds)}</span>
+                  </span>
+                  <span className="flex-1 truncate px-1.5">
+                    <span className="font-medium text-dest-accent">Travel</span> ~
+                    <span className="font-bold">{Math.max(1, Math.round(tripDurationSeconds / 60))} min</span>
+                  </span>
+                  <span className="flex-1 truncate pl-1.5">
+                    <span className="font-medium text-slate-500">Fare</span>{' '}
+                    <span className="font-bold">₱{ride.fareEstimate}</span>
+                  </span>
+                </div>
               </div>
             }
             overlayBottom={(fullscreen) => (

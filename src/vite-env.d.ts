@@ -15,3 +15,8 @@ interface ImportMeta {
 // The build this bundle came from, written in by vite.config's buildLabel at
 // compile time. Read by BuildLabel — see that component for why it is shown.
 declare const __BUILD_LABEL__: string
+
+// The Android versionCode this bundle was compiled with, written in by
+// vite.config. 0 when there was no Android project to read it from. Read by
+// lib/appUpdate to tell whether the installed app is behind the website's.
+declare const __BUILD_CODE__: number

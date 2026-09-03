@@ -137,14 +137,24 @@ function terminalSeedWriter(): Plugin {
 //
 // Both lookups fail soft: a checkout without git, or a tree without the
 // Android project, still builds. An unknown label is better than no build.
-function buildLabel(): string {
-  let version = ''
+// The Android project's own idea of the version. The label below and the
+// in-app update check both read it, so the phone and the website can never
+// disagree about which build is newer. Empty when there is no Android
+// project here.
+function readGradleVersion(): { name: string; code: number } {
   try {
-    version =
-      readFileSync('android/app/build.gradle', 'utf8').match(/versionName\s+"([^"]+)"/)?.[1] ?? ''
+    const gradle = readFileSync('android/app/build.gradle', 'utf8')
+    return {
+      name: gradle.match(/versionName\s+"([^"]+)"/)?.[1] ?? '',
+      code: Number(gradle.match(/versionCode\s+(\d+)/)?.[1] ?? 0),
+    }
   } catch {
-    /* no android project here */
+    return { name: '', code: 0 }
   }
+}
+
+function buildLabel(): string {
+  const version = readGradleVersion().name
   let commit = ''
   try {
     commit = execSync('git rev-parse --short HEAD', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
@@ -157,6 +167,10 @@ function buildLabel(): string {
 export default defineConfig({
   define: {
     __BUILD_LABEL__: JSON.stringify(buildLabel()),
+    // The numeric versionCode, so the installed app can compare itself with
+    // the one the website is handing out — see lib/appUpdate. 0 when unknown,
+    // which that check reads as "do not ask".
+    __BUILD_CODE__: JSON.stringify(readGradleVersion().code),
   },
   server: {
     port: 5192,

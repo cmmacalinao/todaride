@@ -20,7 +20,16 @@
 //
 // dist/ is rebuilt from scratch by every build, so this runs each time — the
 // staged copy is deliberately not permanent.
-import { copyFileSync, existsSync, mkdirSync, statSync } from 'node:fs'
+//
+// It also writes app-version.json beside the APK: the version the website is
+// handing out, read from build.gradle so it is the same number the APK was
+// built with. The installed app fetches it on launch and compares it with its
+// own (see src/lib/appUpdate.ts) — the only way a sideloaded app finds out a
+// newer one exists. Two fields come from app-update.json in the repo root
+// rather than from the build: "required", for a build the old app cannot do
+// without, and "notes", a line telling testers what changed. Both are edited
+// by hand and committed; this file only copies them through.
+import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -41,3 +50,22 @@ mkdirSync(dirname(target), { recursive: true })
 copyFileSync(source, target)
 const mb = (statSync(target).size / 1024 / 1024).toFixed(1)
 console.log(`Staged TodaSafeRide.apk (${mb} MB) into dist/ — it will be served at /TodaSafeRide.apk`)
+
+const gradle = readFileSync(resolve(root, 'android/app/build.gradle'), 'utf8')
+const versionCode = Number(gradle.match(/versionCode\s+(\d+)/)?.[1] ?? 0)
+const versionName = gradle.match(/versionName\s+"([^"]+)"/)?.[1] ?? ''
+if (!versionCode || !versionName) {
+  console.error('Could not read versionCode / versionName from android/app/build.gradle')
+  process.exit(1)
+}
+let extra = { required: false, notes: '' }
+const knobs = resolve(root, 'app-update.json')
+if (existsSync(knobs)) {
+  const k = JSON.parse(readFileSync(knobs, 'utf8'))
+  extra = { required: k.required === true, notes: typeof k.notes === 'string' ? k.notes : '' }
+}
+writeFileSync(
+  resolve(root, 'dist/app-version.json'),
+  JSON.stringify({ versionCode, versionName, apkUrl: '/TodaSafeRide.apk', ...extra }, null, 2) + '\n',
+)
+console.log(`Wrote app-version.json — ${versionName} (code ${versionCode})${extra.required ? ', REQUIRED' : ''}`)

@@ -19,3 +19,13 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# The version file the installed app reads on launch to learn a newer APK
+# exists (see src/lib/appUpdate.ts). The app's own origin is https://localhost,
+# so the read is cross-origin and needs permission — and it must never come
+# from a cache, since a cached answer is the old version saying nothing is new.
+[[headers]]
+  for = "/app-version.json"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Cache-Control = "no-store"

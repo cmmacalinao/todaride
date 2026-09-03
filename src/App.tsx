@@ -14,6 +14,7 @@ import { RoleChooserPage } from './pages/RoleChooserPage'
 import { BookPage } from './pages/BookPage'
 import { TrackMyTripPage } from './pages/TrackMyTripPage'
 import { AppUpdateWatcher } from './components/AppUpdateWatcher'
+import { AppUpdateBanner } from './components/AppUpdateBanner'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { ScanArrivalChoice } from './components/ScanArrivalChoice'
 import { RideProvider } from './context/RideContext'
@@ -332,6 +333,11 @@ export default function App() {
               of date on any screen at all, including before anybody has
               signed in. */}
           <AppUpdateWatcher />
+          {/* The installed app's counterpart: the watcher above keeps the
+              website current through the service worker, which a sideloaded
+              APK does not have. This one asks the website whether a newer APK
+              exists, and waits for the same quiet moment before saying so. */}
+          <AppUpdateBanner />
           <ScanArrivalChoice />
           <AppShell />
         </RideProvider>

@@ -18,7 +18,7 @@ import { useRides } from '../context/RideContext'
 // screen at the worst possible time, and the update can perfectly well wait
 // until the trip is over. Nothing is lost by waiting — the check re-runs on
 // every render, so it fires the moment the ride ends.
-const IN_FLIGHT = new Set(['requested', 'accepted', 'driver_arriving', 'ongoing'])
+export const IN_FLIGHT = new Set(['requested', 'accepted', 'driver_arriving', 'ongoing'])
 
 export function AppUpdateWatcher() {
   const { rides, alerts } = useRides()

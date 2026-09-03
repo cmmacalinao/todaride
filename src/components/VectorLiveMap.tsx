@@ -153,6 +153,23 @@ export function VectorLiveMap({
   // because that one is also set by zooming, which would make the first
   // pinch cancel the very behaviour the pinch is meant to trigger.
   const userPannedRef = useRef(false)
+  // Whether the rider has taken the camera over from nav mode by touching
+  // the map themselves. The ref is what the recentre effect below reads —
+  // effects fire on a schedule this state can lag behind by a render — and
+  // the state is only there to show or hide the Recenter button.
+  const navOverriddenRef = useRef(false)
+  const [navOverridden, setNavOverridden] = useState(false)
+  const navRef = useRef(nav)
+  navRef.current = nav
+  const followAllRef = useRef(followAll)
+  followAllRef.current = followAll
+  // The FitBounds equivalent of navOverriddenRef, for a trip that is being
+  // held in frame by followAll rather than driven by a live nav camera —
+  // "autocenter during a trip" without a GPS fix to steer it, which is most
+  // of a trip on a phone that has not granted location. Recenter has to work
+  // for that camera too, not only the live-GPS one.
+  const fitOverriddenRef = useRef(false)
+  const [fitOverridden, setFitOverridden] = useState(false)
   const [ready, setReady] = useState(false)
   const [camera, setCamera] = useState<NavCameraState>({ bearing: 0, pitch: 0, headingUp: false })
 
@@ -226,6 +243,23 @@ export function VectorLiveMap({
     map.on('dragstart', (e: { originalEvent?: unknown }) => {
       if (e.originalEvent) userPannedRef.current = true
     })
+    // Nav mode recentres on every GPS tick without asking — the one thing
+    // that makes it feel like navigation rather than a map that will not
+    // hold still. So the tick has to stop asserting itself the moment the
+    // rider reaches for the map themselves; the Recenter button below is
+    // how they hand the camera back.
+    const takeOverNav = (e: { originalEvent?: unknown }) => {
+      if (!e.originalEvent) return
+      if (navRef.current) {
+        navOverriddenRef.current = true
+        setNavOverridden(true)
+      } else if (followAllRef.current) {
+        fitOverriddenRef.current = true
+        setFitOverridden(true)
+      }
+    }
+    map.on('dragstart', takeOverNav)
+    map.on('zoomstart', takeOverNav)
 
     // Tap to drop a pin, detected from pointer events rather than from the
     // map's own click event.
@@ -350,16 +384,17 @@ export function VectorLiveMap({
   const wasNavigatingRef = useRef(false)
 
   // Navigation camera: sits on the rider and points where they are going.
-  useEffect(() => {
+  // Shared between the automatic tick below and the Recenter button, which
+  // calls it directly for an immediate move rather than waiting for the
+  // next GPS fix to land.
+  function recenterOnNav() {
     const map = mapRef.current
-    if (!map || !ready || !nav) {
-      wasNavigatingRef.current = false
-      return
-    }
+    const current = navRef.current
+    if (!map || !current) return
     const box = map.getContainer().getBoundingClientRect()
     if (box.height === 0) return
     map.easeTo({
-      center: [nav.center.lng, nav.center.lat],
+      center: [current.center.lng, current.center.lat],
       bearing: camera.bearing,
       pitch: camera.pitch,
       zoom: NAV_ZOOM,
@@ -381,6 +416,21 @@ export function VectorLiveMap({
       essential: true,
     })
     wasNavigatingRef.current = true
+  }
+
+  useEffect(() => {
+    if (!ready || !nav) {
+      wasNavigatingRef.current = false
+      // A finished trip, or one that has not started yet — either way there
+      // is no camera left to have taken over from.
+      navOverriddenRef.current = false
+      setNavOverridden(false)
+      return
+    }
+    // The rider is holding the view where they put it. Left alone until they
+    // ask for it back — see the Recenter button.
+    if (navOverriddenRef.current) return
+    recenterOnNav()
   }, [ready, nav, nav?.center.lat, nav?.center.lng, camera.bearing, camera.pitch])
 
   // A changed signal hands the viewport back for one fit. The first run is
@@ -394,6 +444,8 @@ export function VectorLiveMap({
     }
     userMovedRef.current = false
     userPannedRef.current = false
+    fitOverriddenRef.current = false
+    setFitOverridden(false)
   }, [refitSignal])
 
   // Falls back to every point when the named ones are not on the map yet - an
@@ -412,10 +464,9 @@ export function VectorLiveMap({
     ? framed.map((p) => `${p.id}:${p.gps.lat.toFixed(4)},${p.gps.lng.toFixed(4)}`).join('|')
     : framed.map((p) => p.id).join(',')
 
-  useEffect(() => {
+  function refitBounds() {
     const map = mapRef.current
-    // While the navigation camera is driving, the frame is its business.
-    if (!map || !ready || nav || framed.length === 0 || userMovedRef.current) return
+    if (!map || framed.length === 0) return
     if (framed.length === 1) {
       map.easeTo({ center: [framed[0].gps.lng, framed[0].gps.lat], zoom: SINGLE_POINT_ZOOM, duration: 400 })
       return
@@ -423,6 +474,19 @@ export function VectorLiveMap({
     const bounds = new maplibregl.LngLatBounds()
     framed.forEach((p) => bounds.extend([p.gps.lng, p.gps.lat]))
     map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: FIT_MAX_ZOOM, duration: 400 })
+  }
+
+  useEffect(() => {
+    // While the navigation camera is driving, the frame is its business.
+    if (!ready || nav) return
+    if (!followAllRef.current) {
+      // Nothing was holding this map in frame in the first place — a plain
+      // browsing map, not a trip — so there is no "taken over" to be in.
+      fitOverriddenRef.current = false
+      setFitOverridden(false)
+    }
+    if (fitOverriddenRef.current) return
+    refitBounds()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, fitKey, refitSignal, !!nav])
 
@@ -677,6 +741,35 @@ export function VectorLiveMap({
         <div className="pointer-events-none absolute left-[48px] top-2 rounded-lg bg-white/92 px-2 py-1 text-[10px] font-semibold text-slate-700 shadow-sm">
           {camera.headingUp ? '🧭 Facing your direction' : '🧭 Waiting for direction…'}
         </div>
+      )}
+
+      {/* Appears only once the rider has taken the camera over — nav mode,
+          or the plain followAll frame on a trip with no live GPS to drive a
+          camera, otherwise recentres on its own with nothing to press. Under
+          the pan lock rather than at the bottom edge, which overlayBottom
+          already owns and whose height changes with what a caller draws
+          there — and the same column the lock sits in reads as one group of
+          controls for the map itself, not two ideas in two corners. */}
+      {(nav ? navOverridden : followAll && fitOverridden) && (
+        <button
+          type="button"
+          onClick={() => {
+            if (nav) {
+              navOverriddenRef.current = false
+              setNavOverridden(false)
+              recenterOnNav()
+            } else {
+              fitOverriddenRef.current = false
+              setFitOverridden(false)
+              userMovedRef.current = false
+              userPannedRef.current = false
+              refitBounds()
+            }
+          }}
+          className="absolute left-[10px] top-[115px] z-10 flex items-center gap-1 rounded-full border border-slate-300 bg-white/95 px-2.5 py-1.5 text-[11px] font-semibold text-brand-700 shadow-md hover:bg-white"
+        >
+          <span aria-hidden>🎯</span> Recenter
+        </button>
       )}
 
       {/* North, on every map rather than only the rotating one.

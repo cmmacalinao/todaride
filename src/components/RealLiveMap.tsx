@@ -894,7 +894,12 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
           rather than stretched to the far edge so a long address wraps inside
           the bubble instead of running under the screen edge. */}
       {overlayTop && (
-        <div className="pointer-events-none absolute left-16 right-2 top-2 z-10">
+        // Sized to its own content rather than stretched to the far edge — a
+        // short pickup/dropoff pair used to sit inside a bar as wide as the
+        // whole map, most of it empty. max-w keeps a genuinely long address
+        // from running past the right edge; it still wraps and truncates
+        // inside the bubble in that case, exactly as before.
+        <div className="pointer-events-none absolute left-16 top-2 z-10 max-w-[calc(100%-4.75rem)]">
           <div className="pointer-events-auto">{overlayTop}</div>
         </div>
       )}

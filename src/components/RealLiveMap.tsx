@@ -226,6 +226,9 @@ function FitBounds({
 }) {
   const map = useMap()
   const userMovedRef = useRef(false)
+  // Panned, specifically — see the zoomend handler below. Kept apart from
+  // userMovedRef, which a zoom also sets.
+  const userPannedRef = useRef(false)
   // Our own fitBounds/setView fire zoomstart too. This marks the window in
   // which a zoom is ours, so it is not mistaken for the reader's.
   const programmaticRef = useRef(false)
@@ -234,6 +237,7 @@ function FitBounds({
     // Only ever the reader — Leaflet never drags the map itself.
     dragstart() {
       userMovedRef.current = true
+      userPannedRef.current = true
     },
     zoomstart() {
       if (!programmaticRef.current) userMovedRef.current = true
@@ -253,6 +257,7 @@ function FitBounds({
       return
     }
     userMovedRef.current = false
+    userPannedRef.current = false
   }, [refitSignal])
 
   // Falls back to every point when the named ones are not on the map (yet) —
@@ -282,12 +287,18 @@ function FitBounds({
   //
   // Only on zoom, never on pan: dragging is how somebody looks at somewhere
   // else, and snapping back would make that impossible.
+  //
+  // Which also means it has to stop once they have dragged. Zooming in on a
+  // corner you have panned to is how a pin gets placed accurately, and
+  // recentring there sent the reader back to their own position on every
+  // pinch — so any pin further than a screen away could not be placed at all.
+  // "Closer to me" only means anything while "me" is still on screen.
   const centerRef = useRef(centerOn)
   centerRef.current = centerOn
   useMapEvents({
     zoomend() {
       const here = centerRef.current
-      if (!here) return
+      if (!here || userPannedRef.current) return
       programmaticRef.current = true
       map.setView([here.lat, here.lng], map.getZoom(), { animate: true })
     },

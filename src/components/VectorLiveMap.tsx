@@ -147,6 +147,12 @@ export function VectorLiveMap({
   const draggedRef = useRef<Map<string, { lat: number; lng: number }>>(new Map())
   const bearingRef = useRef<number | null>(null)
   const userMovedRef = useRef(false)
+  // Panned, specifically — not merely zoomed. Once somebody has dragged the
+  // map to look at a different place, that place is the subject, and the
+  // recentre-on-zoom below has to stand down. Kept apart from userMovedRef
+  // because that one is also set by zooming, which would make the first
+  // pinch cancel the very behaviour the pinch is meant to trigger.
+  const userPannedRef = useRef(false)
   const [ready, setReady] = useState(false)
   const [camera, setCamera] = useState<NavCameraState>({ bearing: 0, pitch: 0, headingUp: false })
 
@@ -217,6 +223,9 @@ export function VectorLiveMap({
     }
     map.on('dragstart', takeOver)
     map.on('zoomstart', takeOver)
+    map.on('dragstart', (e: { originalEvent?: unknown }) => {
+      if (e.originalEvent) userPannedRef.current = true
+    })
 
     // Tap to drop a pin, detected from pointer events rather than from the
     // map's own click event.
@@ -265,9 +274,19 @@ export function VectorLiveMap({
     //
     // Only for a zoom the person performed: re-centring after the app's own
     // fitBounds would undo the frame it had just built.
+    //
+    // And only while they are still looking at themselves. Someone who has
+    // dragged the map has named a different subject - the corner they are
+    // setting a pin on - and zooming in on it is how they place that pin
+    // accurately. Recentring there threw them back to their own GPS on every
+    // pinch, which made a pin more than a screen away from the person
+    // effectively unplaceable: pan, zoom to see the street, and the map is
+    // already gone. "Closer to me" is only what a pinch means while "me" is
+    // what is on screen.
     map.on('zoomend', (e) => {
       const here = centerRef.current
       if (!here || !(e as { originalEvent?: unknown }).originalEvent) return
+      if (userPannedRef.current) return
       map.setCenter([here.lng, here.lat])
     })
 
@@ -374,6 +393,7 @@ export function VectorLiveMap({
       return
     }
     userMovedRef.current = false
+    userPannedRef.current = false
   }, [refitSignal])
 
   // Falls back to every point when the named ones are not on the map yet - an

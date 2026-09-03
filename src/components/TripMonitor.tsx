@@ -606,6 +606,139 @@ export function TripMonitor({
         }
       : null
 
+  // The controls a passenger reaches for mid-trip, pulled out as values
+  // rather than left inline: full screen is a fixed layer over the whole
+  // page (see RealLiveMap), so anything drawn only in the normal flow below
+  // the map — exactly where these two lived — is left behind the moment the
+  // map takes the screen. Naming them lets the same JSX render in both
+  // places instead of forking it.
+  const photoRouteSosRow = (
+    <div className="flex items-center gap-2">
+      {hasDriver && (
+        <PhotoCaptureButton onCapture={(dataUrl) => addSafetyPhoto(ride.id, dataUrl, sosActorId)} />
+      )}
+      <div className="min-w-0 flex-1 text-center">
+        {route && (
+          <p className="text-[11px] text-slate-400">
+            🛣️ Real road route: {(route.distanceMeters / 1000).toFixed(1)} km · ~
+            {Math.max(1, Math.round(route.durationSeconds / 60))} min drive
+          </p>
+        )}
+        {hasDriver ? (
+          <p className="flex flex-wrap items-center justify-center gap-x-2 text-xs font-medium text-brand-700">
+            <span>
+              🛺 {ride.status === 'driver_arriving' ? 'Driver arriving: ' : 'To destination: '}
+              {formatEta(leg.etaSeconds)}
+            </span>
+            <span className="text-[11px] font-medium text-slate-500">
+              🏁 ~{Math.max(1, Math.round(tripDurationSeconds / 60))} min trip
+            </span>
+          </p>
+        ) : (
+          <p className="text-xs font-medium text-slate-400">
+            Map will show your driver's live position once someone accepts.
+          </p>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => triggerSos(ride.id, sosActorId)}
+        disabled={!!openSos}
+        aria-label={sosLabel}
+        title={sosLabel}
+        className={`flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 transition disabled:cursor-not-allowed ${
+          openSos
+            ? 'animate-pulse border-danger-700 bg-danger-600 text-white'
+            : 'border-danger-300 bg-danger-50 text-danger-800 hover:bg-danger-100'
+        }`}
+      >
+        <span className="text-base leading-none">🆘</span>
+        <span className="text-[11px] font-semibold">{openSos ? 'Sent' : 'SOS'}</span>
+      </button>
+    </div>
+  )
+
+  // Same reasoning, same fix. Withdrawn once arrival is already confirmed —
+  // see the block this replaced for why.
+  const gotOffCard =
+    allowGotOffCheck && isOngoingLeg && !openSos && !ride.passengerArrivedAt ? (
+      <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
+        {!gotOffAsked ? (
+          <button
+            type="button"
+            onClick={() => setGotOffAsked(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-400 bg-white py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+          >
+            <span className="text-base leading-none">🚶</span>
+            I've gotten off the tricycle
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-amber-900">
+                {apartMeters === null
+                  ? 'Did you get off safely?'
+                  : `You have moved ${apartMeters}m from the tricycle — did you get off safely?`}
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setGotOffHelpOpen((v) => !v)}
+                aria-expanded={gotOffHelpOpen}
+                aria-label={gotOffHelpOpen ? 'Hide what this means' : 'What does this mean?'}
+                title={gotOffHelpOpen ? 'Hide what this means' : 'What does this mean?'}
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold transition ${
+                  gotOffHelpOpen
+                    ? 'border-amber-500 bg-amber-500 text-white'
+                    : 'border-amber-400 bg-white text-amber-700 hover:bg-amber-100'
+                }`}
+              >
+                ⓘ
+              </button>
+            </div>
+            {gotOffHelpOpen && (
+              <p className="text-[11px] text-amber-800">
+                If you're where you meant to be, finish the ride so your driver and TODA know the trip is done. If
+                something's wrong — you were dropped somewhere else, or you don't feel safe — send an SOS instead.
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                void confirmArrivalHere()
+                setGotOffAsked(false)
+                setApartMeters(null)
+              }}
+              className="w-full rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
+            >
+              ✅ Yes — I arrived safely
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                triggerSos(ride.id, sosActorId)
+                setGotOffAsked(false)
+                setApartMeters(null)
+              }}
+              className="w-full rounded-lg border border-danger-500 bg-danger-600 py-2 text-xs font-semibold text-white hover:bg-danger-700"
+            >
+              🆘 No — I need help, send SOS now
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setGotOffAsked(false)
+                setApartMeters(null)
+              }}
+              className="w-full text-[11px] font-medium text-amber-800 underline"
+            >
+              Never mind, I'm still on board
+            </button>
+          </div>
+        )}
+      </div>
+    ) : null
+
   return (
     <section className="space-y-3 rounded-xl border border-brand-200 bg-brand-50 p-4 shadow-sm">
       {/* The tricycle has plainly left the planned road.
@@ -1153,7 +1286,32 @@ export function TripMonitor({
                 </p>
               </div>
             }
-            overlayBottom={onBoard ? () => liveFeedStrip : undefined}
+            overlayBottom={
+              onBoard
+                ? (fullscreen) => (
+                    <div className="space-y-1.5">
+                      {liveFeedStrip}
+                      {/* Full screen leaves everything below the map behind —
+                          the same problem overlayTop already solves for the
+                          addresses above it. The photo, the route/ETA
+                          readout, SOS, and the "I got off" check are what a
+                          passenger actually reaches for mid-trip, so they
+                          come along too rather than requiring a trip back out
+                          of full screen first. Wrapped for legibility over
+                          the map itself — normal flow keeps its own plain
+                          background, which already sits on the page. */}
+                      {fullscreen && (
+                        <>
+                          <div className="rounded-lg bg-white/90 p-1.5 shadow-lg backdrop-blur-sm">
+                            {photoRouteSosRow}
+                          </div>
+                          {gotOffCard}
+                        </>
+                      )}
+                    </div>
+                  )
+                : undefined
+            }
             // This is the map a passenger or a parent is actually watching
             // for the length of a ride, not one sitting mid-page among other
             // things to read — the trap a locked map protects against on a
@@ -1168,49 +1326,7 @@ export function TripMonitor({
               that someone else can see it. Sitting directly above the camera
               and the SOS, because those are the two things a person reaches
               for when a ride stops feeling right. */}
-          <div className="flex items-center gap-2">
-            {hasDriver && (
-              <PhotoCaptureButton onCapture={(dataUrl) => addSafetyPhoto(ride.id, dataUrl, sosActorId)} />
-            )}
-            <div className="min-w-0 flex-1 text-center">
-              {route && (
-                <p className="text-[11px] text-slate-400">
-                  🛣️ Real road route: {(route.distanceMeters / 1000).toFixed(1)} km · ~
-                  {Math.max(1, Math.round(route.durationSeconds / 60))} min drive
-                </p>
-              )}
-              {hasDriver ? (
-                <p className="flex flex-wrap items-center justify-center gap-x-2 text-xs font-medium text-brand-700">
-                  <span>
-                    🛺 {ride.status === 'driver_arriving' ? 'Driver arriving: ' : 'To destination: '}
-                    {formatEta(leg.etaSeconds)}
-                  </span>
-                  <span className="text-[11px] font-medium text-slate-500">
-                    🏁 ~{Math.max(1, Math.round(tripDurationSeconds / 60))} min trip
-                  </span>
-                </p>
-              ) : (
-                <p className="text-xs font-medium text-slate-400">
-                  Map will show your driver's live position once someone accepts.
-                </p>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => triggerSos(ride.id, sosActorId)}
-              disabled={!!openSos}
-              aria-label={sosLabel}
-              title={sosLabel}
-              className={`flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 transition disabled:cursor-not-allowed ${
-                openSos
-                  ? 'animate-pulse border-danger-700 bg-danger-600 text-white'
-                  : 'border-danger-300 bg-danger-50 text-danger-800 hover:bg-danger-100'
-              }`}
-            >
-              <span className="text-base leading-none">🆘</span>
-              <span className="text-[11px] font-semibold">{openSos ? 'Sent' : 'SOS'}</span>
-            </button>
-          </div>
+          {photoRouteSosRow}
 
         </div>
       )}
@@ -1284,83 +1400,7 @@ export function TripMonitor({
           question sitting right next to "Tapusin ang biyahe" — the fallback
           for a driver who never closed the ride — as if nothing had
           happened yet. */}
-      {allowGotOffCheck && isOngoingLeg && !openSos && !ride.passengerArrivedAt && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
-          {!gotOffAsked ? (
-            <button
-              type="button"
-              onClick={() => setGotOffAsked(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-400 bg-white py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100"
-            >
-              <span className="text-base leading-none">🚶</span>
-              I've gotten off the tricycle
-            </button>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold text-amber-900">
-                  {apartMeters === null
-                    ? 'Did you get off safely?'
-                    : `You have moved ${apartMeters}m from the tricycle — did you get off safely?`}
-                </p>
-
-                <button
-                  type="button"
-                  onClick={() => setGotOffHelpOpen((v) => !v)}
-                  aria-expanded={gotOffHelpOpen}
-                  aria-label={gotOffHelpOpen ? 'Hide what this means' : 'What does this mean?'}
-                  title={gotOffHelpOpen ? 'Hide what this means' : 'What does this mean?'}
-                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold transition ${
-                    gotOffHelpOpen
-                      ? 'border-amber-500 bg-amber-500 text-white'
-                      : 'border-amber-400 bg-white text-amber-700 hover:bg-amber-100'
-                  }`}
-                >
-                  ⓘ
-                </button>
-              </div>
-              {gotOffHelpOpen && (
-                <p className="text-[11px] text-amber-800">
-                  If you're where you meant to be, finish the ride so your driver and TODA know the trip is done. If
-                  something's wrong — you were dropped somewhere else, or you don't feel safe — send an SOS instead.
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  void confirmArrivalHere()
-                  setGotOffAsked(false)
-                  setApartMeters(null)
-                }}
-                className="w-full rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
-              >
-                ✅ Yes — I arrived safely
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  triggerSos(ride.id, sosActorId)
-                  setGotOffAsked(false)
-                  setApartMeters(null)
-                }}
-                className="w-full rounded-lg border border-danger-500 bg-danger-600 py-2 text-xs font-semibold text-white hover:bg-danger-700"
-              >
-                🆘 No — I need help, send SOS now
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setGotOffAsked(false)
-                  setApartMeters(null)
-                }}
-                className="w-full text-[11px] font-medium text-amber-800 underline"
-              >
-                Never mind, I'm still on board
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+      {gotOffCard}
 
       {openSos && (
         <div className="overflow-hidden rounded-lg border-2 border-danger-600 bg-danger-100">

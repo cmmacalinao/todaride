@@ -211,6 +211,12 @@ export interface Operator {
   // every other admin-uploaded image in this app (BannerAd, driver
   // documents); null/undefined shows nothing rather than a broken image.
   logoDataUrl?: string | null
+  // The partnership banner on the sign-in screen — the same partner's
+  // artwork as the logo, so the same owner. A path under /public for the
+  // seeded default, a data: URL once an Operator replaces it from their
+  // portal; null once they remove it, and then the screen shows nothing
+  // there. Undefined means never set, which the loader turns into the seed.
+  bannerDataUrl?: string | null
   // One-time activation fee, set by the App Admin on approval (typical
   // ₱25,000–75,000 per the roadmap) — null until approved.
   activationFee: number | null

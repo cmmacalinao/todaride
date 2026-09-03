@@ -675,6 +675,7 @@ type RideAction =
     }
   | { type: 'SET_OPERATOR_FRANCHISE'; operatorId: string; franchiseId: string | null }
   | { type: 'SET_OPERATOR_LOGO'; operatorId: string; logoDataUrl: string | null }
+  | { type: 'SET_OPERATOR_BANNER'; operatorId: string; bannerDataUrl: string | null }
   | {
       type: 'UPDATE_OPERATOR_PROFILE'
       operatorId: string
@@ -1633,6 +1634,12 @@ function fromStored(parsed: StoredState): RideState {
         'logoDataUrl' in o
           ? o.logoDataUrl
           : (MOCK_OPERATORS.find((seed) => seed.id === o.id)?.logoDataUrl ?? null),
+      // Same rule, same reason: a record from before the banner existed takes
+      // the seeded artwork; one deliberately cleared stays cleared.
+      bannerDataUrl:
+        'bannerDataUrl' in o
+          ? o.bannerDataUrl
+          : (MOCK_OPERATORS.find((seed) => seed.id === o.id)?.bannerDataUrl ?? null),
     })),
     franchises: (parsed.franchises ?? MOCK_FRANCHISES).map((f) => ({
       ...f,
@@ -3809,6 +3816,13 @@ function reducer(state: RideState, action: RideAction): RideState {
           o.id === action.operatorId ? { ...o, logoDataUrl: action.logoDataUrl } : o,
         ),
       }
+    case 'SET_OPERATOR_BANNER':
+      return {
+        ...state,
+        operators: state.operators.map((o) =>
+          o.id === action.operatorId ? { ...o, bannerDataUrl: action.bannerDataUrl } : o,
+        ),
+      }
     case 'REGISTER_FRANCHISE': {
       const franchise: Franchise = {
         id: action.id,
@@ -5428,6 +5442,7 @@ interface RideContextValue extends RideState {
   setOperatorFees: (operatorId: string, activationFee: number | null, monthlyPlatformFee: number, perBookingFee: number) => void
   setOperatorFranchise: (operatorId: string, franchiseId: string | null) => void
   setOperatorLogo: (operatorId: string, logoDataUrl: string | null) => void
+  setOperatorBanner: (operatorId: string, bannerDataUrl: string | null) => void
   updateOperatorProfile: (
     operatorId: string,
     updates: {
@@ -6483,6 +6498,8 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setOperatorFranchise: (operatorId, franchiseId) =>
       dispatch({ type: 'SET_OPERATOR_FRANCHISE', operatorId, franchiseId }),
     setOperatorLogo: (operatorId, logoDataUrl) => dispatch({ type: 'SET_OPERATOR_LOGO', operatorId, logoDataUrl }),
+    setOperatorBanner: (operatorId, bannerDataUrl) =>
+      dispatch({ type: 'SET_OPERATOR_BANNER', operatorId, bannerDataUrl }),
     updateOperatorProfile: (operatorId, updates) => dispatch({ type: 'UPDATE_OPERATOR_PROFILE', operatorId, ...updates }),
     registerFranchise: (args) => {
       const id = `fr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`

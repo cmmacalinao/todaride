@@ -2447,6 +2447,8 @@ export const MOCK_OPERATORS: Operator[] = [
     // replacing it from their own portal writes a data: URL here instead;
     // both render through the same <img> (see NavBar/PublicHeader).
     logoDataUrl: '/partner-logo.png',
+    // The same partner's banner, on the sign-in screen — same reasoning.
+    bannerDataUrl: '/partner-banner.webp',
     activationFee: 45000,
     monthlyPlatformFee: 8000,
     perBookingFee: 2,

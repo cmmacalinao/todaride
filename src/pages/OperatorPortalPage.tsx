@@ -54,6 +54,7 @@ export function OperatorPortalPage({ operatorId: operatorIdProp }: { operatorId?
     rides,
     updateOperatorProfile,
     setOperatorLogo,
+    setOperatorBanner,
     registerTodaOrganization,
     setTodaOperator,
     approveTodaOrg,
@@ -124,6 +125,12 @@ export function OperatorPortalPage({ operatorId: operatorIdProp }: { operatorId?
         logoDataUrl={operator.logoDataUrl ?? null}
         readOnly={readOnly}
         onSave={(logoDataUrl) => setOperatorLogo(operator.id, logoDataUrl)}
+      />
+
+      <PartnerBannerSection
+        bannerDataUrl={operator.bannerDataUrl ?? null}
+        readOnly={readOnly}
+        onSave={(bannerDataUrl) => setOperatorBanner(operator.id, bannerDataUrl)}
       />
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -543,6 +550,112 @@ function PartnerLogoSection({
           </div>
         )}
       </div>
+    </section>
+  )
+}
+
+// The banner is read at full width on the sign-in screen, so it keeps more
+// pixels than the header mark — and it keeps its transparency. The logo
+// helper flattens onto white because a mark can sit on a white header; this
+// artwork sits on the cover's navy gradient, where a white rectangle behind
+// it would be exactly the thing its background was cut away to avoid. So no
+// fill, and a format that carries alpha: WebP where the browser can encode
+// it, PNG where it cannot (toDataURL silently answers in PNG then).
+const BANNER_MAX_WIDTH = 1000
+const BANNER_WEBP_QUALITY = 0.82
+
+async function downscaleBannerToDataUrl(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file)
+  const scale = Math.min(1, BANNER_MAX_WIDTH / bitmap.width)
+  const width = Math.round(bitmap.width * scale)
+  const height = Math.round(bitmap.height * scale)
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas not available')
+  ctx.drawImage(bitmap, 0, 0, width, height)
+  bitmap.close()
+  const webp = canvas.toDataURL('image/webp', BANNER_WEBP_QUALITY)
+  return webp.startsWith('data:image/webp') ? webp : canvas.toDataURL('image/png')
+}
+
+// The partnership banner on the sign-in screen — see LandingPage. Owned
+// here for the same reason the logo is: the Operator is who is backing the
+// pilot, and this is their artwork.
+function PartnerBannerSection({
+  bannerDataUrl,
+  readOnly,
+  onSave,
+}: {
+  bannerDataUrl: string | null
+  readOnly: boolean
+  onSave: (bannerDataUrl: string | null) => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
+  async function handleFile(file: File | undefined) {
+    if (!file) return
+    setError('')
+    setBusy(true)
+    try {
+      onSave(await downscaleBannerToDataUrl(file))
+    } catch {
+      setError('Could not read that image — try a PNG or JPG.')
+    } finally {
+      setBusy(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 className="text-sm font-semibold text-slate-700">Partner banner</h2>
+      <p className="mt-0.5 text-xs text-slate-500">
+        Shown on the sign-in screen, above the TODA masthead, for every visitor. A PNG with a transparent
+        background sits best on the blue cover. Remove it and the screen simply starts at the masthead.
+      </p>
+      {error && <p className="mt-1.5 text-[11px] font-medium text-amber-700">{error}</p>}
+      {/* Previewed on navy, because that is where it will sit — a transparent
+          banner on a white swatch tells the Operator nothing about how it
+          will actually look. */}
+      <div className="mt-2 flex h-28 w-full max-w-sm items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-navy-900 p-2">
+        {bannerDataUrl ? (
+          <img src={bannerDataUrl} alt="Partner banner" className="h-full w-full object-contain" />
+        ) : (
+          <span className="text-[10px] text-white/50">None set</span>
+        )}
+      </div>
+      {!readOnly && (
+        <div className="mt-2 flex gap-2">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => void handleFile(e.target.files?.[0])}
+          />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => inputRef.current?.click()}
+            className="rounded-md border border-slate-300 px-3 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+          >
+            {busy ? 'Resizing…' : bannerDataUrl ? 'Replace' : 'Upload'}
+          </button>
+          {bannerDataUrl && (
+            <button
+              type="button"
+              onClick={() => onSave(null)}
+              className="rounded-md border border-amber-300 px-3 py-1 text-[11px] font-medium text-amber-700 hover:bg-amber-50"
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      )}
     </section>
   )
 }

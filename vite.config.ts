@@ -38,7 +38,7 @@ function apkForDev(): Plugin {
     apply: 'serve',
     configureServer(server) {
       server.middlewares.use('/TodaSafeRide.apk', (_req, res) => {
-        const built = resolve(process.cwd(), 'android/app/build/outputs/apk/debug/app-debug.apk')
+        const built = resolve(process.cwd(), 'android/app/build/outputs/apk/release/app-release.apk')
         if (!existsSync(built)) {
           res.statusCode = 404
           res.setHeader('Content-Type', 'text/plain')

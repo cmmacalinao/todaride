@@ -82,3 +82,13 @@ DOCUMENT GUIDES/operator logo/Rotary and todaride ogo design.png
 DOCUMENT GUIDES/operator logo/Rotary Logo-white.png
 DOCUMENT GUIDES/operator logo/Rotary Logo_EN21_DynamicSize_FontUpdate.jfif
 DOCUMENT GUIDES/operator logo/Rotary Logo_Standard RCSJGH.png
+
+# Release signing. The keystore is the app's identity on every phone: lose
+# it and no install can ever be upgraded again without uninstalling first.
+# Back it up somewhere safe. Never commit it, and never commit the passwords
+# beside it.
+android/keystore.properties
+android/*.keystore
+android/*.jks
+android/app/*.keystore
+android/app/*.jks

@@ -1,4 +1,9 @@
-// Builds the debug APK, finding the JDK and Android SDK itself.
+// Builds the release APK, finding the JDK and Android SDK itself.
+//
+// Release, not debug, since 5B.8: a debug APK is marked debuggable and signed
+// with the Android debug certificate every developer machine shares, and
+// Play Protect and Samsung Auto Blocker treat exactly that pair as suspect.
+// The release key lives in android/keystore.properties (gitignored).
 //
 // Gradle needs both, and neither is on PATH on the machine this was first run
 // on — the JDK is a portable unzip rather than an installed package, because
@@ -91,7 +96,7 @@ console.log(`Android SDK: ${androidSdk}`)
 // './gradlew.bat' has neither problem.
 const gradlew = isWindows ? '.\\gradlew.bat' : './gradlew'
 
-const result = spawnSync(gradlew, ['assembleDebug', '--no-daemon'], {
+const result = spawnSync(gradlew, ['assembleRelease', '--no-daemon'], {
   cwd: join(root, 'android'),
   stdio: 'inherit',
   shell: isWindows,

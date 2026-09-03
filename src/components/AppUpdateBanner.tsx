@@ -103,7 +103,9 @@ export function AppUpdateBanner() {
           piliin ang <span className="font-semibold">Install</span>, at kung may lumabas na{' '}
           <span className="font-semibold">&ldquo;Unsafe app blocked&rdquo;</span>, piliin ang{' '}
           <span className="font-semibold">More details → Install anyway</span>. Normal ito sa app na hindi
-          galing sa Play Store.
+          galing sa Play Store. Sa Samsung, kung{' '}
+          <span className="font-semibold">&ldquo;Blocked by Auto Blocker&rdquo;</span>: Settings → Security and
+          privacy → Auto Blocker → i-off muna.
         </p>
 
         {!update.required && (

@@ -1,5 +1,15 @@
 apply plugin: 'com.android.application'
 
+// The release signing key, read from android/keystore.properties — a file
+// that is gitignored and lives only on the machine that builds. Without it
+// the release build is unsigned and Android will not install it, so the
+// build fails loudly below rather than producing something useless.
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.todasaferide.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -19,10 +29,27 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (!keystorePropertiesFile.exists()) {
+                throw new GradleException('No android/keystore.properties — the release key is not on this machine. See .gitignore for what it is and why it is not in git.')
+            }
+            storeFile file(keystoreProperties['storeFile'])
+            storePassword keystoreProperties['storePassword']
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+        }
+    }
     buildTypes {
         release {
+            // Not debuggable, and signed with the pilot's own key rather than
+            // the shared Android debug certificate. That pair is what Play
+            // Protect and Samsung's Auto Blocker reacted to in the debug
+            // builds shipped before this — it was the wrapper they distrusted,
+            // never the app.
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 }

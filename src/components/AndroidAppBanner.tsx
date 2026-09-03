@@ -78,6 +78,23 @@ export function AndroidAppBanner() {
                 <span className="font-semibold">Install anyway</span>. Normal ito sa lahat ng app na hindi
                 galing sa Play Store — hindi ibig sabihin na may virus.
               </p>
+              {/* Samsung, named on purpose: One UI's Auto Blocker refuses
+                  sideloads outright with no "install anyway" — the tester
+                  just sees it fail — and the pilot's testers are on Samsung. */}
+              <p className="mt-1.5">
+                <span className="font-semibold">3. Samsung:</span> kung sinasabing{' '}
+                <span className="font-semibold">&ldquo;Blocked by Auto Blocker&rdquo;</span>, pumunta sa{' '}
+                <span className="font-semibold">Settings → Security and privacy → Auto Blocker</span>, i-off
+                muna, i-install, tapos i-on ulit.
+              </p>
+              {/* The one-time cost of moving off the debug certificate: the
+                  new key cannot upgrade an install signed with the old one,
+                  and Android's message for that says nothing useful. */}
+              <p className="mt-1.5">
+                <span className="font-semibold">May luma nang TODA SafeRide sa phone?</span> I-uninstall muna
+                ito bago i-install ang bago — kung hindi, sasabihin ng phone na{' '}
+                <span className="font-semibold">&ldquo;App not installed&rdquo;</span>. Isang beses lang ito.
+              </p>
               <p className="mt-1.5">
                 Ayaw mag-install? Gamitin lang ang app dito sa browser — gumagana rin ang lahat.
               </p>

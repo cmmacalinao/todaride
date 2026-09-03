@@ -66,19 +66,14 @@ export function LandingPage() {
               the screen rather than sitting on a patch cut out of it. The
               ring is what still separates it from the stripe texture behind
               it. */}
-          <div className="rounded-2xl border-2 border-white/25 p-4">
-            {/* mx-auto because Tailwind's reset makes img a block element —
-                text-align:center (inherited from the section) only centers
-                inline content, so without this the image sat flush at the
-                box's left edge while the tagline's text centered normally,
-                the two visibly off from each other. */}
-            <img src="/logo.webp" alt="TODA SafeRide — Safe Rides for You and Your Family" className="mx-auto w-36" />
-            {/* Read as the logo's own strapline rather than a separate
-                sentence on the page — tight against the mark, inside the
-                same outlined box, the way a wordmark and its tagline sit
-                together on a print logo. */}
-            <p className="mt-1 text-sm font-semibold text-white/80">Safe Rides for You and Your Family</p>
-          </div>
+          {/* The Rotary partnership artwork, in place of the old logo card. Its
+              navy field is cut away so it sits on the cover gradient itself
+              rather than on a rectangle of a slightly different blue. */}
+          <img
+            src="/partner-banner.webp"
+            alt="TODA SafeRide — For You. For Your Family. For Our Community. Rotary Community Economic Development Initiative, promoting safe, accessible and sustainable transportation."
+            className="mx-auto w-full max-w-sm"
+          />
           {/* Whichever TODA's terminal is nearest right now (or Super
               Admin's manual override, or — if neither — the app's own
               generic name) — see usePilotBranding. A specific org gets the

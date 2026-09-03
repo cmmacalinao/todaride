@@ -68,7 +68,6 @@ export function AppLoginForm() {
   const navigate = useNavigate()
   const { passengers, parents, drivers, todaOrganizations, pharmacies, operators, franchises } = useRides()
   const {
-    loggedInDriverId: rememberedDriverId,
     setAuthedAccount,
     setRole,
     setCurrentPassengerId,
@@ -90,21 +89,6 @@ export function AppLoginForm() {
   const [showTerms, setShowTerms] = useState(false)
   const [showForgot, setShowForgot] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  // Which app someone came here meaning to open — set before they type
-  // anything, purely to put them in the right mindset. It does not gate or
-  // filter the login itself: the account being signed into is what actually
-  // decides the role, exactly as it did before this existed, so a passenger
-  // who leaves "Driver" selected and signs in with their own passenger
-  // credentials still lands on the passenger app, correctly. Nothing here
-  // depends on it staying that way, but changing that would be a deliberate
-  // decision, not a side effect of adding this toggle.
-  // Starts on Driver rather than the usual Passenger default when this
-  // device is already remembered as a particular driver's own (see
-  // loggedInDriverId in SessionContext, and the matching pilot-branding
-  // logic in usePilotBranding) — the same phone that greets them with their
-  // own TODA's name should also open on their own tab, not the passenger
-  // one they'd have to switch away from every time.
-  const [roleHint, setRoleHint] = useState<'passenger' | 'driver'>(rememberedDriverId ? 'driver' : 'passenger')
   const [wantsBiometric, setWantsBiometric] = useState(false)
   const [biometricReady, setBiometricReady] = useState(false)
   const [enrollment, setEnrollment] = useState(() => getBiometricEnrollment())
@@ -380,28 +364,6 @@ export function AppLoginForm() {
 
   return (
     <div className="w-full max-w-xs">
-      <div className="mb-3 grid grid-cols-2 gap-2">
-        {(
-          [
-            { id: 'passenger', label: 'Passenger', icon: '🧍' },
-            { id: 'driver', label: 'Driver', icon: '🛺' },
-          ] as const
-        ).map((r) => (
-          <button
-            key={r.id}
-            type="button"
-            onClick={() => setRoleHint(r.id)}
-            aria-pressed={roleHint === r.id}
-            className={`flex items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-bold transition ${
-              roleHint === r.id
-                ? 'bg-gold-400 text-navy-900'
-                : 'border border-white/15 bg-white/5 text-white/70 hover:bg-white/10'
-            }`}
-          >
-            <span aria-hidden>{r.icon}</span> {r.label}
-          </button>
-        ))}
-      </div>
 
       <div className="space-y-2.5">
         <div className="relative">
@@ -579,6 +541,8 @@ export function AppLoginForm() {
       <p className="mt-2 px-1 text-center text-[10px] text-white/30">
         Prototype · simulated data · <BuildLabel />
       </p>
+
+
 
       {showTerms && <TermsModal onClose={() => setShowTerms(false)} />}
       {showForgot && <ForgotPasswordFlow onClose={() => setShowForgot(false)} />}

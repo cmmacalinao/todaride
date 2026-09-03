@@ -20,17 +20,17 @@ export function PilotBranding({ name, compact }: { name: string; compact?: boole
       <div>
         <p
           className={`flex flex-wrap items-center font-extrabold leading-none text-white ${
-            compact ? 'gap-1 text-[17px]' : 'gap-2 text-3xl'
+            compact ? 'gap-1 text-[17px]' : 'gap-1.5 text-2xl'
           }`}
         >
           {prefix}
-          <span className={`rounded-lg bg-gold-400 text-navy-900 ${compact ? 'px-1.5 py-px' : 'px-2.5 py-0.5'}`}>
+          <span className={`rounded-lg bg-gold-400 text-navy-900 ${compact ? 'px-1.5 py-px' : 'px-2 py-0.5'}`}>
             {org}
           </span>
         </p>
         <p
           className={`mt-0.5 text-right font-bold uppercase tracking-[0.25em] text-white/50 ${
-            compact ? 'text-[8px]' : 'text-xs'
+            compact ? 'text-[8px]' : 'text-[10px]'
           }`}
         >
           Booking App

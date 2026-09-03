@@ -71,3 +71,14 @@ DOCUMENT GUIDES/New folder/
 /TODA SAFE RIDE LOGO V3.png
 /TODA SAFE RIDE LOGO V3-transparent.png
 /TODA SAFE RIDE LOGO black.png
+
+# Partner artwork sources dropped next to the RCSJGH master: the full
+# Rotary/TODA banner design, the white-on-transparent Rotary wordmark, and
+# two Rotary logo variants — ~2.5MB between them, none served by the app.
+# What ships is partner-logo.png and partner-banner.webp in public/,
+# exported from these. They stay on disk to re-export from; git stops
+# carrying them, same as the root master logos above.
+DOCUMENT GUIDES/operator logo/Rotary and todaride ogo design.png
+DOCUMENT GUIDES/operator logo/Rotary Logo-white.png
+DOCUMENT GUIDES/operator logo/Rotary Logo_EN21_DynamicSize_FontUpdate.jfif
+DOCUMENT GUIDES/operator logo/Rotary Logo_Standard RCSJGH.png

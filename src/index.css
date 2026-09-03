@@ -93,3 +93,27 @@ body {
   background: rgb(var(--brand-600));
   color: #ffffff;
 }
+
+/* iPhone: stop the whole page zooming in when a field is tapped.
+ *
+ * Safari on iOS zooms the page whenever a focused text field's own font is
+ * smaller than 16px — and it does not zoom back out afterwards. The app's
+ * fields are 12-14px like the text around them, so tapping the very first
+ * box on the login screen left the page magnified and no longer fitting the
+ * phone, with pinching out the only way back. It reads as a broken layout
+ * rather than as a zoom, because nothing on screen says a zoom happened.
+ *
+ * 16px is Apple's threshold, not a design choice, so it is set here rather
+ * than by editing the size class on several hundred fields — and only for
+ * the fields themselves, so labels, buttons and cards keep their scale.
+ *
+ * Scoped to coarse pointers: a mouse never triggers the zoom, and a laptop
+ * has the room for the smaller text this app is drawn at.
+ */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

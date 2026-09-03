@@ -158,7 +158,6 @@ export function VectorLiveMap({
   // effects fire on a schedule this state can lag behind by a render — and
   // the state is only there to show or hide the Recenter button.
   const navOverriddenRef = useRef(false)
-  const [navOverridden, setNavOverridden] = useState(false)
   const navRef = useRef(nav)
   navRef.current = nav
   const followAllRef = useRef(followAll)
@@ -169,7 +168,7 @@ export function VectorLiveMap({
   // of a trip on a phone that has not granted location. Recenter has to work
   // for that camera too, not only the live-GPS one.
   const fitOverriddenRef = useRef(false)
-  const [fitOverridden, setFitOverridden] = useState(false)
+  const [everMoved, setEverMoved] = useState(false)
   const [ready, setReady] = useState(false)
   const [camera, setCamera] = useState<NavCameraState>({ bearing: 0, pitch: 0, headingUp: false })
 
@@ -236,7 +235,9 @@ export function VectorLiveMap({
     // person actually made, so this distinguishes a reader taking over from
     // the app's own fitBounds - which Leaflet needed a hand-rolled flag for.
     const takeOver = (e: { originalEvent?: unknown }) => {
-      if (e.originalEvent) userMovedRef.current = true
+      if (!e.originalEvent) return
+      userMovedRef.current = true
+      setEverMoved(true)
     }
     map.on('dragstart', takeOver)
     map.on('zoomstart', takeOver)
@@ -252,10 +253,8 @@ export function VectorLiveMap({
       if (!e.originalEvent) return
       if (navRef.current) {
         navOverriddenRef.current = true
-        setNavOverridden(true)
       } else if (followAllRef.current) {
         fitOverriddenRef.current = true
-        setFitOverridden(true)
       }
     }
     map.on('dragstart', takeOverNav)
@@ -424,7 +423,6 @@ export function VectorLiveMap({
       // A finished trip, or one that has not started yet — either way there
       // is no camera left to have taken over from.
       navOverriddenRef.current = false
-      setNavOverridden(false)
       return
     }
     // The rider is holding the view where they put it. Left alone until they
@@ -445,7 +443,7 @@ export function VectorLiveMap({
     userMovedRef.current = false
     userPannedRef.current = false
     fitOverriddenRef.current = false
-    setFitOverridden(false)
+    setEverMoved(false)
   }, [refitSignal])
 
   // Falls back to every point when the named ones are not on the map yet - an
@@ -495,7 +493,6 @@ export function VectorLiveMap({
       // Nothing was holding this map in frame in the first place — a plain
       // browsing map, not a trip — so there is no "taken over" to be in.
       fitOverriddenRef.current = false
-      setFitOverridden(false)
     }
     if (fitOverriddenRef.current) return
     refitBounds()
@@ -762,21 +759,20 @@ export function VectorLiveMap({
           already owns and whose height changes with what a caller draws
           there — and the same column the lock sits in reads as one group of
           controls for the map itself, not two ideas in two corners. */}
-      {(nav ? navOverridden : followAll && fitOverridden) && (
+      {(everMoved && points.some((pt) => pt.id === 'pickup' || pt.id === 'dropoff' || pt.id === 'driver')) && (
         <button
           type="button"
           onClick={() => {
             if (nav) {
               navOverriddenRef.current = false
-              setNavOverridden(false)
               recenterOnNav()
             } else {
               fitOverriddenRef.current = false
-              setFitOverridden(false)
               userMovedRef.current = false
               userPannedRef.current = false
               refitBounds(tripFocusPoints())
             }
+            setEverMoved(false)
           }}
           className="absolute left-[10px] top-[115px] z-10 flex items-center gap-1 rounded-full border border-slate-300 bg-white/95 px-2.5 py-1.5 text-[11px] font-semibold text-brand-700 shadow-md hover:bg-white"
         >

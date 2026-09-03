@@ -1,3 +1,4 @@
+import { BuildLabel } from './BuildLabel'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRides, usePublicOrigin } from '../context/RideContext'
@@ -247,7 +248,7 @@ export function UnifiedAuth() {
             came out when the pilot moved to a shared database — see the note
             beside APP_ADMIN_CREDENTIALS. */}
         <p className="px-2 text-center text-[11px] leading-relaxed text-slate-400">
-          Prototype · simulated data
+          Prototype · simulated data · <BuildLabel />
         </p>
       </div>
     </div>

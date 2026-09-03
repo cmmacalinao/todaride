@@ -1,3 +1,4 @@
+import { BuildLabel } from './BuildLabel'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRides, usePublicOrigin } from '../context/RideContext'
@@ -575,7 +576,9 @@ export function AppLoginForm() {
           used to be printed here for demo convenience; they came out when
           the pilot moved to a shared database, where one visitor signing in
           as Super Admin changes the world for every other tester. */}
-      <p className="mt-2 px-1 text-center text-[10px] text-white/30">Prototype · simulated data</p>
+      <p className="mt-2 px-1 text-center text-[10px] text-white/30">
+        Prototype · simulated data · <BuildLabel />
+      </p>
 
       {showTerms && <TermsModal onClose={() => setShowTerms(false)} />}
       {showForgot && <ForgotPasswordFlow onClose={() => setShowForgot(false)} />}

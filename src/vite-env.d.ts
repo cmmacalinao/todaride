@@ -11,3 +11,7 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// The build this bundle came from, written in by vite.config's buildLabel at
+// compile time. Read by BuildLabel — see that component for why it is shown.
+declare const __BUILD_LABEL__: string

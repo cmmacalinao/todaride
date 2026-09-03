@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { execSync } from 'node:child_process'
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -121,7 +122,42 @@ function terminalSeedWriter(): Plugin {
   }
 }
 
+// What build is this, in a form somebody can read out over a phone call.
+//
+// Written in at build time because there is nothing at runtime that knows:
+// the web page and the installed APK are the same bundle served two ways, and
+// "the change isn't showing" is impossible to diagnose without being able to
+// tell which of them somebody is holding. A tester reads the corner of their
+// own screen instead.
+//
+// versionName is taken from the Android project so the phone and the website
+// speak the same language — 5B.4 on the page is 5B.4 in Settings > Apps. The
+// commit is what actually distinguishes two builds carrying one versionName,
+// which is every web deploy made without rebuilding the APK.
+//
+// Both lookups fail soft: a checkout without git, or a tree without the
+// Android project, still builds. An unknown label is better than no build.
+function buildLabel(): string {
+  let version = ''
+  try {
+    version =
+      readFileSync('android/app/build.gradle', 'utf8').match(/versionName\s+"([^"]+)"/)?.[1] ?? ''
+  } catch {
+    /* no android project here */
+  }
+  let commit = ''
+  try {
+    commit = execSync('git rev-parse --short HEAD', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+  } catch {
+    /* not a git checkout, or git is not installed */
+  }
+  return [version && `v${version}`, commit].filter(Boolean).join(' · ') || 'dev'
+}
+
 export default defineConfig({
+  define: {
+    __BUILD_LABEL__: JSON.stringify(buildLabel()),
+  },
   server: {
     port: 5192,
     strictPort: true,

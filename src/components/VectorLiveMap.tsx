@@ -464,15 +464,27 @@ export function VectorLiveMap({
     ? framed.map((p) => `${p.id}:${p.gps.lat.toFixed(4)},${p.gps.lng.toFixed(4)}`).join('|')
     : framed.map((p) => p.id).join(',')
 
-  function refitBounds() {
+  // The tricycle, the pickup and the destination — the three points a trip
+  // is actually about, by the ids every caller of this map uses for them
+  // (see TripMonitor and DriverPage's mapPoints). Passed in on a Recenter tap
+  // so tapping it lands on a fixed, predictable frame every time, rather
+  // than whatever followAll's frame happens to include at that moment — the
+  // rider's own dot among them, which can sit well off to one side of the
+  // road they are actually on.
+  function tripFocusPoints(): typeof points {
+    const focus = points.filter((pt) => pt.id === 'pickup' || pt.id === 'dropoff' || pt.id === 'driver')
+    return focus.length > 0 ? focus : framed
+  }
+
+  function refitBounds(target: typeof points = framed) {
     const map = mapRef.current
-    if (!map || framed.length === 0) return
-    if (framed.length === 1) {
-      map.easeTo({ center: [framed[0].gps.lng, framed[0].gps.lat], zoom: SINGLE_POINT_ZOOM, duration: 400 })
+    if (!map || target.length === 0) return
+    if (target.length === 1) {
+      map.easeTo({ center: [target[0].gps.lng, target[0].gps.lat], zoom: SINGLE_POINT_ZOOM, duration: 400 })
       return
     }
     const bounds = new maplibregl.LngLatBounds()
-    framed.forEach((p) => bounds.extend([p.gps.lng, p.gps.lat]))
+    target.forEach((pt) => bounds.extend([pt.gps.lng, pt.gps.lat]))
     map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: FIT_MAX_ZOOM, duration: 400 })
   }
 
@@ -763,7 +775,7 @@ export function VectorLiveMap({
               setFitOverridden(false)
               userMovedRef.current = false
               userPannedRef.current = false
-              refitBounds()
+              refitBounds(tripFocusPoints())
             }
           }}
           className="absolute left-[10px] top-[115px] z-10 flex items-center gap-1 rounded-full border border-slate-300 bg-white/95 px-2.5 py-1.5 text-[11px] font-semibold text-brand-700 shadow-md hover:bg-white"

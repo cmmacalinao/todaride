@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useRides } from '../context/RideContext'
+import { useHasMyOwnTripInFlight } from '../lib/myOwnTripInFlight'
 
 // Gets an already-installed phone onto the current build.
 //
@@ -18,10 +18,14 @@ import { useRides } from '../context/RideContext'
 // screen at the worst possible time, and the update can perfectly well wait
 // until the trip is over. Nothing is lost by waiting — the check re-runs on
 // every render, so it fires the moment the ride ends.
-export const IN_FLIGHT = new Set(['requested', 'accepted', 'driver_arriving', 'ongoing'])
-
+//
+// "Busy" means this device's own trip (see useHasMyOwnTripInFlight), not the
+// whole fleet's. It used to check every ride in the shared database
+// unfiltered, so one passenger's unclaimed request left sitting after they
+// closed the app silenced reloads for every other phone on the pilot for as
+// long as it sat there uncancelled.
 export function AppUpdateWatcher() {
-  const { rides, alerts } = useRides()
+  const busy = useHasMyOwnTripInFlight()
   const [tookOver, setTookOver] = useState(false)
 
   useEffect(() => {
@@ -56,9 +60,6 @@ export function AppUpdateWatcher() {
       document.removeEventListener('visibilitychange', check)
     }
   }, [])
-
-  const busy =
-    rides.some((r) => IN_FLIGHT.has(r.status)) || alerts.some((a) => a.status === 'open')
 
   useEffect(() => {
     if (!tookOver || busy) return

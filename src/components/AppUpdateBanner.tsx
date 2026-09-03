@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useRides } from '../context/RideContext'
 import { checkForAppUpdate, isUpdateSnoozed, snoozeUpdate, type AvailableUpdate } from '../lib/appUpdate'
-import { IN_FLIGHT } from './AppUpdateWatcher'
+import { useHasMyOwnTripInFlight } from '../lib/myOwnTripInFlight'
 
 // Tells the installed app that a newer one exists — see lib/appUpdate for
 // how it finds out. Renders nothing on the website, and nothing when the
@@ -16,7 +15,6 @@ import { IN_FLIGHT } from './AppUpdateWatcher'
 // plainly what the phone will ask on the way — the same two prompts the
 // first install had, which are the step people stop at when unwarned.
 export function AppUpdateBanner() {
-  const { rides, alerts } = useRides()
   const [update, setUpdate] = useState<AvailableUpdate | null>(null)
 
   // Asked on launch, and again whenever the app comes back to the front. A
@@ -40,13 +38,9 @@ export function AppUpdateBanner() {
     }
   }, [])
 
-  // The same quiet moment AppUpdateWatcher waits for. This app is carrying
-  // people home: a sheet over the map during a live trip, or over an open
-  // SOS, would land at the worst possible time, and the update can wait
-  // until the trip is over. Nothing is lost by waiting — this re-evaluates
-  // on every render, so the sheet appears the moment the ride ends.
-  const busy =
-    rides.some((r) => IN_FLIGHT.has(r.status)) || alerts.some((a) => a.status === 'open')
+  // The same quiet moment AppUpdateWatcher waits for, and this device's own
+  // trip only — see useHasMyOwnTripInFlight for why it used to be everyone's.
+  const busy = useHasMyOwnTripInFlight()
 
   if (!update || busy) return null
 

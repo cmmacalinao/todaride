@@ -863,6 +863,18 @@ export function DriverPage() {
     />
   )
 
+  // The direct rider on the driver's own job — not the guardian fallback the
+  // full contacts list on the trip screen also offers, which is one more tap
+  // away and stays there. This is the quick line, reachable from every
+  // screen the footer appears on rather than only the trip screen itself.
+  const footerContact = (() => {
+    if (!myActiveRide) return null
+    const passenger = passengers.find((p) => p.id === myActiveRide.passengerId)
+    const phone = passenger?.phone ?? myActiveRide.passengerPhone
+    const name = passenger?.name ?? myActiveRide.passengerName
+    return phone ? { name: name ?? 'Passenger', phone } : null
+  })()
+
   const footerBar = (
     <DriverFooterNav
       active={footerSection}
@@ -870,6 +882,7 @@ export function DriverPage() {
       requestCount={incoming.length}
       showQueue={!!homeToda}
       tripActive={!!myActiveRide}
+      contact={footerContact}
     />
   )
 

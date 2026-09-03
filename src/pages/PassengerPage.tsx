@@ -53,6 +53,7 @@ import { PabiliItemsInput } from '../components/PabiliItemsInput'
 import { makeGuestPassengerId, useGuestRider } from '../components/GuestRiderFields'
 import { PassengerRewardsCard } from '../components/PassengerRewardsCard'
 import { GroupRideInlinePanel, type GroupRiderEntry } from '../components/GroupRideInlinePanel'
+import { ContactSheet } from '../components/ContactSheet'
 import type {
   DriverReportReason,
   GeoCoords,
@@ -118,6 +119,7 @@ export function PassengerPage() {
   const isAdminOpsView = authedAccount?.role === 'admin'
   const bookingMapRef = useRef<HTMLDivElement>(null)
   const [showDrivers, setShowDrivers] = useState(false)
+  const [footerContactOpen, setFooterContactOpen] = useState(false)
   const [customLocations, setCustomLocations] = useState<MockLocation[]>([])
   const [pickupId, setPickupId] = useState(CLSU_MAIN_GATE_LOCATION.id)
   // Same city as the default pickup — see DEFAULT_DROPOFF_LOCATION for why.
@@ -747,6 +749,16 @@ export function PassengerPage() {
     .filter((r) => r.status !== 'completed' && r.status !== 'cancelled')
     .sort(byNewest)
   const activeRide = running[0] ?? [...candidates].sort(byNewest)[0]
+  // The direct driver on the current job, once one is assigned — from the
+  // moment a request is accepted (driver_arriving), not only once the trip
+  // is under way, so "running a little late" or "which gate" can be said
+  // before boarding too. Nobody to reach before that: a bare request has no
+  // driver yet.
+  const footerContact = (() => {
+    if (activeRide?.status !== 'driver_arriving' && activeRide?.status !== 'ongoing') return null
+    const driver = activeRide.driverId ? drivers.find((d) => d.id === activeRide.driverId) : null
+    return driver?.phone ? { name: driver.name, phone: driver.phone } : null
+  })()
   // A trip that has already started. The booking block — the two address
   // strips, the fare and Book a tricycle — is asking a question that has been
   // answered: the passenger is in the tricycle. Leaving it on the sheet puts
@@ -2194,6 +2206,21 @@ export function PassengerPage() {
             <span aria-hidden className="absolute right-1.5 top-1 h-2 w-2 rounded-full bg-brand-600" />
           )}
         </button>
+        {/* An action, not a mode to switch into — kept beside the two tabs
+            above it rather than among the errand tiles further along, since
+            it belongs with "who is driving me" not "what am I buying".
+            Absent whenever there is no assigned driver: nobody to reach. */}
+        {footerContact && (
+          <button
+            type="button"
+            onClick={() => setFooterContactOpen(true)}
+            title={`Contact ${footerContact.name}`}
+            className="flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border border-transparent bg-slate-100 py-1.5 transition hover:bg-slate-200"
+          >
+            <span className="text-[15px] leading-none">☎️</span>
+            <span className="truncate text-[10px] font-semibold text-slate-700">Contact</span>
+          </button>
+        )}
         {[
           ...(pabiliEnabled
             ? [
@@ -2275,6 +2302,13 @@ export function PassengerPage() {
         ))}
       </div>
       </div>
+      {footerContact && footerContactOpen && (
+        <ContactSheet
+          name={footerContact.name}
+          phone={footerContact.phone}
+          onClose={() => setFooterContactOpen(false)}
+        />
+      )}
 
       {/* From / Where to. Tapping either row expands it into the barangay
           list and sub-address for that end; the city above drives both. Only

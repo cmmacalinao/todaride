@@ -5,6 +5,13 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+# Link previews for shared vendor pages — see netlify/edge-functions/vendor-og.ts.
+# Declared here as well as in the function's own `config` so the path is
+# visible next to the redirects it runs in front of.
+[[edge_functions]]
+  path = "/vendor-page/*"
+  function = "vendor-og"
+
 # The app calls /api/send-otp and /api/verify-otp — the same paths the local
 # Express server answers on, so one client works against both without knowing
 # which is behind it.

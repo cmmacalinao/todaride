@@ -10,7 +10,7 @@ import { StoreRatingSheet } from './StoreRatingSheet'
 import { OrderStatusStrip } from './OrderStatusStrip'
 import { OrderChat } from './OrderChat'
 import { TripMonitor } from './TripMonitor'
-import { VendorFeatureCard, VendorStorefront } from './VendorStorefront'
+import { VendorListRow, VendorStorefront } from './VendorStorefront'
 import type { BusinessType, MedicineProduct, MedsOrder, MockLocation, PaymentMethod, Pharmacy } from '../types'
 
 const VENDOR_BUSINESS_TYPES: BusinessType[] = ['resto_food', 'other_commodity']
@@ -271,16 +271,21 @@ export function VendorMenuBooking({
 
           {shownVendors.length > 0 && (
             <div>
-              <p className="mb-2 flex items-center gap-1 text-sm font-bold text-slate-700">🌟 Featured Vendors</p>
-              <div className="grid grid-cols-2 gap-2.5">
-                {shownVendors.map((v) => (
-                  <VendorFeatureCard
-                    key={v.id}
-                    pharmacy={v}
-                    itemCount={medicineProducts.filter((p) => p.pharmacyId === v.id).length}
-                    onSelect={() => openVendor(v.id)}
-                  />
-                ))}
+              <p className="mb-1.5 flex items-center gap-1 text-sm font-bold text-slate-700">🌟 Vendors</p>
+              {/* One line per store — see VendorListRow. Open stores first,
+                  then by name, so the ones a customer can actually order
+                  from are at the top. */}
+              <div className="space-y-1.5">
+                {[...shownVendors]
+                  .sort((a, b) => Number(b.isOpen) - Number(a.isOpen) || a.name.localeCompare(b.name))
+                  .map((v) => (
+                    <VendorListRow
+                      key={v.id}
+                      pharmacy={v}
+                      itemCount={medicineProducts.filter((p) => p.pharmacyId === v.id && p.visible !== false).length}
+                      onSelect={() => openVendor(v.id)}
+                    />
+                  ))}
               </div>
             </div>
           )}

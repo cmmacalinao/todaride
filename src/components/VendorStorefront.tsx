@@ -877,6 +877,60 @@ export function VendorMenuItemCard({
 }
 
 // A vendor's card on the food-ordering landing screen (see
+// One vendor as a single line in the customer's list: logo, name, rating,
+// menu size, open/closed — and nothing that wraps. A phone shows ten of
+// these where it showed four cards, which is what browsing a row of
+// carinderias needs; the store's own banner and photos are one tap away.
+export function VendorListRow({
+  pharmacy,
+  itemCount,
+  onSelect,
+}: {
+  pharmacy: Pharmacy
+  itemCount: number
+  onSelect: () => void
+}) {
+  const accent = resolveVendorAccent(pharmacy)
+  const { average, count } = storeRatingSummary(pharmacy)
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="flex w-full items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-left shadow-sm transition hover:bg-slate-50"
+    >
+      <span
+        className={`flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br ${accent.gradient} text-base`}
+      >
+        {pharmacy.logoDataUrl ? (
+          <img src={pharmacy.logoDataUrl} alt="" className="h-full w-full bg-white object-contain" />
+        ) : (
+          <span aria-hidden>{accent.icon}</span>
+        )}
+      </span>
+      {/* Everything on one line: the name takes what is left after the
+          rating, menu size and open dot, and is the only thing that is
+          ever cut short. */}
+      <span className="min-w-0 flex-1 truncate text-sm font-bold text-slate-800">{pharmacy.name}</span>
+      <span className="shrink-0 text-[11px] text-slate-500">
+        {count > 0 && (
+          <>
+            <span className="text-amber-500">★</span> {average.toFixed(1)} ·{' '}
+          </>
+        )}
+        {itemCount} item{itemCount === 1 ? '' : 's'}
+      </span>
+      <span
+        aria-label={pharmacy.isOpen ? 'Open now' : 'Closed'}
+        title={pharmacy.isOpen ? 'Open now' : 'Closed'}
+        className={`h-2 w-2 shrink-0 rounded-full ${pharmacy.isOpen ? 'bg-emerald-500' : 'bg-slate-300'}`}
+      />
+      <span aria-hidden className="shrink-0 text-slate-300">
+        ›
+      </span>
+    </button>
+  )
+}
+
 // VendorMenuBooking.tsx's browse step) — a condensed version of
 // VendorHeaderCard's own banner/avatar treatment, so a vendor that has
 // customized their cover photo/logo/theme shows up looking like their own

@@ -14,9 +14,13 @@ import { usePilotBranding } from '../lib/usePilotBranding'
 // the terminal path discoverable at all.
 export function RiderStartPage() {
   const navigate = useNavigate()
-  const { terminalQrFeeWaived, commissionPerRide, pabiliEnabled, vendorsEnabled } = useRides()
+  const { terminalQrFeeWaived, commissionPerRide, vendorsEnabled } = useRides()
   const pilotBranding = usePilotBranding()
-  const foodExpressAvailable = pabiliEnabled && vendorsEnabled
+  // Only the Food & Vendor partners switch matters here. This used to also
+  // require Pabili, since the vendor menu is reached through the Pabili
+  // flow underneath — but Food Express is its own tab to a passenger, and
+  // Super Admin turning errands off silently removed it from this screen.
+  const foodExpressAvailable = vendorsEnabled
   return (
     // Same pattern as the launch and role-chooser screens before it — dark
     // navy, the diagonal weave — so a passenger doesn't land somewhere that

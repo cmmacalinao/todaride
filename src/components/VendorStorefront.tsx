@@ -824,7 +824,9 @@ export function VendorMenuItemCard({
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-slate-800">{item.name}</p>
+        {/* Wraps to a second line rather than truncating — "Adobong Manok"
+            was showing as "Ado…" beside the row's controls on a phone. */}
+        <p className="line-clamp-2 text-sm font-semibold leading-snug text-slate-800">{item.name}</p>
         <p className={`text-sm font-bold ${accent.softText}`}>₱{item.price}</p>
         {item.description && <p className="mt-0.5 truncate text-[11px] text-slate-500">{item.description}</p>}
         <div className="mt-1 flex flex-wrap items-center gap-1">

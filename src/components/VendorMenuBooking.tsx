@@ -2,10 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { DEFAULT_MEDS_DELIVERY_FEE, DEFAULT_MEDS_SERVICE_FEE, PAYMENT_METHODS } from '../mock/data'
-import { createCustomLocation, resolvePhAddress, type PhAddressTags } from '../lib/customLocation'
-import { getCurrentGeoPosition } from '../lib/geo'
-import { reverseGeocode } from '../lib/geocode'
+import { resolvePhAddress, type PhAddressTags } from '../lib/customLocation'
 import { BarangayAddressPicker } from './BarangayAddressPicker'
+import { DeliveryMapPicker } from './DeliveryMapPicker'
 import { OrderChat } from './OrderChat'
 import { TripMonitor } from './TripMonitor'
 import { VendorFeatureCard, VendorStorefront } from './VendorStorefront'
@@ -64,8 +63,21 @@ export function VendorMenuBooking({
   const [cart, setCart] = useState<Record<string, number>>({})
   const [contactPhone, setContactPhone] = useState(defaultContactPhone ?? '')
   const [deliveryAddress, setDeliveryAddress] = useState<MockLocation | null>(null)
-  const [deliveryGpsStatus, setDeliveryGpsStatus] = useState<'idle' | 'locating' | 'done' | 'error'>('idle')
-  const [deliveryGpsError, setDeliveryGpsError] = useState('')
+  // What the Province/City/Barangay dropdowns under the map are seeded with.
+  // A map pin (or GPS fix) reverse-geocodes to a guess at those three, and
+  // the picker is remounted (via `key`) to show it — otherwise the form would
+  // sit there disagreeing with the pin the customer just placed. Same
+  // pattern PassengerPage uses for its destination.
+  const [addressSeed, setAddressSeed] = useState<PhAddressTags>({
+    province: defaultProvince,
+    city: defaultCity,
+    barangay: defaultBarangay,
+    addressDetail: defaultAddressDetail,
+  })
+  const [addressSeedKey, setAddressSeedKey] = useState(0)
+  // True once the delivery point came from the map or the phone — an exact
+  // spot the picker should treat as settled rather than ask a landmark for.
+  const [deliveryPinned, setDeliveryPinned] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'gcash'>('cash')
   const [dismissedOrderIds, setDismissedOrderIds] = useState<Set<string>>(new Set())
   const [showHistory, setShowHistory] = useState(false)
@@ -130,19 +142,18 @@ export function VendorMenuBooking({
   async function handleAddressResolve(address: PhAddressTags) {
     const location = await resolvePhAddress(address)
     setDeliveryAddress(location)
+    setDeliveryPinned(false)
   }
 
-  async function handlePinDeliveryGps() {
-    setDeliveryGpsStatus('locating')
-    setDeliveryGpsError('')
-    try {
-      const gps = await getCurrentGeoPosition()
-      const label = (await reverseGeocode(gps)) ?? `Pinned location (${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)})`
-      setDeliveryAddress(createCustomLocation(label, gps))
-      setDeliveryGpsStatus('done')
-    } catch (err) {
-      setDeliveryGpsStatus('error')
-      setDeliveryGpsError(err instanceof Error ? err.message : 'Could not get your location.')
+  // From the map — a tap, a drag, or the GPS button. The location is the
+  // exact point; the guess (when the pin landed somewhere in our address
+  // tree) re-seeds the dropdowns beneath so both say the same thing.
+  function handleMapPin(location: MockLocation, guess: PhAddressTags | null) {
+    setDeliveryAddress(location)
+    setDeliveryPinned(true)
+    if (guess) {
+      setAddressSeed(guess)
+      setAddressSeedKey((k) => k + 1)
     }
   }
 
@@ -326,20 +337,22 @@ export function VendorMenuBooking({
 
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500">Deliver to</label>
+            {/* Map first — the same live map the ride booking pins on, with
+                the vendor's store shown so the customer sees where the food
+                is coming from. The address form below is the other way in:
+                picking a barangay there moves the pin, pinning here fills
+                the form. */}
+            <DeliveryMapPicker vendor={selectedVendor} deliveryAddress={deliveryAddress} onChange={handleMapPin} />
+            <p className="my-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400">or pick an address</p>
             <BarangayAddressPicker
+              key={addressSeedKey}
               label="Delivery address"
-              defaultProvince={defaultProvince}
-              defaultCity={defaultCity}
-              defaultBarangay={defaultBarangay}
-              defaultAddressDetail={defaultAddressDetail}
+              defaultProvince={addressSeed.province}
+              defaultCity={addressSeed.city}
+              defaultBarangay={addressSeed.barangay}
+              defaultAddressDetail={addressSeed.addressDetail}
+              pinned={deliveryPinned}
               onResolve={handleAddressResolve}
-              gpsOption={{
-                onSelect: handlePinDeliveryGps,
-                status: deliveryGpsStatus,
-                idleLabel: '📍 Pin my exact GPS location',
-                doneLabel: '✓ Using your exact GPS location',
-                error: deliveryGpsError,
-              }}
             />
           </div>
 

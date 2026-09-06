@@ -405,7 +405,10 @@ export function PassengerPage() {
         // chooseErrand) — used by RiderStartPage's SafeRide Food Express tab
         // so a passenger can jump straight into the Registered Vendor menu
         // flow (VendorMenuBooking) without landing on Ride/Pabili first.
-        if (!pabiliEnabled) break
+        // Gated on the vendor-partners switch, not Pabili: Food Express is
+        // its own tab on RiderStartPage and must not vanish because Super
+        // Admin turned errands off (it only borrows the Pabili flow underneath).
+        if (!vendorsEnabled) break
         chooseErrand('pabili', { food: true })
         scrollTop()
         break
@@ -2267,9 +2270,11 @@ export function PassengerPage() {
                 },
               ]
             : []),
-          // Food is its own partner service (resto/store vendors) but is
-          // delivered by the Pabili flow, so it appears only when both are on.
-          ...(pabiliEnabled && vendorsEnabled
+          // Food is its own partner service (resto/store vendors). It rides
+          // on the Pabili flow underneath, but that's plumbing — Super Admin
+          // switching errands off must not take Food Express with it, so
+          // only the vendor-partners switch gates it.
+          ...(vendorsEnabled
             ? [
                 {
                   key: 'food',

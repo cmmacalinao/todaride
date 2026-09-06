@@ -49,20 +49,23 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
         />
       </div>
       <div>
-        <p className="mb-1.5 text-xs font-medium text-slate-700">Theme color</p>
-        <div className="flex flex-wrap gap-2">
+        <p className="mb-1.5 text-xs font-medium text-slate-700">Theme selection</p>
+        <div className="flex flex-wrap gap-3">
           {Object.entries(VENDOR_THEME_COLORS).map(([key, color]) => (
             <button
               key={key}
               type="button"
               onClick={() => setBranding({ themeColor: pharmacy.themeColor === key ? null : key })}
-              className={`flex h-9 w-9 items-center justify-center rounded-full ${color.swatchClass} ${
-                pharmacy.themeColor === key ? 'ring-2 ring-offset-2 ring-slate-400' : ''
-              }`}
-              title={color.label}
-              aria-label={color.label}
+              className="flex flex-col items-center gap-1"
             >
-              {pharmacy.themeColor === key && <span className="text-xs font-bold text-white">✓</span>}
+              <span
+                className={`flex h-9 w-9 items-center justify-center rounded-full ${color.swatchClass} ${
+                  pharmacy.themeColor === key ? 'ring-2 ring-offset-2 ring-slate-400' : ''
+                }`}
+              >
+                {pharmacy.themeColor === key && <span className="text-xs font-bold text-white">✓</span>}
+              </span>
+              <span className="text-[10px] font-medium text-slate-500">{color.label}</span>
             </button>
           ))}
         </div>

@@ -26,6 +26,7 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
     useRides()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [photoPickerId, setPhotoPickerId] = useState<string | null>(null)
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
   const [bulkToolsOpen, setBulkToolsOpen] = useState(false)
   const [activeCategory, setActiveCategory] = useState('all')
 
@@ -77,9 +78,9 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
     setEditingId(null)
   }
 
-  function handleRemove(product: MedicineProduct) {
-    if (!window.confirm(`Remove "${product.name}" from your menu? This can't be undone.`)) return
+  function handleConfirmRemove(product: MedicineProduct) {
     removeMedicineProduct(product.id)
+    setConfirmRemoveId(null)
     if (editingId === product.id) setEditingId(null)
   }
 
@@ -165,6 +166,29 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
                 />
               )
             }
+            if (confirmRemoveId === product.id) {
+              return (
+                <div key={product.id} className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2.5">
+                  <p className="min-w-0 flex-1 text-xs text-amber-800">
+                    Remove "{product.name}" from your menu? This can't be undone.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleConfirmRemove(product)}
+                    className="shrink-0 rounded-lg bg-amber-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+                  >
+                    Remove
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmRemoveId(null)}
+                    className="shrink-0 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )
+            }
             return (
               <VendorMenuItemCard
                 key={product.id}
@@ -190,7 +214,7 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleRemove(product)}
+                        onClick={() => setConfirmRemoveId(product.id)}
                         className="rounded-full px-2 py-0.5 text-[11px] font-medium text-amber-700 hover:bg-amber-50"
                       >
                         Remove
@@ -274,6 +298,26 @@ function MenuItemForm({
   const [error, setError] = useState('')
   const datalistId = 'vendor-menu-categories'
 
+  // Live photo suggestions from TodaSafeRide's own food catalog as the
+  // vendor types the dish name — picking one fills the photo (and the
+  // description/category too, if still blank) without a separate step.
+  const nameQuery = name.trim().toLowerCase()
+  const suggestions =
+    nameQuery.length < 2
+      ? []
+      : FOOD_CATALOG.filter(
+          (item) => item.name.toLowerCase().includes(nameQuery) || matchesNameQuery(item.name, nameQuery),
+        ).slice(0, 8)
+
+  function applySuggestion(item: FoodCatalogItem) {
+    if (item.photoUrl) setPhotoDataUrl(item.photoUrl)
+    if (!description.trim()) setDescription(item.description)
+    if (!menuCategory.trim()) {
+      const category = FOOD_CATALOG_CATEGORIES.find((c) => c.code === item.categoryCode)
+      if (category) setMenuCategory(category.name)
+    }
+  }
+
   function handleSubmit() {
     const priceNum = Number(price)
     if (!name.trim() || !Number.isFinite(priceNum) || priceNum <= 0) {
@@ -307,6 +351,24 @@ function MenuItemForm({
         placeholder="Item name (e.g. Chicken Adobo)"
         className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
       />
+      {suggestions.length > 0 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+          {suggestions.map((item) => (
+            <button
+              key={item.code}
+              type="button"
+              onClick={() => applySuggestion(item)}
+              className={`w-14 shrink-0 overflow-hidden rounded-lg border text-left ${
+                photoDataUrl === item.photoUrl ? 'border-brand-400 bg-brand-50' : 'border-slate-200 bg-white hover:bg-slate-50'
+              }`}
+              title={`Use ${item.name}'s photo`}
+            >
+              {item.photoUrl && <img src={item.photoUrl} alt={item.name} loading="lazy" className="h-10 w-14 object-cover" />}
+              <p className="truncate px-1 py-0.5 text-[8px] text-slate-500">{item.name}</p>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="flex gap-1.5">
         <input
           list={datalistId}

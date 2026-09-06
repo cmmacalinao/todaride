@@ -1061,6 +1061,8 @@ type RideAction =
   // Only while unused — an invite somebody already registered through is a
   // record of how their account came to be, and stays.
   | { type: 'REMOVE_DRIVER_INVITE'; inviteId: string }
+  // A demo order for a vendor to try the booking flow on — see the reducer.
+  | { type: 'ADD_VENDOR_SAMPLE_ORDER'; pharmacyId: string }
   | {
       type: 'REGISTER_PASSENGER'
       id: string
@@ -5311,6 +5313,66 @@ function reducer(state: RideState, action: RideAction): RideState {
     // accept or quote, the vendor already has the order in hand — so it lands
     // in the vendor's "Out for delivery" tracking straight away, and the
     // driver sees exactly what a customer-placed vendor order looks like.
+    // "Add a sample order" on the vendor portal: an already-accepted order
+    // from a made-up customer, built from the vendor's own menu and dropped
+    // a few streets from the store, so Book Rider can be tried without a
+    // second phone placing a real order. It goes through dispatch exactly
+    // like a real one — a driver will be offered it — so it is labelled as a
+    // sample everywhere it shows.
+    case 'ADD_VENDOR_SAMPLE_ORDER': {
+      const pharmacy = state.pharmacies.find((p) => p.id === action.pharmacyId)
+      if (!pharmacy) return state
+      const menu = state.medicineProducts.filter((p) => p.pharmacyId === pharmacy.id && p.visible !== false && p.inStock)
+      const picks = (menu.length > 0 ? menu : state.medicineProducts.filter((p) => p.pharmacyId === pharmacy.id)).slice(0, 2)
+      const items: MedsOrderItem[] =
+        picks.length > 0
+          ? picks.map((p, i) => ({ productId: p.id, name: p.name, quantity: i === 0 ? 2 : 1, unitPrice: p.price, note: null }))
+          : [{ productId: 'sample', name: 'Sample meal', quantity: 1, unitPrice: 100, note: null }]
+      const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
+      const storeGps = pharmacy.locationGps ?? { lat: 15.7940977, lng: 120.9905849 }
+      // ~700 m north-east of the store: close enough to be a real delivery,
+      // far enough that the map shows two distinct pins.
+      const dropGps = { lat: storeGps.lat + 0.005, lng: storeGps.lng + 0.004 }
+      const now = new Date().toISOString()
+      const order: MedsOrder = {
+        id: `meds-sample-${Date.now()}`,
+        customerId: `sample-${Date.now()}`,
+        customerName: 'Sample Customer (demo)',
+        pharmacyId: pharmacy.id,
+        items,
+        subtotal,
+        deliveryFee: DEFAULT_MEDS_DELIVERY_FEE,
+        serviceFee: DEFAULT_MEDS_SERVICE_FEE,
+        total: subtotal + DEFAULT_MEDS_DELIVERY_FEE + DEFAULT_MEDS_SERVICE_FEE,
+        paymentMethod: 'cash',
+        status: 'confirmed',
+        rejectionReason: null,
+        prescriptionDataUrls: [],
+        prescriptionStatus: 'not_required',
+        receiptDataUrl: null,
+        deliveryAddress: {
+          id: `sample-drop-${Date.now()}`,
+          label: `Sample delivery — near ${pharmacy.barangay || 'Poblacion'}, ${pharmacy.city}`,
+          coords: { x: Math.min(95, pharmacy.coords.x + 8), y: Math.min(95, pharmacy.coords.y + 6) },
+          gps: dropGps,
+          province: pharmacy.province,
+          city: pharmacy.city,
+          barangay: pharmacy.barangay,
+        },
+        deliveryMode: 'pharmacy_books',
+        linkedRideId: null,
+        paymentProofDataUrl: null,
+        paidOnline: false,
+        paymentReference: null,
+        requestedAt: now,
+        quotedAt: null,
+        confirmedAt: now,
+        messages: [],
+        contactPhone: '0917-000-0000',
+        pricedFromMenu: true,
+      }
+      return { ...state, medsOrders: [order, ...state.medsOrders] }
+    }
     case 'VENDOR_BOOK_DELIVERY': {
       const pharmacy = state.pharmacies.find((p) => p.id === action.pharmacyId)
       if (!pharmacy || !action.customerName.trim()) return state
@@ -6105,6 +6167,7 @@ interface RideContextValue extends RideState {
     plateNumber?: string | null
   }) => string
   removeDriverInvite: (inviteId: string) => void
+  addVendorSampleOrder: (pharmacyId: string) => void
   registerPassenger: (args: {
     name: string
     age: number
@@ -7062,6 +7125,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
       return id
     },
     removeDriverInvite: (inviteId) => dispatch({ type: 'REMOVE_DRIVER_INVITE', inviteId }),
+    addVendorSampleOrder: (pharmacyId) => dispatch({ type: 'ADD_VENDOR_SAMPLE_ORDER', pharmacyId }),
     registerPassenger: (args) => {
       if (args.age < MINOR_AGE_LIMIT) return null
       const id = `pax-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`

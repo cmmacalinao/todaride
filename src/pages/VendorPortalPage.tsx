@@ -40,6 +40,7 @@ export function VendorPortalPage() {
     processMedsOrder,
     updatePharmacyPaymentAccount,
     sendMedsOrderMessage,
+    addVendorSampleOrder,
   } = useRides()
   const location = useLocation()
   const navigate = useNavigate()
@@ -240,6 +241,16 @@ export function VendorPortalPage() {
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-slate-700">🧾 Orders</h2>
             <p className="mt-1 text-sm text-slate-400">No orders right now — new ones show up here the moment they're placed.</p>
+            <button
+              type="button"
+              onClick={() => addVendorSampleOrder(vendor.id)}
+              className="mt-2 rounded-lg border border-dashed border-brand-300 bg-brand-50 px-3 py-1.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-100"
+            >
+              ＋ Add a sample order to try Book Rider
+            </button>
+            <p className="mt-1 text-[10px] text-slate-400">
+              Prototype only — an accepted order from a demo customer, built from your menu, delivered a few streets away.
+            </p>
           </div>
         )}
 
@@ -286,6 +297,15 @@ export function VendorPortalPage() {
             ))}
           </div>
         </section>
+      )}
+      {(outForDelivery.length > 0 || newOrders.length > 0 || readyToProcessOrders.length > 0) && (
+        <button
+          type="button"
+          onClick={() => addVendorSampleOrder(vendor.id)}
+          className="text-[11px] font-medium text-slate-400 hover:text-brand-700"
+        >
+          ＋ Add another sample order (demo)
+        </button>
       )}
       </section>
 

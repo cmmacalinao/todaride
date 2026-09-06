@@ -400,6 +400,15 @@ export function PassengerPage() {
         setServiceType('pabili')
         scrollTop()
         break
+      case 'food':
+        // Same entry point as tapping the Food tile inside this page (see
+        // chooseErrand) — used by RiderStartPage's SafeRide Food Express tab
+        // so a passenger can jump straight into the Registered Vendor menu
+        // flow (VendorMenuBooking) without landing on Ride/Pabili first.
+        if (!pabiliEnabled) break
+        chooseErrand('pabili', { food: true })
+        scrollTop()
+        break
       case 'current':
         setPageTab('book')
         setTimeout(() => currentRideSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)

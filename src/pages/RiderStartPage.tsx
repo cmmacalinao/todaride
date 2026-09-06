@@ -14,8 +14,9 @@ import { usePilotBranding } from '../lib/usePilotBranding'
 // the terminal path discoverable at all.
 export function RiderStartPage() {
   const navigate = useNavigate()
-  const { terminalQrFeeWaived, commissionPerRide } = useRides()
+  const { terminalQrFeeWaived, commissionPerRide, pabiliEnabled, vendorsEnabled } = useRides()
   const pilotBranding = usePilotBranding()
+  const foodExpressAvailable = pabiliEnabled && vendorsEnabled
   return (
     // Same pattern as the launch and role-chooser screens before it — dark
     // navy, the diagonal weave — so a passenger doesn't land somewhere that
@@ -44,6 +45,30 @@ export function RiderStartPage() {
         ) : (
           <PilotBranding name={pilotBranding.name} />
         )}
+
+        {/* SafeRide is more than one service — this strip is where a
+            passenger switches between them. TODA (tricycle rides, this
+            page) is the only one with anything to show below it, so it
+            renders as the current tab rather than a real button; Food
+            Express jumps straight into the Registered Vendor menu flow
+            (see PassengerPage.tsx's 'food' section case) — hidden
+            entirely while Super Admin has vendors switched off, same as
+            every other Food/Vendor entry point in the app. */}
+        {foodExpressAvailable && (
+          <div className="flex overflow-hidden rounded-full border border-white/15 bg-white/5 p-1">
+            <span className="flex-1 rounded-full bg-gold-400 py-2 text-center text-xs font-bold text-navy-900">
+              SafeRide TODA
+            </span>
+            <button
+              type="button"
+              onClick={() => navigate('/book', { state: { section: 'food' } })}
+              className="flex-1 rounded-full py-2 text-center text-xs font-bold text-white/70 transition hover:bg-white/10"
+            >
+              SafeRide Food Express
+            </button>
+          </div>
+        )}
+
         <div>
           <h1 className="text-lg font-bold text-white">How are you riding today?</h1>
           <p className="text-xs text-white/50">Pick one — you can always switch.</p>

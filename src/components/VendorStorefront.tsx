@@ -530,6 +530,85 @@ export function VendorMenuItemCard({
   )
 }
 
+// A vendor's card on the food-ordering landing screen (see
+// VendorMenuBooking.tsx's browse step) — a condensed version of
+// VendorHeaderCard's own banner/avatar treatment, so a vendor that has
+// customized their cover photo/logo/theme shows up looking like their own
+// page, not a generic list row.
+export function VendorFeatureCard({
+  pharmacy,
+  itemCount,
+  onSelect,
+}: {
+  pharmacy: Pharmacy
+  itemCount: number
+  onSelect: () => void
+}) {
+  const accent = resolveVendorAccent(pharmacy)
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <div
+        className={`relative h-16 bg-gradient-to-br ${accent.gradient}`}
+        style={
+          pharmacy.coverPhotoDataUrl
+            ? { backgroundImage: `url(${pharmacy.coverPhotoDataUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+            : undefined
+        }
+      >
+        {pharmacy.coverPhotoDataUrl ? (
+          <div aria-hidden className="absolute inset-0 bg-black/20" />
+        ) : (
+          <div
+            aria-hidden
+            className="absolute inset-0 opacity-10"
+            style={{
+              backgroundImage: 'repeating-linear-gradient(-45deg, white 0, white 2px, transparent 2px, transparent 14px)',
+            }}
+          />
+        )}
+        <span
+          className={`absolute right-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold shadow-sm ${
+            pharmacy.isOpen ? 'bg-white/90 text-emerald-700' : 'bg-white/80 text-slate-500'
+          }`}
+        >
+          {pharmacy.isOpen ? '🟢 Open' : '⚪ Closed'}
+        </span>
+      </div>
+      <div className="relative px-3 pb-3">
+        <div className="-mt-7 flex items-end">
+          <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border-[3px] border-white bg-white text-2xl shadow-md">
+            {pharmacy.logoDataUrl ? (
+              <img src={pharmacy.logoDataUrl} alt={`${pharmacy.name} logo`} className="h-full w-full object-cover" />
+            ) : (
+              accent.icon
+            )}
+          </div>
+        </div>
+        <p className="mt-1.5 truncate text-sm font-bold text-slate-800">{pharmacy.name}</p>
+        {pharmacy.tagline ? (
+          <p className="truncate text-[10px] italic text-slate-400">{pharmacy.tagline}</p>
+        ) : (
+          <p className="truncate text-[10px] text-slate-400">
+            📍 {pharmacy.barangay}, {pharmacy.city}
+          </p>
+        )}
+        <div className="mt-1 flex items-center gap-1">
+          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${accent.soft} ${accent.softText}`}>
+            {accent.icon} {accent.label}
+          </span>
+          <span className="text-[9px] text-slate-400">
+            {itemCount} item{itemCount === 1 ? '' : 's'}
+          </span>
+        </div>
+      </div>
+    </button>
+  )
+}
+
 export function VendorStorefront({
   pharmacy,
   items,

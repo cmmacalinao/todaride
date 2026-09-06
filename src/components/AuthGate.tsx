@@ -593,14 +593,15 @@ function PharmacyAuth({ variant = 'pharmacy' }: { variant?: 'pharmacy' | 'vendor
 // The two sign-up entry points share this whole form — only which pair of
 // business categories is offered differs, so a Resto signing up never has to
 // scroll past pharmacy/prescription options that don't apply to them.
+// Pharmacy and Other Commodity are pulled from both signup panels for this
+// version — a scope call, not a technical one: TODARIDE MEDS (see
+// medsEnabled in Super Admin) and the "sell anything else" catch-all stay
+// fully working underneath, just not offered as something new to sign up
+// for right now. Re-add the two removed entries here (and flip medsEnabled
+// back on) to bring them back — nothing about the underlying flows was
+// touched.
 const SIGNUP_CATEGORIES: Record<'pharmacy' | 'vendor', { value: BusinessType; icon: string; label: string; blurb: string }[]> = {
   pharmacy: [
-    {
-      value: 'pharmacy',
-      icon: '💊',
-      label: 'Pharmacy',
-      blurb: 'Connects to TODARIDE MEDS — product catalog, quotes, prescriptions.',
-    },
     {
       value: 'store',
       icon: '🏪',
@@ -609,30 +610,11 @@ const SIGNUP_CATEGORIES: Record<'pharmacy' | 'vendor', { value: BusinessType; ic
     },
   ],
   vendor: [
-    // Resto/Food first — this is the "Food/Vendors" entry point, so that's
-    // the category most people arriving here actually want; both variants
-    // still default to categories[0], so this also makes Resto/Food the
-    // pre-selected tab instead of Pharmacy.
     {
       value: 'resto_food',
       icon: '🍽️',
       label: 'Resto / Food',
       blurb: 'Restaurants, carinderias, bakeries — cooked food and drinks for delivery.',
-    },
-    // Listed here too because the landing button says "Pharmacy/Food/Vendors"
-    // — a pharmacy that taps it would otherwise land on a form with no
-    // Pharmacy option and have to find /pharmacy on its own.
-    {
-      value: 'pharmacy',
-      icon: '💊',
-      label: 'Pharmacy',
-      blurb: 'Connects to TODARIDE MEDS — product catalog, quotes, prescriptions.',
-    },
-    {
-      value: 'other_commodity',
-      icon: '📦',
-      label: 'Other Commodity',
-      blurb: 'Anything else you sell — dry goods, produce, hardware, LPG and the like.',
     },
   ],
 }

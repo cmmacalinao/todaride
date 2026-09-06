@@ -137,26 +137,6 @@ export function VendorPortalPage() {
         </section>
       )}
 
-      <section ref={paymentsSectionRef} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-slate-700">Payment accounts</h2>
-        <p className="mt-1 text-xs text-slate-500">
-          Customers who pay by GCash or Maya see this account's QR code and number so they can send payment directly
-          to you — cash is still collected by the driver on delivery instead.
-        </p>
-        <div className="mt-3 space-y-3">
-          <PaymentAccountForm
-            label="GCash"
-            details={vendor.gcashAccount}
-            onSave={(details) => updatePharmacyPaymentAccount(vendor.id, 'gcash', details)}
-          />
-          <PaymentAccountForm
-            label="Maya"
-            details={vendor.mayaAccount}
-            onSave={(details) => updatePharmacyPaymentAccount(vendor.id, 'maya', details)}
-          />
-        </div>
-      </section>
-
       {readyToProcessOrders.length > 0 && (
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="mb-2 text-sm font-semibold text-slate-700">Ready to process</h2>
@@ -227,6 +207,26 @@ export function VendorPortalPage() {
           ›
         </span>
       </button>
+
+      <section ref={paymentsSectionRef} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-700">Payment accounts</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Customers who pay by GCash or Maya see this account's QR code and number so they can send payment directly
+          to you — cash is still collected by the driver on delivery instead.
+        </p>
+        <div className="mt-3 space-y-3">
+          <PaymentAccountForm
+            label="GCash"
+            details={vendor.gcashAccount}
+            onSave={(details) => updatePharmacyPaymentAccount(vendor.id, 'gcash', details)}
+          />
+          <PaymentAccountForm
+            label="Maya"
+            details={vendor.mayaAccount}
+            onSave={(details) => updatePharmacyPaymentAccount(vendor.id, 'maya', details)}
+          />
+        </div>
+      </section>
 
       <section ref={historySectionRef} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="mb-2 text-sm font-semibold text-slate-700">Order history</h2>

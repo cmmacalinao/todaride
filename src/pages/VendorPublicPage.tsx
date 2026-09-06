@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
-import { VendorStorefront } from '../components/VendorStorefront'
+import { VendorHeaderCard, VendorStorefront, resolveVendorAccent } from '../components/VendorStorefront'
 import { VendorBrandingEditor } from '../components/VendorBrandingEditor'
 
 // The vendor's own page, on its own route — reached from "🏪 My Vendor Page"
@@ -73,7 +73,15 @@ export function VendorPublicPage() {
       </div>
 
       {tab === 'customize' ? (
-        <VendorBrandingEditor pharmacy={pharmacy} />
+        <div className="space-y-3">
+          {/* The same header a customer will see, live — so a cover
+              photo/logo/tagline/theme change shows its actual effect right
+              here instead of only after switching to Preview. */}
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <VendorHeaderCard pharmacy={pharmacy} itemCount={items.length} accent={resolveVendorAccent(pharmacy)} />
+          </div>
+          <VendorBrandingEditor pharmacy={pharmacy} />
+        </div>
       ) : (
         <>
           <p className="text-xs text-slate-500">

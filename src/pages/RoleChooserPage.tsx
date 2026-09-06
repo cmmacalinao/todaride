@@ -154,8 +154,15 @@ export function RoleChooserPage() {
               <span className="text-[10px] font-semibold uppercase tracking-wide text-white/40">Business account</span>
               <span className="h-px flex-1 bg-white/15" />
             </div>
+            {/* role= (and auth=signup, since "Partner with us" is an
+                invitation to sign up, not a returning login) — every other
+                tile on this page passes these so AuthGate treats the click
+                as roleScoped and shows the actual Pharmacy/Vendor
+                login-or-signup form; without them this landed on the
+                generic identifier login instead, with no way to register a
+                new business account from here at all. */}
             <Link
-              to={vendorsEnabled ? '/vendor' : '/pharmacy'}
+              to={vendorsEnabled ? '/vendor?role=vendor&auth=signup' : '/pharmacy?role=pharmacy&auth=signup'}
               className="flex items-center gap-3 rounded-xl border border-gold-400/40 bg-gold-400/10 p-3.5 transition hover:border-gold-400 hover:bg-gold-400/20"
             >
               <span className="text-2xl leading-none">🏪</span>

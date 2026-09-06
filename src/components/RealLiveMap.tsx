@@ -114,6 +114,11 @@ export interface RealLiveMapProps {
   // business offering the shortcut (the driver's own map, admin monitoring)
   // simply not pass it — the button only exists where it is given.
   onScanQr?: () => void
+  // One caller-supplied control seated in the map's own button row, right
+  // after Legend — for an action that belongs on the map itself rather than
+  // in the form around it (VendorLocationPicker's "Pin my GPS location").
+  // A node rather than a callback so the caller owns its label and busy state.
+  toolbarAction?: ReactNode
   // Starts unlocked rather than skipping the lock: drag and the zoom buttons
   // work from the first render, but the palm icon stays on screen so it can
   // still be locked back down deliberately. Set on the two trip-tracking
@@ -584,7 +589,7 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, alwaysInteractive = false, height, nav, onScanQr }: RealLiveMapProps) {
+export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, alwaysInteractive = false, height, nav, onScanQr, toolbarAction }: RealLiveMapProps) {
   // If the Google script fails to load (bad key, network block, CSP), fall
   // back to the OSM/Leaflet canvas instead of showing an empty map.
   const [googleFailed, setGoogleFailed] = useState(false)
@@ -743,6 +748,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
             🏷️ Legend
           </button>
         )}
+        {toolbarAction}
         {/* The way to a trip already under way, offered right where a
             passenger deciding how to get one is already looking. Pushed to
             the far side of the row (ml-auto) rather than queued after

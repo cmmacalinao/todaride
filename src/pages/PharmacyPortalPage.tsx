@@ -5,7 +5,7 @@ import { AnnouncementFeed } from '../components/AnnouncementFeed'
 import { useSession } from '../context/SessionContext'
 import { DocumentUploadField } from '../components/DocumentUploadField'
 import { OrderChat } from '../components/OrderChat'
-import { VendorPortalPage } from './VendorPortalPage'
+import { ContactSheet } from '../components/ContactSheet'
 import type { MedicineCategory, MedsOrder, MedsOrderItem, MedsOrderStatus, PaymentAccountDetails } from '../types'
 
 const CATEGORY_LABELS: Record<MedicineCategory, string> = {
@@ -70,6 +70,17 @@ export function PharmacyPortalPage() {
   const productsSectionRef = useRef<HTMLElement>(null)
   const paymentsSectionRef = useRef<HTMLElement>(null)
   const historySectionRef = useRef<HTMLElement>(null)
+  const pharmacy = pharmacies.find((p) => p.id === loggedInPharmacyId)
+
+  // A Registered Vendor account (resto_food / other_commodity) belongs on the
+  // Food/Vendor portal — actually navigate there instead of just rendering
+  // VendorPortalPage inline, so the address bar reads /vendor too, not just
+  // the on-screen header (see the file comment above).
+  useEffect(() => {
+    if (pharmacy && (pharmacy.businessType === 'resto_food' || pharmacy.businessType === 'other_commodity')) {
+      navigate('/vendor', { replace: true })
+    }
+  }, [pharmacy, navigate])
 
   useEffect(() => {
     const section = (location.state as { section?: string } | null)?.section
@@ -102,7 +113,6 @@ export function PharmacyPortalPage() {
     )
   }
 
-  const pharmacy = pharmacies.find((p) => p.id === loggedInPharmacyId)
   if (!pharmacy) {
     return (
       <div className="mx-auto max-w-lg space-y-6 px-4 py-6">
@@ -111,11 +121,10 @@ export function PharmacyPortalPage() {
     )
   }
 
-  // A Registered Vendor account (resto_food / other_commodity) belongs on
-  // the Food/Vendor portal instead, even if it happened to log in via
-  // /pharmacy — see the file comment above.
+  // Redirecting above (see the effect) — render nothing while that happens
+  // rather than the Vendor portal at the /pharmacy URL.
   if (pharmacy.businessType === 'resto_food' || pharmacy.businessType === 'other_commodity') {
-    return <VendorPortalPage />
+    return null
   }
 
   const ownOrders = medsOrders.filter((o) => o.pharmacyId === pharmacy.id)
@@ -458,7 +467,12 @@ export function PaymentAccountForm({
         placeholder="Mobile number / account number"
         className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
       />
-      <DocumentUploadField label={`${label} QR code (optional)`} dataUrl={qrDataUrl} onUpload={setQrDataUrl} />
+      <DocumentUploadField
+        label={`${label} QR code (optional)`}
+        dataUrl={qrDataUrl}
+        onUpload={setQrDataUrl}
+        onRemove={() => setQrDataUrl(null)}
+      />
       <div className="flex gap-2">
         <button
           type="button"
@@ -496,6 +510,7 @@ function QuoteOrderCard({
   onSendMessage: (text: string) => void
 }) {
   const [rejectReason, setRejectReason] = useState('')
+  const [contactOpen, setContactOpen] = useState(false)
   const [prescriptionRejectReason, setPrescriptionRejectReason] = useState('')
   // Editable per-order pricing — defaults to whatever the customer's cart
   // captured (the catalog price at the time), but the pharmacy is free to
@@ -547,6 +562,18 @@ function QuoteOrderCard({
         <span className="text-sm font-medium text-slate-700">{order.customerName}</span>
         <span className="text-xs font-semibold text-slate-800">₱{medicineTotal}</span>
       </div>
+      {order.contactPhone && (
+        <button
+          type="button"
+          onClick={() => setContactOpen(true)}
+          className="mt-0.5 text-[11px] font-medium text-brand-700 hover:underline"
+        >
+          ☎ {order.contactPhone} — Call or text
+        </button>
+      )}
+      {contactOpen && order.contactPhone && (
+        <ContactSheet name={order.customerName} phone={order.contactPhone} onClose={() => setContactOpen(false)} />
+      )}
       <div className="mt-2 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
         <p className="mb-2 text-sm font-semibold text-amber-800">🧾 Quotation — price each item</p>
         {items.length > 0 && (
@@ -653,7 +680,12 @@ function QuoteOrderCard({
             >
               + Add item
             </button>
-            <DocumentUploadField label="Receipt photo (optional)" dataUrl={receiptDataUrl} onUpload={setReceiptDataUrl} />
+            <DocumentUploadField
+              label="Receipt photo (optional)"
+              dataUrl={receiptDataUrl}
+              onUpload={setReceiptDataUrl}
+              onRemove={() => setReceiptDataUrl(null)}
+            />
           </div>
         )}
       </div>

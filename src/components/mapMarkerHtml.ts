@@ -5,12 +5,15 @@
 // HTML. Sharing the markup is the only way the tricycle a passenger sees while
 // choosing a pickup is the same tricycle they see while riding in it.
 
-export type MarkerIcon = 'tricycle' | 'pharmacy' | 'terminal' | 'me'
+export type MarkerIcon = 'tricycle' | 'pharmacy' | 'resto' | 'terminal' | 'me'
 
 export const EMOJI_MARKER_ICONS: Record<MarkerIcon, string> = {
   tricycle: '🛺',
   terminal: '🚏',
   pharmacy: '💊',
+  // A Registered Vendor's storefront (see VendorLocationPicker) — a capsule
+  // on a carinderia's pin read as "pharmacy", which is the one thing it isn't.
+  resto: '🍽️',
   // The person holding the phone. A figure rather than a plain dot, because
   // this marker sits among tricycles and terminals and has to be read at a
   // glance as "that one is me" while somebody is standing at a rank looking
@@ -26,6 +29,7 @@ export const EMOJI_MARKER_SIZES: Record<MarkerIcon, { box: number; font: number 
   tricycle: { box: 18, font: 11 },
   terminal: { box: 16, font: 10 },
   pharmacy: { box: 20, font: 11 },
+  resto: { box: 20, font: 11 },
   // The largest of them. Everything else on this map is a place or a vehicle
   // being looked for; this is the one point the eye should find first.
   me: { box: 22, font: 13 },

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { captureNativePhoto, compressImageFile } from '../lib/photo'
+import { captureNativePhoto, compressImageFile, isNativePlatform } from '../lib/photo'
 
 interface MultiImageUploadFieldProps {
   label: string
@@ -19,18 +19,27 @@ export function MultiImageUploadField({ label, dataUrls, onChange, addLabel }: M
 
   // Same native Camera-or-Photo-Library prompt as DocumentUploadField —
   // prescription pages are just as often an existing photo as a fresh one.
-  async function handleTap() {
-    setBusy(true)
-    try {
-      const native = await captureNativePhoto({ source: 'prompt' })
-      if (native) {
-        onChange([...dataUrls, native])
-        return
-      }
+  // The web branch clicks the input synchronously (see captureNativePhoto's
+  // comment) — awaiting anything first makes some mobile browsers silently
+  // refuse to open the picker at all.
+  function handleTap() {
+    if (!isNativePlatform()) {
       inputRef.current?.click()
-    } finally {
-      setBusy(false)
+      return
     }
+    setBusy(true)
+    void (async () => {
+      try {
+        const native = await captureNativePhoto({ source: 'prompt' })
+        if (native) {
+          onChange([...dataUrls, native])
+          return
+        }
+        inputRef.current?.click()
+      } finally {
+        setBusy(false)
+      }
+    })()
   }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {

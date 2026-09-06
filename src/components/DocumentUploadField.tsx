@@ -1,31 +1,47 @@
 import { useRef, useState } from 'react'
-import { captureNativePhoto, compressImageFile } from '../lib/photo'
+import { captureNativePhoto, compressImageFile, isNativePlatform } from '../lib/photo'
 
 interface DocumentUploadFieldProps {
   label: string
   dataUrl: string | null
   onUpload: (dataUrl: string) => void
+  // Optional — when given, a "Remove" button sits next to "Replace" once a
+  // photo is uploaded, so a field that isn't required (a QR code, a receipt)
+  // can be cleared without picking a new file just to get rid of the old one.
+  onRemove?: () => void
+  // Optional post-processing between the pick and onUpload — the vendor
+  // branding rows use it to clear a flat backdrop (see removeFlatBackground).
+  // Absent for documents and QR codes, whose white IS the content.
+  prepare?: (dataUrl: string) => Promise<string>
 }
 
-export function DocumentUploadField({ label, dataUrl, onUpload }: DocumentUploadFieldProps) {
+export function DocumentUploadField({ label, dataUrl, onUpload, onRemove, prepare }: DocumentUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
 
   // Documents are just as often an existing photo/scan as a fresh one, so
   // (unlike PhotoCaptureButton's live safety photo) this offers a native
   // Camera-or-Photo-Library choice — see captureNativePhoto's 'prompt' mode.
-  async function handleTap() {
-    setBusy(true)
-    try {
-      const native = await captureNativePhoto({ source: 'prompt' })
-      if (native) {
-        onUpload(native)
-        return
-      }
+  // The web branch clicks the input synchronously — awaiting anything first
+  // makes some mobile browsers silently refuse to open the picker at all.
+  function handleTap() {
+    if (!isNativePlatform()) {
       inputRef.current?.click()
-    } finally {
-      setBusy(false)
+      return
     }
+    setBusy(true)
+    void (async () => {
+      try {
+        const native = await captureNativePhoto({ source: 'prompt' })
+        if (native) {
+          onUpload(prepare ? await prepare(native) : native)
+          return
+        }
+        inputRef.current?.click()
+      } finally {
+        setBusy(false)
+      }
+    })()
   }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -35,7 +51,7 @@ export function DocumentUploadField({ label, dataUrl, onUpload }: DocumentUpload
     setBusy(true)
     try {
       const compressed = await compressImageFile(file)
-      onUpload(compressed)
+      onUpload(prepare ? await prepare(compressed) : compressed)
     } finally {
       setBusy(false)
     }
@@ -69,6 +85,16 @@ export function DocumentUploadField({ label, dataUrl, onUpload }: DocumentUpload
       >
         {busy ? '…' : dataUrl ? 'Replace' : 'Upload'}
       </button>
+      {dataUrl && onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          disabled={busy}
+          className="shrink-0 rounded-lg border border-amber-200 px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-60"
+        >
+          Remove
+        </button>
+      )}
     </div>
   )
 }

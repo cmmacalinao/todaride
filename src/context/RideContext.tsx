@@ -1304,6 +1304,8 @@ type RideAction =
   | { type: 'PHARMACY_PROCESS_MEDS_ORDER'; orderId: string }
   | { type: 'MEDS_ORDER_BOOK_OWN_RIDE'; orderId: string; overrides?: MedsRideOverrides }
   | { type: 'TOGGLE_MEDICINE_PRODUCT_STOCK'; productId: string }
+  | { type: 'TOGGLE_MEDICINE_PRODUCT_VISIBILITY'; productId: string }
+  | { type: 'SET_MEDICINE_PRODUCT_STOCK_COUNT'; productId: string; stockCount: number | null }
   | {
       type: 'REGISTER_PHARMACY'
       id: string
@@ -1330,6 +1332,7 @@ type RideAction =
       photoDataUrl?: string | null
       description?: string | null
       badge?: MenuItemBadge | null
+      stockCount?: number | null
     }
   | {
       type: 'UPDATE_MEDICINE_PRODUCT'
@@ -1342,6 +1345,7 @@ type RideAction =
       photoDataUrl: string | null
       description: string | null
       badge: MenuItemBadge | null
+      stockCount: number | null
     }
   | {
       type: 'UPDATE_PHARMACY_PAYMENT_ACCOUNT'
@@ -1353,11 +1357,14 @@ type RideAction =
       type: 'UPDATE_VENDOR_BRANDING'
       pharmacyId: string
       coverPhotoDataUrl: string | null
+      coverPhotoPosition: { x: number; y: number; scale?: number } | null
       logoDataUrl: string | null
       themeColor: string | null
       tagline: string | null
     }
+  | { type: 'UPDATE_PHARMACY_LOCATION'; pharmacyId: string; locationGps: GeoCoords }
   | { type: 'REMOVE_MEDICINE_PRODUCT'; productId: string }
+  | { type: 'REORDER_MEDICINE_PRODUCTS'; orderedIds: string[] }
 
 interface StoredState {
   rides: Ride[]
@@ -5085,11 +5092,21 @@ function reducer(state: RideState, action: RideAction): RideState {
     case 'VENDOR_ACCEPT_MENU_ORDER': {
       const order = state.medsOrders.find((o) => o.id === action.orderId)
       if (!order || order.status !== 'pending_confirmation' || !order.pricedFromMenu) return state
+      // Draw down today's stock count (see MedicineProduct.stockCount) by
+      // what was just accepted — a vendor tracking servings this way never
+      // has to remember to close an item by hand once it runs out.
+      const orderedQtyByProduct = new Map(order.items.map((item) => [item.productId, item.quantity]))
       return {
         ...state,
         medsOrders: state.medsOrders.map((o) =>
           o.id === action.orderId ? { ...o, status: 'confirmed', confirmedAt: new Date().toISOString() } : o,
         ),
+        medicineProducts: state.medicineProducts.map((p) => {
+          const qty = orderedQtyByProduct.get(p.id)
+          if (!qty || p.stockCount == null) return p
+          const remaining = Math.max(0, p.stockCount - qty)
+          return { ...p, stockCount: remaining, inStock: remaining > 0 ? p.inStock : false }
+        }),
       }
     }
     case 'PHARMACY_REJECT_MEDS_ORDER':
@@ -5252,11 +5269,20 @@ function reducer(state: RideState, action: RideAction): RideState {
             ? {
                 ...p,
                 coverPhotoDataUrl: action.coverPhotoDataUrl,
+                coverPhotoPosition: action.coverPhotoPosition,
                 logoDataUrl: action.logoDataUrl,
                 themeColor: action.themeColor,
                 tagline: action.tagline,
               }
             : p,
+        ),
+      }
+    }
+    case 'UPDATE_PHARMACY_LOCATION': {
+      return {
+        ...state,
+        pharmacies: state.pharmacies.map((p) =>
+          p.id === action.pharmacyId ? { ...p, locationGps: action.locationGps } : p,
         ),
       }
     }
@@ -5273,6 +5299,7 @@ function reducer(state: RideState, action: RideAction): RideState {
         photoDataUrl: action.photoDataUrl ?? null,
         description: action.description ?? null,
         badge: action.badge ?? null,
+        stockCount: action.stockCount ?? null,
       }
       return { ...state, medicineProducts: [...state.medicineProducts, product] }
     }
@@ -5291,6 +5318,7 @@ function reducer(state: RideState, action: RideAction): RideState {
                 photoDataUrl: action.photoDataUrl,
                 description: action.description,
                 badge: action.badge,
+                stockCount: action.stockCount,
               }
             : p,
         ),
@@ -5300,11 +5328,34 @@ function reducer(state: RideState, action: RideAction): RideState {
         ...state,
         medicineProducts: state.medicineProducts.filter((p) => p.id !== action.productId),
       }
+    case 'REORDER_MEDICINE_PRODUCTS': {
+      const rank = new Map(action.orderedIds.map((id, i) => [id, i]))
+      return {
+        ...state,
+        medicineProducts: state.medicineProducts.map((p) => (rank.has(p.id) ? { ...p, sortIndex: rank.get(p.id)! } : p)),
+      }
+    }
     case 'TOGGLE_MEDICINE_PRODUCT_STOCK':
       return {
         ...state,
         medicineProducts: state.medicineProducts.map((p) =>
           p.id === action.productId ? { ...p, inStock: !p.inStock } : p,
+        ),
+      }
+    case 'TOGGLE_MEDICINE_PRODUCT_VISIBILITY':
+      return {
+        ...state,
+        medicineProducts: state.medicineProducts.map((p) =>
+          p.id === action.productId ? { ...p, visible: p.visible === false } : p,
+        ),
+      }
+    case 'SET_MEDICINE_PRODUCT_STOCK_COUNT':
+      return {
+        ...state,
+        medicineProducts: state.medicineProducts.map((p) =>
+          p.id === action.productId
+            ? { ...p, stockCount: action.stockCount, inStock: action.stockCount === 0 ? false : p.inStock }
+            : p,
         ),
       }
     default:
@@ -6091,6 +6142,8 @@ interface RideContextValue extends RideState {
   processMedsOrder: (orderId: string) => void
   bookOwnMedsRide: (orderId: string, overrides?: MedsRideOverrides) => void
   toggleMedicineProductStock: (productId: string) => void
+  toggleMedicineProductVisibility: (productId: string) => void
+  setMedicineProductStockCount: (productId: string, stockCount: number | null) => void
   registerPharmacy: (args: {
     name: string
     businessType: BusinessType
@@ -6113,6 +6166,7 @@ interface RideContextValue extends RideState {
     photoDataUrl?: string | null
     description?: string | null
     badge?: MenuItemBadge | null
+    stockCount?: number | null
   }) => void
   updateMedicineProduct: (args: {
     productId: string
@@ -6124,16 +6178,20 @@ interface RideContextValue extends RideState {
     photoDataUrl: string | null
     description: string | null
     badge: MenuItemBadge | null
+    stockCount: number | null
   }) => void
   removeMedicineProduct: (productId: string) => void
+  reorderMedicineProducts: (orderedIds: string[]) => void
   updatePharmacyPaymentAccount: (pharmacyId: string, method: 'gcash' | 'maya', details: PaymentAccountDetails | null) => void
   updateVendorBranding: (args: {
     pharmacyId: string
     coverPhotoDataUrl: string | null
+    coverPhotoPosition: { x: number; y: number; scale?: number } | null
     logoDataUrl: string | null
     themeColor: string | null
     tagline: string | null
   }) => void
+  updatePharmacyLocation: (pharmacyId: string, locationGps: GeoCoords) => void
 }
 
 const RideContext = createContext<RideContextValue | null>(null)
@@ -6913,6 +6971,9 @@ export function RideProvider({ children }: { children: ReactNode }) {
     processMedsOrder: (orderId) => dispatch({ type: 'PHARMACY_PROCESS_MEDS_ORDER', orderId }),
     bookOwnMedsRide: (orderId, overrides) => dispatch({ type: 'MEDS_ORDER_BOOK_OWN_RIDE', orderId, overrides }),
     toggleMedicineProductStock: (productId) => dispatch({ type: 'TOGGLE_MEDICINE_PRODUCT_STOCK', productId }),
+    toggleMedicineProductVisibility: (productId) => dispatch({ type: 'TOGGLE_MEDICINE_PRODUCT_VISIBILITY', productId }),
+    setMedicineProductStockCount: (productId, stockCount) =>
+      dispatch({ type: 'SET_MEDICINE_PRODUCT_STOCK_COUNT', productId, stockCount }),
     registerPharmacy: (args) => {
       const id = `pharm-${Date.now()}`
       dispatch({ type: 'REGISTER_PHARMACY', id, ...args })
@@ -6924,9 +6985,11 @@ export function RideProvider({ children }: { children: ReactNode }) {
     },
     updateMedicineProduct: (args) => dispatch({ type: 'UPDATE_MEDICINE_PRODUCT', ...args }),
     removeMedicineProduct: (productId) => dispatch({ type: 'REMOVE_MEDICINE_PRODUCT', productId }),
+    reorderMedicineProducts: (orderedIds) => dispatch({ type: 'REORDER_MEDICINE_PRODUCTS', orderedIds }),
     updatePharmacyPaymentAccount: (pharmacyId, method, details) =>
       dispatch({ type: 'UPDATE_PHARMACY_PAYMENT_ACCOUNT', pharmacyId, method, details }),
     updateVendorBranding: (args) => dispatch({ type: 'UPDATE_VENDOR_BRANDING', ...args }),
+    updatePharmacyLocation: (pharmacyId, locationGps) => dispatch({ type: 'UPDATE_PHARMACY_LOCATION', pharmacyId, locationGps }),
   }
 
   return <RideContext.Provider value={value}>{children}</RideContext.Provider>

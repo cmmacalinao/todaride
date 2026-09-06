@@ -181,6 +181,17 @@ export default defineConfig({
     // off this machine. Vite otherwise rejects any request whose Host header
     // it doesn't recognize (DNS-rebinding guard).
     allowedHosts: ['.trycloudflare.com', '.loca.lt'],
+    // Keep the file watcher on source only. It otherwise crawls every folder
+    // under the project root, and on Windows a picture being saved into
+    // FOOD DATABASE/ (or an APK build writing under android/) while another
+    // program still holds the file makes fs.watch throw EBUSY — which took
+    // the whole dev server down, repeatedly, mid-session. None of these
+    // folders feed the bundle; the ones the app does read from them
+    // (build.gradle for the version label) are read once at config load,
+    // not watched.
+    watch: {
+      ignored: ['**/FOOD DATABASE/**', '**/DOCUMENT GUIDES/**', '**/android/**', '**/ios/**', '**/dist/**'],
+    },
   },
   preview: {
     port: 4192,

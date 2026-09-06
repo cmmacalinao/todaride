@@ -1,12 +1,19 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { DocumentUploadField } from './DocumentUploadField'
-import { captureNativePhoto, compressImageFile } from '../lib/photo'
+import { captureNativePhoto, compressImageFile, isNativePlatform } from '../lib/photo'
 import { matchesNameQuery } from '../lib/fuzzyName'
 import { downloadMenuSpreadsheet, parseMenuSpreadsheet, type ParsedSpreadsheetRow } from '../lib/menuSpreadsheet'
-import { FOOD_CATALOG, FOOD_CATALOG_CATEGORIES, type FoodCatalogItem } from '../lib/foodCatalog'
+import {
+  FOOD_CATALOG,
+  FOOD_CATALOG_CATEGORIES,
+  menuBadgeSortRank,
+  menuCategorySortRank,
+  type FoodCatalogItem,
+} from '../lib/foodCatalog'
 import { MenuBoardCropper, type ExtractedCrop } from './MenuBoardCropper'
 import { VendorHeaderCard, VendorMenuItemCard, resolveVendorAccent } from './VendorStorefront'
+import { VendorLocationPicker } from './VendorLocationPicker'
 import { MENU_ITEM_BADGES, type MedicineProduct, type MenuItemBadge, type Pharmacy } from '../types'
 
 // Registered Vendor's own menu management — the products section a resto/
@@ -22,24 +29,126 @@ import { MENU_ITEM_BADGES, type MedicineProduct, type MenuItemBadge, type Pharma
 // same banner, same item-card layout — just with Edit/Remove/stock controls
 // where a customer would see an Add button.
 export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; products: MedicineProduct[] }) {
-  const { addMedicineProduct, updateMedicineProduct, removeMedicineProduct, toggleMedicineProductStock, updateVendorBranding } =
-    useRides()
+  const {
+    addMedicineProduct,
+    updateMedicineProduct,
+    removeMedicineProduct,
+    reorderMedicineProducts,
+    toggleMedicineProductStock,
+    toggleMedicineProductVisibility,
+    setMedicineProductStockCount,
+    updateVendorBranding,
+  } = useRides()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [photoPickerId, setPhotoPickerId] = useState<string | null>(null)
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
+  // A removed item stays out of view immediately, but the actual delete (see
+  // handleConfirmRemove) is delayed so Undo has something to cancel.
+  const [pendingRemoval, setPendingRemoval] = useState<{ product: MedicineProduct; timeoutId: ReturnType<typeof setTimeout> } | null>(
+    null,
+  )
   const [bulkToolsOpen, setBulkToolsOpen] = useState(false)
   const [activeCategory, setActiveCategory] = useState('all')
+  const [showLocationPicker, setShowLocationPicker] = useState(false)
+  // Drag-to-reorder (All Menu only — see the sort above). dragOrder holds the
+  // live-reordered id list while a drag is in progress so the list visually
+  // follows the pointer; null the rest of the time, when shownProducts'
+  // own sort is what's on screen.
+  const [dragOrder, setDragOrder] = useState<string[] | null>(null)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const rowRefs = useRef(new Map<string, HTMLDivElement>())
 
   const accent = resolveVendorAccent(pharmacy)
-  const categories = Array.from(new Set(products.map((p) => p.menuCategory?.trim()).filter((c): c is string => !!c)))
+  // Pending-removal item excluded here so it disappears from the list the
+  // instant "Remove" is confirmed, even though it's still really in
+  // `products` until the Undo window closes.
+  const visibleProducts = pendingRemoval ? products.filter((p) => p.id !== pendingRemoval.product.id) : products
+  const categories = Array.from(new Set(visibleProducts.map((p) => p.menuCategory?.trim()).filter((c): c is string => !!c)))
   const editingProduct = products.find((p) => p.id === editingId) ?? null
-  const shownProducts =
-    activeCategory === 'all' ? products : products.filter((p) => (p.menuCategory?.trim() || 'Menu') === activeCategory)
+  const shownProducts = (
+    activeCategory === 'all'
+      ? visibleProducts
+      : visibleProducts.filter((p) => (p.menuCategory?.trim() || 'Menu') === activeCategory)
+  )
+    .slice()
+    .sort((a, b) => {
+      // A dragged-into-place item (see the drag handle below) always wins —
+      // sortIndex is only ever set by that drag, all at once for the whole
+      // All Menu list, so items missing it (never dragged, or added after
+      // the last drag) fall through to the automatic badge/category/name
+      // order and land after every manually-arranged one.
+      if (activeCategory === 'all') {
+        const aIdx = a.sortIndex ?? Infinity
+        const bIdx = b.sortIndex ?? Infinity
+        if (aIdx !== bIdx) return aIdx - bIdx
+      }
+      const badgeDiff = menuBadgeSortRank(a.badge) - menuBadgeSortRank(b.badge)
+      if (badgeDiff !== 0) return badgeDiff
+      if (activeCategory === 'all') {
+        const rankDiff = menuCategorySortRank(a.menuCategory?.trim() || 'Menu') - menuCategorySortRank(b.menuCategory?.trim() || 'Menu')
+        if (rankDiff !== 0) return rankDiff
+      }
+      return a.name.localeCompare(b.name)
+    })
 
-  function setBranding(patch: Partial<{ coverPhotoDataUrl: string | null; logoDataUrl: string | null; themeColor: string | null; tagline: string | null }>) {
+  // While dragging, show dragOrder's arrangement instead of shownProducts'
+  // own sort — otherwise the row would snap back to its sorted position on
+  // every pointer move instead of following the drag.
+  const displayedProducts = dragOrder
+    ? (dragOrder.map((id) => shownProducts.find((p) => p.id === id)).filter((p): p is MedicineProduct => !!p))
+    : shownProducts
+
+  function handleDragHandlePointerDown(e: React.PointerEvent, productId: string) {
+    if (activeCategory !== 'all') return
+    e.preventDefault()
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    setDraggingId(productId)
+    setDragOrder(shownProducts.map((p) => p.id))
+  }
+
+  function handleDragHandlePointerMove(e: React.PointerEvent) {
+    if (!draggingId) return
+    setDragOrder((current) => {
+      if (!current) return current
+      const fromIndex = current.indexOf(draggingId)
+      if (fromIndex === -1) return current
+      let toIndex = fromIndex
+      for (let i = 0; i < current.length; i++) {
+        const el = rowRefs.current.get(current[i])
+        if (!el) continue
+        const rect = el.getBoundingClientRect()
+        if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
+          toIndex = i
+          break
+        }
+      }
+      if (toIndex === fromIndex) return current
+      const next = current.slice()
+      next.splice(fromIndex, 1)
+      next.splice(toIndex, 0, draggingId)
+      return next
+    })
+  }
+
+  function handleDragHandlePointerUp() {
+    if (draggingId && dragOrder) reorderMedicineProducts(dragOrder)
+    setDraggingId(null)
+    setDragOrder(null)
+  }
+
+  function setBranding(
+    patch: Partial<{
+      coverPhotoDataUrl: string | null
+      coverPhotoPosition: { x: number; y: number; scale?: number } | null
+      logoDataUrl: string | null
+      themeColor: string | null
+      tagline: string | null
+    }>,
+  ) {
     updateVendorBranding({
       pharmacyId: pharmacy.id,
       coverPhotoDataUrl: pharmacy.coverPhotoDataUrl ?? null,
+      coverPhotoPosition: pharmacy.coverPhotoPosition ?? null,
       logoDataUrl: pharmacy.logoDataUrl ?? null,
       themeColor: pharmacy.themeColor ?? null,
       tagline: pharmacy.tagline ?? null,
@@ -58,6 +167,7 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
       photoDataUrl: fields.photoDataUrl,
       description: fields.description,
       badge: fields.badge,
+      stockCount: fields.stockCount ?? null,
     })
   }
 
@@ -74,14 +184,35 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
       photoDataUrl: fields.photoDataUrl,
       description: fields.description,
       badge: fields.badge,
+      // The edit form no longer carries a stock field — today's count is set
+      // from the row's own pill (see StockPill) — so an edit must not wipe it.
+      stockCount: fields.stockCount === undefined ? (existing.stockCount ?? null) : fields.stockCount,
     })
     setEditingId(null)
   }
 
+  // Removing doesn't take effect immediately — the item just leaves the
+  // visible list (see visibleProducts below) while a short window to Undo
+  // stays open. Only once that window closes does it actually get dispatched
+  // to removeMedicineProduct, which is the point of no return this used to
+  // warn about ("This can't be undone") before Undo existed.
   function handleConfirmRemove(product: MedicineProduct) {
-    removeMedicineProduct(product.id)
     setConfirmRemoveId(null)
     if (editingId === product.id) setEditingId(null)
+    const timeoutId = setTimeout(() => {
+      removeMedicineProduct(product.id)
+      setPendingRemoval((current) => (current?.product.id === product.id ? null : current))
+    }, 5000)
+    setPendingRemoval((current) => {
+      if (current) clearTimeout(current.timeoutId)
+      return { product, timeoutId }
+    })
+  }
+
+  function handleUndoRemove() {
+    if (!pendingRemoval) return
+    clearTimeout(pendingRemoval.timeoutId)
+    setPendingRemoval(null)
   }
 
   function handlePhotoSelect(product: MedicineProduct, photoDataUrl: string) {
@@ -95,18 +226,29 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
       photoDataUrl,
       description: product.description ?? null,
       badge: product.badge ?? null,
+      stockCount: product.stockCount ?? null,
     })
     setPhotoPickerId(null)
+  }
+
+  if (showLocationPicker) {
+    return (
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <VendorLocationPicker pharmacy={pharmacy} onBack={() => setShowLocationPicker(false)} />
+      </div>
+    )
   }
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <VendorHeaderCard
         pharmacy={pharmacy}
-        itemCount={products.length}
+        itemCount={visibleProducts.length}
         accent={accent}
         onLogoUpload={(dataUrl) => setBranding({ logoDataUrl: dataUrl })}
         onCoverUpload={(dataUrl) => setBranding({ coverPhotoDataUrl: dataUrl })}
+        onPinLocation={() => setShowLocationPicker(true)}
+        onCoverPositionChange={(position) => setBranding({ coverPhotoPosition: position })}
       />
 
       <div className="space-y-3 px-4 pb-4">
@@ -136,13 +278,29 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
           </div>
         )}
 
+        {pendingRemoval && (
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <span className="truncate">Removed "{pendingRemoval.product.name}".</span>
+            <button
+              type="button"
+              onClick={handleUndoRemove}
+              className="shrink-0 font-semibold text-amber-900 underline hover:no-underline"
+            >
+              Undo
+            </button>
+          </div>
+        )}
+
         <div className={`space-y-2 ${categories.length === 0 ? 'border-t border-slate-100 pt-3' : ''}`}>
-          {shownProducts.length === 0 && (
+          {displayedProducts.length === 0 && (
             <p className="text-sm text-slate-400">
-              {products.length === 0 ? 'No menu items yet — add your first one below.' : 'Nothing in this category yet.'}
+              {visibleProducts.length === 0 ? 'No menu items yet — add your first one below.' : 'Nothing in this category yet.'}
             </p>
           )}
-          {shownProducts.map((product) => {
+          {activeCategory === 'all' && displayedProducts.length > 1 && (
+            <p className="text-[11px] text-slate-400">Drag ⠿ to arrange your menu the way you want customers to see it.</p>
+          )}
+          {displayedProducts.map((product) => {
             if (editingId === product.id) {
               return (
                 <div key={product.id} className="rounded-lg border border-brand-200 bg-brand-50 p-2.5">
@@ -170,7 +328,7 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
               return (
                 <div key={product.id} className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2.5">
                   <p className="min-w-0 flex-1 text-xs text-amber-800">
-                    Remove "{product.name}" from your menu? This can't be undone.
+                    Remove "{product.name}" from your menu? You'll get a few seconds to undo it after.
                   </p>
                   <button
                     type="button"
@@ -190,48 +348,85 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
               )
             }
             return (
-              <VendorMenuItemCard
+              <div
                 key={product.id}
-                item={product}
-                accent={accent}
-                dimmed={!product.inStock}
-                onChangePhotoClick={() => {
-                  setEditingId(null)
-                  setPhotoPickerId(product.id)
+                ref={(el) => {
+                  if (el) rowRefs.current.set(product.id, el)
+                  else rowRefs.current.delete(product.id)
                 }}
-                right={
-                  <>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPhotoPickerId(null)
-                          setEditingId(product.id)
-                        }}
-                        className="rounded-full px-2 py-0.5 text-[11px] font-medium text-brand-700 hover:bg-brand-50"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmRemoveId(product.id)}
-                        className="rounded-full px-2 py-0.5 text-[11px] font-medium text-amber-700 hover:bg-amber-50"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => toggleMedicineProductStock(product.id)}
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        product.inStock ? 'bg-brand-100 text-brand-700' : 'bg-slate-100 text-slate-500'
-                      }`}
-                    >
-                      {product.inStock ? 'In stock' : 'Out of stock'}
-                    </button>
-                  </>
-                }
-              />
+                className={`flex items-start gap-1 ${draggingId === product.id ? 'opacity-60' : ''}`}
+              >
+                {activeCategory === 'all' && (
+                  <button
+                    type="button"
+                    onPointerDown={(e) => handleDragHandlePointerDown(e, product.id)}
+                    onPointerMove={handleDragHandlePointerMove}
+                    onPointerUp={handleDragHandlePointerUp}
+                    onPointerCancel={handleDragHandlePointerUp}
+                    title="Drag to reorder"
+                    aria-label={`Drag to reorder ${product.name}`}
+                    className="mt-2.5 shrink-0 cursor-grab touch-none px-0.5 text-base leading-none text-slate-300 hover:text-slate-500 active:cursor-grabbing"
+                  >
+                    ⠿
+                  </button>
+                )}
+                <div className="min-w-0 flex-1">
+                  <VendorMenuItemCard
+                    item={product}
+                    accent={accent}
+                    dimmed={!product.inStock}
+                    onChangePhotoClick={() => {
+                      setEditingId(null)
+                      setPhotoPickerId(product.id)
+                    }}
+                    right={
+                      <>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPhotoPickerId(null)
+                              setEditingId(product.id)
+                            }}
+                            className="rounded-full px-2 py-0.5 text-[11px] font-medium text-brand-700 hover:bg-brand-50"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmRemoveId(product.id)}
+                            className="rounded-full px-2 py-0.5 text-[11px] font-medium text-amber-700 hover:bg-amber-50"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <ServingsField
+                          product={product}
+                          onSetStockCount={(count) => setMedicineProductStockCount(product.id, count)}
+                        />
+                        <label className="flex items-center gap-1 text-[11px] text-slate-500">
+                          <input
+                            type="checkbox"
+                            checked={product.inStock}
+                            onChange={() => toggleMedicineProductStock(product.id)}
+                            className="h-3 w-3 accent-brand-600"
+                          />
+                          {product.inStock ? 'Available' : 'Sold out'}
+                        </label>
+                        <label className="flex items-center gap-1 text-[11px] text-slate-500">
+                          <input
+                            type="checkbox"
+                            checked={product.visible !== false}
+                            onChange={() => toggleMedicineProductVisibility(product.id)}
+                            className="h-3 w-3 accent-brand-600"
+                          />
+                          Show on store
+                        </label>
+                      </>
+                    }
+                  />
+                </div>
+              </div>
             )
           })}
         </div>
@@ -267,6 +462,66 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
   )
 }
 
+// Today's servings, editable right on every menu row — the number changes
+// all day as orders are accepted (see VENDOR_ACCEPT_MENU_ORDER's auto-deduct
+// in RideContext.tsx), so it has to be correctable in place, not behind the
+// full Edit form. Blank = unlimited (untracked); 0 = sold out for today.
+// This is the only place a count is set now that the Add/Edit form no longer
+// asks for one.
+function ServingsField({
+  product,
+  onSetStockCount,
+}: {
+  product: MedicineProduct
+  onSetStockCount: (count: number | null) => void
+}) {
+  const tracked = product.stockCount != null
+  const [draft, setDraft] = useState(tracked ? String(product.stockCount) : '')
+  const [focused, setFocused] = useState(false)
+
+  // Follow the store while the field isn't being typed in — an accepted
+  // order deducts a serving underneath this row and the number must move.
+  useEffect(() => {
+    if (!focused) setDraft(tracked ? String(product.stockCount) : '')
+  }, [product.stockCount, tracked, focused])
+
+  function commit() {
+    if (draft.trim() === '') {
+      onSetStockCount(null)
+      return
+    }
+    const parsed = Math.max(0, Math.floor(Number(draft)))
+    onSetStockCount(Number.isFinite(parsed) ? parsed : 0)
+  }
+
+  const soldOut = tracked && product.stockCount! <= 0
+  return (
+    <label className="flex items-center gap-1 text-[11px] text-slate-500" title="Today's servings — leave blank for unlimited">
+      <span className={soldOut ? 'font-medium text-amber-700' : ''}>{soldOut ? 'Sold out' : 'Available'}</span>
+      <input
+        type="number"
+        min={0}
+        value={draft}
+        placeholder="∞"
+        onChange={(e) => setDraft(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => {
+          setFocused(false)
+          commit()
+        }}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter') return
+          e.preventDefault()
+          commit()
+          e.currentTarget.blur()
+        }}
+        className="w-12 rounded-md border border-slate-300 px-1 py-0.5 text-center text-[11px] font-semibold text-slate-700"
+      />
+      <span>servings</span>
+    </label>
+  )
+}
+
 interface MenuItemFields {
   name: string
   price: number
@@ -274,6 +529,10 @@ interface MenuItemFields {
   photoDataUrl: string | null
   description: string | null
   badge: MenuItemBadge | null
+  // How many servings are available today — omitted by the bulk-add tools
+  // (CommonDishesTool, SpreadsheetTool, etc.), which have no notion of a
+  // day's stock count; only MenuItemForm's own field sets this.
+  stockCount?: number | null
 }
 
 function MenuItemForm({
@@ -296,7 +555,13 @@ function MenuItemForm({
   const [description, setDescription] = useState(initial?.description ?? '')
   const [badge, setBadge] = useState<MenuItemBadge | null>(initial?.badge ?? null)
   const [error, setError] = useState('')
-  const datalistId = 'vendor-menu-categories'
+  // A native <input list=/<datalist> looked right on desktop Chrome but its
+  // popup position is entirely up to the browser/OS — inside the Android
+  // WebView this app actually ships in (see Capacitor config), that popup
+  // routinely renders far from the field instead of under it. Built our own
+  // dropdown below instead, so it's positioned (and closed) by our own CSS.
+  const [showCategoryMenu, setShowCategoryMenu] = useState(false)
+  const categoryMatches = categories.filter((c) => c.toLowerCase().includes(menuCategory.trim().toLowerCase()))
 
   // Live photo suggestions from TodaSafeRide's own food catalog as the
   // vendor types the dish name — picking one fills the photo (and the
@@ -315,6 +580,59 @@ function MenuItemForm({
     if (!menuCategory.trim()) {
       const category = FOOD_CATALOG_CATEGORIES.find((c) => c.code === item.categoryCode)
       if (category) setMenuCategory(category.name)
+    }
+  }
+
+  // Picking a dish straight from the name dropdown (as opposed to the photo
+  // strip below it, which only borrows a photo/category for whatever the
+  // vendor is already typing) replaces the typed name with the catalog's own
+  // spelling too — the vendor asked to type a few letters and select the
+  // actual dish, not just its picture.
+  const [showNameMenu, setShowNameMenu] = useState(false)
+  function selectSuggestion(item: FoodCatalogItem) {
+    setName(item.name)
+    applySuggestion(item)
+    setShowNameMenu(false)
+  }
+
+  // The photo strip's own upload tile — always its first option, so a dish
+  // with no catalog match (or a vendor who just wants their own photo) never
+  // has to scroll down to the separate "Photo (optional)" field below to get
+  // a photo onto the item. Same native-prompt-then-file-input pattern as
+  // DocumentUploadField.tsx, duplicated in miniature for this row's own tile
+  // shape rather than reusing that component's row layout.
+  const photoUploadInputRef = useRef<HTMLInputElement>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+
+  function handlePhotoUploadTap() {
+    if (!isNativePlatform()) {
+      photoUploadInputRef.current?.click()
+      return
+    }
+    setUploadingPhoto(true)
+    void (async () => {
+      try {
+        const native = await captureNativePhoto({ source: 'prompt' })
+        if (native) {
+          setPhotoDataUrl(native)
+          return
+        }
+        photoUploadInputRef.current?.click()
+      } finally {
+        setUploadingPhoto(false)
+      }
+    })()
+  }
+
+  async function handlePhotoUploadFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setUploadingPhoto(true)
+    try {
+      setPhotoDataUrl(await compressImageFile(file))
+    } finally {
+      setUploadingPhoto(false)
     }
   }
 
@@ -345,43 +663,96 @@ function MenuItemForm({
 
   return (
     <div className="space-y-1.5">
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Item name (e.g. Chicken Adobo)"
-        className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
-      />
-      {suggestions.length > 0 && (
-        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-          {suggestions.map((item) => (
-            <button
-              key={item.code}
-              type="button"
-              onClick={() => applySuggestion(item)}
-              className={`w-14 shrink-0 overflow-hidden rounded-lg border text-left ${
-                photoDataUrl === item.photoUrl ? 'border-brand-400 bg-brand-50' : 'border-slate-200 bg-white hover:bg-slate-50'
-              }`}
-              title={`Use ${item.name}'s photo`}
-            >
-              {item.photoUrl && <img src={item.photoUrl} alt={item.name} loading="lazy" className="h-10 w-14 object-cover" />}
-              <p className="truncate px-1 py-0.5 text-[8px] text-slate-500">{item.name}</p>
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="flex gap-1.5">
+      <div className="relative">
         <input
-          list={datalistId}
-          value={menuCategory}
-          onChange={(e) => setMenuCategory(e.target.value)}
-          placeholder="Category (e.g. Ulam, Drinks)"
-          className="flex-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onFocus={() => setShowNameMenu(true)}
+          onBlur={() => setTimeout(() => setShowNameMenu(false), 120)}
+          placeholder="Item name (e.g. Chicken Adobo)"
+          className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
         />
-        <datalist id={datalistId}>
-          {categories.map((c) => (
-            <option key={c} value={c} />
-          ))}
-        </datalist>
+        {showNameMenu && suggestions.length > 0 && (
+          <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-md">
+            {suggestions.map((item) => (
+              <button
+                key={item.code}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => selectSuggestion(item)}
+                className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs text-slate-600 hover:bg-slate-50"
+              >
+                {item.photoUrl && (
+                  <img src={item.photoUrl} alt="" loading="lazy" className="h-7 w-7 shrink-0 rounded object-cover" />
+                )}
+                <span className="truncate">{item.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+        <input
+          ref={photoUploadInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handlePhotoUploadFile}
+        />
+        <button
+          type="button"
+          onClick={handlePhotoUploadTap}
+          disabled={uploadingPhoto}
+          className="flex w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg border border-dashed border-slate-300 bg-slate-50 py-2.5 text-slate-500 hover:bg-slate-100 disabled:opacity-60"
+          title="Upload your own photo"
+        >
+          <span className="text-base">{uploadingPhoto ? '…' : '📷'}</span>
+          <span className="text-[8px] font-medium">Upload</span>
+        </button>
+        {suggestions.map((item) => (
+          <button
+            key={item.code}
+            type="button"
+            onClick={() => applySuggestion(item)}
+            className={`w-14 shrink-0 overflow-hidden rounded-lg border text-left ${
+              photoDataUrl === item.photoUrl ? 'border-brand-400 bg-brand-50' : 'border-slate-200 bg-white hover:bg-slate-50'
+            }`}
+            title={`Use ${item.name}'s photo`}
+          >
+            {item.photoUrl && <img src={item.photoUrl} alt={item.name} loading="lazy" className="h-10 w-14 object-cover" />}
+            <p className="truncate px-1 py-0.5 text-[8px] text-slate-500">{item.name}</p>
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-1.5">
+        <div className="relative flex-1">
+          <input
+            value={menuCategory}
+            onChange={(e) => setMenuCategory(e.target.value)}
+            onFocus={() => setShowCategoryMenu(true)}
+            onBlur={() => setTimeout(() => setShowCategoryMenu(false), 120)}
+            placeholder="Category (e.g. Ulam, Drinks)"
+            className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
+          />
+          {showCategoryMenu && categoryMatches.length > 0 && (
+            <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-40 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-md">
+              {categoryMatches.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    setMenuCategory(c)
+                    setShowCategoryMenu(false)
+                  }}
+                  className="block w-full truncate px-2.5 py-1.5 text-left text-xs text-slate-600 hover:bg-slate-50"
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <input
           type="number"
           min={0}
@@ -416,7 +787,12 @@ function MenuItemForm({
           ))}
         </div>
       </div>
-      <DocumentUploadField label="Photo (optional)" dataUrl={photoDataUrl} onUpload={setPhotoDataUrl} />
+      <DocumentUploadField
+        label="Photo (optional)"
+        dataUrl={photoDataUrl}
+        onUpload={setPhotoDataUrl}
+        onRemove={() => setPhotoDataUrl(null)}
+      />
       {error && <p className="text-[11px] font-medium text-amber-700">{error}</p>}
       <div className="flex gap-2">
         <button
@@ -469,18 +845,24 @@ function PhotoPicker({
       matchesNameQuery(item.name, needle),
   ).slice(0, 24)
 
-  async function handleUploadTap() {
-    setBusy(true)
-    try {
-      const native = await captureNativePhoto({ source: 'prompt' })
-      if (native) {
-        onSelect(native)
-        return
-      }
+  function handleUploadTap() {
+    if (!isNativePlatform()) {
       inputRef.current?.click()
-    } finally {
-      setBusy(false)
+      return
     }
+    setBusy(true)
+    void (async () => {
+      try {
+        const native = await captureNativePhoto({ source: 'prompt' })
+        if (native) {
+          onSelect(native)
+          return
+        }
+        inputRef.current?.click()
+      } finally {
+        setBusy(false)
+      }
+    })()
   }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -1040,6 +1422,7 @@ function BulkPhotoMatchTool({ products }: { products: MedicineProduct[] }) {
       photoDataUrl: row.dataUrl,
       description: product.description ?? null,
       badge: product.badge ?? null,
+      stockCount: product.stockCount ?? null,
     })
     setPending((prev) => prev.filter((p) => p.id !== row.id))
   }

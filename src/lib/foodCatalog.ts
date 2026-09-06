@@ -7,6 +7,8 @@
 // not a restriction. Regenerate with
 // scratchpad/gen-food-catalog.mjs if the source spreadsheet changes.
 
+import type { MenuItemBadge } from '../types'
+
 export interface FoodCatalogCategory {
   code: string
   name: string
@@ -28,19 +30,47 @@ export interface FoodCatalogItem {
 }
 
 export const FOOD_CATALOG_CATEGORIES: FoodCatalogCategory[] = [
-  { code: 'MNK', name: 'Manok (Chicken)', description: 'Chicken dishes' },
-  { code: 'BBY', name: 'Baboy (Pork)', description: 'Pork dishes' },
-  { code: 'BKA', name: 'Baka (Beef)', description: 'Beef dishes' },
-  { code: 'ISD', name: 'Isda / Seafood', description: 'Fish and seafood' },
-  { code: 'GLY', name: 'Gulay (Vegetable)', description: 'Vegetable dishes' },
-  { code: 'PNC', name: 'Pancit / Noodles', description: 'Noodles and pasta' },
+  { code: 'MNK', name: 'Chicken', description: 'Chicken dishes' },
+  { code: 'BBY', name: 'Pork', description: 'Pork dishes' },
+  { code: 'BKA', name: 'Beef', description: 'Beef dishes' },
+  { code: 'ISD', name: 'Seafood', description: 'Fish and seafood' },
+  { code: 'GLY', name: 'Vegetable', description: 'Vegetable dishes' },
+  { code: 'PNC', name: 'Noodles', description: 'Noodles and pasta' },
   { code: 'RCE', name: 'Rice Meals', description: 'Rice, fried rice and porridge' },
-  { code: 'SLG', name: 'Silog / Breakfast', description: 'Silog and breakfast plates' },
+  { code: 'SLG', name: 'Breakfast', description: 'Silog and breakfast plates' },
   { code: 'STF', name: 'Street Food', description: 'Street food and skewers' },
-  { code: 'MER', name: 'Merienda', description: 'Snacks and light bites' },
+  { code: 'MER', name: 'Snacks', description: 'Snacks and light bites' },
   { code: 'DES', name: 'Dessert', description: 'Desserts and kakanin' },
   { code: 'DRK', name: 'Drinks', description: 'Beverages' },
 ]
+
+// Menu-category display order for the "All Menu" view (see
+// VendorMenuManager.tsx and VendorStorefront.tsx) — Chicken/Pork/Beef/...
+// the same sequence as FOOD_CATALOG_CATEGORIES above, so a vendor's own
+// hand-typed category ("Pork", "Drinks") lands in the same place a
+// catalog-derived one would. A category outside this list (a vendor's own
+// wording the catalog doesn't know) sorts after every known one, alphabetically
+// among themselves via the name tiebreaker callers already apply.
+const MENU_CATEGORY_ORDER = FOOD_CATALOG_CATEGORIES.map((c) => c.name)
+
+export function menuCategorySortRank(categoryName: string): number {
+  const index = MENU_CATEGORY_ORDER.indexOf(categoryName)
+  return index === -1 ? MENU_CATEGORY_ORDER.length : index
+}
+
+// Highlight badges (see MENU_ITEM_BADGES in types/index.ts) double as a menu
+// sort key — a Best Seller should surface before an unbadged item even
+// within the same category, and Best Seller ahead of a mere Popular. Order
+// matches how the badge picker itself lists them (VendorMenuManager.tsx's
+// "Highlight badge" row), so "prioritize" means what a vendor sees on that
+// row, top to bottom. No badge sorts last.
+const MENU_ITEM_BADGE_ORDER: MenuItemBadge[] = ['best_seller', 'popular', 'must_try', 'favorite']
+
+export function menuBadgeSortRank(badge: MenuItemBadge | null | undefined): number {
+  if (!badge) return MENU_ITEM_BADGE_ORDER.length
+  const index = MENU_ITEM_BADGE_ORDER.indexOf(badge)
+  return index === -1 ? MENU_ITEM_BADGE_ORDER.length : index
+}
 
 export const FOOD_CATALOG: FoodCatalogItem[] = [
   { code: 'MNK-001', name: 'Chicken Adobo', categoryCode: 'MNK', subcategory: 'Stew / Nilaga sa Toyo', mainIngredient: 'Chicken', description: 'Chicken simmered in soy sauce, vinegar, garlic, peppercorn and bay leaf.', tags: ['manok', 'stew', 'chicken'], featured: true, photoUrl: '/food-photos/001-chicken-adobo.jpg' },

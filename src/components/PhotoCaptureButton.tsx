@@ -1,25 +1,33 @@
 import { useRef, useState } from 'react'
-import { captureNativePhoto, compressImageFile } from '../lib/photo'
+import { captureNativePhoto, compressImageFile, isNativePlatform } from '../lib/photo'
 
 export function PhotoCaptureButton({ onCapture }: { onCapture: (dataUrl: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
 
   // Tries the native camera first (real app only — see captureNativePhoto);
-  // on the web (or if that returns null, meaning "not native") falls back
-  // to the file input's own capture="environment" prompt below.
-  async function handleTap() {
-    setBusy(true)
-    try {
-      const native = await captureNativePhoto({ source: 'camera' })
-      if (native) {
-        onCapture(native)
-        return
-      }
+  // on the web falls back to the file input's own capture="environment"
+  // prompt below. The web branch clicks that input synchronously, before
+  // any await, or mobile browsers silently refuse to open it at all — see
+  // captureNativePhoto's comment.
+  function handleTap() {
+    if (!isNativePlatform()) {
       inputRef.current?.click()
-    } finally {
-      setBusy(false)
+      return
     }
+    setBusy(true)
+    void (async () => {
+      try {
+        const native = await captureNativePhoto({ source: 'camera' })
+        if (native) {
+          onCapture(native)
+          return
+        }
+        inputRef.current?.click()
+      } finally {
+        setBusy(false)
+      }
+    })()
   }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {

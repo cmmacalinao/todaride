@@ -4,8 +4,10 @@ import { useRides } from '../context/RideContext'
 import { AnnouncementFeed } from '../components/AnnouncementFeed'
 import { useSession } from '../context/SessionContext'
 import { OrderChat } from '../components/OrderChat'
+import { ContactSheet } from '../components/ContactSheet'
 import { VendorMenuManager } from '../components/VendorMenuManager'
-import { PharmacyPortalPage, PaymentAccountForm, ORDER_STATUS_LABELS } from './PharmacyPortalPage'
+import { VendorThemePicker } from '../components/VendorBrandingEditor'
+import { PaymentAccountForm, ORDER_STATUS_LABELS } from './PharmacyPortalPage'
 import type { MedsOrder } from '../types'
 
 // A Registered Vendor's own portal (Resto/Food, Other Commodity) — split out
@@ -40,6 +42,17 @@ export function VendorPortalPage() {
   const menuSectionRef = useRef<HTMLElement>(null)
   const paymentsSectionRef = useRef<HTMLElement>(null)
   const historySectionRef = useRef<HTMLElement>(null)
+  const vendor = pharmacies.find((p) => p.id === loggedInPharmacyId)
+
+  // A Pharmacy/Store account belongs on the Pharmacy/Store portal — actually
+  // navigate there instead of just rendering PharmacyPortalPage inline, so
+  // the address bar reads /pharmacy too (see PharmacyPortalPage.tsx's
+  // matching effect for the reverse case).
+  useEffect(() => {
+    if (vendor && (vendor.businessType === 'pharmacy' || vendor.businessType === 'store')) {
+      navigate('/pharmacy', { replace: true })
+    }
+  }, [vendor, navigate])
 
   useEffect(() => {
     const section = (location.state as { section?: string } | null)?.section
@@ -76,7 +89,6 @@ export function VendorPortalPage() {
     )
   }
 
-  const vendor = pharmacies.find((p) => p.id === loggedInPharmacyId)
   if (!vendor) {
     return (
       <div className="mx-auto max-w-lg space-y-6 px-4 py-6">
@@ -85,11 +97,10 @@ export function VendorPortalPage() {
     )
   }
 
-  // A Pharmacy/Store account belongs on the Pharmacy/Store portal instead,
-  // even if it happened to log in via /vendor — see PharmacyPortalPage.tsx's
-  // file comment.
+  // Redirecting above (see the effect) — render nothing while that happens
+  // rather than the Pharmacy/Store portal at the /vendor URL.
   if (vendor.businessType === 'pharmacy' || vendor.businessType === 'store') {
-    return <PharmacyPortalPage />
+    return null
   }
 
   const ownOrders = medsOrders.filter((o) => o.pharmacyId === vendor.id)
@@ -103,22 +114,34 @@ export function VendorPortalPage() {
   const menu = medicineProducts.filter((p) => p.pharmacyId === vendor.id)
 
   return (
-    <div className="mx-auto max-w-lg space-y-6 px-4 py-6">
+    // Tighter than the other portals on purpose (the vendor asked for ~60%
+    // less air): 10px between cards and 6px to the screen edge, instead of
+    // the 24px/16px the shared layout uses.
+    <div className="mx-auto max-w-lg space-y-2.5 px-1.5 py-2.5">
       <AnnouncementFeed viewer="partners" />
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <p className="text-xs font-medium text-slate-500">Logged in as</p>
         <h1 className="text-sm font-semibold text-slate-700">
           {vendor.businessType === 'resto_food' ? '🍽️' : '📦'} {vendor.name}
         </h1>
-        <p className="mt-1 text-xs text-slate-500">
-          Exclusive access to {vendor.name} only — you can't view or manage any other vendor's orders or menu from
-          here.
-        </p>
-        <p className="mt-2 rounded-lg bg-amber-50 p-2 text-[11px] text-amber-800">
-          Registered Vendor — customers order straight off your priced menu (see Menu below). Accept a new order to
-          start preparing it; no quote to send since it's already priced.
-        </p>
       </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <VendorThemePicker pharmacy={vendor} />
+      </section>
+
+      <button
+        type="button"
+        onClick={() => navigate(`/vendor-page/${vendor.id}`)}
+        className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:bg-slate-50"
+      >
+        <span>
+          <span className="block text-sm font-semibold text-slate-700">🏪 View My Page</span>
+        </span>
+        <span aria-hidden className="shrink-0 text-slate-400">
+          ›
+        </span>
+      </button>
 
       {newOrders.length > 0 && (
         <section ref={ordersSectionRef} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -192,22 +215,6 @@ export function VendorPortalPage() {
         <VendorMenuManager pharmacy={vendor} products={menu} />
       </section>
 
-      <button
-        type="button"
-        onClick={() => navigate(`/vendor-page/${vendor.id}`)}
-        className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:bg-slate-50"
-      >
-        <span>
-          <span className="block text-sm font-semibold text-slate-700">🏪 My Vendor Page</span>
-          <span className="mt-0.5 block text-xs text-slate-500">
-            See exactly what a customer sees, and customize your cover photo, logo and theme color.
-          </span>
-        </span>
-        <span aria-hidden className="shrink-0 text-slate-400">
-          ›
-        </span>
-      </button>
-
       <section ref={paymentsSectionRef} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-700">Payment accounts</h2>
         <p className="mt-1 text-xs text-slate-500">
@@ -266,6 +273,7 @@ function NewVendorOrderCard({
   onSendMessage: (text: string) => void
 }) {
   const [rejectReason, setRejectReason] = useState('')
+  const [contactOpen, setContactOpen] = useState(false)
 
   return (
     <div className="rounded-lg border border-slate-200 p-3">
@@ -273,7 +281,18 @@ function NewVendorOrderCard({
         <span className="text-sm font-medium text-slate-700">{order.customerName}</span>
         <span className="text-xs font-semibold text-slate-800">₱{order.total}</span>
       </div>
-      {order.contactPhone && <p className="mt-0.5 text-[11px] text-slate-400">☎ {order.contactPhone}</p>}
+      {order.contactPhone && (
+        <button
+          type="button"
+          onClick={() => setContactOpen(true)}
+          className="mt-0.5 text-[11px] font-medium text-brand-700 hover:underline"
+        >
+          ☎ {order.contactPhone} — Call or text
+        </button>
+      )}
+      {contactOpen && order.contactPhone && (
+        <ContactSheet name={order.customerName} phone={order.contactPhone} onClose={() => setContactOpen(false)} />
+      )}
       <div className="mt-2 space-y-1 rounded-lg bg-slate-50 p-2.5 text-xs">
         {order.items.map((item, i) => (
           <div key={`${item.productId}-${i}`} className="flex items-center justify-between">

@@ -132,6 +132,15 @@ class SupabaseAdapter implements PersistenceAdapter {
   readonly isShared = true
   private local = new LocalAdapter()
   private writer = getWriterId()
+  // The write currently on its way to Supabase, and a counter that ticks on
+  // every save. A refetch (realtime, the 12s heartbeat, focus, wake) that
+  // reads app_state while a save is still in flight gets the OLD blob back
+  // and hands it to RideContext as the truth — which is exactly how a cover
+  // photo, a theme colour or a menu edit was vanishing seconds after being
+  // made. So a refetch waits for the in-flight save first, and throws its
+  // snapshot away if another save began while it was reading.
+  private saveInFlight: Promise<void> | null = null
+  private saveSeq = 0
 
   // Still writes locally as well: it is the first paint on the next launch,
   // and it is what the app falls back to when the phone has no signal at the
@@ -166,7 +175,14 @@ class SupabaseAdapter implements PersistenceAdapter {
   }
 
   save(next: Record<string, unknown>, prev: Record<string, unknown> | null) {
-    void this.saveAsync(next, prev)
+    this.saveSeq += 1
+    // saveAsync never rejects (it catches and warns), but the guard must hold
+    // even if that changes — a refetch waiting on a rejected save would hang.
+    const run = this.saveAsync(next, prev).catch(() => {})
+    this.saveInFlight = run
+    void run.then(() => {
+      if (this.saveInFlight === run) this.saveInFlight = null
+    })
   }
 
   private async saveAsync(next: Record<string, unknown>, prev: Record<string, unknown> | null) {
@@ -226,7 +242,16 @@ class SupabaseAdapter implements PersistenceAdapter {
       // A single user action can touch several tables — accepting a ride
       // writes the ride and the driver. Coalesce so that lands as one update.
       timer = setTimeout(async () => {
+        // See saveInFlight: never read over the top of our own unfinished
+        // write, and never apply a read that a newer write has overtaken —
+        // that newer save's own completion will trigger the next refetch.
+        const seqAtStart = this.saveSeq
+        if (this.saveInFlight) await this.saveInFlight
         const shared = await this.fetchShared()
+        if (this.saveSeq !== seqAtStart) {
+          refetch()
+          return
+        }
         if (shared) onRemote(shared)
       }, 120)
     }

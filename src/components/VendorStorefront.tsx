@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getDefaultDishVisual } from '../lib/filipinoDishes'
-import { captureNativePhoto, compressImageFile } from '../lib/photo'
+import { menuBadgeSortRank, menuCategorySortRank } from '../lib/foodCatalog'
+import { captureNativePhoto, compressImageFile, isNativePlatform, removeFlatBackground } from '../lib/photo'
+import { ShareSheet } from './ShareSheet'
+import { ProfilePhotoPicker } from './ProfilePhotoPicker'
 import { MENU_ITEM_BADGES, type MedicineProduct, type Pharmacy } from '../types'
 
 // One shared "shape", three audiences: a vendor sees exactly this header +
@@ -117,6 +120,60 @@ export const VENDOR_THEME_COLORS: Record<
     soft: 'bg-blue-100',
     softText: 'text-blue-700',
   },
+  pink: {
+    label: 'Pink',
+    gradient: 'from-pink-400 via-rose-500 to-fuchsia-600',
+    swatchClass: 'bg-pink-500',
+    solid: 'bg-pink-500',
+    solidHover: 'hover:bg-pink-600',
+    soft: 'bg-pink-100',
+    softText: 'text-pink-700',
+  },
+  gold: {
+    label: 'Gold',
+    gradient: 'from-yellow-400 via-amber-500 to-orange-600',
+    swatchClass: 'bg-amber-400',
+    solid: 'bg-amber-500',
+    solidHover: 'hover:bg-amber-600',
+    soft: 'bg-amber-100',
+    softText: 'text-amber-800',
+  },
+  indigo: {
+    label: 'Indigo',
+    gradient: 'from-indigo-500 via-indigo-700 to-slate-900',
+    swatchClass: 'bg-indigo-600',
+    solid: 'bg-indigo-600',
+    solidHover: 'hover:bg-indigo-700',
+    soft: 'bg-indigo-100',
+    softText: 'text-indigo-700',
+  },
+  lime: {
+    label: 'Lime',
+    gradient: 'from-lime-400 via-green-500 to-emerald-600',
+    swatchClass: 'bg-lime-500',
+    solid: 'bg-lime-600',
+    solidHover: 'hover:bg-lime-700',
+    soft: 'bg-lime-100',
+    softText: 'text-lime-800',
+  },
+  brown: {
+    label: 'Brown',
+    gradient: 'from-amber-700 via-orange-900 to-stone-900',
+    swatchClass: 'bg-amber-800',
+    solid: 'bg-amber-800',
+    solidHover: 'hover:bg-amber-900',
+    soft: 'bg-orange-100',
+    softText: 'text-amber-900',
+  },
+  charcoal: {
+    label: 'Charcoal',
+    gradient: 'from-slate-600 via-slate-800 to-black',
+    swatchClass: 'bg-slate-700',
+    solid: 'bg-slate-800',
+    solidHover: 'hover:bg-slate-900',
+    soft: 'bg-slate-200',
+    softText: 'text-slate-800',
+  },
 }
 
 export interface VendorAccent {
@@ -166,12 +223,81 @@ function categoryIcon(category: string): string {
 // above the menu itself. Shared verbatim between the read/order storefront
 // below and VendorMenuManager's edit screen, so a vendor editing their menu
 // sees the same header a customer will.
+
+// The default banner art — forks, a chef's hat, a splash and two wave
+// ribbons — for a vendor with no cover photo yet. Drawn as an SVG rather
+// than shipped as a picture so it takes on whatever accent the vendor
+// picked (see VENDOR_THEME_COLORS): the shapes are only darker and lighter
+// tints of the gradient already painted underneath, so an orange resto and
+// a teal one get the same artwork in their own colour, and it stays crisp
+// at any width.
+//
+// Fit: the composition lives in a wide 600×160 frame with the icons in the
+// left third and the waves running the full width. It is anchored to the
+// LEFT edge and scaled to the banner's height (`xMinYMid slice`), so on a
+// header narrower than that frame it is the empty right-hand side that gets
+// cropped — the hat and forks are always whole, and the ribbons always reach
+// both edges. A centred crop was cutting the hat off the top.
+export function VendorBannerArt() {
+  const ink = 'rgba(120, 20, 0, 0.22)'
+  return (
+    <svg
+      aria-hidden
+      className="absolute inset-0 h-full w-full"
+      viewBox="0 0 600 160"
+      preserveAspectRatio="xMinYMid slice"
+    >
+      {/* Soft light sweeps, like the sheen on the reference. */}
+      <path d="M-20 44 C 120 -12, 300 78, 620 8 L 620 -10 L -20 -10 Z" fill="rgba(255,255,255,0.10)" />
+      <path d="M260 160 C 380 118, 480 92, 620 44 L 620 160 Z" fill="rgba(255,255,255,0.08)" />
+      {/* Wave ribbons across the bottom third, edge to edge. */}
+      <path
+        d="M-20 118 C 90 88, 180 142, 300 118 S 500 78, 620 100 L 620 112 C 500 94, 400 132, 300 130 S 90 104, -20 130 Z"
+        fill="rgba(255,255,255,0.32)"
+      />
+      <path
+        d="M-20 136 C 100 110, 200 152, 330 130 S 520 96, 620 118 L 620 128 C 520 108, 430 144, 330 142 S 100 126, -20 148 Z"
+        fill="rgba(255,255,255,0.16)"
+      />
+      {/* Left fork, tilted. */}
+      <g transform="translate(44 62) rotate(-14) scale(0.8)" fill={ink}>
+        <rect x="-3" y="-30" width="6" height="34" rx="3" />
+        <rect x="6" y="-32" width="6" height="36" rx="3" />
+        <rect x="15" y="-30" width="6" height="34" rx="3" />
+        <rect x="-3" y="0" width="24" height="14" rx="5" />
+        <rect x="6" y="10" width="7" height="60" rx="3.5" />
+      </g>
+      {/* Splash — two drops and a dot. */}
+      <g transform="translate(6 10) scale(0.85)" fill={ink}>
+        <path d="M62 48 c 6 -12, 14 -10, 12 2 c -1 8, -6 12, -10 14 c -2 -4, -4 -10, -2 -16 z" />
+        <path d="M80 66 c -1 -10, 8 -14, 12 -6 c 2 5, -2 12, -8 16 c -3 -3, -4 -6, -4 -10 z" />
+        <circle cx="54" cy="84" r="3.5" />
+      </g>
+      {/* Chef's hat, outlined. */}
+      <g transform="translate(122 46) rotate(-18) scale(0.85)" fill="none" stroke={ink} strokeWidth="5" strokeLinejoin="round">
+        <path d="M-16 10 a 10 10 0 1 1 8 -16 a 12 12 0 1 1 20 4 a 9 9 0 1 1 4 14 v 6 h -36 z" />
+        <path d="M-20 22 h 40 v 8 h -40 z" />
+      </g>
+      {/* Right fork, tilted the other way. */}
+      <g transform="translate(196 44) rotate(22) scale(0.8)" fill={ink}>
+        <rect x="-3" y="-30" width="6" height="34" rx="3" />
+        <rect x="6" y="-32" width="6" height="36" rx="3" />
+        <rect x="15" y="-30" width="6" height="34" rx="3" />
+        <rect x="-3" y="0" width="24" height="14" rx="5" />
+        <rect x="6" y="10" width="7" height="60" rx="3.5" />
+      </g>
+    </svg>
+  )
+}
+
 export function VendorHeaderCard({
   pharmacy,
   itemCount,
   accent,
   onLogoUpload,
   onCoverUpload,
+  onPinLocation,
+  onCoverPositionChange,
 }: {
   pharmacy: Pharmacy
   itemCount: number
@@ -182,34 +308,122 @@ export function VendorHeaderCard({
   // neither ever shows an upload affordance a customer could tap.
   onLogoUpload?: (dataUrl: string) => void
   onCoverUpload?: (dataUrl: string) => void
+  // Present only on the vendor's own edit screen — swaps the "View on Map"
+  // tile from a plain link-out to Google Maps into a button that opens
+  // VendorLocationPicker, so the owner can actually pin the spot drivers get
+  // routed to instead of only looking at wherever the typed address guesses.
+  onPinLocation?: () => void
+  // Present only on the vendor's own edit screen — lets them drag the profile
+  // photo inside its frame to choose which part shows. Reported as CSS
+  // object-position percentages (50/50 = centred) and saved on the pharmacy
+  // (coverPhotoPosition), so a customer sees the same framing.
+  onCoverPositionChange?: (position: { x: number; y: number; scale?: number }) => void
 }) {
   const [favorited, setFavorited] = useState(false)
-  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle')
+  const [shareOpen, setShareOpen] = useState(false)
   const logoInputRef = useRef<HTMLInputElement>(null)
   const coverInputRef = useRef<HTMLInputElement>(null)
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [uploadingCover, setUploadingCover] = useState(false)
+  // "📷 Profile Photo" opens a chooser (upload, or one of the seed dishes)
+  // rather than the file picker straight away — see ProfilePhotoPicker.
+  const [photoPickerOpen, setPhotoPickerOpen] = useState(false)
+
+  // Drag-to-reframe for the profile photo. The live position is local state
+  // so the photo follows the finger without a store round-trip per pixel;
+  // the saved value is committed once on release. Dragging right shows more
+  // of the photo's LEFT side (the picture moves with the finger), which is
+  // why the percentage moves against the delta.
+  // Where the photo sits: x/y are its CENTRE as a percentage of the banner,
+  // scale is its height relative to the banner's (1 = as tall as the header,
+  // the whole picture shown, never cropped). A free transform rather than
+  // object-position: panning a crop inside a fixed box gave the picture only
+  // as much travel as the box had slack, which read as an invisible fence
+  // when dragging a shrunken photo around.
+  const savedPosition = { x: 75, y: 50, ...(pharmacy.coverPhotoPosition ?? {}) }
+  const photoScale = savedPosition.scale ?? 1
+  const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null)
+
+  // Zoom in steps about the photo's own centre, so it grows and shrinks in
+  // place. 0.25 is a small badge; 3 is plenty before it pixelates.
+  function changeScale(delta: number) {
+    const next = Math.round(Math.max(0.25, Math.min(3, photoScale + delta)) * 100) / 100
+    onCoverPositionChange?.({ x: savedPosition.x, y: savedPosition.y, scale: next })
+  }
+  const dragStart = useRef<{ pointerX: number; pointerY: number; x: number; y: number; w: number; h: number } | null>(null)
+  // The last position the pointer reached, kept outside React state so the
+  // release handler commits it even when the move and the release land in
+  // the same frame (a quick flick) before a re-render has caught up.
+  const latestDrag = useRef<{ x: number; y: number } | null>(null)
+  const photoPosition = dragPosition ?? savedPosition
+
+  function handlePhotoPointerDown(e: React.PointerEvent<HTMLImageElement>) {
+    if (!onCoverPositionChange) return
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    // Measure the banner (the frame), not the picture: the picture's own box
+    // is whatever size the zoom made it, and the position is a share of the
+    // banner.
+    const rect = (e.currentTarget.parentElement ?? e.currentTarget).getBoundingClientRect()
+    dragStart.current = { pointerX: e.clientX, pointerY: e.clientY, x: savedPosition.x, y: savedPosition.y, w: rect.width, h: rect.height }
+    latestDrag.current = savedPosition
+    setDragPosition(savedPosition)
+  }
+
+  function handlePhotoPointerMove(e: React.PointerEvent<HTMLImageElement>) {
+    const start = dragStart.current
+    if (!start) return
+    // The picture travels with the finger. Its centre may reach the banner's
+    // edges (so half of it can hang off), but not go past them — a photo
+    // dragged fully out of view would be impossible to grab back.
+    const clamp = (n: number) => Math.max(0, Math.min(100, n))
+    const next = {
+      x: clamp(start.x + ((e.clientX - start.pointerX) / start.w) * 100),
+      y: clamp(start.y + ((e.clientY - start.pointerY) / start.h) * 100),
+    }
+    latestDrag.current = next
+    setDragPosition(next)
+  }
+
+  function handlePhotoPointerUp() {
+    if (!dragStart.current) return
+    dragStart.current = null
+    const final = latestDrag.current
+    latestDrag.current = null
+    if (final) onCoverPositionChange?.({ x: Math.round(final.x), y: Math.round(final.y), scale: photoScale })
+    setDragPosition(null)
+  }
 
   // Same native-prompt-then-file-input pattern as DocumentUploadField.tsx —
   // duplicated in miniature here rather than imported, since this component
   // is otherwise pure presentation and the two targets (round avatar, wide
-  // banner) don't share that field's row layout.
-  async function handleUploadTap(
+  // banner) don't share that field's row layout. The web branch clicks the
+  // input synchronously — awaiting anything first (even captureNativePhoto,
+  // which resolves immediately when not native) makes some mobile browsers
+  // silently refuse to open the picker at all, which is exactly what made
+  // "Change cover"/"Replace logo" look like dead buttons on the web.
+  function handleUploadTap(
     inputRef: React.RefObject<HTMLInputElement | null>,
     setBusy: (busy: boolean) => void,
     onUpload: (dataUrl: string) => void,
   ) {
-    setBusy(true)
-    try {
-      const native = await captureNativePhoto({ source: 'prompt' })
-      if (native) {
-        onUpload(native)
-        return
-      }
+    if (!isNativePlatform()) {
       inputRef.current?.click()
-    } finally {
-      setBusy(false)
+      return
     }
+    setBusy(true)
+    void (async () => {
+      try {
+        const native = await captureNativePhoto({ source: 'prompt' })
+        if (native) {
+          onUpload(await removeFlatBackground(native, { onlyIfFlat: true }))
+          return
+        }
+        inputRef.current?.click()
+      } finally {
+        setBusy(false)
+      }
+    })()
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>, onUpload: (dataUrl: string) => void, setBusy: (busy: boolean) => void) {
@@ -218,7 +432,11 @@ export function VendorHeaderCard({
     if (!file) return
     setBusy(true)
     try {
-      onUpload(await compressImageFile(file))
+      // Vendor artwork (profile photo, logo) gets its flat backdrop cleared
+      // automatically — a dish on white, a logo on a card — and is cropped
+      // and re-encoded smaller in the process. onlyIfFlat leaves a real
+      // scene alone; the ✂ button is there for a deliberate pass.
+      onUpload(await removeFlatBackground(await compressImageFile(file), { onlyIfFlat: true }))
     } finally {
       setBusy(false)
     }
@@ -244,55 +462,115 @@ export function VendorHeaderCard({
     })
   }
 
-  async function handleShare() {
-    const url = `${window.location.origin}/vendor-page/${pharmacy.id}`
-    const nav = navigator as Navigator & { share?: (data: { title: string; url: string }) => Promise<void> }
-    if (nav.share) {
-      try {
-        await nav.share({ title: pharmacy.name, url })
-        return
-      } catch {
-        // User cancelled the native share sheet — fall through to nothing.
-        return
-      }
-    }
-    try {
-      await navigator.clipboard.writeText(url)
-      setShareStatus('copied')
-      setTimeout(() => setShareStatus('idle'), 1500)
-    } catch {
-      // Clipboard blocked — nothing more we can do without a share sheet.
-    }
-  }
+  // The public page a share points at. Opened in ShareSheet rather than
+  // handed straight to navigator.share: that sheet doesn't exist on most
+  // desktop browsers, and even on a phone an explicit Facebook/Messenger row
+  // is what a vendor here reaches for, not "the OS thing".
+  const shareUrl = `${window.location.origin}/vendor-page/${pharmacy.id}`
 
   const mapQuery = encodeURIComponent(`${pharmacy.addressDetail}, ${pharmacy.barangay}, ${pharmacy.city}`)
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${mapQuery}`
 
   return (
     <div>
-      <div
-        className={`relative h-32 bg-gradient-to-br ${accent.gradient}`}
-        style={
-          pharmacy.coverPhotoDataUrl
-            ? { backgroundImage: `url(${pharmacy.coverPhotoDataUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-            : undefined
-        }
-      >
-        {/* Cover photo (when set) sits under a dark scrim so the name/badge
-            text drawn on top stays legible over any photo's own colors —
-            without the scrim, a bright photo could wash the white text out
-            entirely. The diagonal stripe pattern is the "no photo" look
-            only, so it's skipped once a cover photo takes over. */}
-        {pharmacy.coverPhotoDataUrl ? (
-          <div aria-hidden className="absolute inset-0 bg-black/25" />
-        ) : (
-          <div
-            aria-hidden
-            className="absolute inset-0 opacity-10"
-            style={{
-              backgroundImage: 'repeating-linear-gradient(-45deg, white 0, white 2px, transparent 2px, transparent 14px)',
-            }}
-          />
+      <div className={`relative h-32 overflow-hidden bg-gradient-to-br ${accent.gradient}`}>
+        {/* The themed banner art is always the background now; a vendor's
+            profile photo is a picture ON it, not a replacement for it —
+            scaled to the header's height and seated on the right, with its
+            left edge feathered into the gradient so the name/tagline area
+            stays clean. Capped at ~55% of the width so a landscape shot
+            can't crowd the text; object-cover trims the excess. */}
+        <VendorBannerArt />
+        {pharmacy.coverPhotoDataUrl && (
+          <>
+            {/* A fixed frame rather than the photo's own width: object-cover
+                then always has something to crop, so dragging (edit mode)
+                always moves the picture — a square photo in an auto-width
+                box would fit exactly and have nowhere to go. */}
+            {/* The frame is the whole header: with the zoom (which goes
+                below 100%) the vendor shrinks the picture and drags it to
+                wherever they want it, rather than being held to one side.
+                The frame clips; the img inside it pans (object-position)
+                and zooms (transform) — scaling the img directly let a zoomed
+                picture grow past its box. */}
+            <div aria-hidden className="absolute inset-0 overflow-hidden">
+              <img
+                src={pharmacy.coverPhotoDataUrl}
+                alt=""
+                draggable={false}
+                onPointerDown={handlePhotoPointerDown}
+                onPointerMove={handlePhotoPointerMove}
+                onPointerUp={handlePhotoPointerUp}
+                onPointerCancel={handlePhotoPointerUp}
+                // max-w-none: the preflight's img { max-width: 100% } would
+                // otherwise cap a wide photo at the banner's width and
+                // squash it once zoomed past that.
+                className={`absolute w-auto max-w-none select-none ${
+                  onCoverPositionChange ? 'cursor-grab touch-none active:cursor-grabbing' : ''
+                }`}
+                style={{
+                  left: `${photoPosition.x}%`,
+                  top: `${photoPosition.y}%`,
+                  height: `${photoScale * 100}%`,
+                  transform: 'translate(-50%, -50%)',
+                }}
+              />
+            </div>
+            {onCoverPositionChange && !dragPosition && (
+              <>
+                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 px-1.5 py-0.5 text-[9px] font-medium text-white">
+                  ↔ drag to adjust
+                </span>
+                {/* Zoom sits at the photo's bottom-left corner, clear of the
+                    Profile Photo button on the right and the name text to
+                    its left. */}
+                <div className="absolute bottom-2 left-[50%] flex items-center gap-0.5 rounded-full bg-black/45 px-1 py-0.5 text-white shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => changeScale(-0.25)}
+                    disabled={photoScale <= 0.25}
+                    aria-label="Zoom out profile photo"
+                    className="h-5 w-5 rounded-full text-sm font-bold leading-none hover:bg-white/20 disabled:opacity-40"
+                  >
+                    −
+                  </button>
+                  <span className="min-w-[2rem] text-center text-[9px] font-semibold tabular-nums">{Math.round(photoScale * 100)}%</span>
+                  <button
+                    type="button"
+                    onClick={() => changeScale(0.25)}
+                    disabled={photoScale >= 3}
+                    aria-label="Zoom in profile photo"
+                    className="h-5 w-5 rounded-full text-sm font-bold leading-none hover:bg-white/20 disabled:opacity-40"
+                  >
+                    +
+                  </button>
+                  {onCoverUpload && (
+                    <>
+                      <span aria-hidden className="mx-0.5 h-3.5 w-px bg-white/30" />
+                      <button
+                        type="button"
+                        disabled={uploadingCover}
+                        onClick={() => {
+                          if (!pharmacy.coverPhotoDataUrl) return
+                          setUploadingCover(true)
+                          void removeFlatBackground(pharmacy.coverPhotoDataUrl)
+                            .then((png) => onCoverUpload(png))
+                            .catch(() => {
+                              // Couldn't decode it — leave the photo as it is.
+                            })
+                            .finally(() => setUploadingCover(false))
+                        }}
+                        title="Make the plain background around the photo transparent"
+                        className="rounded-full px-1.5 text-[9px] font-semibold hover:bg-white/20 disabled:opacity-40"
+                      >
+                        {uploadingCover ? '…' : '✂ Remove BG'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+          </>
         )}
 
         {onCoverUpload && (
@@ -306,25 +584,39 @@ export function VendorHeaderCard({
             />
             <button
               type="button"
-              onClick={() => handleUploadTap(coverInputRef, setUploadingCover, onCoverUpload)}
+              onClick={() => setPhotoPickerOpen(true)}
               disabled={uploadingCover}
-              aria-label={pharmacy.coverPhotoDataUrl ? 'Replace cover photo' : 'Upload cover photo'}
+              aria-label={pharmacy.coverPhotoDataUrl ? 'Replace profile photo' : 'Upload profile photo'}
               className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm hover:bg-white disabled:opacity-60"
             >
-              {uploadingCover ? '…' : '📷 Change cover'}
+              {uploadingCover ? '…' : '📷 Profile Photo'}
             </button>
+            {photoPickerOpen && (
+              <ProfilePhotoPicker
+                // The upload tile clicks the hidden input synchronously
+                // from its own tap (see handleUploadTap) — the chooser closes
+                // first so the browser's file dialog isn't behind it.
+                onUpload={() => handleUploadTap(coverInputRef, setUploadingCover, onCoverUpload)}
+                onPick={onCoverUpload}
+                onClose={() => setPhotoPickerOpen(false)}
+              />
+            )}
           </>
         )}
 
-        <div className="absolute right-3 top-3 flex flex-col items-end gap-1.5">
+        {/* pointer-events-none on the stack, auto on its pills: the stack's
+            box is wider and taller than the pills it holds, and that empty
+            space sits right over the profile photo — it was catching the
+            start of a drag meant for the picture underneath. */}
+        <div className="pointer-events-none absolute right-3 top-3 flex flex-col items-end gap-1.5">
           <span
-            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm ${
+            className={`pointer-events-auto rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm ${
               pharmacy.isOpen ? 'bg-white/90 text-emerald-700' : 'bg-white/80 text-slate-500'
             }`}
           >
             {pharmacy.isOpen ? '🟢 Open now' : '⚪ Closed'}
           </span>
-          <div className="flex items-center gap-1.5">
+          <div className="pointer-events-auto flex items-center gap-1.5">
             <button
               type="button"
               onClick={toggleFavorite}
@@ -336,13 +628,16 @@ export function VendorHeaderCard({
             </button>
             <button
               type="button"
-              onClick={handleShare}
+              onClick={() => setShareOpen(true)}
               aria-label="Share this vendor page"
-              title="Share"
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-sm shadow-sm hover:bg-white"
+              title="Share to Facebook, Messenger and more"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-sm text-slate-700 shadow-sm hover:bg-white"
             >
-              {shareStatus === 'copied' ? '✓' : '🔗'}
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
+                <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L7.04 9.81C6.5 9.31 5.79 9 5 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z" />
+              </svg>
             </button>
+            {shareOpen && <ShareSheet title={pharmacy.name} url={shareUrl} onClose={() => setShareOpen(false)} />}
           </div>
         </div>
 
@@ -368,15 +663,26 @@ export function VendorHeaderCard({
         </div>
       </div>
 
-      <div className="relative px-4 pb-3">
+      {/* pointer-events-none on the whole block, not just the avatar row: the
+          row's negative margin collapses through this padding-top-less
+          parent, so the parent's own box is what actually overlaps the
+          banner and was swallowing taps on the heart/share/Change cover
+          buttons. The two things inside it that need taps opt back in. */}
+      <div className="pointer-events-none relative px-4 pb-3">
         {/* `relative` here (even with no z-index of its own) puts this block
             in the same "positioned" paint layer as the banner above — which
             also has `relative`, for its own stripe overlay. Without it, the
             banner (positioned) paints over this block (plain/static) despite
             coming first in the markup, silently swallowing the top of
             whatever the negative margin below pulls up to overlap it. */}
-        <div className="-mt-[104px] flex items-end gap-3">
-          <div className="relative h-20 w-20 shrink-0">
+        {/* pointer-events-none: this row's negative margin pulls it up over
+            the lower 104px of the banner at full width, and as a later
+            positioned sibling it sits on top — so its empty right-hand
+            stretch was silently swallowing taps meant for the heart, share
+            and Change cover buttons underneath. Only the avatar itself
+            takes pointer events back. */}
+        <div className="pointer-events-none -mt-[104px] flex items-end gap-3">
+          <div className="pointer-events-auto relative h-20 w-20 shrink-0">
             {/* A real uploaded logo carries its own background/shape (the
                 seed logo, for instance, is already a white circle) — the
                 card's own white border/background/shadow was doubling up on
@@ -424,7 +730,7 @@ export function VendorHeaderCard({
             before the banner's own bottom edge — this address/map row was
             overlapping the banner's tail end and its diagonal stripe
             pattern showed through the text. */}
-        <div className="mt-8 flex items-start justify-between gap-3">
+        <div className="pointer-events-auto mt-8 flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-0.5 text-xs text-slate-500">
             <p>
               📍 {pharmacy.addressDetail}, {pharmacy.barangay}, {pharmacy.city}
@@ -434,27 +740,36 @@ export function VendorHeaderCard({
               {accent.icon} {itemCount} item{itemCount === 1 ? '' : 's'} on the menu
             </p>
           </div>
-          <a
-            href={mapUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="relative flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100"
-            title="View on Map"
-          >
-            <div
-              aria-hidden
-              className="absolute inset-0 opacity-60"
-              style={{
-                backgroundImage:
-                  'linear-gradient(#cbd5e1 1px, transparent 1px), linear-gradient(90deg, #cbd5e1 1px, transparent 1px)',
-                backgroundSize: '10px 10px',
-              }}
-            />
-            <span className="relative text-lg">📍</span>
-            <span className="absolute bottom-0.5 left-0 right-0 truncate bg-white/90 px-1 text-center text-[8px] font-semibold text-slate-600">
-              View on Map
-            </span>
-          </a>
+          {(() => {
+            const tileContent = (
+              <>
+                <div
+                  aria-hidden
+                  className="absolute inset-0 opacity-60"
+                  style={{
+                    backgroundImage:
+                      'linear-gradient(#cbd5e1 1px, transparent 1px), linear-gradient(90deg, #cbd5e1 1px, transparent 1px)',
+                    backgroundSize: '10px 10px',
+                  }}
+                />
+                <span className="relative text-lg">📍</span>
+                <span className="absolute bottom-0.5 left-0 right-0 truncate bg-white/90 px-1 text-center text-[8px] font-semibold text-slate-600">
+                  {onPinLocation ? 'Pin location' : 'My location'}
+                </span>
+              </>
+            )
+            const tileClass =
+              'relative flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100'
+            return onPinLocation ? (
+              <button type="button" onClick={onPinLocation} className={tileClass} title="Pin your store's location">
+                {tileContent}
+              </button>
+            ) : (
+              <a href={mapUrl} target="_blank" rel="noreferrer" className={tileClass} title="My location — open in Maps">
+                {tileContent}
+              </a>
+            )
+          })()}
         </div>
       </div>
     </div>
@@ -551,24 +866,24 @@ export function VendorFeatureCard({
       onClick={onSelect}
       className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
     >
-      <div
-        className={`relative h-16 bg-gradient-to-br ${accent.gradient}`}
-        style={
-          pharmacy.coverPhotoDataUrl
-            ? { backgroundImage: `url(${pharmacy.coverPhotoDataUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-            : undefined
-        }
-      >
-        {pharmacy.coverPhotoDataUrl ? (
-          <div aria-hidden className="absolute inset-0 bg-black/20" />
-        ) : (
-          <div
-            aria-hidden
-            className="absolute inset-0 opacity-10"
-            style={{
-              backgroundImage: 'repeating-linear-gradient(-45deg, white 0, white 2px, transparent 2px, transparent 14px)',
-            }}
-          />
+      <div className={`relative h-16 overflow-hidden bg-gradient-to-br ${accent.gradient}`}>
+        {/* Same treatment as VendorHeaderCard: themed art underneath, the
+            profile photo height-fitted on the right. */}
+        <VendorBannerArt />
+        {pharmacy.coverPhotoDataUrl && (
+          <div aria-hidden className="absolute inset-0 overflow-hidden">
+            <img
+              src={pharmacy.coverPhotoDataUrl}
+              alt=""
+              className="absolute w-auto max-w-none"
+              style={{
+                left: `${pharmacy.coverPhotoPosition?.x ?? 75}%`,
+                top: `${pharmacy.coverPhotoPosition?.y ?? 50}%`,
+                height: `${(pharmacy.coverPhotoPosition?.scale ?? 1) * 100}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+            />
+          </div>
         )}
         <span
           className={`absolute right-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold shadow-sm ${
@@ -630,24 +945,64 @@ export function VendorStorefront({
   const [activeCategory, setActiveCategory] = useState('all')
   const [search, setSearch] = useState('')
 
+  // Built from the items a customer can actually see — a category whose
+  // every item is hidden (see `visible`) would otherwise leave an empty tab
+  // behind, promising a "Drinks" section with nothing in it.
   const categories = useMemo(
-    () => Array.from(new Set(items.map((i) => i.menuCategory?.trim()).filter((c): c is string => !!c))),
+    () =>
+      Array.from(
+        new Set(
+          items
+            .filter((i) => i.visible !== false)
+            .map((i) => i.menuCategory?.trim())
+            .filter((c): c is string => !!c),
+        ),
+      ),
     [items],
   )
 
   const query = search.trim().toLowerCase()
-  const shownItems = items.filter((item) => {
-    if (activeCategory !== 'all' && (item.menuCategory?.trim() || 'Menu') !== activeCategory) return false
-    if (query && !item.name.toLowerCase().includes(query) && !(item.description ?? '').toLowerCase().includes(query)) return false
-    return true
-  })
+  const shownItems = items
+    .filter((item) => {
+      // A vendor can uncheck "Show on store" without deleting the item (see
+      // VendorMenuManager.tsx) — this component is always the customer/
+      // preview-facing view (the vendor's own editable list uses
+      // VendorMenuItemCard directly, not this), so a hidden item never
+      // renders here.
+      if (item.visible === false) return false
+      if (activeCategory !== 'all' && (item.menuCategory?.trim() || 'Menu') !== activeCategory) return false
+      if (query && !item.name.toLowerCase().includes(query) && !(item.description ?? '').toLowerCase().includes(query)) return false
+      return true
+    })
+    .sort((a, b) => {
+      // Same ordering a vendor sees while managing their own menu (see
+      // VendorMenuManager.tsx's shownProducts) — a customer browsing "All
+      // Menu" should see the same arrangement the vendor arranged/prioritized,
+      // not a plain A-Z list that ignores their drag order and badges.
+      if (activeCategory === 'all') {
+        const aIdx = a.sortIndex ?? Infinity
+        const bIdx = b.sortIndex ?? Infinity
+        if (aIdx !== bIdx) return aIdx - bIdx
+      }
+      const badgeDiff = menuBadgeSortRank(a.badge) - menuBadgeSortRank(b.badge)
+      if (badgeDiff !== 0) return badgeDiff
+      if (activeCategory === 'all') {
+        const rankDiff = menuCategorySortRank(a.menuCategory?.trim() || 'Menu') - menuCategorySortRank(b.menuCategory?.trim() || 'Menu')
+        if (rankDiff !== 0) return rankDiff
+      }
+      return a.name.localeCompare(b.name)
+    })
 
   const cartCount = cart ? Object.values(cart).reduce((sum, qty) => sum + qty, 0) : 0
   const cartTotal = cart ? items.reduce((sum, item) => sum + (cart[item.id] ?? 0) * item.price, 0) : 0
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <VendorHeaderCard pharmacy={pharmacy} itemCount={items.length} accent={accent} />
+      <VendorHeaderCard
+        pharmacy={pharmacy}
+        itemCount={items.filter((i) => i.visible !== false).length}
+        accent={accent}
+      />
 
       {categories.length > 0 && (
         <div className="flex gap-1.5 overflow-x-auto border-t border-slate-100 px-3 py-2.5">

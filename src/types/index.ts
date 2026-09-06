@@ -289,6 +289,28 @@ export interface MedicineProduct {
   // next to the category pill on the storefront (see MENU_ITEM_BADGES
   // below). Null/undefined shows no badge.
   badge?: MenuItemBadge | null
+  // Registered Vendor menu items only — how many servings are left today.
+  // Null/undefined means untracked (always available whenever `inStock` is
+  // on, the behavior every item had before this existed). Once set, it
+  // counts down as orders are accepted (see VENDOR_ACCEPT_MENU_ORDER in
+  // RideContext.tsx) and hitting 0 flips `inStock` off automatically — a
+  // vendor who cooked 20 servings doesn't have to remember to close the item
+  // by hand once they run out.
+  stockCount?: number | null
+  // A vendor's own manual "All Menu" ordering (see VendorMenuManager.tsx's
+  // drag handle) — set on every item at once the first time a vendor drags
+  // any one of them, so the whole list gets an explicit position rather than
+  // mixing dragged and not-yet-dragged items. Null/undefined (never
+  // dragged) falls back to the automatic badge/category/name sort.
+  sortIndex?: number | null
+  // Registered Vendor menu items only — whether this item shows on the
+  // customer-facing storefront (see VendorStorefront.tsx's shownItems).
+  // Separate from `inStock`/`stockCount`: those say "sold out today", this
+  // says "don't offer this at all right now" (seasonal, discontinued,
+  // testing a new dish) without touching stock tracking or removing the item
+  // from the vendor's own menu list — unchecking it here only hides it from
+  // customers, it never deletes anything. Undefined/true = shown.
+  visible?: boolean
 }
 
 // A menu item's optional highlight tag — purely cosmetic, vendor-picked, no
@@ -434,6 +456,12 @@ export interface Pharmacy {
   // every existing Pharmacy literal (and every pharmacy/store account that
   // never customizes) stays valid and falls back to the generic look.
   coverPhotoDataUrl?: string | null
+  // Where within the cover photo the banner's crop window sits — a vendor
+  // drags the photo (see VendorHeaderCard) to choose which part shows
+  // through the diagonal accent-color wash. Percentages, same convention as
+  // CSS object-position (50/50 = centered), plus an optional zoom (1 = fit,
+  // up to 3) applied around that same point. Null/undefined = centered, 1×.
+  coverPhotoPosition?: { x: number; y: number; scale?: number } | null
   logoDataUrl?: string | null
   // A named preset from VENDOR_THEME_COLORS (see VendorStorefront.tsx) that
   // overrides the businessType-derived gradient — lets a vendor pick their

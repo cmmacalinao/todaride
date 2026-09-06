@@ -14,6 +14,7 @@ import { storeRatingSummary } from '../components/StoreRatingSheet'
 import { VendorFooterNav, type VendorTab } from '../components/VendorFooterNav'
 import { TrustedRiderSelect, VendorTrustedRiders } from '../components/VendorTrustedRiders'
 import { RealLiveMap, type MapPoint } from '../components/RealLiveMap'
+import { OrderStatusStrip } from '../components/OrderStatusStrip'
 import { formatAddressLine } from '../lib/addressFormat'
 import { PaymentAccountForm, ORDER_STATUS_LABELS } from './PharmacyPortalPage'
 import type { MedsOrder, Pharmacy, Ride } from '../types'
@@ -306,6 +307,39 @@ export function VendorPortalPage() {
         >
           ＋ Add another sample order (demo)
         </button>
+      )}
+
+      {/* Every order sent to this store, newest first, with where each one
+          is — the same strip the customer and the driver see, so all three
+          are reading one story. The cards above are the ones needing
+          action; this is the ledger. */}
+      {ownOrders.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 className="mb-2 text-sm font-semibold text-slate-700">📦 Order status</h2>
+          <div className="space-y-2">
+            {[...ownOrders]
+              .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
+              .slice(0, 10)
+              .map((order) => (
+                <div key={order.id} className="rounded-lg border border-slate-200 p-2.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-slate-700">
+                      {order.customerName}
+                      {order.vendorBooked && <span className="ml-1 text-[10px] text-sky-700">· booked by you</span>}
+                    </span>
+                    <span className="font-semibold text-slate-700">₱{order.total}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    {order.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')} ·{' '}
+                    {new Date(order.requestedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                  <div className="mt-1.5">
+                    <OrderStatusStrip order={order} ride={linkedRide(order)} compact />
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
       )}
       </section>
 

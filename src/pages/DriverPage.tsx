@@ -1,5 +1,6 @@
 import { formatAddressLine } from '../lib/addressFormat'
 import { formatTripRoute } from '../lib/addressFormat'
+import { isVendorDeliveryRide } from '../lib/vendorOrders'
 import { showInMiddle, showInMiddleWhenSettled, scrollViewToTop } from '../lib/showInMiddle'
 import { DriverFooterNav } from '../components/DriverFooterNav'
 import { PlatformFeeSoa, buildSoa } from '../components/PlatformFeeSoa'
@@ -1201,9 +1202,13 @@ export function DriverPage() {
                     <div key={r.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-slate-700">
-                          {r.serviceType === 'pabili' && '🛍️ '}
-                          {r.serviceType === 'buy_medicine' && '💊 '}
+                          {isVendorDeliveryRide(r) ? '🍽️ ' : r.serviceType === 'pabili' ? '🛍️ ' : r.serviceType === 'buy_medicine' ? '💊 ' : ''}
                           {r.passengerName}
+                          {isVendorDeliveryRide(r) && (
+                            <span className="ml-1 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700">
+                              Food order · pick up at {r.pickup.label}
+                            </span>
+                          )}
                         </span>
                         <span className="text-xs text-slate-400">
                           ₱{r.fareEstimate}
@@ -1943,7 +1948,23 @@ function ActiveTripCard({
       {ride.bookedByParentId && <p className="text-xs text-slate-500">📋 Booked by parent</p>}
       {(ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine') && (
         <p className="text-sm font-medium text-slate-700">
-          {ride.serviceType === 'pabili' ? '🛍️ Pabili' : '💊 Buy Medicine'}
+          {isVendorDeliveryRide(ride)
+            ? `🍽️ Food order — pick up at ${ride.pickup.label}, deliver to ${ride.passengerName}`
+            : ride.serviceType === 'pabili'
+              ? '🛍️ Pabili'
+              : '💊 Buy Medicine'}
+        </p>
+      )}
+      {isVendorDeliveryRide(ride) && (
+        <p className="text-[11px] text-slate-500">
+          {ride.status === 'driver_arriving'
+            ? ride.legProgress >= 1
+              ? 'At the store — collect the order, then start the trip'
+              : 'Heading to the store for pickup'
+            : ride.status === 'ongoing'
+              ? 'Order picked up — on the way to the customer'
+              : 'Delivered'}
+          {ride.paymentMethod === 'cash' ? ` · cash: pay the store for the goods, collect ₱${ride.fareEstimate} from the customer` : ' · paid online — collect the delivery fee only'}
         </p>
       )}
       {(ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine') && ride.pabiliItems && (

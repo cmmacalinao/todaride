@@ -6,6 +6,7 @@ import { resolvePhAddress, type PhAddressTags } from '../lib/customLocation'
 import { BarangayAddressPicker } from './BarangayAddressPicker'
 import { DeliveryMapPicker } from './DeliveryMapPicker'
 import { StoreRatingSheet } from './StoreRatingSheet'
+import { OrderStatusStrip } from './OrderStatusStrip'
 import { OrderChat } from './OrderChat'
 import { TripMonitor } from './TripMonitor'
 import { VendorFeatureCard, VendorStorefront } from './VendorStorefront'
@@ -403,26 +404,28 @@ export function VendorMenuBooking({
             onClick={() => setShowHistory((v) => !v)}
             className="mb-2 flex w-full items-center justify-between text-sm font-semibold text-slate-700"
           >
-            My Vendor Orders
+            📦 My orders ({pastOrders.length})
             <span className="text-xs text-slate-400">{showHistory ? '▲ Hide' : '▼ Show'}</span>
           </button>
+          {/* Every order this customer has sent, newest first, each with
+              where it is right now — not only the one currently in flight. */}
           {showHistory && (
             <div className="space-y-2">
-              {pastOrders.map((order) => (
+              {[...pastOrders]
+                .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
+                .map((order) => (
                 <div key={order.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-slate-700">{order.items.map((i) => i.name).join(', ')}</span>
-                    <span className="text-[11px] text-slate-400">{order.status}</span>
+                    <span className="font-medium text-slate-700">{order.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}</span>
+                    <span className="text-xs font-semibold text-slate-700">₱{order.total}</span>
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    {pharmacies.find((p) => p.id === order.pharmacyId)?.name ?? 'Vendor'}
+                    {pharmacies.find((p) => p.id === order.pharmacyId)?.name ?? 'Vendor'} ·{' '}
+                    {new Date(order.requestedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    ₱{order.total} · {new Date(order.requestedAt).toLocaleString()}
-                  </p>
-                  {order.status === 'rejected' && order.rejectionReason && (
-                    <p className="mt-1 text-xs text-amber-700">Vendor declined: {order.rejectionReason}</p>
-                  )}
+                  <div className="mt-2">
+                    <OrderStatusStrip order={order} ride={rides.find((r) => r.id === order.linkedRideId)} />
+                  </div>
                   {order.status === 'dispatched' && (
                     <button
                       type="button"
@@ -478,27 +481,11 @@ function ActiveVendorOrderCard({
     )
   }
 
-  // Where the order is before a driver exists — the steps a customer is
-  // waiting through. Once a ride is linked, TripMonitor above takes over
-  // with the live map, so this only ever shows the first two lit.
-  const stepIndex = order.status === 'pending_confirmation' ? 0 : 1
-  const steps = ['Order placed', 'Vendor accepted', 'Driver on the way', 'Delivered']
-
+  // Where the order is before a driver exists. Once a ride is linked,
+  // TripMonitor above takes over with the live map.
   return (
     <div className="space-y-2 rounded-xl border border-brand-200 bg-brand-50 p-4">
-      <ol className="flex items-center gap-1">
-        {steps.map((label, i) => (
-          <li key={label} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-            <span
-              className={`h-1.5 w-full rounded-full ${i <= stepIndex ? 'bg-brand-600' : 'bg-brand-200'}`}
-              aria-hidden
-            />
-            <span className={`truncate text-[10px] ${i <= stepIndex ? 'font-semibold text-brand-800' : 'text-slate-400'}`}>
-              {label}
-            </span>
-          </li>
-        ))}
-      </ol>
+      <OrderStatusStrip order={order} ride={undefined} />
       <p className="text-sm font-semibold text-brand-800">
         {order.status === 'pending_confirmation'
           ? `Waiting for ${vendor?.name ?? 'the vendor'} to accept your order`

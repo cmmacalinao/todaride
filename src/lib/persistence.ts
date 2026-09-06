@@ -81,7 +81,37 @@ const HOT: { key: string; table: string; columns: (row: Record<string, unknown>)
       data: a,
     }),
   },
+  // Food / vendor orders, for the same reason rides are here. An order is
+  // placed on the customer's phone and accepted on the vendor's; while both
+  // lived inside the one blob, whichever device saved last decided whether
+  // the order existed at all — a vendor's phone saving its copy a moment
+  // after the customer's landed simply erased it. One row per order cannot
+  // be erased by somebody else's unrelated save.
+  {
+    key: 'medsOrders',
+    table: 'meds_order',
+    columns: (o) => ({
+      id: o.id,
+      customer_id: o.customerId ?? null,
+      pharmacy_id: o.pharmacyId ?? null,
+      status: o.status,
+      requested_at: o.requestedAt,
+      data: o,
+    }),
+  },
 ]
+
+// Tables the project has not been given yet (see DOCUMENT GUIDES/
+// meds_order_table.sql). A build that expects a table the database lacks
+// must keep working — the key simply stays inside the app_state blob, as it
+// did before, until the table is created. Learned from the first failed
+// read, remembered for the life of the document.
+const missingTables = new Set<string>()
+
+function isMissingTableError(err: unknown): boolean {
+  const e = err as { code?: string; message?: string; status?: number } | null
+  return e?.code === '42P01' || e?.code === 'PGRST205' || e?.status === 404 || /does not exist|Could not find the table/i.test(e?.message ?? '')
+}
 
 // ---------------------------------------------------------------------------
 
@@ -186,10 +216,19 @@ class SupabaseAdapter implements PersistenceAdapter {
       ])
       if (stateRow.error) throw stateRow.error
 
-      const merged: Record<string, unknown> = { ...((stateRow.data?.state as object) ?? {}) }
+      const blob = (stateRow.data?.state as Record<string, unknown> | undefined) ?? {}
+      const merged: Record<string, unknown> = { ...blob }
       HOT.forEach((h, i) => {
         const res = hot[i]
-        if (res.error) throw res.error
+        if (res.error) {
+          if (isMissingTableError(res.error)) {
+            // Not created yet — the blob's copy is the only copy.
+            missingTables.add(h.table)
+            return
+          }
+          throw res.error
+        }
+        missingTables.delete(h.table)
         merged[h.key] = (res.data ?? []).map((row) => (row as { data: unknown }).data)
       })
       return merged
@@ -232,6 +271,8 @@ class SupabaseAdapter implements PersistenceAdapter {
     const work: PromiseLike<unknown>[] = []
 
     for (const h of HOT) {
+      // No table yet: the key rides along in the blob as it always did.
+      if (missingTables.has(h.table)) continue
       delete rest[h.key]
       const rows = (next[h.key] as Record<string, unknown>[] | undefined) ?? []
       const before = (prev?.[h.key] as Record<string, unknown>[] | undefined) ?? []

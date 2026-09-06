@@ -1704,8 +1704,8 @@ function fromStored(parsed: StoredState): RideState {
     incomePromotionSettings: { ...DEFAULT_INCOME_PROMOTION_SETTINGS, ...parsed.incomePromotionSettings },
     partnershipRevenue: parsed.partnershipRevenue ?? [],
     adSenseSettings: { ...DEFAULT_ADSENSE_SETTINGS, ...parsed.adSenseSettings, slots: { ...DEFAULT_ADSENSE_SETTINGS.slots, ...parsed.adSenseSettings?.slots } },
-    pharmacies: parsed.pharmacies ?? MOCK_PHARMACIES,
-    medicineProducts: parsed.medicineProducts ?? [...MOCK_MEDICINE_PRODUCTS, ...MOCK_VENDOR_MENU_ITEMS],
+    pharmacies: withLateSeedVendors(parsed.pharmacies),
+    medicineProducts: withLateSeedVendorMenus(parsed.medicineProducts),
     // Older saved sessions predate the order-chat feature — default each
     // order's messages to an empty array rather than crashing on .map/.length.
     medsOrders: (parsed.medsOrders ?? []).map((o: MedsOrder) => ({ ...o, messages: o.messages ?? [] })),
@@ -1808,6 +1808,30 @@ const SIM_CLOCK_KEY = 'tricycle-sim-clock-v1'
 const SIM_CLOCK_LEASE_MS = 2500
 
 const STORAGE_BACKUP_KEY = `${STORAGE_KEY}.unreadable`
+
+// Seed vendors added after the pilot's shared state already existed. A
+// stored `pharmacies` list wins over the seeds wholesale (see fromStored),
+// which is right for everything a person has edited — but it also means a
+// vendor added to the seeds later never appears anywhere the app has run
+// before. These ids are merged in when absent, the same way the emergency
+// hotlines are. Only these: vendor-1 and vendor-2 are deliberately left out,
+// since the pilot's own registered stores replaced them. Trade-off, as with
+// the hotlines: deleting one of these from the live data does not stick.
+const LATE_SEED_VENDOR_IDS = new Set(['vendor-3', 'vendor-4', 'vendor-5'])
+
+function withLateSeedVendors(stored: Pharmacy[] | undefined): Pharmacy[] {
+  if (!stored) return MOCK_PHARMACIES
+  const seen = new Set(stored.map((p) => p.id))
+  const missing = MOCK_PHARMACIES.filter((p) => LATE_SEED_VENDOR_IDS.has(p.id) && !seen.has(p.id))
+  return missing.length > 0 ? [...stored, ...missing] : stored
+}
+
+function withLateSeedVendorMenus(stored: MedicineProduct[] | undefined): MedicineProduct[] {
+  if (!stored) return [...MOCK_MEDICINE_PRODUCTS, ...MOCK_VENDOR_MENU_ITEMS]
+  const seen = new Set(stored.map((p) => p.id))
+  const missing = MOCK_VENDOR_MENU_ITEMS.filter((p) => LATE_SEED_VENDOR_IDS.has(p.pharmacyId) && !seen.has(p.id))
+  return missing.length > 0 ? [...stored, ...missing] : stored
+}
 
 // Drops anything of the wrong shape so one bad field cannot cost the whole
 // save. A stored array that arrives as an object, a stored object that

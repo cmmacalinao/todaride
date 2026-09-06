@@ -3580,6 +3580,70 @@ export const MOCK_PHARMACIES: Pharmacy[] = [
     gcashAccount: null,
     mayaAccount: null,
   },
+  // Three more Food Express vendors so the Featured Vendors grid, the
+  // vendor search and the ordering flow can be tried against a row of
+  // stores rather than one. Added after the pilot's shared state already
+  // existed, so they are merged into it on load (see withSeedVendors in
+  // RideContext.tsx) rather than only appearing on a fresh install. Their
+  // menus are in MOCK_VENDOR_MENU_ITEMS below, with photos from the food
+  // catalog (see lib/foodCatalog.ts).
+  {
+    id: 'vendor-3',
+    name: "Kuya Ben's Ihaw-Ihaw",
+    businessType: 'resto_food',
+    adminPin: '1233',
+    contactPhone: '0917-600-2003',
+    province: 'Nueva Ecija',
+    city: 'San Jose City',
+    barangay: 'Malasin',
+    addressDetail: 'Corner stall across the Malasin covered court',
+    coords: { x: 64, y: 58 },
+    locationGps: { lat: 15.806, lng: 120.999 },
+    isOpen: true,
+    verificationStatus: 'approved',
+    gcashAccount: { accountName: "Kuya Ben's Ihaw-Ihaw", accountNumber: '0917-600-2003', qrDataUrl: null },
+    mayaAccount: null,
+    tagline: 'Sarap ng inihaw, gabi-gabi!',
+    themeColor: 'red',
+  },
+  {
+    id: 'vendor-4',
+    name: "Manang Cora's Lugawan",
+    businessType: 'resto_food',
+    adminPin: '1234',
+    contactPhone: '0917-600-2004',
+    province: 'Nueva Ecija',
+    city: 'Science City of Muñoz',
+    barangay: 'Poblacion East',
+    addressDetail: 'Beside the public market, Muñoz Poblacion',
+    coords: { x: 22, y: 26 },
+    locationGps: { lat: 15.716, lng: 120.905 },
+    isOpen: true,
+    verificationStatus: 'approved',
+    gcashAccount: null,
+    mayaAccount: { accountName: "Manang Cora's Lugawan", accountNumber: '0917-600-2004', qrDataUrl: null },
+    tagline: 'Mainit na lugaw, 24 oras',
+    themeColor: 'gold',
+  },
+  {
+    id: 'vendor-5',
+    name: 'Tita Marites Kakanin & Merienda',
+    businessType: 'resto_food',
+    adminPin: '1235',
+    contactPhone: '0917-600-2005',
+    province: 'Nueva Ecija',
+    city: 'San Jose City',
+    barangay: 'Abar 1st',
+    addressDetail: 'Front of the barangay hall, Abar 1st',
+    coords: { x: 56, y: 66 },
+    locationGps: { lat: 15.793, lng: 120.98 },
+    isOpen: true,
+    verificationStatus: 'approved',
+    gcashAccount: { accountName: 'Tita Marites Kakanin', accountNumber: '0917-600-2005', qrDataUrl: null },
+    mayaAccount: null,
+    tagline: 'Matamis na alaala ng probinsya',
+    themeColor: 'pink',
+  },
 ]
 
 // A handful of products per pharmacy spanning all three MedicineCategory
@@ -3642,6 +3706,35 @@ export const MOCK_VENDOR_MENU_ITEMS: MedicineProduct[] = [
   { id: 'menu-13', pharmacyId: 'vendor-2', name: 'Extra Rice', genericName: null, category: 'otc', price: 15, inStock: true, menuCategory: 'Rice Bowls', photoDataUrl: null },
   { id: 'menu-14', pharmacyId: 'vendor-2', name: 'Bottled Water', genericName: null, category: 'otc', price: 15, inStock: true, menuCategory: 'Drinks', photoDataUrl: null },
   { id: 'menu-15', pharmacyId: 'vendor-2', name: 'Softdrinks (16oz)', genericName: null, category: 'otc', price: 30, inStock: true, menuCategory: 'Drinks', photoDataUrl: null },
+
+  // Kuya Ben's Ihaw-Ihaw — grill and street food. photoDataUrl carries a
+  // catalog photo path here (an <img src> takes either); a vendor's own
+  // uploads replace it with a data URL.
+  { id: 'menu-v3-1', pharmacyId: 'vendor-3', name: 'Chicken Inasal', genericName: null, category: 'otc', price: 110, inStock: true, menuCategory: 'Chicken', photoDataUrl: '/food-photos/005-chicken-inasal.jpg', description: 'Ilonggo-style grilled chicken leg quarter with rice and sinamak.', badge: 'best_seller', stockCount: 30 },
+  { id: 'menu-v3-2', pharmacyId: 'vendor-3', name: 'Pork Sisig', genericName: null, category: 'otc', price: 95, inStock: true, menuCategory: 'Pork', photoDataUrl: '/food-photos/018-pork-sisig.jpg', description: 'Sizzling chopped pork with onion, chili and calamansi, topped with egg.', badge: 'must_try', stockCount: 20 },
+  { id: 'menu-v3-3', pharmacyId: 'vendor-3', name: 'Isaw (3 sticks)', genericName: null, category: 'otc', price: 30, inStock: true, menuCategory: 'Street Food', photoDataUrl: '/food-photos/167-isaw.jpg', description: 'Grilled chicken intestines with spiced vinegar dip.', badge: 'popular' },
+  { id: 'menu-v3-4', pharmacyId: 'vendor-3', name: 'Bulalo', genericName: null, category: 'otc', price: 150, inStock: true, menuCategory: 'Beef', photoDataUrl: '/food-photos/047-bulalo.jpg', description: 'Beef shank and bone marrow soup with corn and pechay — good for two.' },
+  { id: 'menu-v3-5', pharmacyId: 'vendor-3', name: 'Lumpiang Shanghai (6 pcs)', genericName: null, category: 'otc', price: 60, inStock: true, menuCategory: 'Snacks', photoDataUrl: '/food-photos/173-lumpiang-shanghai.jpg', description: 'Crispy pork spring rolls with sweet chili sauce.' },
+  { id: 'menu-v3-6', pharmacyId: 'vendor-3', name: 'Iced Tea (16oz)', genericName: null, category: 'otc', price: 25, inStock: true, menuCategory: 'Drinks', photoDataUrl: '/food-photos/199-iced-tea.jpg', description: 'House-brewed iced tea.' },
+
+  // Manang Cora's Lugawan — rice porridge and silog breakfasts.
+  { id: 'menu-v4-1', pharmacyId: 'vendor-4', name: 'Lugaw', genericName: null, category: 'otc', price: 35, inStock: true, menuCategory: 'Breakfast', photoDataUrl: '/food-photos/135-lugaw.jpg', description: 'Plain rice porridge with ginger, toasted garlic and spring onion.', badge: 'best_seller', stockCount: 60 },
+  { id: 'menu-v4-2', pharmacyId: 'vendor-4', name: 'Goto', genericName: null, category: 'otc', price: 55, inStock: true, menuCategory: 'Breakfast', photoDataUrl: '/food-photos/136-goto.jpg', description: 'Rice porridge with tender beef tripe, boiled egg and chicharon.', badge: 'popular', stockCount: 40 },
+  { id: 'menu-v4-3', pharmacyId: 'vendor-4', name: 'Arroz Caldo', genericName: null, category: 'otc', price: 60, inStock: true, menuCategory: 'Breakfast', photoDataUrl: '/food-photos/134-arroz-caldo.jpg', description: 'Chicken rice porridge with kasubha and a boiled egg.' },
+  { id: 'menu-v4-4', pharmacyId: 'vendor-4', name: 'Tapsilog', genericName: null, category: 'otc', price: 85, inStock: true, menuCategory: 'Rice Meals', photoDataUrl: '/food-photos/141-tapsilog.jpg', description: 'Beef tapa, garlic rice and fried egg.', badge: 'must_try' },
+  { id: 'menu-v4-5', pharmacyId: 'vendor-4', name: 'Longsilog', genericName: null, category: 'otc', price: 75, inStock: true, menuCategory: 'Rice Meals', photoDataUrl: '/food-photos/142-longsilog.jpg', description: 'Sweet longganisa, garlic rice and fried egg.' },
+  { id: 'menu-v4-6', pharmacyId: 'vendor-4', name: 'Bangsilog', genericName: null, category: 'otc', price: 80, inStock: true, menuCategory: 'Rice Meals', photoDataUrl: '/food-photos/144-bangsilog.jpg', description: 'Fried boneless bangus, garlic rice and fried egg.' },
+  { id: 'menu-v4-7', pharmacyId: 'vendor-4', name: 'Calamansi Juice', genericName: null, category: 'otc', price: 20, inStock: true, menuCategory: 'Drinks', photoDataUrl: '/food-photos/195-calamansi-juice.jpg', description: 'Freshly squeezed, hot or iced.' },
+
+  // Tita Marites Kakanin & Merienda — rice cakes, sweets and coolers.
+  { id: 'menu-v5-1', pharmacyId: 'vendor-5', name: 'Bibingka', genericName: null, category: 'otc', price: 40, inStock: true, menuCategory: 'Dessert', photoDataUrl: '/food-photos/187-bibingka.jpg', description: 'Charcoal-baked rice cake with salted egg and grated coconut.', badge: 'best_seller', stockCount: 25 },
+  { id: 'menu-v5-2', pharmacyId: 'vendor-5', name: 'Puto (6 pcs)', genericName: null, category: 'otc', price: 30, inStock: true, menuCategory: 'Snacks', photoDataUrl: '/food-photos/188-puto.jpg', description: 'Soft steamed rice cakes, cheese on top.' },
+  { id: 'menu-v5-3', pharmacyId: 'vendor-5', name: 'Pichi-Pichi (6 pcs)', genericName: null, category: 'otc', price: 35, inStock: true, menuCategory: 'Snacks', photoDataUrl: '/food-photos/190-pichi-pichi.jpg', description: 'Chewy cassava cakes rolled in grated coconut.' },
+  { id: 'menu-v5-4', pharmacyId: 'vendor-5', name: 'Turon (2 pcs)', genericName: null, category: 'otc', price: 25, inStock: true, menuCategory: 'Snacks', photoDataUrl: '/food-photos/174-turon.jpg', description: 'Caramelized banana and jackfruit spring rolls.', badge: 'popular' },
+  { id: 'menu-v5-5', pharmacyId: 'vendor-5', name: 'Halo-Halo', genericName: null, category: 'otc', price: 65, inStock: true, menuCategory: 'Dessert', photoDataUrl: '/food-photos/181-halo-halo.jpg', description: 'Shaved ice with sweet beans, jellies, leche flan and ube ice cream.', badge: 'must_try', stockCount: 30 },
+  { id: 'menu-v5-6', pharmacyId: 'vendor-5', name: 'Buko Pandan', genericName: null, category: 'otc', price: 45, inStock: true, menuCategory: 'Dessert', photoDataUrl: '/food-photos/184-buko-pandan.jpg', description: 'Young coconut and pandan jelly in sweet cream.' },
+  { id: 'menu-v5-7', pharmacyId: 'vendor-5', name: 'Mais con Yelo', genericName: null, category: 'otc', price: 40, inStock: true, menuCategory: 'Dessert', photoDataUrl: '/food-photos/192-mais-con-yelo.jpg', description: 'Sweet corn, milk and shaved ice.' },
+  { id: 'menu-v5-8', pharmacyId: 'vendor-5', name: 'Pancit Bihon (party tray slice)', genericName: null, category: 'otc', price: 60, inStock: true, menuCategory: 'Noodles', photoDataUrl: '/food-photos/101-pancit-bihon.jpg', description: 'Stir-fried rice noodles with vegetables and chicken.' },
 ]
 
 // Flat delivery + service fee for a MEDS order — same "flat, not

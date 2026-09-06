@@ -285,7 +285,7 @@ export function VendorPortalPage() {
 
       <section ref={earningsSectionRef} className="scroll-mt-24 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="mb-2 text-sm font-semibold text-slate-700">💰 Earnings</h2>
-        <VendorEarnings orders={ownOrders} rides={rides} />
+        <VendorEarnings vendor={vendor} orders={ownOrders} rides={rides} />
       </section>
 
       {(() => {

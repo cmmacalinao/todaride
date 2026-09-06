@@ -362,7 +362,9 @@ export interface PaymentAccountDetails {
 // cash; a TODA, Operator or Franchise owes its monthly subscription. Same
 // record either way — only the payer differs — so one Statement of Account
 // can be produced at any level of the hierarchy.
-export type PlatformFeePayerRole = 'driver' | 'toda_org' | 'operator' | 'franchise'
+// 'vendor': a Registered Vendor's per-delivered-order platform fee (see
+// Pharmacy.perOrderFee) and any monthly plan fee.
+export type PlatformFeePayerRole = 'driver' | 'toda_org' | 'operator' | 'franchise' | 'vendor'
 
 // A driver asking for money the platform is holding for them.
 //
@@ -483,6 +485,14 @@ export interface Pharmacy {
   // are derived from this list (see storeRatingSummary), never stored
   // separately, so they cannot drift.
   storeReviews?: StoreReview[]
+  // What this vendor owes the platform — the same shape a TODA's SaaS plan
+  // has (monthlyPlatformFee / perBookingFee), billed monthly and settled
+  // through the same Statement of Account (see SaasFeeCard, payerRole
+  // 'vendor'). Charged per DELIVERED order, never on a cancelled one.
+  // Optional: unset falls back to DEFAULT_VENDOR_MONTHLY_FEE /
+  // DEFAULT_VENDOR_PER_ORDER_FEE in mock/data.ts.
+  monthlyPlatformFee?: number
+  perOrderFee?: number
 }
 
 export interface StoreReview {

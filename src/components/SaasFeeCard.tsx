@@ -14,6 +14,10 @@ interface SaasFeeCardProps {
   perBookingFee: number
   // Completed bookings this month across everything this payer is billed for.
   bookings: number
+  // What one billable unit is called on the bill — "booking" for a TODA or
+  // operator, "delivered order" for a vendor.
+  bookingNoun?: string
+  title?: string
 }
 
 // The Level 1 SaaS bill, as the org itself sees it: what is owed this month,
@@ -28,6 +32,8 @@ export function SaasFeeCard({
   monthlyFee,
   perBookingFee,
   bookings,
+  bookingNoun = 'booking',
+  title = 'SaaS platform fee',
 }: SaasFeeCardProps) {
   const { platformFeePayments, platformGcashAccount, recordPlatformFeePayment } = useRides()
   const [showSoa, setShowSoa] = useState(false)
@@ -56,8 +62,8 @@ export function SaasFeeCard({
       ? [
           {
             id: 'per-booking',
-            label: 'Per-booking fee',
-            detail: `₱${perBookingFee} × ${bookings} completed booking${bookings === 1 ? '' : 's'}`,
+            label: `Per-${bookingNoun} fee`,
+            detail: `₱${perBookingFee} × ${bookings} completed ${bookingNoun}${bookings === 1 ? '' : 's'}`,
             amount: bookingCharge,
           },
         ]
@@ -66,7 +72,7 @@ export function SaasFeeCard({
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h2 className="text-sm font-semibold text-slate-700">SaaS platform fee</h2>
+      <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
       <p className="mt-0.5 text-[11px] text-slate-500">
         What {payerName} owes TODASafeRide this month. A separate billing relationship from the per-ride
         commission — it is not taken out of anyone's fare.
@@ -83,7 +89,7 @@ export function SaasFeeCard({
         {perBookingFee > 0 && (
           <div className="flex items-center justify-between">
             <span className="text-slate-500">
-              Per booking · ₱{perBookingFee} × {bookings} completed
+              Per {bookingNoun} · ₱{perBookingFee} × {bookings} completed
             </span>
             <span className="font-medium text-slate-700">₱{bookingCharge.toLocaleString()}</span>
           </div>

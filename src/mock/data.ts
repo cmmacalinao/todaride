@@ -3650,6 +3650,13 @@ export const MOCK_VENDOR_MENU_ITEMS: MedicineProduct[] = [
 export const DEFAULT_MEDS_DELIVERY_FEE = 25
 export const DEFAULT_MEDS_SERVICE_FEE = 15
 
+// What a Registered Vendor owes the platform (see Pharmacy.perOrderFee /
+// monthlyPlatformFee): a flat fee per delivered order, no monthly plan fee
+// by default. Separate from DEFAULT_MEDS_SERVICE_FEE above, which the
+// CUSTOMER pays on top of the goods and the driver collects.
+export const DEFAULT_VENDOR_MONTHLY_FEE = 0
+export const DEFAULT_VENDOR_PER_ORDER_FEE = 5
+
 // Two ways to pay, not three.
 //
 // GCash and Maya were separate buttons, which asked the passenger to decide

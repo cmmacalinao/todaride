@@ -21,6 +21,14 @@ export function compressImageFile(file: File): Promise<string> {
           reject(new Error('Canvas not supported'))
           return
         }
+        // JPEG has no alpha channel — any transparent pixel in the source
+        // (a logo saved as PNG, say) would otherwise come through as solid
+        // black once flattened, since an unpainted canvas defaults to
+        // transparent black. Filling white first means transparency reads
+        // as white instead, matching how it looks against this app's own
+        // white cards/backgrounds.
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
         resolve(canvas.toDataURL('image/jpeg', JPEG_QUALITY))
       }

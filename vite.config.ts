@@ -175,11 +175,12 @@ export default defineConfig({
   server: {
     port: 5192,
     strictPort: true,
-    // Lets the app be reached through a Cloudflare quick tunnel (see
-    // `npx cloudflared tunnel --url http://localhost:5192`) for sharing a
-    // trial link with people off this machine — Vite otherwise rejects any
-    // request whose Host header it doesn't recognize (DNS-rebinding guard).
-    allowedHosts: ['.trycloudflare.com'],
+    // Lets the app be reached through a quick tunnel — Cloudflare's
+    // (`npx cloudflared tunnel --url http://localhost:5192`) or localtunnel's
+    // (`npx localtunnel --port 5192`) — for sharing a trial link with people
+    // off this machine. Vite otherwise rejects any request whose Host header
+    // it doesn't recognize (DNS-rebinding guard).
+    allowedHosts: ['.trycloudflare.com', '.loca.lt'],
   },
   preview: {
     port: 4192,

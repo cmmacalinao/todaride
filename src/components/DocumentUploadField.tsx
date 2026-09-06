@@ -44,13 +44,19 @@ export function DocumentUploadField({ label, dataUrl, onUpload }: DocumentUpload
   return (
     <div className="flex items-center gap-3 rounded-lg border border-slate-200 p-2.5">
       <input ref={inputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} />
-      {dataUrl ? (
-        <img src={dataUrl} alt={label} className="h-12 w-12 shrink-0 rounded-md object-cover" />
-      ) : (
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-300">
-          📄
-        </div>
-      )}
+      <button
+        type="button"
+        onClick={handleTap}
+        disabled={busy}
+        aria-label={dataUrl ? `Replace ${label}` : `Upload ${label}`}
+        className="h-12 w-12 shrink-0 disabled:opacity-60"
+      >
+        {dataUrl ? (
+          <img src={dataUrl} alt={label} className="h-12 w-12 rounded-md object-cover" />
+        ) : (
+          <div className="flex h-12 w-12 items-center justify-center rounded-md bg-slate-100 text-slate-300">📄</div>
+        )}
+      </button>
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs font-medium text-slate-700">{label}</p>
         <p className="text-[11px] text-slate-400">{dataUrl ? 'Uploaded' : 'Not uploaded'}</p>

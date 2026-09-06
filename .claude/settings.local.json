@@ -9,7 +9,15 @@
       "PowerShell(winget install OpenJS.NodeJS.LTS --source winget --accept-package-agreements --accept-source-agreements)",
       "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); node -v; npm -v)",
       "mcp__Claude_Browser__preview_start",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(grep -v \"^.*//\\\\|const state\\\\|action\\\\.\")",
+      "Bash(npx vitest *)",
+      "Bash(base64 -w0 \"DOCUMENT GUIDES/operator logo/RCSJGH.png\")",
+      "Bash(npm install *)",
+      "Bash(node scratch-process-logo.cjs)",
+      "Bash(node -e ' *)",
+      "Bash(rm -f scratch-process-logo.cjs \"DOCUMENT GUIDES/operator logo/RCSJGH-transparent.png\" \"DOCUMENT GUIDES/operator logo/RCSJGH-preview-on-blue.png\" \"DOCUMENT GUIDES/operator logo/step1-chromakey.png\" \"DOCUMENT GUIDES/operator logo/step1-on-blue.png\" \"DOCUMENT GUIDES/operator logo/roundtrip-check.png\" \"DOCUMENT GUIDES/operator logo/preview-on-blue.png\")",
+      "Bash(npm uninstall *)"
     ]
   }
 }

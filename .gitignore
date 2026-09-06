@@ -92,3 +92,11 @@ android/*.keystore
 android/*.jks
 android/app/*.keystore
 android/app/*.jks
+
+# Source material for the 200-dish food catalog (the master spreadsheet, a
+# CSV/JSON export, a photos zip, and a duplicate Supabase-scaffold copy of
+# the same photos) — ~40MB, none of it read by the running app. What ships
+# is src/lib/foodCatalog.ts (generated from the JSON here) and the 200
+# photos already copied into public/food-photos/. Stays on disk to
+# regenerate from; git just stops carrying it.
+FOOD DATABASE/

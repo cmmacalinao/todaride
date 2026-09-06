@@ -5,6 +5,7 @@ import { AnnouncementFeed } from '../components/AnnouncementFeed'
 import { useSession } from '../context/SessionContext'
 import { DocumentUploadField } from '../components/DocumentUploadField'
 import { OrderChat } from '../components/OrderChat'
+import { VendorPortalPage } from './VendorPortalPage'
 import type { MedicineCategory, MedsOrder, MedsOrderItem, MedsOrderStatus, PaymentAccountDetails } from '../types'
 
 const CATEGORY_LABELS: Record<MedicineCategory, string> = {
@@ -19,7 +20,7 @@ const CATEGORY_STYLES: Record<MedicineCategory, string> = {
   restricted: 'bg-amber-100 text-amber-800',
 }
 
-const ORDER_STATUS_LABELS: Record<MedsOrderStatus, string> = {
+export const ORDER_STATUS_LABELS: Record<MedsOrderStatus, string> = {
   pending_confirmation: 'Awaiting your quote',
   quoted: 'Quote sent — waiting on customer',
   confirmed: 'Checked out — ready to process',
@@ -29,11 +30,21 @@ const ORDER_STATUS_LABELS: Record<MedsOrderStatus, string> = {
   dispatched: 'Dispatched',
 }
 
-// TODARIDE MEDS — a pharmacy's own portal, mirroring TodaAdminPage.tsx's
-// shape (own-org scoping via a plain in-component filter, same as the rest
-// of this app already does for TODA orgs). Reached at the dedicated
-// /pharmacy route (see App.tsx) rather than nested inside another page,
-// since a pharmacy account isn't a kind of driver or passenger account.
+// TODARIDE MEDS — a pharmacy/store's own portal, mirroring TodaAdminPage.tsx's
+// shape (own-org scoping via a plain in-component filter, same as the rest of
+// this app already does for TODA orgs). Reached at the dedicated /pharmacy
+// route (see App.tsx). Pharmacy and Store are the only two business types
+// handled here — a Registered Vendor (resto_food / other_commodity) account
+// has its own separate portal, VendorPortalPage.tsx, since its flow (a priced
+// Menu with straight accept/decline, no quote step) is different enough that
+// sharing one page for both was creating confusion between "Pharmacy" and
+// "Vendor" naming throughout the code. The delegation below means either
+// route (/pharmacy or /vendor) always lands the account on the portal that
+// actually matches its businessType, regardless of which one it logged in
+// through — both are offered as login/signup options at each path (see
+// AuthGate.tsx's SIGNUP_CATEGORIES) since the landing page's single
+// "Pharmacy/Food/Vendors" button doesn't know a visitor's category ahead of
+// time.
 export function PharmacyPortalPage() {
   const { loggedInPharmacyId } = useSession()
   const {
@@ -98,6 +109,13 @@ export function PharmacyPortalPage() {
         <p className="text-sm text-slate-400">Pharmacy not found.</p>
       </div>
     )
+  }
+
+  // A Registered Vendor account (resto_food / other_commodity) belongs on
+  // the Food/Vendor portal instead, even if it happened to log in via
+  // /pharmacy — see the file comment above.
+  if (pharmacy.businessType === 'resto_food' || pharmacy.businessType === 'other_commodity') {
+    return <VendorPortalPage />
   }
 
   const ownOrders = medsOrders.filter((o) => o.pharmacyId === pharmacy.id)
@@ -367,7 +385,7 @@ function AddProductForm({
   )
 }
 
-function PaymentAccountForm({
+export function PaymentAccountForm({
   label,
   details,
   onSave,

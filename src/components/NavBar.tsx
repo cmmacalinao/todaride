@@ -8,7 +8,7 @@ import { useRides } from '../context/RideContext'
 import { AdBanner } from './AdBanner'
 import { NavDrawer, type DrawerRole, type DrawerSection } from './NavDrawer'
 import { AccountPanels, type AccountPanelKind, type AccountPanelInfo, type ProfileSaveValues } from './AccountPanels'
-import type { Role } from '../types'
+import { BUSINESS_TYPE_LABELS, type Role } from '../types'
 
 // matchByRole controls the "stay highlighted while role === tab.role" fallback
 // below — needed since each tab owns a distinct role. Accounting & Compliance
@@ -129,7 +129,19 @@ export function NavBar() {
   // starts with '/drive', so a prefix test put the whole Admin surface behind
   // the driver app's minimal header and hid the role tabs.
   const isDriverApp = location.pathname === '/drive' || location.pathname.startsWith('/drive/')
-  const isPharmacyApp = location.pathname.startsWith('/pharmacy')
+  // /pharmacy and /vendor are both offered as login/signup entry points for
+  // either businessType (see AuthGate's PharmacyAuth) — either route
+  // delegates to the portal that actually matches the account (see
+  // PharmacyPortalPage.tsx/VendorPortalPage.tsx), so this covers both
+  // paths. Missing the /vendor half here used to leave a Food/Vendor
+  // account with no hamburger menu and the wrong header label.
+  const isPharmacyApp = location.pathname.startsWith('/pharmacy') || location.pathname.startsWith('/vendor')
+  // The header label follows the account's actual businessType, not just
+  // the path — an account can land on /pharmacy or /vendor and still get
+  // delegated to the other portal (see the two portal pages' file
+  // comments), so a path-only check here would show the wrong label.
+  const isVendorApp =
+    currentPharmacy?.businessType === 'resto_food' || currentPharmacy?.businessType === 'other_commodity'
   const isOperatorApp = location.pathname.startsWith('/operator')
   const isFranchiseApp = location.pathname.startsWith('/franchise')
   // The rider/driver/portal shell renders a navy header; Admin's full-nav
@@ -360,7 +372,11 @@ export function NavBar() {
         onClose={() => setDrawerOpen(false)}
         role={panelInfo.role}
         name={panelInfo.name}
-        roleLabel={DRAWER_ROLE_LABELS[panelInfo.role]}
+        roleLabel={
+          panelInfo.role === 'pharmacy' && currentPharmacy
+            ? BUSINESS_TYPE_LABELS[currentPharmacy.businessType]
+            : DRAWER_ROLE_LABELS[panelInfo.role]
+        }
         verifiedLabel={panelInfo.role === 'driver' && panelInfo.verificationStatus === 'approved' ? '✓ Verified Driver' : null}
         driverOnline={currentDriver?.online ?? false}
         onToggleOnline={() => currentDriver && setDriverOnline(currentDriver.id, !currentDriver.online)}
@@ -405,7 +421,9 @@ export function NavBar() {
                 : isDriverApp
                   ? 'Driver'
                   : isPharmacyApp
-                    ? '🏪 Pharmacy/Store Portal'
+                    ? isVendorApp
+                      ? '🍽️ Food/Vendor Portal'
+                      : '🏪 Pharmacy/Store Portal'
                     : isOperatorApp
                       ? '🏢 Operator Portal'
                       : '🗺️ Franchise Portal'}

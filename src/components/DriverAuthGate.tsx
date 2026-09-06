@@ -631,7 +631,11 @@ function LoginForm({
 
   return (
     <div className="space-y-3">
-      <div>
+      {/* Own small card rather than plain text on the page — this renders on
+          a light page from DriverPage's own re-auth fallback but a dark blue
+          one from AuthGate's login flow (see LegacyAuthGate), and a bordered
+          white card reads against either. */}
+      <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-700">Driver login</h2>
         <p className="mt-1 text-xs text-slate-500">
           Access is exclusive to your own driver account — no list of other drivers is shown.

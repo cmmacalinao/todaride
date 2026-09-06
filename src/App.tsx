@@ -50,6 +50,8 @@ const AccountingPage = lazy(() => import('./pages/AccountingPage').then((m) => (
 const IncomePromotionPage = lazy(() => import('./pages/IncomePromotionPage').then((m) => ({ default: m.IncomePromotionPage })))
 const MedsRideBookingPage = lazy(() => import('./pages/MedsRideBookingPage').then((m) => ({ default: m.MedsRideBookingPage })))
 const PharmacyPortalPage = lazy(() => import('./pages/PharmacyPortalPage').then((m) => ({ default: m.PharmacyPortalPage })))
+const VendorPortalPage = lazy(() => import('./pages/VendorPortalPage').then((m) => ({ default: m.VendorPortalPage })))
+const VendorPublicPage = lazy(() => import('./pages/VendorPublicPage').then((m) => ({ default: m.VendorPublicPage })))
 const OperatorPortalPage = lazy(() => import('./pages/OperatorPortalPage').then((m) => ({ default: m.OperatorPortalPage })))
 const FranchisePage = lazy(() => import('./pages/FranchisePage').then((m) => ({ default: m.FranchisePage })))
 
@@ -193,7 +195,9 @@ function AppShell() {
   // starts with '/drive', so a prefix test put the whole Admin surface behind
   // the driver app's minimal header and hid the role tabs.
   const isDriverApp = location.pathname === '/drive' || location.pathname.startsWith('/drive/')
-  const isPharmacyApp = location.pathname.startsWith('/pharmacy') || location.pathname.startsWith('/vendor')
+  const isPharmacyApp =
+    location.pathname.startsWith('/pharmacy') ||
+    location.pathname.startsWith('/vendor')
   const isOperatorApp = location.pathname.startsWith('/operator')
   const isFranchiseApp = location.pathname.startsWith('/franchise')
 
@@ -212,7 +216,12 @@ function AppShell() {
   if (isDriverRole && location.pathname !== '/drive' && !isDevBench) {
     return <Navigate to="/drive" replace />
   }
-  if (isPharmacyRole && location.pathname !== '/pharmacy' && !isDevBench) {
+  // isPharmacyApp (not an exact '/pharmacy' match) so a pharmacy-role
+  // account can also reach /vendor and its own /vendor-page/:pharmacyId —
+  // an exact match here used to bounce both straight back to /pharmacy,
+  // silently (both routes render the same PharmacyPortalPage, so the
+  // redirect was invisible) and made /vendor-page unreachable outright.
+  if (isPharmacyRole && !isPharmacyApp && !isDevBench) {
     return <Navigate to="/pharmacy" replace />
   }
   if (isOperatorAdminRole && location.pathname !== '/operator' && !isDevBench) {
@@ -275,9 +284,19 @@ function AppShell() {
           <Route path="/book/meds/:orderId" element={<MedsRideBookingPage />} />
           <Route path="/drive" element={<DriverPage />} />
           <Route path="/pharmacy" element={<PharmacyPortalPage />} />
-          {/* Same portal as /pharmacy — the split exists only so the
-              sign-up form can offer the right business categories. */}
-          <Route path="/vendor" element={<PharmacyPortalPage />} />
+          {/* Its own portal component (VendorPortalPage.tsx), not just a
+              second route to the same page — Pharmacy/Store and Registered
+              Vendor (resto_food/other_commodity) accounts have different
+              enough flows (quote-per-order vs. a priced menu with straight
+              accept/decline) that sharing one file was making "Pharmacy"
+              and "Vendor" naming bleed into each other. Either portal
+              delegates to the other if the logged-in account's businessType
+              doesn't match, so it doesn't matter which of /pharmacy or
+              /vendor an account actually logs in through. */}
+          <Route path="/vendor" element={<VendorPortalPage />} />
+          {/* The vendor's own page as a real, revisitable route — see "🏪 My
+              Vendor Page" in VendorPortalPage.tsx. */}
+          <Route path="/vendor-page/:pharmacyId" element={<VendorPublicPage />} />
           <Route path="/operator" element={<OperatorPortalPage />} />
           <Route path="/franchise" element={<FranchisePage />} />
           {/* Original full-nav system — the internal/operations view where

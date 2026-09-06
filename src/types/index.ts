@@ -271,6 +271,37 @@ export interface MedicineProduct {
   category: MedicineCategory
   price: number
   inStock: boolean
+  // Registered Vendor menu items only (businessType 'resto_food' /
+  // 'other_commodity') — groups a vendor's own menu the way `category`
+  // groups a pharmacy's (OTC/Rx/Restricted doesn't fit a dish), e.g. "Rice
+  // meals", "Drinks", "Bestsellers". Freeform since it differs per vendor.
+  // Optional/nullable so every existing MedicineProduct literal stays valid.
+  menuCategory?: string | null
+  // A photo of the dish/item, same data: URL shape as every other
+  // admin-uploaded image in this app. Null/undefined shows a placeholder.
+  photoDataUrl?: string | null
+  // Registered Vendor menu items only — a short blurb shown under the name
+  // on the storefront (see VendorStorefront.tsx), e.g. "Classic Filipino
+  // adobo, tender and flavorful." Optional/nullable, same reasoning as
+  // menuCategory/photoDataUrl above.
+  description?: string | null
+  // Registered Vendor menu items only — an optional highlight tag shown
+  // next to the category pill on the storefront (see MENU_ITEM_BADGES
+  // below). Null/undefined shows no badge.
+  badge?: MenuItemBadge | null
+}
+
+// A menu item's optional highlight tag — purely cosmetic, vendor-picked, no
+// effect on ordering/pricing logic. Shared between VendorStorefront.tsx
+// (display) and VendorMenuManager.tsx (the picker) so both agree on the
+// same set of options and styling.
+export type MenuItemBadge = 'best_seller' | 'popular' | 'must_try' | 'favorite'
+
+export const MENU_ITEM_BADGES: Record<MenuItemBadge, { label: string; icon: string; className: string }> = {
+  best_seller: { label: 'Best Seller', icon: '⭐', className: 'bg-amber-100 text-amber-700' },
+  popular: { label: 'Popular', icon: '🔥', className: 'bg-rose-100 text-rose-700' },
+  must_try: { label: 'Must Try', icon: '👍', className: 'bg-emerald-100 text-emerald-700' },
+  favorite: { label: 'Favorite', icon: '❤️', className: 'bg-pink-100 text-pink-700' },
 }
 
 // 'pharmacy' gets the full TODARIDE MEDS catalog/quote pipeline (this
@@ -397,6 +428,22 @@ export interface Pharmacy {
   paymentDetail?: string | null
   password?: string | null
   emergencyContact?: string | null
+  // Registered Vendor page customization (see VendorStorefront.tsx) — a
+  // vendor's own cover photo and logo, shown in place of the generic themed
+  // gradient banner and businessType emoji once set. Optional/nullable so
+  // every existing Pharmacy literal (and every pharmacy/store account that
+  // never customizes) stays valid and falls back to the generic look.
+  coverPhotoDataUrl?: string | null
+  logoDataUrl?: string | null
+  // A named preset from VENDOR_THEME_COLORS (see VendorStorefront.tsx) that
+  // overrides the businessType-derived gradient — lets a vendor pick their
+  // own accent instead of being stuck with whatever their category defaults
+  // to. Null/undefined falls back to that businessType default.
+  themeColor?: string | null
+  // A short line shown under the vendor's name on the storefront banner
+  // (see VendorStorefront.tsx), e.g. "Lutong Bahay, Everyday!" — purely
+  // cosmetic, same optional/nullable reasoning as the branding fields above.
+  tagline?: string | null
 }
 
 // Full lifecycle: pending_confirmation (customer asked for a quote) →
@@ -486,6 +533,18 @@ export interface MedsOrder {
   // instructions. Kept on the order itself (not the eventual Ride) since it
   // starts as soon as a quote is requested, before any driver exists.
   messages: OrderMessage[]
+  // A number to reach the customer about this specific order — captured at
+  // checkout rather than always trusted to be the account's own phone (a
+  // guest booking, or just a better number to reach them on right now).
+  // Optional/nullable so every existing MedsOrder literal stays valid.
+  contactPhone?: string | null
+  // True when every item's price came straight from the vendor's own priced
+  // menu (see the Registered Vendor tab) rather than a customer's own
+  // estimate awaiting a pharmacy's quote. Skips the quote step entirely —
+  // the vendor accepts (or declines) the order as placed instead of pricing
+  // it first (see VENDOR_ACCEPT_MENU_ORDER). Optional/undefined reads as
+  // false, same as every pre-existing pharmacy quote order.
+  pricedFromMenu?: boolean
 }
 
 export interface OrderMessage {

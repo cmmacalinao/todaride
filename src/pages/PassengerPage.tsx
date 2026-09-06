@@ -48,6 +48,7 @@ import { LocationMapPicker } from '../components/LocationMapPicker'
 import type { SheetSnap } from '../components/BottomSheet'
 import type { MapPoint } from '../components/RealLiveMap'
 import { MedsBooking } from '../components/MedsBooking'
+import { VendorMenuBooking } from '../components/VendorMenuBooking'
 import { EmergencyHotlines } from '../components/EmergencyHotlines'
 import { PabiliItemsInput } from '../components/PabiliItemsInput'
 import { makeGuestPassengerId, useGuestRider } from '../components/GuestRiderFields'
@@ -469,6 +470,12 @@ export function PassengerPage() {
 
   const isPabili = serviceType === 'pabili'
   const isBuyMedicine = serviceType === 'buy_medicine'
+  // The Food tile (see chooseErrand) sets foodHinted and otherwise falls
+  // back to plain freeform Pabili — but with a partner vendor's own priced
+  // menu available (see VendorMenuBooking), that fallback only applies
+  // while vendorsEnabled is off. Same self-contained-flow shape as Buy
+  // Medicine below: none of the shared Ride/Pabili JSX renders for it either.
+  const showVendorMenu = isPabili && foodHinted && vendorsEnabled
   // Buy Medicine has its own self-contained flow (MedsBooking) with a
   // completely different shape (cart, pharmacy confirmation) — none of the
   // shared Ride/Pabili JSX below (address forms, fare breakdown, submit
@@ -2315,11 +2322,11 @@ export function PassengerPage() {
           on the booking tab — Rewards and Emergency have nothing to address. */}
       {/* In map-first booking this card lives at the top of the sheet over
           the map (see sharedMap's sheetHeader), so it is not repeated here. */}
-      {pageTab === 'book' && !mapFirstBooking && !isBuyMedicine && (!isPabili || showErrandBooking) && (
+      {pageTab === 'book' && !mapFirstBooking && !isBuyMedicine && !showVendorMenu && (!isPabili || showErrandBooking) && (
         addressCard(true)
       )}
 
-      {foodHinted && pageTab === 'book' && (
+      {foodHinted && pageTab === 'book' && !vendorsEnabled && (
         <p className="rounded-lg bg-gold-50 p-2.5 text-[11px] leading-relaxed text-slate-600">
           🍽️ Ordering from a partner resto menu is not live yet. For now this books a{' '}
           <span className="font-semibold">Pabili</span> — name the resto and what you want below, and your driver
@@ -2390,10 +2397,15 @@ export function PassengerPage() {
               two mode cards and the errand tiles at the top of the page now
               make that choice, and two competing switches for one piece of
               state is how people end up in a mode they did not pick. */}
-          {isPabili && (
+          {isPabili && !showVendorMenu && (
             <p className="text-xs text-slate-500">
               Tell your driver what to buy — food, groceries, medicine, anything from a nearby store — and they'll
               pick it up and deliver it to you.
+            </p>
+          )}
+          {showVendorMenu && (
+            <p className="text-xs text-slate-500">
+              Order straight from a partner vendor's own priced menu — no need to tell your driver what to buy.
             </p>
           )}
           {isBuyMedicine && (
@@ -2404,10 +2416,12 @@ export function PassengerPage() {
 
           {/* Buy Medicine has no "who is this for?" step — a pharmacy order
               is always the logged-in customer's, and the two fulfilment tabs
-              take this slot instead (see MedsBooking). Ride and Pabili keep
-              it, since booking those for a relative or neighbour is common. */}
+              take this slot instead (see MedsBooking). Registered Vendor has
+              none either, same reason (see VendorMenuBooking). Ride and
+              freeform Pabili keep it, since booking those for a relative or
+              neighbour is common. */}
 
-          {isPabili && !showOrderBox && (
+          {isPabili && !showVendorMenu && !showOrderBox && (
             <button
               type="button"
               onClick={() => setShowOrderBox(true)}
@@ -2417,7 +2431,7 @@ export function PassengerPage() {
             </button>
           )}
 
-          {isPabili && showOrderBox && (
+          {isPabili && !showVendorMenu && showOrderBox && (
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold text-slate-600">🧾 Your order</span>
               <button
@@ -2430,11 +2444,11 @@ export function PassengerPage() {
             </div>
           )}
 
-          {isPabili && showOrderBox && (
+          {isPabili && !showVendorMenu && showOrderBox && (
             <PabiliItemsInput key={pabiliItemsResetKey} value={pabiliItems} onChange={setPabiliItems} />
           )}
 
-          {isPabili && !showErrandBooking && (
+          {isPabili && !showVendorMenu && !showErrandBooking && (
             <button
               type="button"
               disabled={pabiliItems.trim().length === 0}
@@ -2457,12 +2471,12 @@ export function PassengerPage() {
               📍 Add Buy Near to and Deliver to Location
             </button>
           )}
-          {isPabili && !showErrandBooking && pabiliItems.trim().length === 0 && (
+          {isPabili && !showVendorMenu && !showErrandBooking && pabiliItems.trim().length === 0 && (
             <p className="text-center text-[11px] text-slate-400">Create your order first.</p>
           )}
 
 
-          {isPabili && showOrderBox && (
+          {isPabili && !showVendorMenu && showOrderBox && (
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-500">Store / establishment (optional)</label>
               <input
@@ -2486,6 +2500,16 @@ export function PassengerPage() {
               defaultCity={DEFAULT_BOOKING_CITY}
               defaultBarangay={DEFAULT_BOOKING_BARANGAY}
               defaultAddressDetail={DEFAULT_BOOKING_ADDRESS_DETAIL}
+            />
+          ) : showVendorMenu ? (
+            <VendorMenuBooking
+              customerId={isGuestBooking ? guestCustomerId : passenger.id}
+              customerName={isGuestBooking ? guestRider.otherName.trim() || 'them' : passenger.name}
+              defaultProvince={DEFAULT_BOOKING_PROVINCE}
+              defaultCity={DEFAULT_BOOKING_CITY}
+              defaultBarangay={DEFAULT_BOOKING_BARANGAY}
+              defaultAddressDetail={DEFAULT_BOOKING_ADDRESS_DETAIL}
+              defaultContactPhone={isGuestBooking ? null : passenger.phone}
             />
           ) : (
           <>

@@ -161,7 +161,7 @@ export function RoleChooserPage() {
               <span className="text-2xl leading-none">🏪</span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold text-gold-400">
-                  Pharmacy/Food/Vendors — Partner with us
+                  {vendorsEnabled ? 'Food/Vendors — Partner with us' : 'Pharmacy — Partner with us'}
                 </span>
                 <span className="mt-0.5 block text-[11px] text-white/60">
                   {mode === 'signup'

@@ -148,19 +148,42 @@ export function LegacyAuthGate() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname])
 
+  const isBusinessRole = role === 'pharmacy' || role === 'vendor'
+
   return (
-    <div>
-      <div className="mx-auto max-w-lg px-4 pt-6">
+    // Same royal-blue-to-navy diagonal as the landing/role-chooser screens
+    // (see RoleChooserPage.tsx) — every role-scoped login/signup form below
+    // already renders its own bordered white card (IdentifierLoginForm,
+    // PharmacyAuth, DriverAuthGate's sections, ...), so it drops onto this
+    // backdrop unchanged; only this shared header/chrome needed recoloring.
+    <div
+      className="relative min-h-[calc(100vh-50px)] overflow-hidden"
+      style={{ backgroundImage: 'linear-gradient(135deg, #3e6fe4 0%, #0a1529 60%, #0a1529 100%)' }}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.08]"
+        style={{
+          backgroundImage: 'repeating-linear-gradient(-45deg, white 0, white 2px, transparent 2px, transparent 18px)',
+        }}
+      />
+      <div className="relative mx-auto max-w-lg px-4 pt-6">
         <div className="mb-6 flex flex-col items-center text-center">
           <button
             type="button"
             onClick={() => navigate('/')}
             aria-label="Back to home"
           >
-            <img src="/logo.webp" alt="TODA SafeRide" className="h-16 w-auto object-contain" />
+            <img
+            src="/logo.webp"
+            alt="TODA SafeRide"
+            className={isBusinessRole ? 'h-28 w-auto object-contain' : 'h-16 w-auto object-contain'}
+          />
           </button>
-          <p className="mt-3 text-sm font-semibold text-slate-700">Log in or sign up to continue</p>
-          <span className="mt-1 rounded-full bg-slate-100 px-2 py-1 text-[11px] text-slate-500">
+          <p className="mt-3 text-sm font-semibold text-white">
+            {isBusinessRole ? `${ROLE_LABELS[role]} account` : 'Log in or sign up to continue'}
+          </p>
+          <span className="mt-1 rounded-full bg-white/10 px-2 py-1 text-[11px] text-white/60">
             Prototype · Simulated data
           </span>
         </div>
@@ -172,14 +195,14 @@ export function LegacyAuthGate() {
         {(role === 'passenger' || role === 'parent') && <SubTabs mode={authMode} setMode={setAuthMode} />}
 
         {showTabs && (
-          <div className="mb-4 flex gap-1 rounded-lg bg-slate-100 p-1">
+          <div className="mb-4 flex gap-1 rounded-lg bg-white/5 p-1">
             {allowedRoles.map((r) => (
               <button
                 key={r}
                 type="button"
                 onClick={() => setRole(r)}
                 className={`flex-1 rounded-md py-2 text-xs font-medium transition ${
-                  role === r ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500'
+                  role === r ? 'bg-gold-400 text-navy-900 shadow-sm' : 'text-white/60'
                 }`}
               >
                 {ROLE_LABELS[r]}
@@ -192,7 +215,7 @@ export function LegacyAuthGate() {
       {role === 'driver' ? (
         <DriverAuth />
       ) : (
-        <div className="mx-auto max-w-lg px-4 pb-6">
+        <div className="relative mx-auto max-w-lg px-4 pb-6">
           {role === 'passenger' && <PassengerAuth mode={authMode} asStudent={searchParams.get('student') === '1'} />}
           {role === 'parent' && <ParentAuth mode={authMode} />}
           {role === 'admin' && <AdminAuth />}
@@ -206,14 +229,18 @@ export function LegacyAuthGate() {
   )
 }
 
+// Always rendered directly on LegacyAuthGate's blue page (never inside one
+// of the white auth cards), so this is gold-on-navy like RoleChooserPage's
+// own login/signup toggle rather than the light-mode brand-600 pill used
+// inside those cards.
 function SubTabs({ mode, setMode }: { mode: 'login' | 'signup'; setMode: (m: 'login' | 'signup') => void }) {
   return (
-    <div className="mb-3 flex gap-1 rounded-lg bg-slate-100 p-1">
+    <div className="mb-3 flex gap-1 rounded-lg bg-white/5 p-1">
       <button
         type="button"
         onClick={() => setMode('login')}
         className={`flex-1 rounded-md py-1.5 text-xs font-medium transition ${
-          mode === 'login' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500'
+          mode === 'login' ? 'bg-gold-400 text-navy-900 shadow-sm' : 'text-white/60'
         }`}
       >
         Log in
@@ -222,7 +249,7 @@ function SubTabs({ mode, setMode }: { mode: 'login' | 'signup'; setMode: (m: 'lo
         type="button"
         onClick={() => setMode('signup')}
         className={`flex-1 rounded-md py-1.5 text-xs font-medium transition ${
-          mode === 'signup' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500'
+          mode === 'signup' ? 'bg-gold-400 text-navy-900 shadow-sm' : 'text-white/60'
         }`}
       >
         Sign up
@@ -480,25 +507,33 @@ function PharmacyAuth({ variant = 'pharmacy' }: { variant?: 'pharmacy' | 'vendor
       {mode === 'signup' ? (
         <PharmacySignupForm onRegistered={logIntoPharmacy} variant={variant} />
       ) : (
+        // Same card/label/helper-text shape as IdentifierLoginForm (the
+        // passenger/driver/TODA login) — a name/PIN pair works there because
+        // every account is unique by name; a pharmacy/vendor's login instead
+        // needs to name a business type first, so this row of tabs plus a
+        // select stands in for that one identifier field.
         <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
           <p className="text-xs text-slate-500">
             {variant === 'vendor'
               ? 'For partner restaurants, food sellers and other vendors — no account yet? Switch to Sign up.'
               : 'For partner pharmacies and stores — no account yet? Switch to Sign up.'}
           </p>
-          <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
-            {categories.map((c) => (
-              <button
-                key={c.value}
-                type="button"
-                onClick={() => handleSelectLoginType(c.value)}
-                className={`flex-1 whitespace-nowrap rounded-md px-2 py-1.5 text-[11px] font-medium transition ${
-                  loginType === c.value ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500'
-                }`}
-              >
-                {c.icon} {c.label}
-              </button>
-            ))}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-500">What kind of business is this?</label>
+            <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
+              {categories.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => handleSelectLoginType(c.value)}
+                  className={`flex-1 whitespace-nowrap rounded-md py-1.5 text-[11px] font-medium transition ${
+                    loginType === c.value ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500'
+                  }`}
+                >
+                  {c.icon} {c.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500">
@@ -532,7 +567,8 @@ function PharmacyAuth({ variant = 'pharmacy' }: { variant?: 'pharmacy' | 'vendor
               maxLength={4}
               value={pin}
               onChange={(e) => setPin(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm tracking-widest"
+              placeholder="••••"
             />
           </div>
           {error && <p className="text-xs font-medium text-amber-700">{error}</p>}
@@ -573,6 +609,16 @@ const SIGNUP_CATEGORIES: Record<'pharmacy' | 'vendor', { value: BusinessType; ic
     },
   ],
   vendor: [
+    // Resto/Food first — this is the "Food/Vendors" entry point, so that's
+    // the category most people arriving here actually want; both variants
+    // still default to categories[0], so this also makes Resto/Food the
+    // pre-selected tab instead of Pharmacy.
+    {
+      value: 'resto_food',
+      icon: '🍽️',
+      label: 'Resto / Food',
+      blurb: 'Restaurants, carinderias, bakeries — cooked food and drinks for delivery.',
+    },
     // Listed here too because the landing button says "Pharmacy/Food/Vendors"
     // — a pharmacy that taps it would otherwise land on a form with no
     // Pharmacy option and have to find /pharmacy on its own.
@@ -581,12 +627,6 @@ const SIGNUP_CATEGORIES: Record<'pharmacy' | 'vendor', { value: BusinessType; ic
       icon: '💊',
       label: 'Pharmacy',
       blurb: 'Connects to TODARIDE MEDS — product catalog, quotes, prescriptions.',
-    },
-    {
-      value: 'resto_food',
-      icon: '🍽️',
-      label: 'Resto / Food',
-      blurb: 'Restaurants, carinderias, bakeries — cooked food and drinks for delivery.',
     },
     {
       value: 'other_commodity',
@@ -664,25 +704,23 @@ function PharmacySignupForm({
       </p>
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-500">What kind of business is this?</label>
-        {/* Column count follows the option count so three categories don't
-            leave a lone stranded card on the second row. */}
-        <div className={`grid gap-2 ${categories.length >= 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
+        <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
           {categories.map((c) => (
             <button
               key={c.value}
               type="button"
               onClick={() => setBusinessType(c.value)}
-              className={`rounded-lg border p-2.5 text-left text-xs transition ${
-                businessType === c.value ? 'border-brand-600 bg-brand-50' : 'border-slate-300 hover:bg-slate-50'
+              className={`flex-1 whitespace-nowrap rounded-md py-1.5 text-[11px] font-medium transition ${
+                businessType === c.value ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500'
               }`}
             >
-              <span className="font-medium text-slate-700">
-                {c.icon} {c.label}
-              </span>
-              <p className="mt-0.5 text-[11px] text-slate-400">{c.blurb}</p>
+              {c.icon} {c.label}
             </button>
           ))}
         </div>
+        <p className="mt-1.5 text-[11px] text-slate-400">
+          {categories.find((c) => c.value === businessType)?.blurb}
+        </p>
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-500">
@@ -730,7 +768,9 @@ function PharmacySignupForm({
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm tracking-widest"
           placeholder="••••"
         />
-        <p className="mt-1 text-[11px] text-slate-400">Use this to log in to your pharmacy portal.</p>
+        <p className="mt-1 text-[11px] text-slate-400">
+          Use this to log in to your {BUSINESS_TYPE_LABELS[businessType].toLowerCase()} portal.
+        </p>
       </div>
       {error && <p className="text-xs font-medium text-amber-700">{error}</p>}
       <button
@@ -739,7 +779,7 @@ function PharmacySignupForm({
         disabled={submitting}
         className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {submitting ? 'Registering…' : 'Register pharmacy'}
+        {submitting ? 'Registering…' : `Register ${BUSINESS_TYPE_LABELS[businessType].toLowerCase()}`}
       </button>
     </div>
   )

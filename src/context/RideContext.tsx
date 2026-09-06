@@ -63,6 +63,7 @@ import type {
   InvestorStatus,
   MedicineCategory,
   MedicineProduct,
+  MenuItemBadge,
   MembershipRequest,
   MembershipRequestType,
   MedsOrder,
@@ -140,6 +141,7 @@ import {
   MOCK_DRIVERS,
   MOCK_FRANCHISES,
   MOCK_MEDICINE_PRODUCTS,
+  MOCK_VENDOR_MENU_ITEMS,
   MOCK_OPERATORS,
   MOCK_PARENTS,
   MOCK_PARENT_LINKS,
@@ -1277,8 +1279,17 @@ type RideAction =
       prescriptionDataUrls: string[]
       paymentMethod: PaymentMethod
       deliveryMode: 'pharmacy_books' | 'self_book'
+      contactPhone?: string | null
+      pricedFromMenu?: boolean
     }
   | { type: 'PHARMACY_SEND_QUOTE'; orderId: string; items: MedsOrderItem[]; receiptDataUrl: string | null }
+  // A Registered Vendor order skips the quote round-trip entirely — its
+  // items were already priced off the vendor's own menu at checkout (see
+  // CREATE_MEDS_ORDER's pricedFromMenu). This is the vendor's one action on
+  // it: accept as placed (straight to 'confirmed', same gate
+  // PHARMACY_PROCESS_MEDS_ORDER already waits behind) or decline (see
+  // PHARMACY_REJECT_MEDS_ORDER, unchanged/shared with the quote flow).
+  | { type: 'VENDOR_ACCEPT_MENU_ORDER'; orderId: string }
   | { type: 'PHARMACY_REJECT_MEDS_ORDER'; orderId: string; reason: string }
   | { type: 'REVIEW_MEDS_PRESCRIPTION'; orderId: string; approved: boolean; reason: string | null }
   | {
@@ -1315,6 +1326,22 @@ type RideAction =
       genericName: string | null
       category: MedicineCategory
       price: number
+      menuCategory?: string | null
+      photoDataUrl?: string | null
+      description?: string | null
+      badge?: MenuItemBadge | null
+    }
+  | {
+      type: 'UPDATE_MEDICINE_PRODUCT'
+      productId: string
+      name: string
+      genericName: string | null
+      category: MedicineCategory
+      price: number
+      menuCategory: string | null
+      photoDataUrl: string | null
+      description: string | null
+      badge: MenuItemBadge | null
     }
   | {
       type: 'UPDATE_PHARMACY_PAYMENT_ACCOUNT'
@@ -1322,6 +1349,15 @@ type RideAction =
       method: 'gcash' | 'maya'
       details: PaymentAccountDetails | null
     }
+  | {
+      type: 'UPDATE_VENDOR_BRANDING'
+      pharmacyId: string
+      coverPhotoDataUrl: string | null
+      logoDataUrl: string | null
+      themeColor: string | null
+      tagline: string | null
+    }
+  | { type: 'REMOVE_MEDICINE_PRODUCT'; productId: string }
 
 interface StoredState {
   rides: Ride[]
@@ -1613,7 +1649,7 @@ function fromStored(parsed: StoredState): RideState {
     partnershipRevenue: parsed.partnershipRevenue ?? [],
     adSenseSettings: { ...DEFAULT_ADSENSE_SETTINGS, ...parsed.adSenseSettings, slots: { ...DEFAULT_ADSENSE_SETTINGS.slots, ...parsed.adSenseSettings?.slots } },
     pharmacies: parsed.pharmacies ?? MOCK_PHARMACIES,
-    medicineProducts: parsed.medicineProducts ?? MOCK_MEDICINE_PRODUCTS,
+    medicineProducts: parsed.medicineProducts ?? [...MOCK_MEDICINE_PRODUCTS, ...MOCK_VENDOR_MENU_ITEMS],
     // Older saved sessions predate the order-chat feature — default each
     // order's messages to an empty array rather than crashing on .map/.length.
     medsOrders: (parsed.medsOrders ?? []).map((o: MedsOrder) => ({ ...o, messages: o.messages ?? [] })),
@@ -1849,7 +1885,7 @@ function loadInitialState(): RideState {
     partnershipRevenue: [],
     adSenseSettings: DEFAULT_ADSENSE_SETTINGS,
     pharmacies: MOCK_PHARMACIES,
-    medicineProducts: MOCK_MEDICINE_PRODUCTS,
+    medicineProducts: [...MOCK_MEDICINE_PRODUCTS, ...MOCK_VENDOR_MENU_ITEMS],
     medsOrders: [],
     operators: MOCK_OPERATORS,
     franchises: MOCK_FRANCHISES,
@@ -4975,6 +5011,14 @@ function reducer(state: RideState, action: RideAction): RideState {
       const hasRxItem = action.items.some(
         (item) => state.medicineProducts.find((p) => p.id === item.productId)?.category === 'rx',
       )
+      const pricedFromMenu = action.pricedFromMenu ?? false
+      // A priced-from-menu order has no separate quote-accept step for the
+      // customer to pay at (see VENDOR_ACCEPT_MENU_ORDER) — an online method
+      // is simulated as paid immediately, right here, same "Prototype ·
+      // Simulated data" treatment CUSTOMER_ACCEPT_QUOTE gives a pharmacy
+      // order once its quote is accepted. A regular quote-pipeline order is
+      // unaffected: paidOnline only ever flips true there once accepted.
+      const paidOnline = pricedFromMenu && action.paymentMethod !== 'cash'
       const order: MedsOrder = {
         id: `meds-${Date.now()}`,
         customerId: action.customerId,
@@ -4995,12 +5039,14 @@ function reducer(state: RideState, action: RideAction): RideState {
         deliveryMode: action.deliveryMode,
         linkedRideId: null,
         paymentProofDataUrl: null,
-        paidOnline: false,
-        paymentReference: null,
+        paidOnline,
+        paymentReference: paidOnline ? `ONLINE-${Date.now()}` : null,
         requestedAt: new Date().toISOString(),
         quotedAt: null,
         confirmedAt: null,
         messages: [],
+        contactPhone: action.contactPhone ?? null,
+        pricedFromMenu,
       }
       return { ...state, medsOrders: [order, ...state.medsOrders] }
     }
@@ -5028,6 +5074,21 @@ function reducer(state: RideState, action: RideAction): RideState {
                 quotedAt: new Date().toISOString(),
               }
             : o,
+        ),
+      }
+    }
+    // See VENDOR_ACCEPT_MENU_ORDER's action-type comment — goes straight to
+    // 'confirmed' the same way CUSTOMER_ACCEPT_QUOTE does, but triggered by
+    // the vendor rather than the customer, since there's no quote here for a
+    // customer to accept. PHARMACY_PROCESS_MEDS_ORDER picks it up from here
+    // exactly as it would a quoted-and-accepted pharmacy order.
+    case 'VENDOR_ACCEPT_MENU_ORDER': {
+      const order = state.medsOrders.find((o) => o.id === action.orderId)
+      if (!order || order.status !== 'pending_confirmation' || !order.pricedFromMenu) return state
+      return {
+        ...state,
+        medsOrders: state.medsOrders.map((o) =>
+          o.id === action.orderId ? { ...o, status: 'confirmed', confirmedAt: new Date().toISOString() } : o,
         ),
       }
     }
@@ -5183,6 +5244,22 @@ function reducer(state: RideState, action: RideAction): RideState {
         ),
       }
     }
+    case 'UPDATE_VENDOR_BRANDING': {
+      return {
+        ...state,
+        pharmacies: state.pharmacies.map((p) =>
+          p.id === action.pharmacyId
+            ? {
+                ...p,
+                coverPhotoDataUrl: action.coverPhotoDataUrl,
+                logoDataUrl: action.logoDataUrl,
+                themeColor: action.themeColor,
+                tagline: action.tagline,
+              }
+            : p,
+        ),
+      }
+    }
     case 'ADD_MEDICINE_PRODUCT': {
       const product: MedicineProduct = {
         id: action.id,
@@ -5192,9 +5269,37 @@ function reducer(state: RideState, action: RideAction): RideState {
         category: action.category,
         price: action.price,
         inStock: true,
+        menuCategory: action.menuCategory ?? null,
+        photoDataUrl: action.photoDataUrl ?? null,
+        description: action.description ?? null,
+        badge: action.badge ?? null,
       }
       return { ...state, medicineProducts: [...state.medicineProducts, product] }
     }
+    case 'UPDATE_MEDICINE_PRODUCT':
+      return {
+        ...state,
+        medicineProducts: state.medicineProducts.map((p) =>
+          p.id === action.productId
+            ? {
+                ...p,
+                name: action.name,
+                genericName: action.genericName,
+                category: action.category,
+                price: action.price,
+                menuCategory: action.menuCategory,
+                photoDataUrl: action.photoDataUrl,
+                description: action.description,
+                badge: action.badge,
+              }
+            : p,
+        ),
+      }
+    case 'REMOVE_MEDICINE_PRODUCT':
+      return {
+        ...state,
+        medicineProducts: state.medicineProducts.filter((p) => p.id !== action.productId),
+      }
     case 'TOGGLE_MEDICINE_PRODUCT_STOCK':
       return {
         ...state,
@@ -5968,8 +6073,11 @@ interface RideContextValue extends RideState {
     prescriptionDataUrls: string[]
     paymentMethod: PaymentMethod
     deliveryMode: 'pharmacy_books' | 'self_book'
+    contactPhone?: string | null
+    pricedFromMenu?: boolean
   }) => void
   sendMedsQuote: (orderId: string, items: MedsOrderItem[], receiptDataUrl: string | null) => void
+  vendorAcceptMenuOrder: (orderId: string) => void
   rejectMedsOrder: (orderId: string, reason: string) => void
   reviewMedsPrescription: (orderId: string, approved: boolean, reason: string | null) => void
   acceptMedsQuote: (
@@ -6001,8 +6109,31 @@ interface RideContextValue extends RideState {
     genericName: string | null
     category: MedicineCategory
     price: number
+    menuCategory?: string | null
+    photoDataUrl?: string | null
+    description?: string | null
+    badge?: MenuItemBadge | null
   }) => void
+  updateMedicineProduct: (args: {
+    productId: string
+    name: string
+    genericName: string | null
+    category: MedicineCategory
+    price: number
+    menuCategory: string | null
+    photoDataUrl: string | null
+    description: string | null
+    badge: MenuItemBadge | null
+  }) => void
+  removeMedicineProduct: (productId: string) => void
   updatePharmacyPaymentAccount: (pharmacyId: string, method: 'gcash' | 'maya', details: PaymentAccountDetails | null) => void
+  updateVendorBranding: (args: {
+    pharmacyId: string
+    coverPhotoDataUrl: string | null
+    logoDataUrl: string | null
+    themeColor: string | null
+    tagline: string | null
+  }) => void
 }
 
 const RideContext = createContext<RideContextValue | null>(null)
@@ -6771,6 +6902,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setAdSenseSettings: (settings) => dispatch({ type: 'SET_ADSENSE_SETTINGS', settings }),
     createMedsOrder: (args) => dispatch({ type: 'CREATE_MEDS_ORDER', ...args }),
     sendMedsQuote: (orderId, items, receiptDataUrl) => dispatch({ type: 'PHARMACY_SEND_QUOTE', orderId, items, receiptDataUrl }),
+    vendorAcceptMenuOrder: (orderId) => dispatch({ type: 'VENDOR_ACCEPT_MENU_ORDER', orderId }),
     rejectMedsOrder: (orderId, reason) => dispatch({ type: 'PHARMACY_REJECT_MEDS_ORDER', orderId, reason }),
     reviewMedsPrescription: (orderId, approved, reason) =>
       dispatch({ type: 'REVIEW_MEDS_PRESCRIPTION', orderId, approved, reason }),
@@ -6790,8 +6922,11 @@ export function RideProvider({ children }: { children: ReactNode }) {
       const id = `med-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
       dispatch({ type: 'ADD_MEDICINE_PRODUCT', id, ...args })
     },
+    updateMedicineProduct: (args) => dispatch({ type: 'UPDATE_MEDICINE_PRODUCT', ...args }),
+    removeMedicineProduct: (productId) => dispatch({ type: 'REMOVE_MEDICINE_PRODUCT', productId }),
     updatePharmacyPaymentAccount: (pharmacyId, method, details) =>
       dispatch({ type: 'UPDATE_PHARMACY_PAYMENT_ACCOUNT', pharmacyId, method, details }),
+    updateVendorBranding: (args) => dispatch({ type: 'UPDATE_VENDOR_BRANDING', ...args }),
   }
 
   return <RideContext.Provider value={value}>{children}</RideContext.Provider>

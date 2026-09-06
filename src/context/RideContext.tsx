@@ -1305,6 +1305,11 @@ type RideAction =
   // PHARMACY_PROCESS_MEDS_ORDER already waits behind) or decline (see
   // PHARMACY_REJECT_MEDS_ORDER, unchanged/shared with the quote flow).
   | { type: 'VENDOR_ACCEPT_MENU_ORDER'; orderId: string }
+  // The vendor's answer to a new order: the goods as ordered plus the rider
+  // fee they are quoting for this delivery, sent back for the customer to
+  // approve (and pay, unless cash on delivery) before anything is cooked —
+  // see CUSTOMER_ACCEPT_QUOTE.
+  | { type: 'VENDOR_SEND_QUOTE'; orderId: string; deliveryFee: number }
   | { type: 'PHARMACY_REJECT_MEDS_ORDER'; orderId: string; reason: string }
   | { type: 'REVIEW_MEDS_PRESCRIPTION'; orderId: string; approved: boolean; reason: string | null }
   | {
@@ -5187,6 +5192,25 @@ function reducer(state: RideState, action: RideAction): RideState {
         }),
       }
     }
+    case 'VENDOR_SEND_QUOTE': {
+      const order = state.medsOrders.find((o) => o.id === action.orderId)
+      if (!order || order.status !== 'pending_confirmation' || !order.pricedFromMenu) return state
+      const deliveryFee = Math.max(0, Math.round(action.deliveryFee))
+      return {
+        ...state,
+        medsOrders: state.medsOrders.map((o) =>
+          o.id === action.orderId
+            ? {
+                ...o,
+                deliveryFee,
+                total: o.subtotal + deliveryFee + o.serviceFee,
+                status: 'quoted',
+                quotedAt: new Date().toISOString(),
+              }
+            : o,
+        ),
+      }
+    }
     case 'PHARMACY_REJECT_MEDS_ORDER':
       return {
         ...state,
@@ -5245,8 +5269,21 @@ function reducer(state: RideState, action: RideAction): RideState {
       const order = state.medsOrders.find((o) => o.id === action.orderId)
       if (!order || order.status !== 'quoted') return state
       const paidOnline = action.paymentMethod !== 'cash'
+      // A vendor order draws down today's servings the moment the customer
+      // approves — that is when the kitchen starts on it (see
+      // MedicineProduct.stockCount; the same draw-down VENDOR_ACCEPT_MENU_ORDER
+      // does for the quote-less path).
+      const orderedQtyByProduct = order.pricedFromMenu ? new Map(order.items.map((item) => [item.productId, item.quantity])) : null
       return {
         ...state,
+        medicineProducts: orderedQtyByProduct
+          ? state.medicineProducts.map((p) => {
+              const qty = orderedQtyByProduct.get(p.id)
+              if (!qty || p.stockCount == null) return p
+              const remaining = Math.max(0, p.stockCount - qty)
+              return { ...p, stockCount: remaining, inStock: remaining > 0 ? p.inStock : false }
+            })
+          : state.medicineProducts,
         medsOrders: state.medsOrders.map((o) =>
           o.id === action.orderId
             ? {
@@ -6364,6 +6401,7 @@ interface RideContextValue extends RideState {
   }) => void
   sendMedsQuote: (orderId: string, items: MedsOrderItem[], receiptDataUrl: string | null) => void
   vendorAcceptMenuOrder: (orderId: string) => void
+  vendorSendQuote: (orderId: string, deliveryFee: number) => void
   rejectMedsOrder: (orderId: string, reason: string) => void
   reviewMedsPrescription: (orderId: string, approved: boolean, reason: string | null) => void
   acceptMedsQuote: (
@@ -7222,6 +7260,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     createMedsOrder: (args) => dispatch({ type: 'CREATE_MEDS_ORDER', ...args }),
     sendMedsQuote: (orderId, items, receiptDataUrl) => dispatch({ type: 'PHARMACY_SEND_QUOTE', orderId, items, receiptDataUrl }),
     vendorAcceptMenuOrder: (orderId) => dispatch({ type: 'VENDOR_ACCEPT_MENU_ORDER', orderId }),
+    vendorSendQuote: (orderId, deliveryFee) => dispatch({ type: 'VENDOR_SEND_QUOTE', orderId, deliveryFee }),
     rejectMedsOrder: (orderId, reason) => dispatch({ type: 'PHARMACY_REJECT_MEDS_ORDER', orderId, reason }),
     reviewMedsPrescription: (orderId, approved, reason) =>
       dispatch({ type: 'REVIEW_MEDS_PRESCRIPTION', orderId, approved, reason }),

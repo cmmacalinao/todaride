@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { DEFAULT_MEDS_DELIVERY_FEE, DEFAULT_MEDS_SERVICE_FEE, PAYMENT_METHODS } from '../mock/data'
+import { DocumentUploadField } from './DocumentUploadField'
 import { resolvePhAddress, type PhAddressTags } from '../lib/customLocation'
 import { BarangayAddressPicker } from './BarangayAddressPicker'
 import { DeliveryMapPicker } from './DeliveryMapPicker'
@@ -10,7 +11,7 @@ import { OrderStatusStrip } from './OrderStatusStrip'
 import { OrderChat } from './OrderChat'
 import { TripMonitor } from './TripMonitor'
 import { VendorFeatureCard, VendorStorefront } from './VendorStorefront'
-import type { BusinessType, MedicineProduct, MedsOrder, MockLocation, Pharmacy } from '../types'
+import type { BusinessType, MedicineProduct, MedsOrder, MockLocation, PaymentMethod, Pharmacy } from '../types'
 
 const VENDOR_BUSINESS_TYPES: BusinessType[] = ['resto_food', 'other_commodity']
 
@@ -21,7 +22,10 @@ const VENDOR_TYPE_ICONS: Record<string, string> = {
 
 // An order still counts as "in flight" at any pre-terminal status — same
 // rule MedsBooking's activeOrder uses.
-const ACTIVE_STATUSES = new Set(['pending_confirmation', 'confirmed'])
+// 'quoted' is the step that needs the customer most — the quotation is
+// waiting for their approval (and payment) — so it must surface as the
+// active card, not sit in the list below.
+const ACTIVE_STATUSES = new Set(['pending_confirmation', 'quoted', 'confirmed', 'ready_for_pickup'])
 
 // Registered Vendor — browse a partner vendor's own priced menu (food,
 // dry goods, whatever they registered to sell), build a cart, and check
@@ -84,9 +88,10 @@ export function VendorMenuBooking({
   // True once the delivery point came from the map or the phone — an exact
   // spot the picker should treat as settled rather than ask a landmark for.
   const [deliveryPinned, setDeliveryPinned] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'gcash'>('cash')
   const [dismissedOrderIds, setDismissedOrderIds] = useState<Set<string>>(new Set())
-  const [showHistory, setShowHistory] = useState(false)
+  // Open by default: the order log is the record of what was sent and where
+  // each one is, and a customer with an order out wants it in view.
+  const [showHistory, setShowHistory] = useState(true)
 
   const myOrders = medsOrders.filter((o) => o.customerId === customerId && o.pricedFromMenu)
   const activeOrder = myOrders.find((o) => {
@@ -180,9 +185,12 @@ export function VendorMenuBooking({
       })),
       deliveryAddress,
       prescriptionDataUrls: [],
-      paymentMethod,
-      // The vendor dispatches once they accept — see VENDOR_ACCEPT_MENU_ORDER
-      // and PHARMACY_PROCESS_MEDS_ORDER — not a "book your own ride" order.
+      // Decided when the customer approves the vendor's quotation (cash on
+      // delivery, or paid online first) — see ActiveVendorOrderCard and
+      // CUSTOMER_ACCEPT_QUOTE. 'cash' here only means "not paid yet".
+      paymentMethod: 'cash',
+      // The vendor books the rider once the order is approved — see
+      // PHARMACY_PROCESS_MEDS_ORDER — not a "book your own ride" order.
       deliveryMode: 'pharmacy_books',
       contactPhone: contactPhone.trim(),
       pricedFromMenu: true,
@@ -318,7 +326,7 @@ export function VendorMenuBooking({
               </div>
             ))}
             <div className="flex items-center justify-between border-t border-slate-100 pt-1 text-slate-500">
-              <span>Delivery fee</span>
+              <span>Rider fee (estimate — confirmed in the quotation)</span>
               <span>₱{DEFAULT_MEDS_DELIVERY_FEE}</span>
             </div>
             <div className="flex items-center justify-between text-slate-500">
@@ -326,7 +334,7 @@ export function VendorMenuBooking({
               <span>₱{DEFAULT_MEDS_SERVICE_FEE}</span>
             </div>
             <div className="flex items-center justify-between border-t border-slate-200 pt-1 font-semibold text-slate-800">
-              <span>Total</span>
+              <span>Estimated total</span>
               <span>₱{total}</span>
             </div>
           </div>
@@ -363,28 +371,11 @@ export function VendorMenuBooking({
             />
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Payment method</label>
-            <div className="grid grid-cols-2 gap-2">
-              {PAYMENT_METHODS.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setPaymentMethod(m.id as 'cash' | 'gcash')}
-                  className={`rounded-lg border py-2 text-xs font-medium transition ${
-                    paymentMethod === m.id ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-            <p className="mt-1 text-[11px] text-slate-400">
-              {paymentMethod === 'cash'
-                ? 'Pay the driver in cash on delivery.'
-                : 'Charged now — simulated for this prototype, no real gateway.'}
-            </p>
-          </div>
+          <p className="rounded-lg bg-slate-50 p-2.5 text-[11px] text-slate-500">
+            Nothing is charged yet. {selectedVendor.name} will confirm the rider fee and send you the final quotation —
+            you approve it and choose <span className="font-semibold">cash on delivery</span> or{' '}
+            <span className="font-semibold">pay online</span> before they start preparing.
+          </p>
 
           <button
             type="button"
@@ -392,7 +383,7 @@ export function VendorMenuBooking({
             disabled={!canPlaceOrder}
             className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            Place order — ₱{total}
+            Send order — about ₱{total}
           </button>
         </div>
       )}
@@ -424,7 +415,7 @@ export function VendorMenuBooking({
                     {new Date(order.requestedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </p>
                   <div className="mt-2">
-                    <OrderStatusStrip order={order} ride={rides.find((r) => r.id === order.linkedRideId)} />
+                    <OrderStatusStrip order={order} ride={rides.find((r) => r.id === order.linkedRideId)} viewer="customer" />
                   </div>
                   {order.status === 'dispatched' && (
                     <button
@@ -463,9 +454,16 @@ function ActiveVendorOrderCard({
   onCancel: () => void
   onDismiss: () => void
 }) {
-  const { rides, pharmacies, sendMedsOrderMessage } = useRides()
+  const { rides, pharmacies, sendMedsOrderMessage, acceptMedsQuote } = useRides()
   const linkedRide = order.linkedRideId ? rides.find((r) => r.id === order.linkedRideId) : null
   const vendor: Pharmacy | undefined = pharmacies.find((p) => p.id === order.pharmacyId)
+  // How the customer settles the quotation: cash on delivery is the default
+  // in a carinderia's world; online means paying the vendor's own GCash/Maya
+  // first (their account and QR are shown), with an optional screenshot.
+  const [payMethod, setPayMethod] = useState<PaymentMethod>('cash')
+  const [paymentProofDataUrl, setPaymentProofDataUrl] = useState<string | null>(null)
+  const payoutAccount = payMethod === 'gcash' ? vendor?.gcashAccount : payMethod === 'maya' ? vendor?.mayaAccount : null
+  const canApprove = payMethod === 'cash' || payMethod === 'card' || !!payoutAccount
 
   if (linkedRide) {
     return (
@@ -481,21 +479,129 @@ function ActiveVendorOrderCard({
     )
   }
 
+  // The vendor's quotation: the goods as ordered plus the rider fee they
+  // confirmed. Approving it is what starts the cooking — and, unless it is
+  // cash on delivery, the payment happens here first.
+  if (order.status === 'quoted') {
+    return (
+      <div className="space-y-2.5 rounded-xl border border-brand-200 bg-brand-50 p-4">
+        <OrderStatusStrip order={order} ride={undefined} viewer="customer" />
+        <p className="text-sm font-semibold text-brand-800">📄 {vendor?.name ?? 'The vendor'} sent your quotation — approve to start</p>
+        <div className="space-y-1 rounded-lg bg-white p-2.5 text-xs">
+          {order.items.map((item, i) => (
+            <div key={`${item.productId}-${i}`} className="flex items-center justify-between">
+              <span>
+                {item.quantity}x {item.name}
+              </span>
+              <span className="font-medium text-slate-700">₱{item.unitPrice * item.quantity}</span>
+            </div>
+          ))}
+          <div className="flex items-center justify-between border-t border-slate-100 pt-1 text-slate-500">
+            <span>Goods</span>
+            <span>₱{order.subtotal}</span>
+          </div>
+          <div className="flex items-center justify-between text-slate-500">
+            <span>Rider fee (delivery)</span>
+            <span>₱{order.deliveryFee}</span>
+          </div>
+          <div className="flex items-center justify-between text-slate-500">
+            <span>Service fee</span>
+            <span>₱{order.serviceFee}</span>
+          </div>
+          <div className="flex items-center justify-between border-t border-slate-200 pt-1 font-semibold text-slate-800">
+            <span>Total</span>
+            <span>₱{order.total}</span>
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-500">How will you pay?</label>
+          <div className="grid grid-cols-3 gap-2">
+            {PAYMENT_METHODS.filter((m) => m.id !== 'card').map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setPayMethod(m.id)}
+                className={`rounded-lg border py-2 text-xs font-medium transition ${
+                  payMethod === m.id ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {m.id === 'cash' ? 'Cash on delivery' : m.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-[11px] text-slate-500">
+            {payMethod === 'cash'
+              ? `Pay the rider ₱${order.total} in cash when the food arrives. The rider pays ${vendor?.name ?? 'the vendor'} for the goods at pickup.`
+              : payoutAccount
+                ? `Send ₱${order.total} to ${vendor?.name}'s ${payMethod === 'gcash' ? 'GCash' : 'Maya'} below, then tap Approve. The rider only collects nothing more on delivery.`
+                : `${vendor?.name ?? 'This vendor'} hasn't set up ${payMethod === 'gcash' ? 'GCash' : 'Maya'} yet — try the other one, or choose cash on delivery.`}
+          </p>
+          {(payMethod === 'gcash' || payMethod === 'maya') && payoutAccount && (
+            <div className="mt-2 space-y-2 rounded-lg bg-white p-2.5">
+              <div className="flex items-center gap-3">
+                {payoutAccount.qrDataUrl ? (
+                  <img src={payoutAccount.qrDataUrl} alt="Payment QR code" className="h-20 w-20 shrink-0 rounded-md object-cover" />
+                ) : (
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md bg-slate-100 text-2xl text-slate-300">📱</div>
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-semibold text-slate-700">{payoutAccount.accountName}</p>
+                  <p className="text-xs text-slate-500">{payoutAccount.accountNumber}</p>
+                  <p className="text-[11px] font-semibold text-slate-700">Send ₱{order.total}</p>
+                </div>
+              </div>
+              <div>
+                <p className="mb-1 text-[11px] font-medium text-slate-500">Payment screenshot (optional)</p>
+                <DocumentUploadField label="Payment proof" dataUrl={paymentProofDataUrl} onUpload={setPaymentProofDataUrl} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          disabled={!canApprove}
+          onClick={() => acceptMedsQuote(order.id, payMethod, paymentProofDataUrl, 'pharmacy_books')}
+          className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          {payMethod === 'cash' ? `Approve — pay ₱${order.total} on delivery` : `Approve — I've paid ₱${order.total} online`}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="w-full rounded-lg border border-amber-200 bg-white py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
+        >
+          Decline quotation
+        </button>
+        <OrderChat
+          messages={order.messages}
+          viewerRole="customer"
+          otherPartyLabel={vendor?.name ?? 'the vendor'}
+          onSend={(text) => sendMedsOrderMessage(order.id, 'customer', text)}
+        />
+      </div>
+    )
+  }
+
   // Where the order is before a driver exists. Once a ride is linked,
   // TripMonitor above takes over with the live map.
   return (
     <div className="space-y-2 rounded-xl border border-brand-200 bg-brand-50 p-4">
-      <OrderStatusStrip order={order} ride={undefined} />
+      <OrderStatusStrip order={order} ride={undefined} viewer="customer" />
       <p className="text-sm font-semibold text-brand-800">
         {order.status === 'pending_confirmation'
-          ? `Waiting for ${vendor?.name ?? 'the vendor'} to accept your order`
+          ? `Order sent — waiting for ${vendor?.name ?? 'the vendor'} to confirm the rider fee and send your quotation`
           : order.paidOnline
-            ? '✓ Paid — the vendor is preparing your order'
-            : 'Accepted — the vendor is preparing your order'}
+            ? `✓ Paid online — ${vendor?.name ?? 'the vendor'} is preparing your order`
+            : `✓ Approved (cash on delivery) — ${vendor?.name ?? 'the vendor'} is preparing your order`}
       </p>
       <p className="text-xs text-slate-500">{VENDOR_TYPE_ICONS[vendor?.businessType ?? ''] ?? '🏪'} {vendor?.name ?? 'Vendor'}</p>
       <p className="text-xs text-slate-600">{order.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}</p>
-      <p className="text-xs font-semibold text-slate-700">Total ₱{order.total}</p>
+      <p className="text-xs font-semibold text-slate-700">
+        {order.status === 'pending_confirmation' ? `About ₱${order.total}` : `Total ₱${order.total}`}
+        {order.status === 'confirmed' && ` · goods ₱${order.subtotal} + rider ₱${order.deliveryFee} + service ₱${order.serviceFee}`}
+      </p>
       <button
         type="button"
         onClick={onCancel}

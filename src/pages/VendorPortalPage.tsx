@@ -15,6 +15,7 @@ import { VendorFooterNav, type VendorTab } from '../components/VendorFooterNav'
 import { TrustedRiderSelect, VendorTrustedRiders } from '../components/VendorTrustedRiders'
 import { RealLiveMap, type MapPoint } from '../components/RealLiveMap'
 import { OrderStatusStrip } from '../components/OrderStatusStrip'
+import { distanceKm, suggestedRiderFee } from '../lib/vendorOrders'
 import { formatAddressLine } from '../lib/addressFormat'
 import { PaymentAccountForm, ORDER_STATUS_LABELS } from './PharmacyPortalPage'
 import type { MedsOrder, Pharmacy, Ride } from '../types'
@@ -36,7 +37,7 @@ export function VendorPortalPage() {
     medicineProducts,
     medsOrders,
     rides,
-    vendorAcceptMenuOrder,
+    vendorSendQuote,
     rejectMedsOrder,
     processMedsOrder,
     updatePharmacyPaymentAccount,
@@ -160,6 +161,9 @@ export function VendorPortalPage() {
   // there's no "awaiting quote"/"quoted" split here like the Pharmacy/Store
   // portal has; it goes straight from new to ready-to-process.
   const newOrders = ownOrders.filter((o) => o.status === 'pending_confirmation')
+  // Quotation sent, waiting for the customer to approve (and pay, unless
+  // cash on delivery). Nothing to cook yet.
+  const quotedOrders = ownOrders.filter((o) => o.status === 'quoted')
   const readyToProcessOrders = ownOrders.filter((o) => o.status === 'confirmed')
   // A dispatched order is only "done" once its ride is — the order status
   // itself stops at 'dispatched' (see PHARMACY_PROCESS_MEDS_ORDER), so the
@@ -172,7 +176,7 @@ export function VendorPortalPage() {
   })
   const activeIds = new Set(outForDelivery.map((o) => o.id))
   const pastOrders = ownOrders.filter(
-    (o) => o.status !== 'pending_confirmation' && o.status !== 'confirmed' && !activeIds.has(o.id),
+    (o) => o.status !== 'pending_confirmation' && o.status !== 'quoted' && o.status !== 'confirmed' && !activeIds.has(o.id),
   )
   const historyLabel = (o: MedsOrder) => {
     const ride = o.status === 'dispatched' ? linkedRide(o) : undefined
@@ -238,7 +242,7 @@ export function VendorPortalPage() {
       {/* Always rendered, even with nothing in it, so the Orders tab has a
           place to land — a tab that scrolls nowhere reads as broken. */}
       <section ref={ordersSectionRef} className="scroll-mt-24 space-y-2.5">
-        {outForDelivery.length === 0 && newOrders.length === 0 && readyToProcessOrders.length === 0 && (
+        {outForDelivery.length === 0 && newOrders.length === 0 && quotedOrders.length === 0 && readyToProcessOrders.length === 0 && (
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-slate-700">🧾 Orders</h2>
             <p className="mt-1 text-sm text-slate-400">No orders right now — new ones show up here the moment they're placed.</p>
@@ -274,7 +278,8 @@ export function VendorPortalPage() {
               <NewVendorOrderCard
                 key={order.id}
                 order={order}
-                onAccept={() => vendorAcceptMenuOrder(order.id)}
+                vendor={vendor}
+                onAccept={(deliveryFee) => vendorSendQuote(order.id, deliveryFee)}
                 onReject={(reason) => rejectMedsOrder(order.id, reason)}
                 onSendMessage={(text) => sendMedsOrderMessage(order.id, 'pharmacy', text)}
               />
@@ -283,9 +288,39 @@ export function VendorPortalPage() {
         </section>
       )}
 
+      {quotedOrders.length > 0 && (
+        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 className="mb-2 text-sm font-semibold text-slate-700">📄 Quotation sent — waiting for the customer</h2>
+          <div className="space-y-2">
+            {quotedOrders.map((order) => (
+              <div key={order.id} className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-slate-700">{order.customerName}</span>
+                  <span className="text-xs font-semibold text-slate-800">₱{order.total}</span>
+                </div>
+                <p className="mt-0.5 text-xs text-slate-600">{order.items.map((item) => `${item.quantity}x ${item.name}`).join(', ')}</p>
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  Goods ₱{order.subtotal} + rider ₱{order.deliveryFee} + service ₱{order.serviceFee} · sent{' '}
+                  {order.quotedAt ? new Date(order.quotedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                </p>
+                <p className="mt-1 text-[11px] text-amber-700">Don't start preparing yet — they approve (and pay, unless cash on delivery) first.</p>
+                <div className="mt-2">
+                  <OrderChat
+                    messages={order.messages}
+                    viewerRole="pharmacy"
+                    otherPartyLabel={order.customerName}
+                    onSend={(text) => sendMedsOrderMessage(order.id, 'pharmacy', text)}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {readyToProcessOrders.length > 0 && (
         <section ref={readyToProcessRef} className="scroll-mt-24 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">Ready to process</h2>
+          <h2 className="mb-2 text-sm font-semibold text-slate-700">✅ Approved — prepare & book the rider</h2>
           <div className="space-y-3">
             {readyToProcessOrders.map((order) => (
               <ReadyOrderCard
@@ -484,7 +519,15 @@ function ReadyOrderCard({
         <span className="font-medium text-slate-700">{order.customerName}</span>
         <span className="text-xs font-semibold text-slate-800">₱{order.total}</span>
       </div>
-      <p className="mt-0.5 text-[11px] font-semibold text-emerald-700">✓ Accepted — {dispatches ? 'book a rider to deliver it' : 'customer will book their own ride'}</p>
+      <p className="mt-0.5 text-[11px] font-semibold text-emerald-700">
+        ✓ Approved{order.paidOnline ? ` · paid online via ${order.paymentMethod}` : ' · cash on delivery'} —{' '}
+        {dispatches ? 'prepare it, then book a rider' : 'customer will book their own ride'}
+      </p>
+      {order.paymentProofDataUrl && (
+        <a href={order.paymentProofDataUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block">
+          <img src={order.paymentProofDataUrl} alt="Payment proof" className="h-12 w-12 rounded-md border border-emerald-300 object-cover" />
+        </a>
+      )}
 
       {dispatches && (
         <div className="mt-2 flex gap-1 rounded-lg bg-emerald-100/70 p-1">
@@ -572,17 +615,27 @@ function ReadyOrderCard({
 // other confirmed MedsOrder.
 function NewVendorOrderCard({
   order,
+  vendor,
   onAccept,
   onReject,
   onSendMessage,
 }: {
   order: MedsOrder
-  onAccept: () => void
+  vendor: Pharmacy
+  // Accepting sends the quotation: the goods as ordered plus this rider fee.
+  onAccept: (deliveryFee: number) => void
   onReject: (reason: string) => void
   onSendMessage: (text: string) => void
 }) {
   const [rejectReason, setRejectReason] = useState('')
   const [contactOpen, setContactOpen] = useState(false)
+  // Suggested from the distance between the store's pin and the customer's;
+  // the vendor can change it before sending.
+  const km = distanceKm(vendor.locationGps, order.deliveryAddress.gps)
+  const suggested = suggestedRiderFee(vendor.locationGps, order.deliveryAddress.gps)
+  const [feeInput, setFeeInput] = useState(String(suggested))
+  const riderFee = Math.max(0, Math.round(Number(feeInput) || 0))
+  const quoteTotal = order.subtotal + riderFee + order.serviceFee
 
   return (
     <div className="rounded-lg border border-slate-200 p-3">
@@ -613,16 +666,54 @@ function NewVendorOrderCard({
         ))}
       </div>
       <p className="mt-1.5 text-[11px] text-slate-400">
-        Deliver to: {order.deliveryAddress.label} · {order.paidOnline ? 'paid online' : 'pays cash on delivery'}
+        🏁 {order.deliveryAddress.label}
+        {km != null && ` · ${km} km from your store`}
       </p>
+
+      {/* The quotation this order will get. Goods are fixed (the menu priced
+          them); the rider fee is the vendor's call, suggested by distance. */}
+      <div className="mt-2 rounded-lg border border-brand-200 bg-brand-50 p-2.5 text-xs">
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-brand-800">Quotation to send</p>
+        <div className="flex items-center justify-between text-slate-600">
+          <span>Goods</span>
+          <span>₱{order.subtotal}</span>
+        </div>
+        <div className="mt-1 flex items-center justify-between gap-2 text-slate-600">
+          <span>
+            Rider fee <span className="text-slate-400">(suggested ₱{suggested})</span>
+          </span>
+          <span className="flex items-center gap-1">
+            ₱
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={feeInput}
+              onChange={(e) => setFeeInput(e.target.value)}
+              className="w-16 rounded-md border border-slate-300 bg-white px-2 py-1 text-right text-xs"
+            />
+          </span>
+        </div>
+        <div className="mt-1 flex items-center justify-between text-slate-600">
+          <span>Service fee (platform)</span>
+          <span>₱{order.serviceFee}</span>
+        </div>
+        <div className="mt-1 flex items-center justify-between border-t border-brand-200 pt-1 font-semibold text-slate-800">
+          <span>Customer pays</span>
+          <span>₱{quoteTotal}</span>
+        </div>
+      </div>
       <div className="mt-3 space-y-1.5">
         <button
           type="button"
-          onClick={onAccept}
+          onClick={() => onAccept(riderFee)}
           className="w-full rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
         >
-          Accept order
+          Accept & send quotation — ₱{quoteTotal}
         </button>
+        <p className="text-center text-[10px] text-slate-400">
+          The customer approves it and picks cash on delivery or pays you online first — then you prepare and book the rider.
+        </p>
         <div className="flex gap-2">
           <input
             value={rejectReason}

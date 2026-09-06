@@ -472,6 +472,12 @@ export interface Pharmacy {
   // (see VendorStorefront.tsx), e.g. "Lutong Bahay, Everyday!" — purely
   // cosmetic, same optional/nullable reasoning as the branding fields above.
   tagline?: string | null
+  // Drivers this vendor prefers for its deliveries — the "Trusted Rider"
+  // tab of the vendor portal. The first one who is online and approved is
+  // offered each delivery ahead of the terminal queue (see
+  // buildMedsDeliveryRide), the way a passenger's favoriteDriverId is.
+  // Optional so every existing Pharmacy literal stays valid.
+  trustedDriverIds?: string[]
 }
 
 // Full lifecycle: pending_confirmation (customer asked for a quote) →
@@ -573,6 +579,12 @@ export interface MedsOrder {
   // it first (see VENDOR_ACCEPT_MENU_ORDER). Optional/undefined reads as
   // false, same as every pre-existing pharmacy quote order.
   pricedFromMenu?: boolean
+  // True when the vendor booked this delivery themselves — an order that
+  // came by phone, chat or walk-in rather than through the app (see
+  // VENDOR_BOOK_DELIVERY). There is no customer account behind it, so the
+  // customer-side screens never show it; it exists to give the vendor the
+  // same driver, map and status tracking as an in-app order.
+  vendorBooked?: boolean
 }
 
 export interface OrderMessage {

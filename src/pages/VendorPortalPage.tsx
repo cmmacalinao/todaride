@@ -7,8 +7,13 @@ import { OrderChat } from '../components/OrderChat'
 import { ContactSheet } from '../components/ContactSheet'
 import { VendorMenuManager } from '../components/VendorMenuManager'
 import { VendorThemePicker } from '../components/VendorBrandingEditor'
+import { VendorDeliveryBooking } from '../components/VendorDeliveryBooking'
+import { ACTIVE_RIDE_STATUSES, VendorDeliveryTracker, deliveryPhaseLabel } from '../components/VendorDeliveryTracker'
+import { VendorEarnings } from '../components/VendorEarnings'
+import { VendorFooterNav, type VendorTab } from '../components/VendorFooterNav'
+import { VendorTrustedRiders } from '../components/VendorTrustedRiders'
 import { PaymentAccountForm, ORDER_STATUS_LABELS } from './PharmacyPortalPage'
-import type { MedsOrder } from '../types'
+import type { MedsOrder, Ride } from '../types'
 
 // A Registered Vendor's own portal (Resto/Food, Other Commodity) — split out
 // from PharmacyPortalPage.tsx so "Vendor" naming stays exclusive to this
@@ -26,6 +31,7 @@ export function VendorPortalPage() {
     pharmacies,
     medicineProducts,
     medsOrders,
+    rides,
     vendorAcceptMenuOrder,
     rejectMedsOrder,
     processMedsOrder,
@@ -42,7 +48,35 @@ export function VendorPortalPage() {
   const menuSectionRef = useRef<HTMLElement>(null)
   const paymentsSectionRef = useRef<HTMLElement>(null)
   const historySectionRef = useRef<HTMLElement>(null)
+  const deliveriesSectionRef = useRef<HTMLElement>(null)
+  const bookingSectionRef = useRef<HTMLDivElement>(null)
+  const earningsSectionRef = useRef<HTMLElement>(null)
+  const trustedSectionRef = useRef<HTMLElement>(null)
+  const [showBooking, setShowBooking] = useState(false)
+  // Which footer tab is lit — set by tapping one, so the bar reflects where
+  // the vendor last asked to go rather than trying to track scrolling.
+  const [activeTab, setActiveTab] = useState<VendorTab | null>('orders')
   const vendor = pharmacies.find((p) => p.id === loggedInPharmacyId)
+
+  // The footer tabs scroll to their section; Book Rider also opens the
+  // booking form, since a tab that lands on a closed card is a tab that
+  // needs a second tap.
+  function goToTab(tab: VendorTab) {
+    setActiveTab(tab)
+    if (tab === 'book') setShowBooking(true)
+    const refs: Record<VendorTab, RefObject<HTMLElement | null>> = {
+      orders: ordersSectionRef,
+      book: bookingSectionRef,
+      earnings: earningsSectionRef,
+      trusted: trustedSectionRef,
+    }
+    const scroll = () => refs[tab].current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setTimeout(scroll, 50)
+    // Book Rider swaps a one-line button for a form with a map in it; the
+    // page grows under the first scroll, so it is repeated once the form has
+    // had a moment to lay out.
+    if (tab === 'book') setTimeout(scroll, 400)
+  }
 
   // A Pharmacy/Store account belongs on the Pharmacy/Store portal — actually
   // navigate there instead of just rendering PharmacyPortalPage inline, so
@@ -110,14 +144,31 @@ export function VendorPortalPage() {
   // portal has; it goes straight from new to ready-to-process.
   const newOrders = ownOrders.filter((o) => o.status === 'pending_confirmation')
   const readyToProcessOrders = ownOrders.filter((o) => o.status === 'confirmed')
-  const pastOrders = ownOrders.filter((o) => o.status !== 'pending_confirmation' && o.status !== 'confirmed')
+  // A dispatched order is only "done" once its ride is — the order status
+  // itself stops at 'dispatched' (see PHARMACY_PROCESS_MEDS_ORDER), so the
+  // linked ride is what says whether the food is still on the road.
+  const linkedRide = (o: MedsOrder): Ride | undefined => (o.linkedRideId ? rides.find((r) => r.id === o.linkedRideId) : undefined)
+  const outForDelivery = ownOrders.filter((o) => {
+    if (o.status !== 'dispatched') return false
+    const ride = linkedRide(o)
+    return !!ride && ACTIVE_RIDE_STATUSES.has(ride.status)
+  })
+  const activeIds = new Set(outForDelivery.map((o) => o.id))
+  const pastOrders = ownOrders.filter(
+    (o) => o.status !== 'pending_confirmation' && o.status !== 'confirmed' && !activeIds.has(o.id),
+  )
+  const historyLabel = (o: MedsOrder) => {
+    const ride = o.status === 'dispatched' ? linkedRide(o) : undefined
+    return ride ? deliveryPhaseLabel(ride) : ORDER_STATUS_LABELS[o.status]
+  }
   const menu = medicineProducts.filter((p) => p.pharmacyId === vendor.id)
 
   return (
     // Tighter than the other portals on purpose (the vendor asked for ~60%
     // less air): 10px between cards and 6px to the screen edge, instead of
     // the 24px/16px the shared layout uses.
-    <div className="mx-auto max-w-lg space-y-2.5 px-1.5 py-2.5">
+    // pb-20 reserves the bottom strip for VendorFooterNav.
+    <div className="mx-auto max-w-lg space-y-2.5 px-1.5 py-2.5 pb-20">
       <AnnouncementFeed viewer="partners" />
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <p className="text-xs font-medium text-slate-500">Logged in as</p>
@@ -143,8 +194,53 @@ export function VendorPortalPage() {
         </span>
       </button>
 
+      {/* The vendor's own way to put an order on the road — for the ones
+          that came by phone or at the counter and never touched the app.
+          Wrapped so the footer's Book Rider tab has something to scroll to
+          whether the form is open or not. */}
+      <div ref={bookingSectionRef} className="scroll-mt-24">
+        {showBooking ? (
+          <VendorDeliveryBooking vendor={vendor} onClose={() => setShowBooking(false)} />
+        ) : (
+          <button
+            type="button"
+            onClick={() => goToTab('book')}
+            className="flex w-full items-center justify-between rounded-xl border border-brand-200 bg-brand-50 p-4 text-left shadow-sm transition hover:bg-brand-100"
+          >
+            <span>
+              <span className="block text-sm font-semibold text-brand-800">🛺 Book a TODA SafeRide delivery</span>
+              <span className="block text-[11px] text-brand-700/80">Send a driver for a phone or walk-in order</span>
+            </span>
+            <span aria-hidden className="shrink-0 text-brand-400">
+              ›
+            </span>
+          </button>
+        )}
+      </div>
+
+      {/* Always rendered, even with nothing in it, so the Orders tab has a
+          place to land — a tab that scrolls nowhere reads as broken. */}
+      <section ref={ordersSectionRef} className="scroll-mt-24 space-y-2.5">
+        {outForDelivery.length === 0 && newOrders.length === 0 && readyToProcessOrders.length === 0 && (
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-slate-700">🧾 Orders</h2>
+            <p className="mt-1 text-sm text-slate-400">No orders right now — new ones show up here the moment they're placed.</p>
+          </div>
+        )}
+
+      {outForDelivery.length > 0 && (
+        <section ref={deliveriesSectionRef} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 className="mb-2 text-sm font-semibold text-slate-700">🛺 Out for delivery</h2>
+          <div className="space-y-3">
+            {outForDelivery.map((order) => (
+              <VendorDeliveryTracker key={order.id} order={order} ride={linkedRide(order)!} vendor={vendor} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {newOrders.length > 0 && (
-        <section ref={ordersSectionRef} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="mb-2 text-sm font-semibold text-slate-700">New orders</h2>
           <div className="space-y-3">
             {newOrders.map((order) => (
@@ -206,6 +302,7 @@ export function VendorPortalPage() {
           </div>
         </section>
       )}
+      </section>
 
       {/* VendorMenuManager renders its own full card — the same banner/info
           header VendorStorefront shows a customer, plus an editable menu
@@ -213,6 +310,16 @@ export function VendorPortalPage() {
           duplicate the header this already shows). */}
       <section ref={menuSectionRef}>
         <VendorMenuManager pharmacy={vendor} products={menu} />
+      </section>
+
+      <section ref={earningsSectionRef} className="scroll-mt-24 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-2 text-sm font-semibold text-slate-700">💰 Earnings</h2>
+        <VendorEarnings orders={ownOrders} rides={rides} />
+      </section>
+
+      <section ref={trustedSectionRef} className="scroll-mt-24 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-1 text-sm font-semibold text-slate-700">⭐ Trusted Riders</h2>
+        <VendorTrustedRiders vendor={vendor} />
       </section>
 
       <section ref={paymentsSectionRef} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -243,7 +350,7 @@ export function VendorPortalPage() {
             <div key={order.id} className="rounded-lg border border-slate-200 p-2.5 text-sm">
               <div className="flex items-center justify-between">
                 <span className="font-medium text-slate-700">{order.customerName}</span>
-                <span className="text-[11px] text-slate-400">{ORDER_STATUS_LABELS[order.status]}</span>
+                <span className="text-[11px] text-slate-400">{historyLabel(order)}</span>
               </div>
               <p className="mt-0.5 text-[11px] text-slate-400">
                 {order.items.map((item) => `${item.quantity}x ${item.name}`).join(', ')} · ₱{order.total}
@@ -252,6 +359,12 @@ export function VendorPortalPage() {
           ))}
         </div>
       </section>
+
+      <VendorFooterNav
+        active={activeTab}
+        onNavigate={goToTab}
+        orderCount={newOrders.length + readyToProcessOrders.length}
+      />
     </div>
   )
 }

@@ -1303,6 +1303,23 @@ type RideAction =
   | { type: 'SEND_MEDS_ORDER_MESSAGE'; orderId: string; sender: 'customer' | 'pharmacy'; text: string }
   | { type: 'PHARMACY_PROCESS_MEDS_ORDER'; orderId: string }
   | { type: 'MEDS_ORDER_BOOK_OWN_RIDE'; orderId: string; overrides?: MedsRideOverrides }
+  // A vendor books a TODA SafeRide driver for an order that did not come
+  // through the app (phone, chat, walk-in). Creates the order already
+  // dispatched, with its ride, in one step — see the reducer.
+  | {
+      type: 'VENDOR_BOOK_DELIVERY'
+      pharmacyId: string
+      customerName: string
+      contactPhone: string
+      deliveryAddress: MockLocation
+      itemsSummary: string
+      goodsAmount: number
+      // 'cash': the driver collects goods + fees from the customer on
+      // delivery (fronting the goods to the vendor at pickup, as Pabili
+      // does). 'paid': the customer already paid the vendor directly, so
+      // the driver only collects the delivery and service fee.
+      collection: 'cash' | 'paid'
+    }
   | { type: 'TOGGLE_MEDICINE_PRODUCT_STOCK'; productId: string }
   | { type: 'TOGGLE_MEDICINE_PRODUCT_VISIBILITY'; productId: string }
   | { type: 'SET_MEDICINE_PRODUCT_STOCK_COUNT'; productId: string; stockCount: number | null }
@@ -1363,6 +1380,7 @@ type RideAction =
       tagline: string | null
     }
   | { type: 'UPDATE_PHARMACY_LOCATION'; pharmacyId: string; locationGps: GeoCoords }
+  | { type: 'TOGGLE_PHARMACY_TRUSTED_DRIVER'; pharmacyId: string; driverId: string }
   | { type: 'REMOVE_MEDICINE_PRODUCT'; productId: string }
   | { type: 'REORDER_MEDICINE_PRODUCTS'; orderedIds: string[] }
 
@@ -1984,11 +2002,18 @@ function buildMedsDeliveryRide(
   }
   const dropoff = overrides?.dropoff ?? order.deliveryAddress
   const priorityTodaOrgId = getPriorityTodaOrgId(pickup)
+  // The vendor's own Trusted Rider (see Pharmacy.trustedDriverIds) — the
+  // first one currently on duty — is offered the delivery first, the same
+  // way a passenger's favourite driver is. The customer's own favourite
+  // still wins if they have one: it is their food, and their driver.
+  const trustedOnDuty = (pharmacy.trustedDriverIds ?? [])
+    .map((id) => state.drivers.find((d) => d.id === id))
+    .find((d) => d && d.online && d.verificationStatus === 'approved' && d.accessStatus === 'active')
   const { offeredDriverId, offeredAt } = nextQueueOffer(
     priorityTodaOrgId,
     [],
     state.drivers,
-    findFavoriteDriverId(state, order.customerId),
+    findFavoriteDriverId(state, order.customerId) ?? trustedOnDuty?.id ?? null,
     true,
     dispatchCtx(state, pickup.gps),
   )
@@ -2045,7 +2070,11 @@ function buildMedsDeliveryRide(
     todaRating: null,
     todaReviewText: null,
     ratedAt: null,
-    serviceType: 'buy_medicine',
+    // A Registered Vendor's delivery (food, dry goods) is a Pabili errand to
+    // the driver — a shopping list to pick up and bring — not a medicine run;
+    // it shows with the 🛍️ label and the per-item "bought" checklist, and
+    // never the prescription paperwork a pharmacy order carries.
+    serviceType: pharmacy.businessType === 'resto_food' || pharmacy.businessType === 'other_commodity' ? 'pabili' : 'buy_medicine',
     pabiliItems: itemsSummary,
     pabiliTip: overrides?.tip ?? 0,
     pabiliServiceFee: order.serviceFee,
@@ -5229,6 +5258,60 @@ function reducer(state: RideState, action: RideAction): RideState {
         ),
       }
     }
+    // The vendor's own booking: an order that arrived by phone or at the
+    // counter, given a driver through the same pipeline an in-app order
+    // takes. It is born 'dispatched' with its ride — there is nothing to
+    // accept or quote, the vendor already has the order in hand — so it lands
+    // in the vendor's "Out for delivery" tracking straight away, and the
+    // driver sees exactly what a customer-placed vendor order looks like.
+    case 'VENDOR_BOOK_DELIVERY': {
+      const pharmacy = state.pharmacies.find((p) => p.id === action.pharmacyId)
+      if (!pharmacy || !action.customerName.trim()) return state
+      const now = new Date().toISOString()
+      const goods = Math.max(0, Math.round(action.goodsAmount))
+      const paidToVendor = action.collection === 'paid'
+      const order: MedsOrder = {
+        id: `meds-${Date.now()}`,
+        // No account behind a walk-in customer — a synthetic id keeps every
+        // "my orders" filter (customerId === session id) from ever matching.
+        customerId: `walkin-${Date.now()}`,
+        customerName: action.customerName.trim(),
+        pharmacyId: pharmacy.id,
+        items: [{ productId: 'vendor-booked', name: action.itemsSummary.trim() || 'Order', quantity: 1, unitPrice: goods, note: null }],
+        subtotal: goods,
+        deliveryFee: DEFAULT_MEDS_DELIVERY_FEE,
+        serviceFee: DEFAULT_MEDS_SERVICE_FEE,
+        total: goods + DEFAULT_MEDS_DELIVERY_FEE + DEFAULT_MEDS_SERVICE_FEE,
+        // 'gcash' here only means "settled with the vendor already" — it is
+        // what makes buildMedsDeliveryRide charge the driver's fare as fees
+        // only, instead of goods + fees collected on the doorstep.
+        paymentMethod: paidToVendor ? 'gcash' : 'cash',
+        status: 'dispatched',
+        rejectionReason: null,
+        prescriptionDataUrls: [],
+        prescriptionStatus: 'not_required',
+        receiptDataUrl: null,
+        deliveryAddress: action.deliveryAddress,
+        deliveryMode: 'pharmacy_books',
+        linkedRideId: null,
+        paymentProofDataUrl: null,
+        paidOnline: paidToVendor,
+        paymentReference: paidToVendor ? `VENDOR-${Date.now()}` : null,
+        requestedAt: now,
+        quotedAt: null,
+        confirmedAt: now,
+        messages: [],
+        contactPhone: action.contactPhone.trim() || null,
+        pricedFromMenu: true,
+        vendorBooked: true,
+      }
+      const ride = buildMedsDeliveryRide(state, order, pharmacy)
+      return {
+        ...state,
+        rides: [ride, ...state.rides],
+        medsOrders: [{ ...order, linkedRideId: ride.id }, ...state.medsOrders],
+      }
+    }
     case 'REGISTER_PHARMACY': {
       const pharmacy: Pharmacy = {
         id: action.id,
@@ -5284,6 +5367,19 @@ function reducer(state: RideState, action: RideAction): RideState {
         pharmacies: state.pharmacies.map((p) =>
           p.id === action.pharmacyId ? { ...p, locationGps: action.locationGps } : p,
         ),
+      }
+    }
+    case 'TOGGLE_PHARMACY_TRUSTED_DRIVER': {
+      return {
+        ...state,
+        pharmacies: state.pharmacies.map((p) => {
+          if (p.id !== action.pharmacyId) return p
+          const current = p.trustedDriverIds ?? []
+          const trustedDriverIds = current.includes(action.driverId)
+            ? current.filter((id) => id !== action.driverId)
+            : [...current, action.driverId]
+          return { ...p, trustedDriverIds }
+        }),
       }
     }
     case 'ADD_MEDICINE_PRODUCT': {
@@ -6141,6 +6237,15 @@ interface RideContextValue extends RideState {
   sendMedsOrderMessage: (orderId: string, sender: 'customer' | 'pharmacy', text: string) => void
   processMedsOrder: (orderId: string) => void
   bookOwnMedsRide: (orderId: string, overrides?: MedsRideOverrides) => void
+  vendorBookDelivery: (args: {
+    pharmacyId: string
+    customerName: string
+    contactPhone: string
+    deliveryAddress: MockLocation
+    itemsSummary: string
+    goodsAmount: number
+    collection: 'cash' | 'paid'
+  }) => void
   toggleMedicineProductStock: (productId: string) => void
   toggleMedicineProductVisibility: (productId: string) => void
   setMedicineProductStockCount: (productId: string, stockCount: number | null) => void
@@ -6192,6 +6297,7 @@ interface RideContextValue extends RideState {
     tagline: string | null
   }) => void
   updatePharmacyLocation: (pharmacyId: string, locationGps: GeoCoords) => void
+  togglePharmacyTrustedDriver: (pharmacyId: string, driverId: string) => void
 }
 
 const RideContext = createContext<RideContextValue | null>(null)
@@ -6214,8 +6320,19 @@ export function RideProvider({ children }: { children: ReactNode }) {
       .fetchShared()
       .then((shared) => {
         if (cancelled || !shared) return
-        justHydratedRef.current = true
-        dispatch({ type: 'HYDRATE', state: fromStored(shared as unknown as StoredState) })
+        // Only a shared read that was actually applied unlocks saving. If it
+        // cannot be hydrated, this document stays on what it started with —
+        // possibly the seeds — and must keep that to itself (see
+        // persistence.ts remoteReady): pushing it would erase the shared
+        // world, which is what happened on 2026-09-06.
+        try {
+          const hydrated = fromStored(shared as unknown as StoredState)
+          justHydratedRef.current = true
+          dispatch({ type: 'HYDRATE', state: hydrated })
+          getPersistence().markSynced()
+        } catch (err) {
+          console.error('[TodaRide] The shared state could not be read; this device will not save to it until it can.', err)
+        }
       })
     return () => {
       cancelled = true
@@ -6970,6 +7087,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     sendMedsOrderMessage: (orderId, sender, text) => dispatch({ type: 'SEND_MEDS_ORDER_MESSAGE', orderId, sender, text }),
     processMedsOrder: (orderId) => dispatch({ type: 'PHARMACY_PROCESS_MEDS_ORDER', orderId }),
     bookOwnMedsRide: (orderId, overrides) => dispatch({ type: 'MEDS_ORDER_BOOK_OWN_RIDE', orderId, overrides }),
+    vendorBookDelivery: (args) => dispatch({ type: 'VENDOR_BOOK_DELIVERY', ...args }),
     toggleMedicineProductStock: (productId) => dispatch({ type: 'TOGGLE_MEDICINE_PRODUCT_STOCK', productId }),
     toggleMedicineProductVisibility: (productId) => dispatch({ type: 'TOGGLE_MEDICINE_PRODUCT_VISIBILITY', productId }),
     setMedicineProductStockCount: (productId, stockCount) =>
@@ -6990,6 +7108,8 @@ export function RideProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'UPDATE_PHARMACY_PAYMENT_ACCOUNT', pharmacyId, method, details }),
     updateVendorBranding: (args) => dispatch({ type: 'UPDATE_VENDOR_BRANDING', ...args }),
     updatePharmacyLocation: (pharmacyId, locationGps) => dispatch({ type: 'UPDATE_PHARMACY_LOCATION', pharmacyId, locationGps }),
+    togglePharmacyTrustedDriver: (pharmacyId, driverId) =>
+      dispatch({ type: 'TOGGLE_PHARMACY_TRUSTED_DRIVER', pharmacyId, driverId }),
   }
 
   return <RideContext.Provider value={value}>{children}</RideContext.Provider>

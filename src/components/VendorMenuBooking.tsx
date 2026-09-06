@@ -454,8 +454,27 @@ function ActiveVendorOrderCard({
     )
   }
 
+  // Where the order is before a driver exists — the steps a customer is
+  // waiting through. Once a ride is linked, TripMonitor above takes over
+  // with the live map, so this only ever shows the first two lit.
+  const stepIndex = order.status === 'pending_confirmation' ? 0 : 1
+  const steps = ['Order placed', 'Vendor accepted', 'Driver on the way', 'Delivered']
+
   return (
     <div className="space-y-2 rounded-xl border border-brand-200 bg-brand-50 p-4">
+      <ol className="flex items-center gap-1">
+        {steps.map((label, i) => (
+          <li key={label} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+            <span
+              className={`h-1.5 w-full rounded-full ${i <= stepIndex ? 'bg-brand-600' : 'bg-brand-200'}`}
+              aria-hidden
+            />
+            <span className={`truncate text-[10px] ${i <= stepIndex ? 'font-semibold text-brand-800' : 'text-slate-400'}`}>
+              {label}
+            </span>
+          </li>
+        ))}
+      </ol>
       <p className="text-sm font-semibold text-brand-800">
         {order.status === 'pending_confirmation'
           ? `Waiting for ${vendor?.name ?? 'the vendor'} to accept your order`

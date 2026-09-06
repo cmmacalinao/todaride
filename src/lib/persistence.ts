@@ -16,6 +16,9 @@ export interface PersistenceAdapter {
   save(next: Record<string, unknown>, prev: Record<string, unknown> | null): void
   // Fires when another device changes something. Returns an unsubscribe.
   subscribe(onRemote: (state: Record<string, unknown>) => void): () => void
+  // The caller has applied a shared read; from here on saves may go out.
+  // See SupabaseAdapter.remoteReady for why nothing is written before this.
+  markSynced(): void
   readonly isShared: boolean
 }
 
@@ -104,6 +107,10 @@ class LocalAdapter implements PersistenceAdapter {
     return null
   }
 
+  markSynced() {
+    // Nothing shared to protect.
+  }
+
   save(next: Record<string, unknown>) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
@@ -141,6 +148,26 @@ class SupabaseAdapter implements PersistenceAdapter {
   // snapshot away if another save began while it was reading.
   private saveInFlight: Promise<void> | null = null
   private saveSeq = 0
+  // Whether this document has successfully read the shared state at least
+  // once. Until it has, nothing is written to the server — only locally.
+  //
+  // The persist effect in RideContext runs on mount, with whatever the
+  // document started from: usually this browser's cached copy, but after a
+  // cleared or unreadable cache it is the SEED data. Writing that to the
+  // server before the shared read has even returned is how, on 2026-09-06,
+  // every vendor, menu, order, announcement and service switch was replaced
+  // by the demo defaults from a single reload of a browser with an empty
+  // cache. A document that has not yet seen the shared world has no business
+  // overwriting it; once it has (and been hydrated from it), its saves are
+  // edits to that world and go through as before.
+  private remoteReady = false
+
+  // Called by RideContext once a shared read has been applied — not merely
+  // received. A read that arrives but cannot be hydrated leaves the document
+  // on whatever it started with, and that must stay local too.
+  markSynced() {
+    this.remoteReady = true
+  }
 
   // Still writes locally as well: it is the first paint on the next launch,
   // and it is what the app falls back to when the phone has no signal at the
@@ -189,6 +216,15 @@ class SupabaseAdapter implements PersistenceAdapter {
     this.local.save(next)
     const db = getSupabase()
     if (!db) return
+    if (!this.remoteReady) {
+      // Kept locally, not pushed: this document has not read the shared
+      // state yet (first paint, or offline), so what it holds may be a stale
+      // cache or the seeds — either would erase everyone else's world. The
+      // subscription's refetch (realtime, heartbeat, focus, online) hydrates
+      // it as soon as the server can be read, and saves flow from then on.
+      console.warn('[persistence] not yet synced with the shared state — kept this change locally only')
+      return
+    }
 
     const rest: Record<string, unknown> = { ...next }
     // Supabase query builders are thenable but not Promises, so the array

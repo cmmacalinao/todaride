@@ -46,6 +46,7 @@ export function VendorMenuBooking({
   defaultBarangay,
   defaultAddressDetail,
   defaultContactPhone,
+  initialVendorId,
 }: {
   customerId: string
   customerName: string
@@ -54,6 +55,9 @@ export function VendorMenuBooking({
   defaultBarangay: string
   defaultAddressDetail: string
   defaultContactPhone?: string | null
+  // A shared vendor link (/book?vendor=<id>) opens straight on that store's
+  // menu with the cart ready, instead of on the vendor list.
+  initialVendorId?: string | null
 }) {
   const { rides, pharmacies, medicineProducts, medsOrders, createMedsOrder, cancelMedsOrder, ratePharmacy } = useRides()
   const navigate = useNavigate()
@@ -67,9 +71,10 @@ export function VendorMenuBooking({
     [pharmacies],
   )
 
-  const [step, setStep] = useState<'browse' | 'menu' | 'checkout'>('browse')
+  const initialVendor = initialVendorId ? vendors.find((v) => v.id === initialVendorId) : undefined
+  const [step, setStep] = useState<'browse' | 'menu' | 'checkout'>(initialVendor ? 'menu' : 'browse')
   const [vendorSearch, setVendorSearch] = useState('')
-  const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null)
+  const [selectedVendorId, setSelectedVendorId] = useState<string | null>(initialVendor?.id ?? null)
   const [cart, setCart] = useState<Record<string, number>>({})
   const [contactPhone, setContactPhone] = useState(defaultContactPhone ?? '')
   const [deliveryAddress, setDeliveryAddress] = useState<MockLocation | null>(null)

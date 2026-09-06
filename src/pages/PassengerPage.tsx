@@ -327,6 +327,13 @@ export function PassengerPage() {
   // the Medicine flow (/book?service=buy_medicine) instead of dropping the
   // passenger on the collapsed "Ready to head out?" prompt.
   useEffect(() => {
+    // A shared vendor link (/book?vendor=<id>, see App.tsx and
+    // VendorGuestPage) opens Food Express on that store's menu.
+    if (vendorsEnabled && searchParams.get('vendor')) {
+      setPageTab('book')
+      chooseErrand('pabili', { food: true })
+      return
+    }
     if (medsEnabled && searchParams.get('service') === 'buy_medicine') {
       setPageTab('book')
       setServiceType('buy_medicine')
@@ -2524,6 +2531,7 @@ export function PassengerPage() {
               defaultBarangay={DEFAULT_BOOKING_BARANGAY}
               defaultAddressDetail={DEFAULT_BOOKING_ADDRESS_DETAIL}
               defaultContactPhone={isGuestBooking ? null : passenger.phone}
+              initialVendorId={searchParams.get('vendor')}
             />
           ) : (
           <>

@@ -4,6 +4,7 @@ import { PublicHeader } from './components/PublicHeader'
 import { SuperAdminGate } from './components/SuperAdminGate'
 import { NavBar } from './components/NavBar'
 import { AuthGate } from './components/AuthGate'
+import { clearReturnTo, peekReturnTo } from './lib/returnTo'
 import { DesktopOnlyNotice } from './components/DesktopOnlyNotice'
 import { isDesktopOnlyRole, isNativeApp } from './lib/platform'
 import { LandingPage } from './pages/LandingPage'
@@ -52,6 +53,9 @@ const MedsRideBookingPage = lazy(() => import('./pages/MedsRideBookingPage').the
 const PharmacyPortalPage = lazy(() => import('./pages/PharmacyPortalPage').then((m) => ({ default: m.PharmacyPortalPage })))
 const VendorPortalPage = lazy(() => import('./pages/VendorPortalPage').then((m) => ({ default: m.VendorPortalPage })))
 const VendorPublicPage = lazy(() => import('./pages/VendorPublicPage').then((m) => ({ default: m.VendorPublicPage })))
+// The same vendor page for somebody who is not signed in — read everything,
+// register to order. See VendorGuestPage.
+const VendorGuestPage = lazy(() => import('./pages/VendorGuestPage').then((m) => ({ default: m.VendorGuestPage })))
 const OperatorPortalPage = lazy(() => import('./pages/OperatorPortalPage').then((m) => ({ default: m.OperatorPortalPage })))
 const FranchisePage = lazy(() => import('./pages/FranchisePage').then((m) => ({ default: m.FranchisePage })))
 
@@ -130,10 +134,13 @@ function AppShell() {
     const params = new URLSearchParams(location.search)
     const isDriverEntryLink =
       location.pathname === '/drive' && ['invite', 'todaOrgId', 'mode', 'operatorId'].some((key) => params.has(key))
+    // A vendor's page is public too: it is the link a carinderia shares on
+    // Facebook, and whoever taps it must land on the store, not a login.
     const isPublicEntry =
       location.pathname === '/' ||
       location.pathname === '/welcome' ||
       location.pathname.startsWith('/scan/') ||
+      location.pathname.startsWith('/vendor-page/') ||
       isDriverEntryLink
     if (!isPublicEntry) navigate('/', { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -143,6 +150,14 @@ function AppShell() {
   // halfway through a booking - or never, on a phone that never reached the
   // screen that would have asked. See askForLocation.
   useAskForLocationOnOpen()
+
+  // The "come back to this vendor after signing in" note (see lib/returnTo)
+  // is spent the moment a signed-in rider is inside the rider app — after
+  // the redirect below has used it. Cleared here, in an effect, never
+  // during render.
+  useEffect(() => {
+    if (authedAccount && location.pathname.startsWith('/book')) clearReturnTo()
+  }, [authedAccount, location.pathname])
 
   // The landing page and the role chooser behind it are both public — they
   // only ask "log in or sign up" and "as who", nothing account-specific — so
@@ -175,7 +190,9 @@ function AppShell() {
           ? 'Welcome'
           : location.pathname.startsWith('/scan/')
             ? 'Safe Ride'
-            : 'Sign in'
+            : location.pathname.startsWith('/vendor-page/')
+              ? 'Food Express'
+              : 'Sign in'
     return (
       <>
         <ScrollToTopOfPublicView pathname={location.pathname} />
@@ -189,6 +206,12 @@ function AppShell() {
             <RoleChooserPage />
           ) : location.pathname.startsWith('/scan/') ? (
             <TerminalScanPage />
+          ) : location.pathname.startsWith('/vendor-page/') ? (
+            <Suspense fallback={null}>
+              <Routes>
+                <Route path="/vendor-page/:pharmacyId" element={<VendorGuestPage />} />
+              </Routes>
+            </Suspense>
           ) : (
             <AuthGate />
           )}
@@ -241,8 +264,17 @@ function AppShell() {
   // this cannot widen anything on the deployed site.
   const isDevBench = import.meta.env.DEV && location.pathname === '/navcheck'
 
+  // A signed-in passenger opening a vendor's shared link goes straight to
+  // that store's menu with the cart ready — the public page is for people
+  // without an account.
+  const vendorPageMatch = /^\/vendor-page\/([^/]+)/.exec(location.pathname)
+  if (isRiderRole && vendorPageMatch) {
+    return <Navigate to={`/book?vendor=${encodeURIComponent(vendorPageMatch[1])}`} replace />
+  }
   if (isRiderRole && !isRiderApp && !isDevBench) {
-    return <Navigate to="/book/start" replace />
+    // Somebody who registered from a vendor's page goes back to that vendor
+    // (see VendorGuestPage / lib/returnTo); everyone else starts at the top.
+    return <Navigate to={peekReturnTo() ?? '/book/start'} replace />
   }
   if (isDriverRole && location.pathname !== '/drive' && !isDevBench) {
     return <Navigate to="/drive" replace />

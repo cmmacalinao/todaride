@@ -89,8 +89,14 @@ export default async function handler(request: Request, context: Context) {
   const vendor = state?.pharmacies.find((p) => p.id === id)
 
   if (wantsImage) {
-    const photo = vendor?.coverPhotoDataUrl || vendor?.logoDataUrl
-    const decoded = photo ? dataUrlToBytes(photo) : null
+    // Profile photo first, logo second — but Facebook's crawler renders WebP
+    // inconsistently, so a PNG/JPEG candidate wins over a WebP one even if
+    // it is the second choice. Only when both are WebP is WebP served.
+    const candidates = [vendor?.coverPhotoDataUrl, vendor?.logoDataUrl]
+      .filter((p): p is string => !!p)
+      .map(dataUrlToBytes)
+      .filter((d): d is { bytes: Uint8Array; type: string } => !!d)
+    const decoded = candidates.find((d) => d.type !== 'image/webp') ?? candidates[0] ?? null
     if (!decoded) {
       // No photo of their own: the app's own icon, so the card is never blank.
       return Response.redirect(`${url.origin}/pwa-512x512.png`, 302)

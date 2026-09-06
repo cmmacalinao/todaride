@@ -3,6 +3,7 @@ import { AppLoginForm } from '../components/AppLoginForm'
 import { AndroidAppBanner } from '../components/AndroidAppBanner'
 import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
 import { PilotBranding } from '../components/PilotBranding'
+import { BuildLabel } from '../components/BuildLabel'
 import { usePilotBranding } from '../lib/usePilotBranding'
 import { useRides } from '../context/RideContext'
 
@@ -172,6 +173,15 @@ export function LandingPage() {
           </Link>
         </div>
       </section>
+
+      {/* The same build info AppLoginForm prints above the fold, repeated
+          here at the very bottom of the page — that copy sits inside the
+          hero's own scroll area and is easy to miss before reaching "Why
+          Choose TODA SafeRide?"; this one is unmissable once someone has
+          scrolled the whole page. */}
+      <p className="pb-6 text-center text-[10px] text-slate-300">
+        Prototype · simulated data · <BuildLabel />
+      </p>
     </div>
   )
 }

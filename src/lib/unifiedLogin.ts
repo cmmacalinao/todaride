@@ -263,8 +263,11 @@ export function findAccountForRecovery(
 // would be left sitting on the landing page.
 export const HOME_PATH_BY_ROLE: Record<AuthedAccountRole, string> = {
   super_admin: '/admin/super',
-  passenger: '/book',
-  parent: '/book',
+  // Not straight to /book: a rider picks Book a Ride vs. Record mo ang
+  // Biyahe on /book/start first (see RiderStartPage) — landing on the
+  // booking form itself skipped that choice on every login.
+  passenger: '/book/start',
+  parent: '/book/start',
   driver: '/drive',
   toda_admin: '/drive',
   admin: '/admin',

@@ -1,5 +1,5 @@
-import { lazy, Suspense, useLayoutEffect } from 'react'
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { PublicHeader } from './components/PublicHeader'
 import { SuperAdminGate } from './components/SuperAdminGate'
 import { NavBar } from './components/NavBar'
@@ -103,10 +103,30 @@ function ScrollToTopOnLogin({ accountId }: { accountId: string }) {
 function AppShell() {
   const { authedAccount } = useSession()
   const location = useLocation()
+  const navigate = useNavigate()
   // The screen stays on while the app is open — see keepAwake. A trip is
   // minutes of nobody touching the phone, which is exactly when the sleep
   // timer fires.
   useKeepAwake()
+
+  // Opening the app should always land on the landing page — not wherever
+  // the address bar (or a Capacitor WebView that survived being backgrounded
+  // rather than fully closed) happened to be left pointing, e.g. a
+  // role-specific login screen from the last visit. Runs exactly once per
+  // app load (the ref guard), so it can't interfere with navigating to a
+  // login screen normally during the session — only the very first paint.
+  // Not authenticated accounts only: an authed account reaching a stale URL
+  // is handled by the role-confinement redirects below instead.
+  const hasForcedHomeRef = useRef(false)
+  useEffect(() => {
+    if (hasForcedHomeRef.current) return
+    hasForcedHomeRef.current = true
+    if (authedAccount) return
+    const isPublicEntry =
+      location.pathname === '/' || location.pathname === '/welcome' || location.pathname.startsWith('/scan/')
+    if (!isPublicEntry) navigate('/', { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // And the location dialog goes up as the app opens, rather than appearing
   // halfway through a booking - or never, on a phone that never reached the

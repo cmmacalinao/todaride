@@ -10,6 +10,7 @@ import { VendorThemePicker } from '../components/VendorBrandingEditor'
 import { VendorDeliveryBooking } from '../components/VendorDeliveryBooking'
 import { ACTIVE_RIDE_STATUSES, VendorDeliveryTracker, deliveryPhaseLabel } from '../components/VendorDeliveryTracker'
 import { VendorEarnings } from '../components/VendorEarnings'
+import { storeRatingSummary } from '../components/StoreRatingSheet'
 import { VendorFooterNav, type VendorTab } from '../components/VendorFooterNav'
 import { VendorTrustedRiders } from '../components/VendorTrustedRiders'
 import { PaymentAccountForm, ORDER_STATUS_LABELS } from './PharmacyPortalPage'
@@ -316,6 +317,41 @@ export function VendorPortalPage() {
         <h2 className="mb-2 text-sm font-semibold text-slate-700">💰 Earnings</h2>
         <VendorEarnings orders={ownOrders} rides={rides} />
       </section>
+
+      {(() => {
+        const { average, count } = storeRatingSummary(vendor)
+        const reviews = (vendor.storeReviews ?? []).slice(0, 10)
+        return (
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-slate-700">⭐ Store rating</h2>
+            {count === 0 ? (
+              <p className="mt-1 text-sm text-slate-400">No customer ratings yet — customers can rate your store from your page.</p>
+            ) : (
+              <>
+                <p className="mt-1 text-sm text-slate-700">
+                  <span className="text-lg font-extrabold text-amber-500">★ {average.toFixed(1)}</span>{' '}
+                  <span className="text-xs text-slate-500">
+                    from {count} {count === 1 ? 'rating' : 'ratings'}
+                  </span>
+                </p>
+                <div className="mt-2 space-y-1.5">
+                  {reviews.map((r) => (
+                    <div key={r.customerId} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs">
+                      <p className="text-slate-700">
+                        <span className="text-amber-500">{'★'.repeat(r.rating)}</span>
+                        <span className="text-slate-300">{'★'.repeat(5 - r.rating)}</span>{' '}
+                        <span className="font-medium">{r.customerName}</span>
+                        <span className="text-slate-400"> · {new Date(r.at).toLocaleDateString()}</span>
+                      </p>
+                      {r.text && <p className="text-[11px] text-slate-500">{r.text}</p>}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+        )
+      })()}
 
       <section ref={trustedSectionRef} className="scroll-mt-24 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="mb-1 text-sm font-semibold text-slate-700">⭐ Trusted Riders</h2>

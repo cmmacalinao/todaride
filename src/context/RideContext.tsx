@@ -78,6 +78,7 @@ import type {
   PaymentAccountDetails,
   PaymentMethod,
   Pharmacy,
+  StoreReview,
   PromoDiscountType,
   PromoOffer,
   PromoOfferKind,
@@ -1381,6 +1382,7 @@ type RideAction =
     }
   | { type: 'UPDATE_PHARMACY_LOCATION'; pharmacyId: string; locationGps: GeoCoords }
   | { type: 'TOGGLE_PHARMACY_TRUSTED_DRIVER'; pharmacyId: string; driverId: string }
+  | { type: 'RATE_PHARMACY'; pharmacyId: string; customerId: string; customerName: string; rating: number; text: string | null }
   | { type: 'REMOVE_MEDICINE_PRODUCT'; productId: string }
   | { type: 'REORDER_MEDICINE_PRODUCTS'; orderedIds: string[] }
 
@@ -5369,6 +5371,27 @@ function reducer(state: RideState, action: RideAction): RideState {
         ),
       }
     }
+    // One review per customer: rating the same store again replaces what
+    // they said before rather than stacking a second vote, so a regular
+    // customer counts once in the average like everyone else.
+    case 'RATE_PHARMACY': {
+      const rating = Math.max(1, Math.min(5, Math.round(action.rating)))
+      const review: StoreReview = {
+        customerId: action.customerId,
+        customerName: action.customerName,
+        rating,
+        text: action.text?.trim() || null,
+        at: new Date().toISOString(),
+      }
+      return {
+        ...state,
+        pharmacies: state.pharmacies.map((p) =>
+          p.id === action.pharmacyId
+            ? { ...p, storeReviews: [review, ...(p.storeReviews ?? []).filter((r) => r.customerId !== action.customerId)] }
+            : p,
+        ),
+      }
+    }
     case 'TOGGLE_PHARMACY_TRUSTED_DRIVER': {
       return {
         ...state,
@@ -6298,6 +6321,7 @@ interface RideContextValue extends RideState {
   }) => void
   updatePharmacyLocation: (pharmacyId: string, locationGps: GeoCoords) => void
   togglePharmacyTrustedDriver: (pharmacyId: string, driverId: string) => void
+  ratePharmacy: (args: { pharmacyId: string; customerId: string; customerName: string; rating: number; text: string | null }) => void
 }
 
 const RideContext = createContext<RideContextValue | null>(null)
@@ -7110,6 +7134,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     updatePharmacyLocation: (pharmacyId, locationGps) => dispatch({ type: 'UPDATE_PHARMACY_LOCATION', pharmacyId, locationGps }),
     togglePharmacyTrustedDriver: (pharmacyId, driverId) =>
       dispatch({ type: 'TOGGLE_PHARMACY_TRUSTED_DRIVER', pharmacyId, driverId }),
+    ratePharmacy: (args) => dispatch({ type: 'RATE_PHARMACY', ...args }),
   }
 
   return <RideContext.Provider value={value}>{children}</RideContext.Provider>

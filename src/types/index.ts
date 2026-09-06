@@ -478,6 +478,20 @@ export interface Pharmacy {
   // buildMedsDeliveryRide), the way a passenger's favoriteDriverId is.
   // Optional so every existing Pharmacy literal stays valid.
   trustedDriverIds?: string[]
+  // "Rate this store" — one review per customer, replaced when they rate
+  // again (see RATE_PHARMACY). The average and count shown on the storefront
+  // are derived from this list (see storeRatingSummary), never stored
+  // separately, so they cannot drift.
+  storeReviews?: StoreReview[]
+}
+
+export interface StoreReview {
+  customerId: string
+  customerName: string
+  // 1–5, same scale as a ride's driverRating.
+  rating: number
+  text: string | null
+  at: string
 }
 
 // Full lifecycle: pending_confirmation (customer asked for a quote) →

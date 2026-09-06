@@ -5,6 +5,7 @@ import { DEFAULT_MEDS_DELIVERY_FEE, DEFAULT_MEDS_SERVICE_FEE, PAYMENT_METHODS } 
 import { resolvePhAddress, type PhAddressTags } from '../lib/customLocation'
 import { BarangayAddressPicker } from './BarangayAddressPicker'
 import { DeliveryMapPicker } from './DeliveryMapPicker'
+import { StoreRatingSheet } from './StoreRatingSheet'
 import { OrderChat } from './OrderChat'
 import { TripMonitor } from './TripMonitor'
 import { VendorFeatureCard, VendorStorefront } from './VendorStorefront'
@@ -49,8 +50,12 @@ export function VendorMenuBooking({
   defaultAddressDetail: string
   defaultContactPhone?: string | null
 }) {
-  const { rides, pharmacies, medicineProducts, medsOrders, createMedsOrder, cancelMedsOrder } = useRides()
+  const { rides, pharmacies, medicineProducts, medsOrders, createMedsOrder, cancelMedsOrder, ratePharmacy } = useRides()
   const navigate = useNavigate()
+  // Which store the "Rate this store" sheet is open for — from the
+  // storefront header, or from a past order in the history below.
+  const [ratingVendorId, setRatingVendorId] = useState<string | null>(null)
+  const ratingVendor = ratingVendorId ? pharmacies.find((p) => p.id === ratingVendorId) : undefined
 
   const vendors = useMemo(
     () => pharmacies.filter((p) => VENDOR_BUSINESS_TYPES.includes(p.businessType) && p.verificationStatus === 'approved'),
@@ -284,6 +289,7 @@ export function VendorMenuBooking({
             cart={cart}
             onQtyChange={setQty}
             onCheckout={() => setStep('checkout')}
+            onRate={() => setRatingVendorId(selectedVendor.id)}
           />
         </div>
       )}
@@ -417,11 +423,29 @@ export function VendorMenuBooking({
                   {order.status === 'rejected' && order.rejectionReason && (
                     <p className="mt-1 text-xs text-amber-700">Vendor declined: {order.rejectionReason}</p>
                   )}
+                  {order.status === 'dispatched' && (
+                    <button
+                      type="button"
+                      onClick={() => setRatingVendorId(order.pharmacyId)}
+                      className="mt-1 text-xs font-semibold text-brand-700 hover:underline"
+                    >
+                      ⭐ Rate this store
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
           )}
         </section>
+      )}
+
+      {ratingVendor && (
+        <StoreRatingSheet
+          pharmacy={ratingVendor}
+          existing={(ratingVendor.storeReviews ?? []).find((r) => r.customerId === customerId) ?? null}
+          onSubmit={(rating, text) => ratePharmacy({ pharmacyId: ratingVendor.id, customerId, customerName, rating, text })}
+          onClose={() => setRatingVendorId(null)}
+        />
       )}
     </div>
   )

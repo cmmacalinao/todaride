@@ -4,6 +4,7 @@ import { menuBadgeSortRank, menuCategorySortRank } from '../lib/foodCatalog'
 import { captureNativePhoto, compressImageFile, isNativePlatform, removeFlatBackground } from '../lib/photo'
 import { ShareSheet } from './ShareSheet'
 import { ProfilePhotoPicker } from './ProfilePhotoPicker'
+import { storeRatingSummary } from './StoreRatingSheet'
 import { MENU_ITEM_BADGES, type MedicineProduct, type Pharmacy } from '../types'
 
 // One shared "shape", three audiences: a vendor sees exactly this header +
@@ -298,10 +299,14 @@ export function VendorHeaderCard({
   onCoverUpload,
   onPinLocation,
   onCoverPositionChange,
+  onRate,
 }: {
   pharmacy: Pharmacy
   itemCount: number
   accent: VendorAccent
+  // Present on the customer's ordering view only — opens "Rate this store"
+  // (see StoreRatingSheet). The rating line itself shows everywhere.
+  onRate?: () => void
   // Present only on the vendor's own edit screen (see VendorMenuManager.tsx)
   // — turns the avatar/banner into tap-to-upload targets. Absent everywhere
   // else (customer ordering, the vendor's own read-only Preview tab), so
@@ -739,6 +744,30 @@ export function VendorHeaderCard({
             <p>
               {accent.icon} {itemCount} item{itemCount === 1 ? '' : 's'} on the menu
             </p>
+            {(() => {
+              const { average, count } = storeRatingSummary(pharmacy)
+              return (
+                <p className="flex flex-wrap items-center gap-x-2">
+                  <span>
+                    {count > 0 ? (
+                      <>
+                        <span className="text-amber-500">★</span> <span className="font-semibold text-slate-700">{average.toFixed(1)}</span>{' '}
+                        ({count} {count === 1 ? 'rating' : 'ratings'})
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-slate-300">★</span> No ratings yet
+                      </>
+                    )}
+                  </span>
+                  {onRate && (
+                    <button type="button" onClick={onRate} className="font-semibold text-brand-700 hover:underline">
+                      Rate this store
+                    </button>
+                  )}
+                </p>
+              )
+            })()}
           </div>
           {(() => {
             const tileContent = (
@@ -920,6 +949,14 @@ export function VendorFeatureCard({
           <span className="text-[9px] text-slate-400">
             {itemCount} item{itemCount === 1 ? '' : 's'}
           </span>
+          {(() => {
+            const { average, count } = storeRatingSummary(pharmacy)
+            return count > 0 ? (
+              <span className="text-[9px] text-slate-500">
+                <span className="text-amber-500">★</span> {average.toFixed(1)}
+              </span>
+            ) : null
+          })()}
         </div>
       </div>
     </button>
@@ -932,6 +969,7 @@ export function VendorStorefront({
   cart,
   onQtyChange,
   onCheckout,
+  onRate,
 }: {
   pharmacy: Pharmacy
   items: MedicineProduct[]
@@ -941,6 +979,8 @@ export function VendorStorefront({
   cart?: Record<string, number>
   onQtyChange?: (productId: string, qty: number) => void
   onCheckout?: () => void
+  // Customer ordering view only — see VendorHeaderCard.
+  onRate?: () => void
 }) {
   const accent = resolveVendorAccent(pharmacy)
   const interactive = !!cart && !!onQtyChange
@@ -1004,6 +1044,7 @@ export function VendorStorefront({
         pharmacy={pharmacy}
         itemCount={items.filter((i) => i.visible !== false).length}
         accent={accent}
+        onRate={onRate}
       />
 
       {categories.length > 0 && (

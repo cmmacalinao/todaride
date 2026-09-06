@@ -122,8 +122,19 @@ function AppShell() {
     if (hasForcedHomeRef.current) return
     hasForcedHomeRef.current = true
     if (authedAccount) return
+    // A driver sign-up link is a public entry too: a TODA's own join link
+    // (/drive?todaOrgId=…), a named invite (/drive?invite=…, from a TODA
+    // officer or a vendor registering a rider) or a mode deep link. Sending
+    // those to the landing page threw the invitation away — the person
+    // arrived at a plain login with no idea what happened to their link.
+    const params = new URLSearchParams(location.search)
+    const isDriverEntryLink =
+      location.pathname === '/drive' && ['invite', 'todaOrgId', 'mode', 'operatorId'].some((key) => params.has(key))
     const isPublicEntry =
-      location.pathname === '/' || location.pathname === '/welcome' || location.pathname.startsWith('/scan/')
+      location.pathname === '/' ||
+      location.pathname === '/welcome' ||
+      location.pathname.startsWith('/scan/') ||
+      isDriverEntryLink
     if (!isPublicEntry) navigate('/', { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

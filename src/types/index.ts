@@ -783,10 +783,18 @@ export interface Passenger {
 // has to add the rest: plate/license/address/PIN/documents.
 export interface DriverInvite {
   id: string
-  todaOrgId: string
+  // Null for an invite that does not come from a TODA — a vendor's rider
+  // (see pharmacyId) joins as a freelance driver unless their address
+  // matches an approved TODA at sign-up.
+  todaOrgId: string | null
   name: string
   phone: string
   email: string | null
+  // Set when a Registered Vendor pre-registered this rider from their
+  // portal ("Register a rider" under Trusted Rider). Finishing sign-up
+  // through the link adds the new driver to that vendor's trusted riders.
+  pharmacyId?: string | null
+  plateNumber?: string | null
   createdAt: string
   // Set once someone actually completes registration through this invite —
   // an invite is single-use so the same link can't spawn duplicate accounts.

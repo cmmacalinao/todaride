@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useRides } from '../context/RideContext'
+import { VendorRiderInvite } from './VendorRiderInvite'
 import type { Pharmacy } from '../types'
 
 // "Send this delivery to…" — a pick among the vendor's trusted riders for
@@ -86,9 +87,12 @@ export function VendorTrustedRiders({ vendor }: { vendor: Pharmacy }) {
   return (
     <div>
       <p className="text-xs text-slate-500">
-        Starred riders get the first offer on every delivery from your store while they're on duty. Tap ★ to add or
-        remove one.
+        Trusted riders get the first offer on every delivery from your store while they're on duty. Add any registered
+        rider below, or register a new one and send them their link.
       </p>
+      <div className="mt-2">
+        <VendorRiderInvite vendor={vendor} />
+      </div>
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -96,8 +100,12 @@ export function VendorTrustedRiders({ vendor }: { vendor: Pharmacy }) {
         className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
       />
       {shown.length === 0 && <p className="mt-2 text-sm text-slate-400">No riders match.</p>}
-      <div className="mt-2 space-y-1.5">
-        {shown.slice(0, 30).map((d) => {
+      {/* Four rows tall, the rest reached by scrolling inside the sheet —
+          seventeen riders stacked on the page pushed everything below it
+          (payments, history) out of reach. overscroll-contain keeps a swipe
+          that reaches the end from scrolling the page underneath. */}
+      <div className="mt-2 max-h-[13.75rem] space-y-1.5 overflow-y-auto overscroll-contain rounded-lg pr-0.5">
+        {shown.map((d) => {
           const isTrusted = trusted.has(d.id)
           const n = deliveriesBy.get(d.id) ?? 0
           const toda = d.todaOrgId ? todaOrganizations.find((o) => o.id === d.todaOrgId) : null
@@ -140,6 +148,9 @@ export function VendorTrustedRiders({ vendor }: { vendor: Pharmacy }) {
           )
         })}
       </div>
+      {shown.length > 4 && (
+        <p className="mt-1 text-center text-[10px] text-slate-400">Swipe up and down to see all {shown.length} riders</p>
+      )}
     </div>
   )
 }

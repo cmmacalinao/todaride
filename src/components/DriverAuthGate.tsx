@@ -662,13 +662,13 @@ function RegisterForm({
   invite: DriverInvite | null
   inviteTodaOrgId: string | null
 }) {
-  const { todaOrganizations, addUnregisteredToda, openDriverSignup } = useRides()
+  const { todaOrganizations, pharmacies, addUnregisteredToda, openDriverSignup } = useRides()
   // An invite already identifies who this is and which TODA vouched for
   // them, so it skips the OTP identity-verification step entirely and goes
   // straight to filling in the rest (plate/license/address/PIN/documents).
   const [step, setStep] = useState<'otp' | 'profile'>(invite ? 'profile' : 'otp')
   const [name, setName] = useState(invite?.name ?? '')
-  const [plateNumber, setPlateNumber] = useState('')
+  const [plateNumber, setPlateNumber] = useState(invite?.plateNumber ?? '')
   const [licenseNo, setLicenseNo] = useState('')
   const [confirmLicenseNo, setConfirmLicenseNo] = useState('')
   const [licenseExpiry, setLicenseExpiry] = useState('')
@@ -706,6 +706,9 @@ function RegisterForm({
     if (input instanceof HTMLElement) input.focus({ preventScroll: true })
   }
 
+  // A vendor's rider (see DriverInvite.pharmacyId) was registered by the
+  // store they deliver for, not a TODA officer — the banner says so.
+  const inviteVendorName = invite?.pharmacyId ? pharmacies.find((p) => p.id === invite.pharmacyId)?.name ?? null : null
   const inviteOrgName = invite ? todaOrganizations.find((o) => o.id === invite.todaOrgId)?.name : null
   // Locked (non-editable) TODA org, from either flow above — distinct from
   // todaSelection being merely "chosen" (via search/freelance), which still
@@ -810,11 +813,13 @@ function RegisterForm({
 
       {invite ? (
         <div className="rounded-lg border border-brand-200 bg-brand-50 p-3 text-xs text-brand-800">
-          <p className="font-medium">Invited by {inviteOrgName ?? 'your TODA'}</p>
+          <p className="font-medium">Invited by {inviteVendorName ?? inviteOrgName ?? 'your TODA'}</p>
           <p className="mt-0.5">
             {name} · {phone}
-            {email ? ` · ${email}` : ''} — set by your TODA officer. Fill in the rest below, including your
-            documents.
+            {email ? ` · ${email}` : ''}
+            {inviteVendorName
+              ? ` — registered by ${inviteVendorName} as their trusted delivery rider. Fill in the rest below, including your documents, and choose your own PIN.`
+              : ' — set by your TODA officer. Fill in the rest below, including your documents.'}
           </p>
         </div>
       ) : inviteTodaOrgId && lockedOrgName ? (

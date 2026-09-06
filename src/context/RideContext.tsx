@@ -1048,7 +1048,19 @@ type RideAction =
       facebook: string | null
       inviteId: string | null
     }
-  | { type: 'CREATE_DRIVER_INVITE'; id: string; todaOrgId: string; name: string; phone: string; email: string | null }
+  | {
+      type: 'CREATE_DRIVER_INVITE'
+      id: string
+      todaOrgId: string | null
+      name: string
+      phone: string
+      email: string | null
+      pharmacyId?: string | null
+      plateNumber?: string | null
+    }
+  // Only while unused — an invite somebody already registered through is a
+  // record of how their account came to be, and stays.
+  | { type: 'REMOVE_DRIVER_INVITE'; inviteId: string }
   | {
       type: 'REGISTER_PASSENGER'
       id: string
@@ -4623,6 +4635,11 @@ function reducer(state: RideState, action: RideAction): RideState {
         appealMessage: null,
         appealedAt: null,
       }
+      // A rider a vendor pre-registered (see DriverInvite.pharmacyId) is
+      // that vendor's trusted rider from the moment they finish signing up
+      // — the vendor should not have to find them in the list afterwards.
+      const usedInvite = action.inviteId ? state.driverInvites.find((inv) => inv.id === action.inviteId) : undefined
+      const vendorId = usedInvite?.pharmacyId ?? null
       return {
         ...state,
         drivers: [...state.drivers, driver],
@@ -4631,6 +4648,13 @@ function reducer(state: RideState, action: RideAction): RideState {
               inv.id === action.inviteId ? { ...inv, usedByDriverId: driver.id } : inv,
             )
           : state.driverInvites,
+        pharmacies: vendorId
+          ? state.pharmacies.map((p) =>
+              p.id === vendorId && !(p.trustedDriverIds ?? []).includes(driver.id)
+                ? { ...p, trustedDriverIds: [...(p.trustedDriverIds ?? []), driver.id] }
+                : p,
+            )
+          : state.pharmacies,
       }
     }
     case 'CREATE_DRIVER_INVITE': {
@@ -4640,11 +4664,18 @@ function reducer(state: RideState, action: RideAction): RideState {
         name: action.name,
         phone: action.phone,
         email: action.email,
+        pharmacyId: action.pharmacyId ?? null,
+        plateNumber: action.plateNumber ?? null,
         createdAt: new Date().toISOString(),
         usedByDriverId: null,
       }
       return { ...state, driverInvites: [invite, ...state.driverInvites] }
     }
+    case 'REMOVE_DRIVER_INVITE':
+      return {
+        ...state,
+        driverInvites: state.driverInvites.filter((inv) => inv.id !== action.inviteId || inv.usedByDriverId !== null),
+      }
     case 'REGISTER_PASSENGER': {
       if (action.age < MINOR_AGE_LIMIT) return state
       const passenger: Passenger = {
@@ -6056,7 +6087,15 @@ interface RideContextValue extends RideState {
     facebook: string | null
     inviteId?: string | null
   }) => void
-  createDriverInvite: (args: { todaOrgId: string; name: string; phone: string; email: string | null }) => string
+  createDriverInvite: (args: {
+    todaOrgId: string | null
+    name: string
+    phone: string
+    email: string | null
+    pharmacyId?: string | null
+    plateNumber?: string | null
+  }) => string
+  removeDriverInvite: (inviteId: string) => void
   registerPassenger: (args: {
     name: string
     age: number
@@ -7012,6 +7051,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'CREATE_DRIVER_INVITE', id, ...args })
       return id
     },
+    removeDriverInvite: (inviteId) => dispatch({ type: 'REMOVE_DRIVER_INVITE', inviteId }),
     registerPassenger: (args) => {
       if (args.age < MINOR_AGE_LIMIT) return null
       const id = `pax-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`

@@ -17,8 +17,34 @@ export function ShareSheet({ title, url, onClose }: { title: string; url: string
   // this has to be a runtime check rather than a type-level one.
   const canNativeShare = typeof navigator.share === 'function'
 
+  const caption = `${title} — order on TODA SafeRide: ${url}`
+
+  // TikTok has no "share a link" endpoint — a post there is a video with a
+  // caption — so the closest thing to a direct hand-off is the caption
+  // already on the clipboard when the app opens: paste it into the post or
+  // the bio. The app scheme opens TikTok itself on a phone; a desktop falls
+  // through to the site.
+  async function shareToTikTok() {
+    try {
+      await navigator.clipboard.writeText(caption)
+    } catch {
+      // Clipboard blocked — the link is printed below to copy by hand.
+    }
+    const fallback = setTimeout(() => window.open('https://www.tiktok.com/', '_blank', 'noreferrer'), 600)
+    window.addEventListener('pagehide', () => clearTimeout(fallback), { once: true })
+    window.location.href = 'tiktok://'
+  }
+
   const targets: { label: string; icon: string; href: string }[] = [
-    { label: 'Facebook', icon: '📘', href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}` },
+    // The sharer dialog IS Facebook's post composer for a link — on a phone
+    // the Facebook app takes the link over and opens "Write something…" with
+    // the page preview attached; `quote` puts the caption in the box so the
+    // vendor only has to tap Post.
+    {
+      label: 'Facebook',
+      icon: '📘',
+      href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodeURIComponent(caption)}`,
+    },
     // The app-scheme link opens Messenger directly on a phone, which is where
     // this gets used; a desktop without Messenger simply does nothing, and
     // the Facebook row beside it covers that case.
@@ -41,7 +67,10 @@ export function ShareSheet({ title, url, onClose }: { title: string; url: string
 
   async function nativeShare() {
     try {
-      await navigator.share({ title, url })
+      // text as well as url: the apps that take a share (Facebook's
+      // composer, TikTok's caption, Messenger) prefill from `text`, and a
+      // bare url arrives in some of them as an empty post with a preview.
+      await navigator.share({ title, text: caption, url })
       onClose()
     } catch {
       // Cancelled the OS sheet — stay on ours.
@@ -76,6 +105,17 @@ export function ShareSheet({ title, url, onClose }: { title: string; url: string
           ))}
           <button
             type="button"
+            onClick={() => void shareToTikTok()}
+            title="Copies the caption and opens TikTok — paste it into your post or bio"
+            className="flex flex-col items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 py-3 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+          >
+            <span aria-hidden className="text-xl leading-none">
+              🎵
+            </span>
+            TikTok
+          </button>
+          <button
+            type="button"
             onClick={() => void copyLink()}
             className="flex flex-col items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 py-3 text-xs font-semibold text-slate-700 hover:bg-slate-100"
           >
@@ -91,9 +131,12 @@ export function ShareSheet({ title, url, onClose }: { title: string; url: string
             onClick={() => void nativeShare()}
             className="mt-2 w-full rounded-xl border border-brand-300 bg-brand-50 py-2 text-xs font-semibold text-brand-700 hover:bg-brand-100"
           >
-            More apps…
+            📲 Share with caption to any app…
           </button>
         )}
+        <p className="mt-1.5 text-center text-[10px] text-slate-400">
+          TikTok has no link posts — the caption is copied for you to paste.
+        </p>
         <button
           type="button"
           onClick={onClose}

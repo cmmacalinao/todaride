@@ -52,6 +52,10 @@ async function upload(blob: Blob, status: HTMLElement) {
   }
   const rest: Blob = { ...blob }
   for (const k of HOT_KEYS) delete rest[k]
+  // A copy saved by an older build carries no stamp; the server's guard
+  // would refuse it. This upload is a person's deliberate restore, so it
+  // goes in stamped as current.
+  if (typeof rest.schemaVersion !== 'number' || rest.schemaVersion < 2) rest.schemaVersion = 2
   status.textContent = 'Uploading…'
   try {
     const res = await fetch(`${url}/rest/v1/app_state`, {

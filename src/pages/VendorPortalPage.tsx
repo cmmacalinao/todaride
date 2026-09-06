@@ -53,6 +53,7 @@ export function VendorPortalPage() {
   const historySectionRef = useRef<HTMLElement>(null)
   const deliveriesSectionRef = useRef<HTMLElement>(null)
   const bookingSectionRef = useRef<HTMLDivElement>(null)
+  const readyToProcessRef = useRef<HTMLElement>(null)
   const earningsSectionRef = useRef<HTMLElement>(null)
   const trustedSectionRef = useRef<HTMLElement>(null)
   const [showBooking, setShowBooking] = useState(false)
@@ -64,21 +65,32 @@ export function VendorPortalPage() {
   // The footer tabs scroll to their section; Book Rider also opens the
   // booking form, since a tab that lands on a closed card is a tab that
   // needs a second tap.
+  // Book Rider means "book a rider for an accepted order": it lands on the
+  // Ready-to-process card, which opens on its own Book Rider tab (see
+  // ReadyOrderCard). The footer disables it while there is nothing accepted.
+  // Phone and walk-in orders still have their own "Book a TODA SafeRide
+  // delivery" card, reached from the page rather than the footer.
   function goToTab(tab: VendorTab) {
     setActiveTab(tab)
-    if (tab === 'book') setShowBooking(true)
     const refs: Record<VendorTab, RefObject<HTMLElement | null>> = {
-      orders: ordersSectionRef,
-      book: bookingSectionRef,
+      orders: readyToProcessRef,
+      book: readyToProcessRef,
       earnings: earningsSectionRef,
       trusted: trustedSectionRef,
     }
-    const scroll = () => refs[tab].current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    if (tab === 'orders') refs.orders = ordersSectionRef
+    setTimeout(() => refs[tab].current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+  }
+
+  // The walk-in booking card, opened from the page itself.
+  function openWalkInBooking() {
+    setShowBooking(true)
+    const scroll = () => bookingSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     setTimeout(scroll, 50)
-    // Book Rider swaps a one-line button for a form with a map in it; the
-    // page grows under the first scroll, so it is repeated once the form has
-    // had a moment to lay out.
-    if (tab === 'book') setTimeout(scroll, 400)
+    // The card swaps a one-line button for a form with a map in it; the page
+    // grows under the first scroll, so it is repeated once the form has laid
+    // out.
+    setTimeout(scroll, 400)
   }
 
   // A Pharmacy/Store account belongs on the Pharmacy/Store portal — actually
@@ -207,7 +219,7 @@ export function VendorPortalPage() {
         ) : (
           <button
             type="button"
-            onClick={() => goToTab('book')}
+            onClick={openWalkInBooking}
             className="flex w-full items-center justify-between rounded-xl border border-brand-200 bg-brand-50 p-4 text-left shadow-sm transition hover:bg-brand-100"
           >
             <span>
@@ -260,7 +272,7 @@ export function VendorPortalPage() {
       )}
 
       {readyToProcessOrders.length > 0 && (
-        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <section ref={readyToProcessRef} className="scroll-mt-24 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="mb-2 text-sm font-semibold text-slate-700">Ready to process</h2>
           <div className="space-y-3">
             {readyToProcessOrders.map((order) => (
@@ -372,6 +384,7 @@ export function VendorPortalPage() {
         active={activeTab}
         onNavigate={goToTab}
         orderCount={newOrders.length + readyToProcessOrders.length}
+        bookEnabled={readyToProcessOrders.length > 0}
       />
     </div>
   )

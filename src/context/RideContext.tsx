@@ -1399,7 +1399,16 @@ type RideAction =
   | { type: 'REMOVE_MEDICINE_PRODUCT'; productId: string }
   | { type: 'REORDER_MEDICINE_PRODUCTS'; orderedIds: string[] }
 
+// Stamped on every save. The server refuses app_state writes that carry an
+// older number (see supabase trigger in DOCUMENT GUIDES/app_state_guard.sql),
+// so a phone still running a build from before a data-safety fix cannot
+// overwrite everyone's world with its stale copy. Bump it when a build
+// must be locked out — every build from then on writes the new number and
+// every older one is rejected at the door.
+export const STATE_SCHEMA_VERSION = 2
+
 interface StoredState {
+  schemaVersion?: number
   rides: Ride[]
   alerts: SosAlert[]
   drivers: Driver[]
@@ -6416,6 +6425,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     }
     try {
       const stored: StoredState = ({
+          schemaVersion: STATE_SCHEMA_VERSION,
           rides: state.rides,
           alerts: state.alerts,
           drivers: state.drivers,

@@ -15,6 +15,7 @@ export function VendorFooterNav({
   active,
   onNavigate,
   orderCount = 0,
+  bookEnabled = true,
 }: {
   active: VendorTab | null
   onNavigate: (tab: VendorTab) => void
@@ -22,6 +23,9 @@ export function VendorFooterNav({
   // a badge on the Orders tab so a vendor reading their earnings still sees
   // work come in.
   orderCount?: number
+  // Book Rider only lights up while there is an accepted order waiting for
+  // a rider — a booking with nothing to deliver is not a booking.
+  bookEnabled?: boolean
 }) {
   return (
     <nav
@@ -36,15 +40,21 @@ export function VendorFooterNav({
         {VENDOR_TABS.map((t) => {
           const isActive = t.tab === active
           const badge = t.tab === 'orders' ? orderCount : 0
+          const disabled = t.tab === 'book' && !bookEnabled
           return (
             <button
               key={t.tab}
               type="button"
               onClick={() => onNavigate(t.tab)}
+              disabled={disabled}
               aria-current={isActive ? 'page' : undefined}
-              title={t.label}
+              title={disabled ? 'Accept an order first — Book Rider opens once there is an order to deliver' : t.label}
               className={`relative flex flex-1 flex-col items-center gap-0.5 rounded-lg px-1 py-1 text-[10px] font-medium transition-colors ${
-                isActive ? 'bg-brand-50 text-brand-700' : 'text-slate-500 hover:bg-slate-50 active:bg-slate-100'
+                disabled
+                  ? 'cursor-not-allowed text-slate-300'
+                  : isActive
+                    ? 'bg-brand-50 text-brand-700'
+                    : 'text-slate-500 hover:bg-slate-50 active:bg-slate-100'
               }`}
             >
               <span className="text-lg leading-none">{t.icon}</span>

@@ -13,6 +13,8 @@ import { VendorEarnings } from '../components/VendorEarnings'
 import { storeRatingSummary } from '../components/StoreRatingSheet'
 import { VendorFooterNav, type VendorTab } from '../components/VendorFooterNav'
 import { TrustedRiderSelect, VendorTrustedRiders } from '../components/VendorTrustedRiders'
+import { RealLiveMap, type MapPoint } from '../components/RealLiveMap'
+import { formatAddressLine } from '../lib/addressFormat'
 import { PaymentAccountForm, ORDER_STATUS_LABELS } from './PharmacyPortalPage'
 import type { MedsOrder, Pharmacy, Ride } from '../types'
 
@@ -391,37 +393,107 @@ function ReadyOrderCard({
 }) {
   const [preferredDriverId, setPreferredDriverId] = useState<string | null>(null)
   const dispatches = order.deliveryMode !== 'self_book'
+  // Two tabs on an accepted order: what was ordered, and booking the rider.
+  // Opens on Book Rider — accepting was the last decision, booking is the
+  // next one, and it should be one tap away rather than under the details.
+  const [tab, setTab] = useState<'order' | 'book'>(dispatches ? 'book' : 'order')
+  const storeGps = vendor.locationGps ?? { lat: 15.7940977, lng: 120.9905849 }
+  const storeIcon = vendor.businessType === 'pharmacy' || vendor.businessType === 'store' ? 'pharmacy' : 'resto'
+  const mapPoints: MapPoint[] = [
+    { id: 'store', gps: storeGps, color: '#ea580c', label: vendor.name, icon: storeIcon },
+    ...(order.deliveryAddress.gps
+      ? [{ id: 'customer', gps: order.deliveryAddress.gps, color: '#e11d48', label: `Deliver to — ${formatAddressLine(order.deliveryAddress.label)}` }]
+      : []),
+  ]
+  const driverCollects = order.paidOnline ? order.deliveryFee + order.serviceFee : order.total
+  const tabClass = (active: boolean) =>
+    `flex-1 rounded-md px-2 py-1 text-[11px] font-semibold transition ${
+      active ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+    }`
+
   return (
     <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
       <div className="flex items-center justify-between">
         <span className="font-medium text-slate-700">{order.customerName}</span>
         <span className="text-xs font-semibold text-slate-800">₱{order.total}</span>
       </div>
-      <p className="mt-1 text-xs text-slate-600">{order.items.map((item) => `${item.quantity}x ${item.name}`).join(', ')}</p>
-      <p className="mt-1 text-[11px] text-slate-500">
-        Checked out {order.paidOnline ? `— ✓ paid online via ${order.paymentMethod}` : `— pays cash on delivery`}
-        {dispatches ? ' · you will dispatch a driver' : ' · customer will book their own ride'}
-      </p>
-      {order.paymentProofDataUrl && (
-        <a href={order.paymentProofDataUrl} target="_blank" rel="noreferrer" className="mt-1.5 inline-block">
-          <img src={order.paymentProofDataUrl} alt="Payment confirmation" className="h-14 w-14 rounded-md border border-emerald-300 object-cover" />
-        </a>
-      )}
+      <p className="mt-0.5 text-[11px] font-semibold text-emerald-700">✓ Accepted — {dispatches ? 'book a rider to deliver it' : 'customer will book their own ride'}</p>
+
       {dispatches && (
-        <div className="mt-2">
-          <TrustedRiderSelect vendor={vendor} value={preferredDriverId} onChange={setPreferredDriverId} />
+        <div className="mt-2 flex gap-1 rounded-lg bg-emerald-100/70 p-1">
+          <button type="button" onClick={() => setTab('order')} className={tabClass(tab === 'order')}>
+            🧾 Order
+          </button>
+          <button type="button" onClick={() => setTab('book')} className={tabClass(tab === 'book')}>
+            🛺 Book Rider
+          </button>
         </div>
       )}
-      <button
-        type="button"
-        onClick={() => onProcess(dispatches ? preferredDriverId : null)}
-        className="mt-2 w-full rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
-      >
-        {dispatches ? 'Process & dispatch driver' : 'Mark ready for pickup'}
-      </button>
-      <div className="mt-2">
-        <OrderChat messages={order.messages} viewerRole="pharmacy" otherPartyLabel={order.customerName} onSend={onSendMessage} />
-      </div>
+
+      {tab === 'order' && (
+        <>
+          <div className="mt-2 space-y-1 rounded-lg bg-white p-2.5 text-xs">
+            {order.items.map((item, i) => (
+              <div key={`${item.productId}-${i}`} className="flex items-center justify-between">
+                <span className="text-slate-600">
+                  {item.quantity}x {item.name}
+                </span>
+                <span className="font-medium text-slate-700">₱{item.unitPrice * item.quantity}</span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between border-t border-slate-100 pt-1 text-slate-500">
+              <span>Delivery + service fee</span>
+              <span>₱{order.deliveryFee + order.serviceFee}</span>
+            </div>
+          </div>
+          <p className="mt-1 text-[11px] text-slate-500">
+            {order.paidOnline ? `✓ Paid online via ${order.paymentMethod}` : 'Pays cash on delivery'} · 🏁 {order.deliveryAddress.label}
+            {order.contactPhone ? ` · ☎ ${order.contactPhone}` : ''}
+          </p>
+          {order.paymentProofDataUrl && (
+            <a href={order.paymentProofDataUrl} target="_blank" rel="noreferrer" className="mt-1.5 inline-block">
+              <img src={order.paymentProofDataUrl} alt="Payment confirmation" className="h-14 w-14 rounded-md border border-emerald-300 object-cover" />
+            </a>
+          )}
+          {!dispatches && (
+            <button
+              type="button"
+              onClick={() => onProcess(null)}
+              className="mt-2 w-full rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
+            >
+              Mark ready for pickup
+            </button>
+          )}
+          <div className="mt-2">
+            <OrderChat messages={order.messages} viewerRole="pharmacy" otherPartyLabel={order.customerName} onSend={onSendMessage} />
+          </div>
+        </>
+      )}
+
+      {tab === 'book' && dispatches && (
+        <div className="mt-2 space-y-2">
+          <div className="overflow-hidden rounded-lg border border-slate-200">
+            <RealLiveMap points={mapPoints} height="180px" hideLegend />
+          </div>
+          <p className="text-[11px] text-slate-600">
+            🏁 {order.deliveryAddress.label}
+            {order.contactPhone ? ` · ☎ ${order.contactPhone}` : ''}
+          </p>
+          <p className="text-[11px] text-slate-500">
+            {order.paidOnline
+              ? `Paid online — the rider collects only the ₱${driverCollects} delivery & service fee from the customer.`
+              : `Cash on delivery — the rider pays you ₱${order.subtotal} at pickup and collects ₱${driverCollects} from the customer.`}
+          </p>
+          <TrustedRiderSelect vendor={vendor} value={preferredDriverId} onChange={setPreferredDriverId} />
+          <button
+            type="button"
+            onClick={() => onProcess(preferredDriverId)}
+            className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
+          >
+            🛺 Book TODA SafeRide rider now
+          </button>
+        </div>
+      )}
     </div>
   )
 }

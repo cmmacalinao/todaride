@@ -2,6 +2,55 @@ import { useState } from 'react'
 import { useRides } from '../context/RideContext'
 import type { Pharmacy } from '../types'
 
+// "Send this delivery to…" — a pick among the vendor's trusted riders for
+// one particular delivery, used on the booking form and on an app order's
+// dispatch card. "Any available rider" leaves it to dispatch (which still
+// tries the first trusted rider on duty before the terminal queue). Riders
+// who are off duty stay listed but disabled: a delivery sent to someone
+// who is not working just sits there until the offer times out.
+export function TrustedRiderSelect({
+  vendor,
+  value,
+  onChange,
+}: {
+  vendor: Pharmacy
+  value: string | null
+  onChange: (driverId: string | null) => void
+}) {
+  const { drivers } = useRides()
+  const trusted = (vendor.trustedDriverIds ?? [])
+    .map((id) => drivers.find((d) => d.id === id))
+    .filter((d): d is NonNullable<typeof d> => !!d && d.verificationStatus === 'approved')
+    .sort((a, b) => Number(b.online) - Number(a.online) || a.name.localeCompare(b.name))
+
+  if (trusted.length === 0) {
+    return (
+      <p className="text-[11px] text-slate-400">
+        Send to any available rider. Add riders under <span className="font-semibold">Trusted Rider</span> to pick one
+        here.
+      </p>
+    )
+  }
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-slate-500">Send this delivery to</label>
+      <select
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value || null)}
+        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+      >
+        <option value="">Any available rider (trusted riders on duty first)</option>
+        {trusted.map((d) => (
+          <option key={d.id} value={d.id} disabled={!d.online}>
+            {d.online ? '🟢' : '⚪'} {d.name} · {d.plateNumber}
+            {d.online ? '' : ' (off duty)'}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 // The vendor's pick of who carries their food. A starred driver who is on
 // duty is offered every delivery from this store first (see
 // buildMedsDeliveryRide) — the terminal queue only gets it if they pass or
@@ -79,11 +128,13 @@ export function VendorTrustedRiders({ vendor }: { vendor: Pharmacy }) {
                 onClick={() => togglePharmacyTrustedDriver(vendor.id, d.id)}
                 aria-pressed={isTrusted}
                 title={isTrusted ? 'Remove from trusted riders' : 'Add to trusted riders'}
-                className={`shrink-0 rounded-md px-2 py-1 text-base leading-none ${
-                  isTrusted ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'
+                className={`shrink-0 rounded-md border px-2 py-1 text-[11px] font-semibold ${
+                  isTrusted
+                    ? 'border-amber-300 bg-white text-amber-600 hover:bg-amber-100'
+                    : 'border-brand-300 bg-brand-50 text-brand-700 hover:bg-brand-100'
                 }`}
               >
-                {isTrusted ? '★' : '☆'}
+                {isTrusted ? '★ Trusted · remove' : '＋ Add'}
               </button>
             </div>
           )

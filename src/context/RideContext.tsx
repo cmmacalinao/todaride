@@ -1302,7 +1302,7 @@ type RideAction =
     }
   | { type: 'CANCEL_MEDS_ORDER'; orderId: string }
   | { type: 'SEND_MEDS_ORDER_MESSAGE'; orderId: string; sender: 'customer' | 'pharmacy'; text: string }
-  | { type: 'PHARMACY_PROCESS_MEDS_ORDER'; orderId: string }
+  | { type: 'PHARMACY_PROCESS_MEDS_ORDER'; orderId: string; preferredDriverId?: string | null }
   | { type: 'MEDS_ORDER_BOOK_OWN_RIDE'; orderId: string; overrides?: MedsRideOverrides }
   // A vendor books a TODA SafeRide driver for an order that did not come
   // through the app (phone, chat, walk-in). Creates the order already
@@ -1320,6 +1320,7 @@ type RideAction =
       // does). 'paid': the customer already paid the vendor directly, so
       // the driver only collects the delivery and service fee.
       collection: 'cash' | 'paid'
+      preferredDriverId?: string | null
     }
   | { type: 'TOGGLE_MEDICINE_PRODUCT_STOCK'; productId: string }
   | { type: 'TOGGLE_MEDICINE_PRODUCT_VISIBILITY'; productId: string }
@@ -1985,6 +1986,10 @@ export interface MedsRideOverrides {
   dropoff?: MockLocation
   paymentMethod?: PaymentMethod
   tip?: number
+  // A rider the vendor picked for this delivery (see TrustedRiderSelect) —
+  // offered first, ahead of the customer's favourite and the terminal
+  // queue. Null/undefined = whoever dispatch would choose anyway.
+  preferredDriverId?: string | null
 }
 
 function buildMedsDeliveryRide(
@@ -2015,7 +2020,7 @@ function buildMedsDeliveryRide(
     priorityTodaOrgId,
     [],
     state.drivers,
-    findFavoriteDriverId(state, order.customerId) ?? trustedOnDuty?.id ?? null,
+    overrides?.preferredDriverId ?? findFavoriteDriverId(state, order.customerId) ?? trustedOnDuty?.id ?? null,
     true,
     dispatchCtx(state, pickup.gps),
   )
@@ -5230,7 +5235,7 @@ function reducer(state: RideState, action: RideAction): RideState {
           medsOrders: state.medsOrders.map((o) => (o.id === action.orderId ? { ...o, status: 'ready_for_pickup' } : o)),
         }
       }
-      const ride = buildMedsDeliveryRide(state, order, pharmacy)
+      const ride = buildMedsDeliveryRide(state, order, pharmacy, { preferredDriverId: action.preferredDriverId ?? null })
       return {
         ...state,
         rides: [ride, ...state.rides],
@@ -5307,7 +5312,7 @@ function reducer(state: RideState, action: RideAction): RideState {
         pricedFromMenu: true,
         vendorBooked: true,
       }
-      const ride = buildMedsDeliveryRide(state, order, pharmacy)
+      const ride = buildMedsDeliveryRide(state, order, pharmacy, { preferredDriverId: action.preferredDriverId ?? null })
       return {
         ...state,
         rides: [ride, ...state.rides],
@@ -6258,7 +6263,7 @@ interface RideContextValue extends RideState {
   ) => void
   cancelMedsOrder: (orderId: string) => void
   sendMedsOrderMessage: (orderId: string, sender: 'customer' | 'pharmacy', text: string) => void
-  processMedsOrder: (orderId: string) => void
+  processMedsOrder: (orderId: string, preferredDriverId?: string | null) => void
   bookOwnMedsRide: (orderId: string, overrides?: MedsRideOverrides) => void
   vendorBookDelivery: (args: {
     pharmacyId: string
@@ -6268,6 +6273,7 @@ interface RideContextValue extends RideState {
     itemsSummary: string
     goodsAmount: number
     collection: 'cash' | 'paid'
+    preferredDriverId?: string | null
   }) => void
   toggleMedicineProductStock: (productId: string) => void
   toggleMedicineProductVisibility: (productId: string) => void
@@ -7109,7 +7115,8 @@ export function RideProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'CUSTOMER_ACCEPT_QUOTE', orderId, paymentMethod, paymentProofDataUrl, deliveryMode }),
     cancelMedsOrder: (orderId) => dispatch({ type: 'CANCEL_MEDS_ORDER', orderId }),
     sendMedsOrderMessage: (orderId, sender, text) => dispatch({ type: 'SEND_MEDS_ORDER_MESSAGE', orderId, sender, text }),
-    processMedsOrder: (orderId) => dispatch({ type: 'PHARMACY_PROCESS_MEDS_ORDER', orderId }),
+    processMedsOrder: (orderId, preferredDriverId) =>
+      dispatch({ type: 'PHARMACY_PROCESS_MEDS_ORDER', orderId, preferredDriverId: preferredDriverId ?? null }),
     bookOwnMedsRide: (orderId, overrides) => dispatch({ type: 'MEDS_ORDER_BOOK_OWN_RIDE', orderId, overrides }),
     vendorBookDelivery: (args) => dispatch({ type: 'VENDOR_BOOK_DELIVERY', ...args }),
     toggleMedicineProductStock: (productId) => dispatch({ type: 'TOGGLE_MEDICINE_PRODUCT_STOCK', productId }),

@@ -12,9 +12,9 @@ import { ACTIVE_RIDE_STATUSES, VendorDeliveryTracker, deliveryPhaseLabel } from 
 import { VendorEarnings } from '../components/VendorEarnings'
 import { storeRatingSummary } from '../components/StoreRatingSheet'
 import { VendorFooterNav, type VendorTab } from '../components/VendorFooterNav'
-import { VendorTrustedRiders } from '../components/VendorTrustedRiders'
+import { TrustedRiderSelect, VendorTrustedRiders } from '../components/VendorTrustedRiders'
 import { PaymentAccountForm, ORDER_STATUS_LABELS } from './PharmacyPortalPage'
-import type { MedsOrder, Ride } from '../types'
+import type { MedsOrder, Pharmacy, Ride } from '../types'
 
 // A Registered Vendor's own portal (Resto/Food, Other Commodity) — split out
 // from PharmacyPortalPage.tsx so "Vendor" naming stays exclusive to this
@@ -262,43 +262,13 @@ export function VendorPortalPage() {
           <h2 className="mb-2 text-sm font-semibold text-slate-700">Ready to process</h2>
           <div className="space-y-3">
             {readyToProcessOrders.map((order) => (
-              <div key={order.id} className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-700">{order.customerName}</span>
-                  <span className="text-xs font-semibold text-slate-800">₱{order.total}</span>
-                </div>
-                <p className="mt-1 text-xs text-slate-600">
-                  {order.items.map((item) => `${item.quantity}x ${item.name}`).join(', ')}
-                </p>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  Checked out {order.paidOnline ? `— ✓ paid online via ${order.paymentMethod}` : `— pays cash on delivery`}
-                  {order.deliveryMode === 'self_book' ? ' · customer will book their own ride' : ' · you will dispatch a driver'}
-                </p>
-                {order.paymentProofDataUrl && (
-                  <a href={order.paymentProofDataUrl} target="_blank" rel="noreferrer" className="mt-1.5 inline-block">
-                    <img
-                      src={order.paymentProofDataUrl}
-                      alt="Payment confirmation"
-                      className="h-14 w-14 rounded-md border border-emerald-300 object-cover"
-                    />
-                  </a>
-                )}
-                <button
-                  type="button"
-                  onClick={() => processMedsOrder(order.id)}
-                  className="mt-2 w-full rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
-                >
-                  {order.deliveryMode === 'self_book' ? 'Mark ready for pickup' : 'Process & dispatch driver'}
-                </button>
-                <div className="mt-2">
-                  <OrderChat
-                    messages={order.messages}
-                    viewerRole="pharmacy"
-                    otherPartyLabel={order.customerName}
-                    onSend={(text) => sendMedsOrderMessage(order.id, 'pharmacy', text)}
-                  />
-                </div>
-              </div>
+              <ReadyOrderCard
+                key={order.id}
+                order={order}
+                vendor={vendor}
+                onProcess={(preferredDriverId) => processMedsOrder(order.id, preferredDriverId)}
+                onSendMessage={(text) => sendMedsOrderMessage(order.id, 'pharmacy', text)}
+              />
             ))}
           </div>
         </section>
@@ -401,6 +371,57 @@ export function VendorPortalPage() {
         onNavigate={goToTab}
         orderCount={newOrders.length + readyToProcessOrders.length}
       />
+    </div>
+  )
+}
+
+// An accepted order waiting for the vendor to hand it to a driver. The one
+// choice here is who: any available rider, or one of the vendor's trusted
+// riders picked for this delivery (see TrustedRiderSelect).
+function ReadyOrderCard({
+  order,
+  vendor,
+  onProcess,
+  onSendMessage,
+}: {
+  order: MedsOrder
+  vendor: Pharmacy
+  onProcess: (preferredDriverId: string | null) => void
+  onSendMessage: (text: string) => void
+}) {
+  const [preferredDriverId, setPreferredDriverId] = useState<string | null>(null)
+  const dispatches = order.deliveryMode !== 'self_book'
+  return (
+    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
+      <div className="flex items-center justify-between">
+        <span className="font-medium text-slate-700">{order.customerName}</span>
+        <span className="text-xs font-semibold text-slate-800">₱{order.total}</span>
+      </div>
+      <p className="mt-1 text-xs text-slate-600">{order.items.map((item) => `${item.quantity}x ${item.name}`).join(', ')}</p>
+      <p className="mt-1 text-[11px] text-slate-500">
+        Checked out {order.paidOnline ? `— ✓ paid online via ${order.paymentMethod}` : `— pays cash on delivery`}
+        {dispatches ? ' · you will dispatch a driver' : ' · customer will book their own ride'}
+      </p>
+      {order.paymentProofDataUrl && (
+        <a href={order.paymentProofDataUrl} target="_blank" rel="noreferrer" className="mt-1.5 inline-block">
+          <img src={order.paymentProofDataUrl} alt="Payment confirmation" className="h-14 w-14 rounded-md border border-emerald-300 object-cover" />
+        </a>
+      )}
+      {dispatches && (
+        <div className="mt-2">
+          <TrustedRiderSelect vendor={vendor} value={preferredDriverId} onChange={setPreferredDriverId} />
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => onProcess(dispatches ? preferredDriverId : null)}
+        className="mt-2 w-full rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
+      >
+        {dispatches ? 'Process & dispatch driver' : 'Mark ready for pickup'}
+      </button>
+      <div className="mt-2">
+        <OrderChat messages={order.messages} viewerRole="pharmacy" otherPartyLabel={order.customerName} onSend={onSendMessage} />
+      </div>
     </div>
   )
 }

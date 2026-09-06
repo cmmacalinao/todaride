@@ -4,6 +4,7 @@ import { DEFAULT_MEDS_DELIVERY_FEE, DEFAULT_MEDS_SERVICE_FEE } from '../mock/dat
 import { resolvePhAddress, type PhAddressTags } from '../lib/customLocation'
 import { BarangayAddressPicker } from './BarangayAddressPicker'
 import { DeliveryMapPicker } from './DeliveryMapPicker'
+import { TrustedRiderSelect } from './VendorTrustedRiders'
 import type { MockLocation, Pharmacy } from '../types'
 
 // "Book a TODA SafeRide delivery" — for the order that came by phone, chat
@@ -19,6 +20,7 @@ export function VendorDeliveryBooking({ vendor, onClose }: { vendor: Pharmacy; o
   const [itemsSummary, setItemsSummary] = useState('')
   const [goodsAmount, setGoodsAmount] = useState('')
   const [collection, setCollection] = useState<'cash' | 'paid'>('cash')
+  const [preferredDriverId, setPreferredDriverId] = useState<string | null>(null)
   const [deliveryAddress, setDeliveryAddress] = useState<MockLocation | null>(null)
   const [deliveryPinned, setDeliveryPinned] = useState(false)
   // The dropdowns start on the store's own barangay — most deliveries are
@@ -60,6 +62,7 @@ export function VendorDeliveryBooking({ vendor, onClose }: { vendor: Pharmacy; o
       itemsSummary,
       goodsAmount: goods,
       collection,
+      preferredDriverId,
     })
     setBooked(true)
   }
@@ -181,6 +184,8 @@ export function VendorDeliveryBooking({ vendor, onClose }: { vendor: Pharmacy; o
           onResolve={handleAddressResolve}
         />
       </div>
+
+      <TrustedRiderSelect vendor={vendor} value={preferredDriverId} onChange={setPreferredDriverId} />
 
       <button
         type="button"

@@ -518,6 +518,11 @@ export interface VendorPost {
   // text with its price and an Add button for a customer.
   productId: string | null
   createdAt: string
+  // The photo fitted whole to a 1.91:1 link-preview card (see
+  // lib/shareCard) — what a shared post shows on Facebook instead of a
+  // crop of photoDataUrl. Drawn when the post is made; older posts get
+  // one from the vendor portal.
+  sharePhotoDataUrl?: string | null
   // Who reacted — account ids, one entry per person, so a second tap takes
   // the reaction back. Optional: posts made before reactions existed.
   likes?: string[]

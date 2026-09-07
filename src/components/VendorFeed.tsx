@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { captureNativePhoto, compressImageFile, isNativePlatform } from '../lib/photo'
+import { renderShareCard } from '../lib/shareCard'
 import { MAX_VENDOR_POSTS, type MedicineProduct, type Pharmacy, type VendorPost } from '../types'
 import { ShareSheet } from './ShareSheet'
 import { VendorBannerArt, resolveVendorAccent, type VendorAccent } from './VendorStorefront'
@@ -543,9 +544,12 @@ export function VendorFeedComposer({ pharmacy, items }: { pharmacy: Pharmacy; it
     }
   }
 
-  function handlePost() {
+  async function handlePost() {
     if (!canPost) return
-    addVendorPost({ pharmacyId: pharmacy.id, text, photoDataUrl: photo, productId: productId || null })
+    // The share card — the photo whole on a 1.91:1 card — is drawn now so
+    // the post's link previews right from its first share.
+    const sharePhotoDataUrl = photo ? await renderShareCard(photo) : null
+    addVendorPost({ pharmacyId: pharmacy.id, text, photoDataUrl: photo, sharePhotoDataUrl, productId: productId || null })
     setText('')
     setPhoto(null)
     setProductId('')

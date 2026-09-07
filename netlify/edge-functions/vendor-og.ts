@@ -36,6 +36,7 @@ interface PostLike {
   id: string
   text?: string
   photoDataUrl?: string | null
+  sharePhotoDataUrl?: string | null
   productId?: string | null
   createdAt?: string
 }
@@ -144,7 +145,9 @@ export default async function handler(request: Request, context: Context) {
     // must never let the store's banner (a JPEG) win over the post's own
     // photo (a WebP) — the post is what was shared.
     const tiers: (string | null | undefined)[][] = [
-      ...(post ? [[post.photoDataUrl, featured?.photoDataUrl]] : []),
+      // The share card (photo whole on a 1.91:1 card) first; the raw photo
+      // only for a post made before cards existed.
+      ...(post ? [[post.sharePhotoDataUrl], [post.photoDataUrl, featured?.photoDataUrl]] : []),
       [vendor?.bannerThumbDataUrl],
       [vendor?.coverPhotoDataUrl, vendor?.logoDataUrl],
     ]
@@ -205,7 +208,11 @@ export default async function handler(request: Request, context: Context) {
     `<meta property="og:url" content="${escapeHtml(pageUrl)}" />`,
     `<meta property="og:image" content="${escapeHtml(imageUrl)}" />`,
     `<meta property="og:image:alt" content="${escapeHtml(post ? `${name}: ${(post.text ?? '').slice(0, 80)}` : name)}" />`,
-    ...(post ? [] : [`<meta property="og:image:width" content="960" />`, `<meta property="og:image:height" content="504" />`]),
+    // The card is 960×504 whenever a drawn picture is served (the store's
+    // banner, or a post's share card); a raw post photo is whatever it is.
+    ...(!post || post.sharePhotoDataUrl
+      ? [`<meta property="og:image:width" content="960" />`, `<meta property="og:image:height" content="504" />`]
+      : []),
     `<meta name="twitter:card" content="summary_large_image" />`,
     `<meta name="twitter:title" content="${escapeHtml(title)}" />`,
     `<meta name="twitter:description" content="${escapeHtml(description)}" />`,

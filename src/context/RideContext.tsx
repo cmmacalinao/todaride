@@ -1406,7 +1406,15 @@ type RideAction =
   | { type: 'SET_VENDOR_BANNER_THUMB'; pharmacyId: string; dataUrl: string | null; key: string | null }
   | { type: 'TOGGLE_PHARMACY_TRUSTED_DRIVER'; pharmacyId: string; driverId: string }
   | { type: 'RATE_PHARMACY'; pharmacyId: string; customerId: string; customerName: string; rating: number; text: string | null }
-  | { type: 'ADD_VENDOR_POST'; pharmacyId: string; text: string; photoDataUrl: string | null; productId: string | null }
+  | {
+      type: 'ADD_VENDOR_POST'
+      pharmacyId: string
+      text: string
+      photoDataUrl: string | null
+      sharePhotoDataUrl?: string | null
+      productId: string | null
+    }
+  | { type: 'SET_VENDOR_POST_SHARE_PHOTO'; pharmacyId: string; postId: string; dataUrl: string }
   | { type: 'REMOVE_VENDOR_POST'; pharmacyId: string; postId: string }
   | { type: 'REACT_VENDOR_POST'; pharmacyId: string; postId: string; reaction: 'like' | 'heart'; actorId: string }
   | { type: 'COMMENT_VENDOR_POST'; pharmacyId: string; postId: string; authorId: string; authorName: string; text: string }
@@ -5647,6 +5655,7 @@ function reducer(state: RideState, action: RideAction): RideState {
         id: `post-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         text,
         photoDataUrl: action.photoDataUrl,
+        sharePhotoDataUrl: action.sharePhotoDataUrl ?? null,
         productId: action.productId,
         createdAt: new Date().toISOString(),
       }
@@ -5657,6 +5666,15 @@ function reducer(state: RideState, action: RideAction): RideState {
         ),
       }
     }
+    case 'SET_VENDOR_POST_SHARE_PHOTO':
+      return {
+        ...state,
+        pharmacies: state.pharmacies.map((p) =>
+          p.id !== action.pharmacyId
+            ? p
+            : { ...p, posts: (p.posts ?? []).map((post) => (post.id === action.postId ? { ...post, sharePhotoDataUrl: action.dataUrl } : post)) },
+        ),
+      }
     case 'REMOVE_VENDOR_POST':
       return {
         ...state,
@@ -6663,7 +6681,15 @@ interface RideContextValue extends RideState {
   setVendorBannerThumb: (pharmacyId: string, dataUrl: string | null, key: string | null) => void
   togglePharmacyTrustedDriver: (pharmacyId: string, driverId: string) => void
   ratePharmacy: (args: { pharmacyId: string; customerId: string; customerName: string; rating: number; text: string | null }) => void
-  addVendorPost: (args: { pharmacyId: string; text: string; photoDataUrl: string | null; productId: string | null }) => void
+  addVendorPost: (args: {
+    pharmacyId: string
+    text: string
+    photoDataUrl: string | null
+    sharePhotoDataUrl?: string | null
+    productId: string | null
+  }) => void
+  // A share card drawn later for a post that was made without one.
+  setVendorPostSharePhoto: (pharmacyId: string, postId: string, dataUrl: string) => void
   removeVendorPost: (pharmacyId: string, postId: string) => void
   reactToVendorPost: (pharmacyId: string, postId: string, reaction: 'like' | 'heart', actorId: string) => void
   commentOnVendorPost: (args: { pharmacyId: string; postId: string; authorId: string; authorName: string; text: string }) => void
@@ -7502,6 +7528,8 @@ export function RideProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'TOGGLE_PHARMACY_TRUSTED_DRIVER', pharmacyId, driverId }),
     ratePharmacy: (args) => dispatch({ type: 'RATE_PHARMACY', ...args }),
     addVendorPost: (args) => dispatch({ type: 'ADD_VENDOR_POST', ...args }),
+    setVendorPostSharePhoto: (pharmacyId, postId, dataUrl) =>
+      dispatch({ type: 'SET_VENDOR_POST_SHARE_PHOTO', pharmacyId, postId, dataUrl }),
     quoteVendorDeliveryFare: (pharmacyId, dropoff) => {
       const pharmacy = state.pharmacies.find((p) => p.id === pharmacyId)
       return pharmacy ? vendorDeliveryFareQuote(state, pharmacy, dropoff) : null

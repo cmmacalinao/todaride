@@ -20,6 +20,7 @@ import { VendorFeedComposer, VendorFeedList } from '../components/VendorFeed'
 import { resolveVendorAccent } from '../components/VendorStorefront'
 import { formatAddressLine } from '../lib/addressFormat'
 import { bannerThumbKey, renderBannerThumbnail } from '../lib/bannerThumb'
+import { renderShareCard } from '../lib/shareCard'
 import { PaymentAccountForm, ORDER_STATUS_LABELS } from './PharmacyPortalPage'
 import type { MedsOrder, Pharmacy, Ride } from '../types'
 
@@ -48,7 +49,7 @@ export function VendorPortalPage() {
     addVendorSampleOrder,
     removeVendorPost,
   } = useRides()
-  const { setVendorBannerThumb } = useRides()
+  const { setVendorBannerThumb, setVendorPostSharePhoto } = useRides()
   const location = useLocation()
   const navigate = useNavigate()
   const [showBooking, setShowBooking] = useState(false)
@@ -91,6 +92,21 @@ export function VendorPortalPage() {
     return () => window.clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendor && bannerThumbKey(vendor), vendor?.bannerThumbKey, !!vendor?.bannerThumbDataUrl])
+
+  // Posts made before share cards existed get one here, one at a time,
+  // on the vendor's own device.
+  const postNeedingCard = vendor?.posts?.find((p) => p.photoDataUrl && !p.sharePhotoDataUrl) ?? null
+  useEffect(() => {
+    if (!vendor || !postNeedingCard?.photoDataUrl) return
+    let cancelled = false
+    void renderShareCard(postNeedingCard.photoDataUrl).then((dataUrl) => {
+      if (!cancelled && dataUrl) setVendorPostSharePhoto(vendor.id, postNeedingCard.id, dataUrl)
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendor?.id, postNeedingCard?.id])
 
   useEffect(() => {
     const section = (location.state as { section?: string } | null)?.section

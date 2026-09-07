@@ -72,6 +72,7 @@ function mergePost(local: VendorPost, incoming: VendorPost): VendorPost {
   for (const c of [...(local.comments ?? []), ...(incoming.comments ?? [])]) comments.set(c.id, c)
   const merged: VendorPost = {
     ...incoming,
+    sharePhotoDataUrl: incoming.sharePhotoDataUrl ?? local.sharePhotoDataUrl ?? null,
     likes: unionStrings(local.likes, incoming.likes),
     hearts: unionStrings(local.hearts, incoming.hearts),
   }

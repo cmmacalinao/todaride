@@ -1826,7 +1826,25 @@ function withLateSeedVendors(stored: Pharmacy[] | undefined): Pharmacy[] {
   if (!stored) return MOCK_PHARMACIES
   const seen = new Set(stored.map((p) => p.id))
   const missing = MOCK_PHARMACIES.filter((p) => LATE_SEED_VENDOR_IDS.has(p.id) && !seen.has(p.id))
-  return missing.length > 0 ? [...stored, ...missing] : stored
+  // A seed vendor already in the shared state picks up branding the seed
+  // gained later (logo, banner photo, tagline, theme) — only where it has
+  // none of its own, so anything the store set from its portal wins.
+  let changed = false
+  const dressed = stored.map((p) => {
+    if (!LATE_SEED_VENDOR_IDS.has(p.id)) return p
+    const seed = MOCK_PHARMACIES.find((s) => s.id === p.id)
+    if (!seed) return p
+    const next = { ...p }
+    for (const key of ['logoDataUrl', 'coverPhotoDataUrl', 'coverPhotoPosition', 'tagline', 'themeColor'] as const) {
+      if (next[key] == null && seed[key] != null) {
+        ;(next as Record<string, unknown>)[key] = seed[key]
+        changed = true
+      }
+    }
+    return next
+  })
+  const base = changed ? dressed : stored
+  return missing.length > 0 ? [...base, ...missing] : base
 }
 
 function withLateSeedVendorMenus(stored: MedicineProduct[] | undefined): MedicineProduct[] {

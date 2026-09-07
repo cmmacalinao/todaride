@@ -3380,6 +3380,18 @@ export const PHARMACY_CHAINS = [
 // unverified coordinates — same "anchor near something real" approach used
 // for loc-public-market-sjc above. adminPin is each pharmacy's own portal
 // login credential, mirroring TodaOrganization.adminPin.
+// A seed store's logo: its initials on a coloured disc, as an SVG data URL
+// — no file to ship, and it draws crisp at any size the page uses.
+function seedVendorLogo(initials: string, color: string): string {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">` +
+    `<circle cx="64" cy="64" r="60" fill="${color}"/>` +
+    `<circle cx="64" cy="64" r="52" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="3"/>` +
+    `<text x="64" y="78" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="44" font-weight="800" fill="#ffffff">${initials}</text>` +
+    `</svg>`
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+}
+
 export const MOCK_PHARMACIES: Pharmacy[] = [
   {
     id: 'pharm-1',
@@ -3605,6 +3617,12 @@ export const MOCK_PHARMACIES: Pharmacy[] = [
     mayaAccount: null,
     tagline: 'Sarap ng inihaw, gabi-gabi!',
     themeColor: 'red',
+    // A lettered badge for the logo and a catalog dish cut-out for the
+    // banner photo, so the seed stores look dressed like a real one. Paths,
+    // not data URLs — an <img src> takes either, and these ship with the app.
+    logoDataUrl: seedVendorLogo('KB', '#dc2626'),
+    coverPhotoDataUrl: '/store-profiles/food_3.webp',
+    coverPhotoPosition: { x: 78, y: 50, scale: 1.15 },
   },
   {
     id: 'vendor-4',
@@ -3624,6 +3642,9 @@ export const MOCK_PHARMACIES: Pharmacy[] = [
     mayaAccount: { accountName: "Manang Cora's Lugawan", accountNumber: '0917-600-2004', qrDataUrl: null },
     tagline: 'Mainit na lugaw, 24 oras',
     themeColor: 'gold',
+    logoDataUrl: seedVendorLogo('MC', '#b45309'),
+    coverPhotoDataUrl: '/store-profiles/food_9.webp',
+    coverPhotoPosition: { x: 78, y: 50, scale: 1.15 },
   },
   {
     id: 'vendor-5',
@@ -3643,6 +3664,9 @@ export const MOCK_PHARMACIES: Pharmacy[] = [
     mayaAccount: null,
     tagline: 'Matamis na alaala ng probinsya',
     themeColor: 'pink',
+    logoDataUrl: seedVendorLogo('TM', '#be185d'),
+    coverPhotoDataUrl: '/store-profiles/food_8.webp',
+    coverPhotoPosition: { x: 78, y: 50, scale: 1.15 },
   },
 ]
 

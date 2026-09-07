@@ -2231,8 +2231,11 @@ export function PassengerPage() {
           type="button"
           onClick={() => setShowDrivers(true)}
           title="See drivers near you and pick one"
+          // Gold only while the drivers sheet is open — that is when this
+          // tab is the one selected. A driver already picked is the dot,
+          // not a highlight, so the footer never shows two lit tabs.
           className={`relative flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border py-1.5 transition ${
-            requestedDriverId
+            showDrivers
               ? 'border-gold-500 bg-gold-400 shadow-md'
               : 'border-transparent bg-slate-100 hover:bg-slate-200'
           }`}

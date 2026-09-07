@@ -13,6 +13,35 @@ export interface PostViewer {
   name: string
 }
 
+// A post's words, folded the way Facebook folds them: the first three
+// lines, then "… See more" — so a feed of long posts stays a feed of
+// photos with a line or two each, and a reader opens only what they want
+// to read. Short posts show whole, with no control. "See less" folds it
+// back.
+const FOLD_CHARS = 120
+const FOLD_LINES = 3
+
+function PostText({ text, className = '' }: { text: string; className?: string }) {
+  const [open, setOpen] = useState(false)
+  const trimmed = text.trim()
+  if (!trimmed) return null
+  const long = trimmed.length > FOLD_CHARS || trimmed.split('\n').length > FOLD_LINES
+  return (
+    <div className={className}>
+      <p className={`whitespace-pre-line text-sm leading-snug text-slate-700 ${long && !open ? 'line-clamp-3' : ''}`}>{trimmed}</p>
+      {long && (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="mt-0.5 text-xs font-semibold text-slate-500 hover:text-slate-700 hover:underline"
+        >
+          {open ? 'See less' : '… See more'}
+        </button>
+      )}
+    </div>
+  )
+}
+
 // Like · Heart · Comment · Share under a post, the way a Facebook post has
 // them, plus the comment thread. Shared by the store's own page and the
 // Food Express newsfeed. Share opens the same sheet as the store's Share
@@ -233,7 +262,7 @@ export function VendorFeedList({
                 </button>
               )}
             </header>
-            {post.text && <p className="whitespace-pre-line px-3 pt-2 text-sm leading-snug text-slate-700">{post.text}</p>}
+            <PostText text={post.text} className="px-3 pt-2" />
             {post.photoDataUrl &&
               (onOpenMenu ? (
                 <button
@@ -438,7 +467,7 @@ function VendorFeedCard({
       )}
 
       <div key={post.id}>
-        {post.text && <p className="whitespace-pre-line px-3 pt-2.5 text-sm leading-snug text-slate-700">{post.text}</p>}
+        <PostText text={post.text} className="px-3 pt-2.5" />
         {/* The photo and the featured dish are the post: tapping either
             goes to the vendor's page to order — the dish, when the post
             names one, straight into the cart. */}

@@ -878,10 +878,12 @@ export function VendorMenuItemCard({
 }
 
 // A vendor's card on the food-ordering landing screen (see
-// One vendor as a single line in the customer's list: logo, name, rating,
-// menu size, open/closed — and nothing that wraps. A phone shows ten of
-// these where it showed four cards, which is what browsing a row of
-// carinderias needs; the store's own banner and photos are one tap away.
+// One vendor as a single strip in the customer's list — on its own banner.
+// The strip IS the store's banner (theme gradient, banner art, the profile
+// photo seated on the right exactly as the vendor framed it on their page),
+// with one line of text over it: logo, name, rating, menu size, open dot.
+// Still one line per store, so a phone shows a whole row of carinderias,
+// but each one looks like its own page rather than a generic list entry.
 export function VendorListRow({
   pharmacy,
   itemCount,
@@ -897,13 +899,30 @@ export function VendorListRow({
     <button
       type="button"
       onClick={onSelect}
-      className="flex w-full items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-left shadow-sm transition hover:bg-slate-50"
+      className={`relative flex h-14 w-full items-center gap-2.5 overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br ${accent.gradient} px-2.5 text-left shadow-sm transition hover:brightness-105`}
     >
-      <span
-        className={`flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br ${accent.gradient} text-base`}
-      >
+      <VendorBannerArt />
+      {pharmacy.coverPhotoDataUrl && (
+        <span aria-hidden className="absolute inset-0 overflow-hidden">
+          <img
+            src={pharmacy.coverPhotoDataUrl}
+            alt=""
+            className="absolute w-auto max-w-none"
+            style={{
+              left: `${pharmacy.coverPhotoPosition?.x ?? 75}%`,
+              top: `${pharmacy.coverPhotoPosition?.y ?? 50}%`,
+              height: `${(pharmacy.coverPhotoPosition?.scale ?? 1) * 100}%`,
+              transform: 'translate(-50%, -50%)',
+            }}
+          />
+        </span>
+      )}
+      {/* A dark sweep from the left keeps the name legible over any photo;
+          it fades out before the picture on the right. */}
+      <span aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/30 to-transparent" />
+      <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-white bg-white text-lg shadow-md">
         {pharmacy.logoDataUrl ? (
-          <img src={pharmacy.logoDataUrl} alt="" className="h-full w-full bg-white object-contain" />
+          <img src={pharmacy.logoDataUrl} alt="" className="h-full w-full object-cover" />
         ) : (
           <span aria-hidden>{accent.icon}</span>
         )}
@@ -911,11 +930,13 @@ export function VendorListRow({
       {/* Everything on one line: the name takes what is left after the
           rating, menu size and open dot, and is the only thing that is
           ever cut short. */}
-      <span className="min-w-0 flex-1 truncate text-sm font-bold text-slate-800">{pharmacy.name}</span>
-      <span className="shrink-0 text-[11px] text-slate-500">
+      <span className="relative min-w-0 flex-1 truncate text-sm font-extrabold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">
+        {pharmacy.name}
+      </span>
+      <span className="relative shrink-0 rounded-full bg-black/40 px-2 py-0.5 text-[11px] font-semibold text-white">
         {count > 0 && (
           <>
-            <span className="text-amber-500">★</span> {average.toFixed(1)} ·{' '}
+            <span className="text-amber-300">★</span> {average.toFixed(1)} ·{' '}
           </>
         )}
         {itemCount} item{itemCount === 1 ? '' : 's'}
@@ -923,9 +944,9 @@ export function VendorListRow({
       <span
         aria-label={pharmacy.isOpen ? 'Open now' : 'Closed'}
         title={pharmacy.isOpen ? 'Open now' : 'Closed'}
-        className={`h-2 w-2 shrink-0 rounded-full ${pharmacy.isOpen ? 'bg-emerald-500' : 'bg-slate-300'}`}
+        className={`relative h-2.5 w-2.5 shrink-0 rounded-full border border-white ${pharmacy.isOpen ? 'bg-emerald-400' : 'bg-slate-300'}`}
       />
-      <span aria-hidden className="shrink-0 text-slate-300">
+      <span aria-hidden className="relative shrink-0 text-white/80">
         ›
       </span>
     </button>

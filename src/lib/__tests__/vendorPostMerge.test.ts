@@ -18,7 +18,7 @@ describe('mergeVendorPosts', () => {
     const local = [store({ posts: [post('new', '2026-09-08T01:00:00Z'), post('old', '2026-09-07T01:00:00Z')] })]
     const incoming = [store({ posts: [post('old', '2026-09-07T01:00:00Z')] })]
     const merged = mergeVendorPosts(local, incoming)
-    expect(merged[0].posts?.map((p) => p.id)).toEqual(['new', 'old'])
+    expect(merged[0].posts?.map((p) => p.id)).toEqual(['new'])
   })
 
   it('adopts a post made elsewhere', () => {
@@ -56,9 +56,9 @@ describe('mergeVendorPosts', () => {
     expect(merged.comments?.map((c) => c.id)).toEqual(['c1', 'c2'])
   })
 
-  it('keeps only the newest three', () => {
+  it('keeps only the newest MAX_VENDOR_POSTS (one)', () => {
     const local = [store({ posts: [post('a', '2026-09-08T04:00:00Z'), post('b', '2026-09-08T03:00:00Z')] })]
     const incoming = [store({ posts: [post('c', '2026-09-08T02:00:00Z'), post('d', '2026-09-08T01:00:00Z')] })]
-    expect(mergeVendorPosts(local, incoming)[0].posts?.map((p) => p.id)).toEqual(['a', 'b', 'c'])
+    expect(mergeVendorPosts(local, incoming)[0].posts?.map((p) => p.id)).toEqual(['a'])
   })
 })

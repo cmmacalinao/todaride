@@ -5662,9 +5662,20 @@ function reducer(state: RideState, action: RideAction): RideState {
       }
       return {
         ...state,
-        pharmacies: state.pharmacies.map((p) =>
-          p.id === action.pharmacyId && (p.posts ?? []).length < MAX_VENDOR_POSTS ? { ...p, posts: [post, ...(p.posts ?? [])] } : p,
-        ),
+        pharmacies: state.pharmacies.map((p) => {
+          if (p.id !== action.pharmacyId) return p
+          // The newest MAX_VENDOR_POSTS stay; whatever falls off is
+          // tombstoned so a device still holding it does not restore it
+          // (see mergeVendorPosts).
+          const all = [post, ...(p.posts ?? [])]
+          const kept = all.slice(0, MAX_VENDOR_POSTS)
+          const dropped = all.slice(MAX_VENDOR_POSTS).map((old) => old.id)
+          return {
+            ...p,
+            posts: kept,
+            removedPostIds: dropped.length ? [...new Set([...(p.removedPostIds ?? []), ...dropped])].slice(-50) : p.removedPostIds,
+          }
+        }),
       }
     }
     case 'SET_VENDOR_POST_SHARE_PHOTO':

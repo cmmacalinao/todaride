@@ -498,17 +498,18 @@ function PhotoGalleryIcon() {
 }
 
 export function VendorFeedComposer({ pharmacy, items }: { pharmacy: Pharmacy; items: MedicineProduct[] }) {
-  const { addVendorPost, removeVendorPost } = useRides()
+  const { addVendorPost } = useRides()
   const accent = resolveVendorAccent(pharmacy)
   const posts = pharmacy.posts ?? []
-  const atLimit = posts.length >= MAX_VENDOR_POSTS
+  // A store's feed is one post; posting again replaces it.
+  const replacing = posts.length >= MAX_VENDOR_POSTS
   const inputRef = useRef<HTMLInputElement>(null)
   const [text, setText] = useState('')
   const [photo, setPhoto] = useState<string | null>(null)
   const [photoBusy, setPhotoBusy] = useState(false)
   const [productId, setProductId] = useState('')
   const [pickingDish, setPickingDish] = useState(false)
-  const canPost = (text.trim().length > 0 || !!photo) && !atLimit
+  const canPost = text.trim().length > 0 || !!photo
   const featured = productId ? items.find((i) => i.id === productId) : null
 
   // Web: click the input synchronously — awaiting anything first makes some
@@ -653,36 +654,14 @@ export function VendorFeedComposer({ pharmacy, items }: { pharmacy: Pharmacy; it
           disabled={!canPost}
           className="ml-auto rounded-lg bg-brand-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
         >
-          Post
+          {replacing ? 'Update post' : 'Post'}
         </button>
       </div>
-      {atLimit && (
-        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
-          <p className="text-xs font-semibold text-amber-800">
-            Your feed keeps {MAX_VENDOR_POSTS} posts. Delete one to post a new one:
-          </p>
-          <div className="mt-1.5 space-y-1">
-            {posts.map((p) => (
-              <div key={p.id} className="flex items-center gap-2 rounded-md bg-white px-2 py-1.5 text-xs">
-                {p.photoDataUrl && <img src={p.photoDataUrl} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />}
-                <span className="min-w-0 flex-1 truncate text-slate-700">
-                  {p.text.trim().split('\n')[0] || (p.photoDataUrl ? 'Photo post' : 'Post')}
-                  <span className="text-slate-400"> · {timeAgo(p.createdAt)}</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => removeVendorPost(pharmacy.id, p.id)}
-                  className="shrink-0 rounded-md border border-red-200 px-2 py-0.5 font-semibold text-red-600 hover:bg-red-50"
-                >
-                  Delete
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
       <p className="mt-1.5 text-[10px] text-slate-400">
-        Photos are shrunk automatically before posting to keep the app light. Up to {MAX_VENDOR_POSTS} posts stay on your feed.
+        {replacing
+          ? 'Your feed shows one post — a photo and a message. Posting again replaces the current one. '
+          : 'Your feed shows one post — a photo and a message. '}
+        Photos are shrunk automatically to keep the app light.
       </p>
     </div>
   )

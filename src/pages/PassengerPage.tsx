@@ -2207,7 +2207,7 @@ export function PassengerPage() {
           }`}
         >
           <span className="text-[15px] leading-none">🛵</span>
-          <span className="truncate text-[10px] font-semibold text-slate-700">Ride</span>
+          <span className="truncate text-[10px] font-semibold text-slate-700">TODA Ride</span>
         </button>
         {/* Right of Ride, because choosing who drives you is part of booking
             a ride rather than a service of its own. The dot marks a driver
@@ -2282,7 +2282,7 @@ export function PassengerPage() {
                 {
                   key: 'food',
                   icon: '🍽️',
-                  label: 'Food',
+                  label: 'Food Express',
                   on: homeMode === 'buy' && isPabili && foodHinted && pageTab === 'book',
                   onClick: () => chooseErrand('pabili', { food: true }),
                 },

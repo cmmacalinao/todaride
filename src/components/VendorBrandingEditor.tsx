@@ -84,10 +84,33 @@ export function VendorThemePicker({ pharmacy }: { pharmacy: Pharmacy }) {
     })
   }
 
+  // Collapsed by default: a theme is picked once, so the swatches need not
+  // take a row of the Store page every day. The header shows the current
+  // colour so it reads even when closed.
+  const [open, setOpen] = useState(false)
+  const current = pharmacy.themeColor ? VENDOR_THEME_COLORS[pharmacy.themeColor] : null
+
   return (
     <div>
-      <p className="mb-1.5 text-xs font-medium text-slate-700">Theme selection</p>
-      <div className="flex flex-wrap gap-x-2.5 gap-y-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-2 text-left"
+      >
+        <span className="text-base font-semibold text-slate-800">Theme selection</span>
+        <span className="flex items-center gap-2 text-xs text-slate-500">
+          {current && (
+            <>
+              <span className={`h-4 w-4 rounded-full ${current.swatchClass}`} />
+              {current.label}
+            </>
+          )}
+          <span aria-hidden>{open ? '▲' : '▼'}</span>
+        </span>
+      </button>
+      {open && (
+      <div className="mt-2 flex flex-wrap gap-x-2.5 gap-y-2">
         {Object.entries(VENDOR_THEME_COLORS).map(([key, color]) => (
           <button key={key} type="button" onClick={() => pick(key)} className="flex flex-col items-center gap-0.5">
             <span
@@ -101,6 +124,7 @@ export function VendorThemePicker({ pharmacy }: { pharmacy: Pharmacy }) {
           </button>
         ))}
       </div>
+      )}
     </div>
   )
 }

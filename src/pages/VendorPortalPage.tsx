@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { AnnouncementFeed } from '../components/AnnouncementFeed'
@@ -49,54 +49,18 @@ export function VendorPortalPage() {
   } = useRides()
   const location = useLocation()
   const navigate = useNavigate()
-  // Scroll targets for the hamburger drawer's menu items (see
-  // NavBar.tsx/NavDrawer.tsx) — hooks must run before the early returns
-  // below (Rules of Hooks), so this is safe even on the "not logged in"/
-  // "vendor not found" fallback renders that follow.
-  const ordersSectionRef = useRef<HTMLElement>(null)
-  const menuSectionRef = useRef<HTMLElement>(null)
-  const paymentsSectionRef = useRef<HTMLElement>(null)
-  const historySectionRef = useRef<HTMLElement>(null)
-  const deliveriesSectionRef = useRef<HTMLElement>(null)
-  const bookingSectionRef = useRef<HTMLDivElement>(null)
-  const readyToProcessRef = useRef<HTMLElement>(null)
-  const earningsSectionRef = useRef<HTMLElement>(null)
-  const trustedSectionRef = useRef<HTMLElement>(null)
   const [showBooking, setShowBooking] = useState(false)
-  // Which footer tab is lit — set by tapping one, so the bar reflects where
-  // the vendor last asked to go rather than trying to track scrolling.
-  const [activeTab, setActiveTab] = useState<VendorTab | null>('orders')
+  // Which footer tab — and therefore which page — is showing. Hooks must
+  // run before the early returns below (Rules of Hooks), so this is safe
+  // even on the "not logged in"/"vendor not found" fallback renders.
+  const [activeTab, setActiveTab] = useState<VendorTab>('orders')
   const vendor = pharmacies.find((p) => p.id === loggedInPharmacyId)
 
-  // The footer tabs scroll to their section; Book Rider also opens the
-  // booking form, since a tab that lands on a closed card is a tab that
-  // needs a second tap.
-  // Book Rider means "book a rider for an accepted order": it lands on the
-  // Ready-to-process card, which opens on its own Book Rider tab (see
-  // ReadyOrderCard). The footer disables it while there is nothing accepted.
-  // Phone and walk-in orders still have their own "Book a TODA SafeRide
-  // delivery" card, reached from the page rather than the footer.
+  // Each footer tab is its own page: switching draws that page from its top.
   function goToTab(tab: VendorTab) {
     setActiveTab(tab)
-    const refs: Record<VendorTab, RefObject<HTMLElement | null>> = {
-      orders: readyToProcessRef,
-      book: readyToProcessRef,
-      earnings: earningsSectionRef,
-      trusted: trustedSectionRef,
-    }
-    if (tab === 'orders') refs.orders = ordersSectionRef
-    setTimeout(() => refs[tab].current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
-  }
-
-  // The walk-in booking card, opened from the page itself.
-  function openWalkInBooking() {
-    setShowBooking(true)
-    const scroll = () => bookingSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    setTimeout(scroll, 50)
-    // The card swaps a one-line button for a form with a map in it; the page
-    // grows under the first scroll, so it is repeated once the form has laid
-    // out.
-    setTimeout(scroll, 400)
+    window.scrollTo({ top: 0 })
+    document.getElementById('root')?.scrollTo({ top: 0 })
   }
 
   // A Pharmacy/Store account belongs on the Pharmacy/Store portal — actually
@@ -113,22 +77,18 @@ export function VendorPortalPage() {
     const section = (location.state as { section?: string } | null)?.section
     if (!section) return
     navigate(location.pathname, { replace: true, state: {} })
-    const scrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' })
-    // 'products' is the drawer's existing key for this slot (see
-    // NavDrawer.tsx's PHARMACY_ITEMS, shared with the Pharmacy/Store
-    // portal) — aliased to the Menu section here rather than adding a new
-    // DrawerSection just for the label.
-    const refs: Record<string, RefObject<HTMLElement | null>> = {
-      orders: ordersSectionRef,
-      products: menuSectionRef,
-      payments: paymentsSectionRef,
-      history: historySectionRef,
+    // The hamburger drawer's items (see NavDrawer.tsx's PHARMACY_ITEMS,
+    // shared with the Pharmacy/Store portal) map onto the footer's pages:
+    // 'products' and 'payments' live on the Store page, 'history' with the
+    // orders.
+    const tabFor: Record<string, VendorTab> = {
+      home: 'store',
+      orders: 'orders',
+      products: 'store',
+      payments: 'store',
+      history: 'orders',
     }
-    if (section === 'home') {
-      scrollTop()
-    } else if (refs[section]) {
-      setTimeout(() => refs[section].current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
-    }
+    goToTab(tabFor[section] ?? 'store')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.key])
 
@@ -187,318 +147,346 @@ export function VendorPortalPage() {
   }
   const menu = medicineProducts.filter((p) => p.pharmacyId === vendor.id)
 
+  const orderCount = newOrders.length + readyToProcessOrders.length
+  const nothingActive =
+    outForDelivery.length === 0 && newOrders.length === 0 && quotedOrders.length === 0 && readyToProcessOrders.length === 0
+
+  const approvedCards = (initialTab: 'order' | 'book') =>
+    readyToProcessOrders.map((order) => (
+      <ReadyOrderCard
+        key={order.id}
+        order={order}
+        vendor={vendor}
+        initialTab={initialTab}
+        onProcess={(preferredDriverId) => processMedsOrder(order.id, preferredDriverId)}
+        onSendMessage={(text) => sendMedsOrderMessage(order.id, 'pharmacy', text)}
+      />
+    ))
+
   return (
     // Tighter than the other portals on purpose (the vendor asked for ~60%
     // less air): 10px between cards and 6px to the screen edge, instead of
     // the 24px/16px the shared layout uses.
     // pb-20 reserves the bottom strip for VendorFooterNav.
+    //
+    // One page per footer tab, not one long sheet: the footer switches what
+    // is drawn, and each page opens at its top.
     <div className="mx-auto max-w-lg space-y-2.5 px-1.5 py-2.5 pb-20">
       <AnnouncementFeed viewer="partners" />
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-medium text-slate-500">Logged in as</p>
-        <h1 className="text-sm font-semibold text-slate-700">
-          {vendor.businessType === 'resto_food' ? '🍽️' : '📦'} {vendor.name}
-        </h1>
-      </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <VendorThemePicker pharmacy={vendor} />
-      </section>
+      {activeTab === 'store' && (
+        <>
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-medium text-slate-500">Logged in as</p>
+            <h1 className="text-sm font-semibold text-slate-700">
+              {vendor.businessType === 'resto_food' ? '🍽️' : '📦'} {vendor.name}
+            </h1>
+          </section>
 
-      <button
-        type="button"
-        onClick={() => navigate(`/vendor-page/${vendor.id}`)}
-        className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:bg-slate-50"
-      >
-        <span>
-          <span className="block text-sm font-semibold text-slate-700">🏪 View My Page</span>
-        </span>
-        <span aria-hidden className="shrink-0 text-slate-400">
-          ›
-        </span>
-      </button>
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <VendorThemePicker pharmacy={vendor} />
+          </section>
 
-      {/* The vendor's own way to put an order on the road — for the ones
-          that came by phone or at the counter and never touched the app.
-          Wrapped so the footer's Book Rider tab has something to scroll to
-          whether the form is open or not. */}
-      <div ref={bookingSectionRef} className="scroll-mt-24">
-        {showBooking ? (
-          <VendorDeliveryBooking vendor={vendor} onClose={() => setShowBooking(false)} />
-        ) : (
           <button
             type="button"
-            onClick={openWalkInBooking}
-            className="flex w-full items-center justify-between rounded-xl border border-brand-200 bg-brand-50 p-4 text-left shadow-sm transition hover:bg-brand-100"
+            onClick={() => navigate(`/vendor-page/${vendor.id}`)}
+            className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:bg-slate-50"
           >
             <span>
-              <span className="block text-sm font-semibold text-brand-800">🛺 Book a TODA SafeRide delivery</span>
-              <span className="block text-[11px] text-brand-700/80">Send a driver for a phone or walk-in order</span>
+              <span className="block text-sm font-semibold text-slate-700">🏪 View My Page</span>
             </span>
-            <span aria-hidden className="shrink-0 text-brand-400">
+            <span aria-hidden className="shrink-0 text-slate-400">
               ›
             </span>
           </button>
-        )}
-      </div>
 
-      {/* Always rendered, even with nothing in it, so the Orders tab has a
-          place to land — a tab that scrolls nowhere reads as broken. */}
-      <section ref={ordersSectionRef} className="scroll-mt-24 space-y-2.5">
-        {outForDelivery.length === 0 && newOrders.length === 0 && quotedOrders.length === 0 && readyToProcessOrders.length === 0 && (
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-700">🧾 Orders</h2>
-            <p className="mt-1 text-sm text-slate-400">No orders right now — new ones show up here the moment they're placed.</p>
+          {/* The vendor's feed — what customers see under the Feed tab of
+              the store page. Write a post here, delete one below. */}
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-slate-700">📣 My page feed</h2>
+            <p className="mt-0.5 text-[11px] text-slate-500">
+              Promos, today's special, a dish to show off — posts appear on your page under Feed, newest first, and go
+              out with your shared link.
+            </p>
+            <div className="mt-2">
+              <VendorFeedComposer pharmacy={vendor} items={menu} />
+            </div>
+            <div className="mt-3">
+              <VendorFeedList
+                pharmacy={vendor}
+                items={menu}
+                accent={resolveVendorAccent(vendor)}
+                onRemove={(postId) => removeVendorPost(vendor.id, postId)}
+              />
+            </div>
+          </section>
+
+          {/* VendorMenuManager renders its own full card — the same
+              banner/info header VendorStorefront shows a customer, plus an
+              editable menu list — so no extra section wrapper/heading here. */}
+          <section>
+            <VendorMenuManager pharmacy={vendor} products={menu} />
+          </section>
+
+          {(() => {
+            const { average, count } = storeRatingSummary(vendor)
+            const reviews = (vendor.storeReviews ?? []).slice(0, 10)
+            return (
+              <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <h2 className="text-sm font-semibold text-slate-700">⭐ Store rating</h2>
+                {count === 0 ? (
+                  <p className="mt-1 text-sm text-slate-400">No customer ratings yet — customers can rate your store from your page.</p>
+                ) : (
+                  <>
+                    <p className="mt-1 text-sm text-slate-700">
+                      <span className="text-lg font-extrabold text-amber-500">★ {average.toFixed(1)}</span>{' '}
+                      <span className="text-xs text-slate-500">
+                        from {count} {count === 1 ? 'rating' : 'ratings'}
+                      </span>
+                    </p>
+                    <div className="mt-2 space-y-1.5">
+                      {reviews.map((r) => (
+                        <div key={r.customerId} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs">
+                          <p className="text-slate-700">
+                            <span className="text-amber-500">{'★'.repeat(r.rating)}</span>
+                            <span className="text-slate-300">{'★'.repeat(5 - r.rating)}</span>{' '}
+                            <span className="font-medium">{r.customerName}</span>
+                            <span className="text-slate-400"> · {new Date(r.at).toLocaleDateString()}</span>
+                          </p>
+                          {r.text && <p className="text-[11px] text-slate-500">{r.text}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </section>
+            )
+          })()}
+
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-slate-700">Payment accounts</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Customers who pay by GCash or Maya see this account's QR code and number so they can send payment
+              directly to you — cash is still collected by the driver on delivery instead.
+            </p>
+            <div className="mt-3 space-y-3">
+              <PaymentAccountForm
+                label="GCash"
+                details={vendor.gcashAccount}
+                onSave={(details) => updatePharmacyPaymentAccount(vendor.id, 'gcash', details)}
+              />
+              <PaymentAccountForm
+                label="Maya"
+                details={vendor.mayaAccount}
+                onSave={(details) => updatePharmacyPaymentAccount(vendor.id, 'maya', details)}
+              />
+            </div>
+          </section>
+        </>
+      )}
+
+      {activeTab === 'orders' && (
+        <>
+          {nothingActive && (
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-semibold text-slate-700">🧾 Orders</h2>
+              <p className="mt-1 text-sm text-slate-400">No orders right now — new ones show up here the moment they're placed.</p>
+              <button
+                type="button"
+                onClick={() => addVendorSampleOrder(vendor.id)}
+                className="mt-2 rounded-lg border border-dashed border-brand-300 bg-brand-50 px-3 py-1.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-100"
+              >
+                ＋ Add a sample order to try Book Rider
+              </button>
+              <p className="mt-1 text-[10px] text-slate-400">
+                Prototype only — an accepted order from a demo customer, built from your menu, delivered a few streets away.
+              </p>
+            </div>
+          )}
+
+          {outForDelivery.length > 0 && (
+            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="mb-2 text-sm font-semibold text-slate-700">🛺 Out for delivery</h2>
+              <div className="space-y-3">
+                {outForDelivery.map((order) => (
+                  <VendorDeliveryTracker key={order.id} order={order} ride={linkedRide(order)!} vendor={vendor} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {newOrders.length > 0 && (
+            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="mb-2 text-sm font-semibold text-slate-700">New orders</h2>
+              <div className="space-y-3">
+                {newOrders.map((order) => (
+                  <NewVendorOrderCard
+                    key={order.id}
+                    order={order}
+                    vendor={vendor}
+                    onAccept={(deliveryFee) => vendorSendQuote(order.id, deliveryFee)}
+                    onReject={(reason) => rejectMedsOrder(order.id, reason)}
+                    onSendMessage={(text) => sendMedsOrderMessage(order.id, 'pharmacy', text)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {quotedOrders.length > 0 && (
+            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="mb-2 text-sm font-semibold text-slate-700">📄 Quotation sent — waiting for the customer</h2>
+              <div className="space-y-2">
+                {quotedOrders.map((order) => (
+                  <div key={order.id} className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-slate-700">{order.customerName}</span>
+                      <span className="text-xs font-semibold text-slate-800">₱{order.total}</span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-slate-600">{order.items.map((item) => `${item.quantity}x ${item.name}`).join(', ')}</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      Goods ₱{order.subtotal} + rider ₱{order.deliveryFee} + service ₱{order.serviceFee} · sent{' '}
+                      {order.quotedAt ? new Date(order.quotedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                    </p>
+                    <p className="mt-1 text-[11px] text-amber-700">Don't start preparing yet — they approve (and pay, unless cash on delivery) first.</p>
+                    <div className="mt-2">
+                      <OrderChat
+                        messages={order.messages}
+                        viewerRole="pharmacy"
+                        otherPartyLabel={order.customerName}
+                        onSend={(text) => sendMedsOrderMessage(order.id, 'pharmacy', text)}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {readyToProcessOrders.length > 0 && (
+            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="mb-2 text-sm font-semibold text-slate-700">✅ Approved — prepare & book the rider</h2>
+              <p className="mb-2 text-[11px] text-slate-500">
+                Booking lives on the <span className="font-semibold">Book Rider</span> tab below; the order details are here.
+              </p>
+              <div className="space-y-3">{approvedCards('order')}</div>
+            </section>
+          )}
+
+          {!nothingActive && (
             <button
               type="button"
               onClick={() => addVendorSampleOrder(vendor.id)}
-              className="mt-2 rounded-lg border border-dashed border-brand-300 bg-brand-50 px-3 py-1.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-100"
+              className="text-[11px] font-medium text-slate-400 hover:text-brand-700"
             >
-              ＋ Add a sample order to try Book Rider
+              ＋ Add another sample order (demo)
             </button>
-            <p className="mt-1 text-[10px] text-slate-400">
-              Prototype only — an accepted order from a demo customer, built from your menu, delivered a few streets away.
-            </p>
-          </div>
-        )}
+          )}
 
-      {outForDelivery.length > 0 && (
-        <section ref={deliveriesSectionRef} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">🛺 Out for delivery</h2>
-          <div className="space-y-3">
-            {outForDelivery.map((order) => (
-              <VendorDeliveryTracker key={order.id} order={order} ride={linkedRide(order)!} vendor={vendor} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {newOrders.length > 0 && (
-        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">New orders</h2>
-          <div className="space-y-3">
-            {newOrders.map((order) => (
-              <NewVendorOrderCard
-                key={order.id}
-                order={order}
-                vendor={vendor}
-                onAccept={(deliveryFee) => vendorSendQuote(order.id, deliveryFee)}
-                onReject={(reason) => rejectMedsOrder(order.id, reason)}
-                onSendMessage={(text) => sendMedsOrderMessage(order.id, 'pharmacy', text)}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {quotedOrders.length > 0 && (
-        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">📄 Quotation sent — waiting for the customer</h2>
-          <div className="space-y-2">
-            {quotedOrders.map((order) => (
-              <div key={order.id} className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-700">{order.customerName}</span>
-                  <span className="text-xs font-semibold text-slate-800">₱{order.total}</span>
-                </div>
-                <p className="mt-0.5 text-xs text-slate-600">{order.items.map((item) => `${item.quantity}x ${item.name}`).join(', ')}</p>
-                <p className="mt-0.5 text-[11px] text-slate-500">
-                  Goods ₱{order.subtotal} + rider ₱{order.deliveryFee} + service ₱{order.serviceFee} · sent{' '}
-                  {order.quotedAt ? new Date(order.quotedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                </p>
-                <p className="mt-1 text-[11px] text-amber-700">Don't start preparing yet — they approve (and pay, unless cash on delivery) first.</p>
-                <div className="mt-2">
-                  <OrderChat
-                    messages={order.messages}
-                    viewerRole="pharmacy"
-                    otherPartyLabel={order.customerName}
-                    onSend={(text) => sendMedsOrderMessage(order.id, 'pharmacy', text)}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {readyToProcessOrders.length > 0 && (
-        <section ref={readyToProcessRef} className="scroll-mt-24 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">✅ Approved — prepare & book the rider</h2>
-          <div className="space-y-3">
-            {readyToProcessOrders.map((order) => (
-              <ReadyOrderCard
-                key={order.id}
-                order={order}
-                vendor={vendor}
-                onProcess={(preferredDriverId) => processMedsOrder(order.id, preferredDriverId)}
-                onSendMessage={(text) => sendMedsOrderMessage(order.id, 'pharmacy', text)}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-      {(outForDelivery.length > 0 || newOrders.length > 0 || readyToProcessOrders.length > 0) && (
-        <button
-          type="button"
-          onClick={() => addVendorSampleOrder(vendor.id)}
-          className="text-[11px] font-medium text-slate-400 hover:text-brand-700"
-        >
-          ＋ Add another sample order (demo)
-        </button>
-      )}
-
-      {/* Every order sent to this store, newest first, with where each one
-          is — the same strip the customer and the driver see, so all three
-          are reading one story. The cards above are the ones needing
-          action; this is the ledger. */}
-      {ownOrders.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">📦 Order status</h2>
-          <div className="space-y-2">
-            {[...ownOrders]
-              .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
-              .slice(0, 10)
-              .map((order) => (
-                <div key={order.id} className="rounded-lg border border-slate-200 p-2.5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-slate-700">
-                      {order.customerName}
-                      {order.vendorBooked && <span className="ml-1 text-[10px] text-sky-700">· booked by you</span>}
-                    </span>
-                    <span className="font-semibold text-slate-700">₱{order.total}</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400">
-                    {order.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')} ·{' '}
-                    {new Date(order.requestedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                  <div className="mt-1.5">
-                    <OrderStatusStrip order={order} ride={linkedRide(order)} compact />
-                  </div>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
-      </section>
-
-      {/* The vendor's feed — what customers see under the Feed tab of the
-          store page. Write a post here, delete one below. */}
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-slate-700">📣 My page feed</h2>
-        <p className="mt-0.5 text-[11px] text-slate-500">
-          Promos, today's special, a dish to show off — posts appear on your page under Feed, newest first, and go out
-          with your shared link.
-        </p>
-        <div className="mt-2">
-          <VendorFeedComposer pharmacy={vendor} items={menu} />
-        </div>
-        <div className="mt-3">
-          <VendorFeedList
-            pharmacy={vendor}
-            items={menu}
-            accent={resolveVendorAccent(vendor)}
-            onRemove={(postId) => removeVendorPost(vendor.id, postId)}
-          />
-        </div>
-      </section>
-
-      {/* VendorMenuManager renders its own full card — the same banner/info
-          header VendorStorefront shows a customer, plus an editable menu
-          list — so no extra section wrapper/heading here (that would just
-          duplicate the header this already shows). */}
-      <section ref={menuSectionRef}>
-        <VendorMenuManager pharmacy={vendor} products={menu} />
-      </section>
-
-      <section ref={earningsSectionRef} className="scroll-mt-24 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">💰 Earnings</h2>
-        <VendorEarnings vendor={vendor} orders={ownOrders} rides={rides} />
-      </section>
-
-      {(() => {
-        const { average, count } = storeRatingSummary(vendor)
-        const reviews = (vendor.storeReviews ?? []).slice(0, 10)
-        return (
-          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-700">⭐ Store rating</h2>
-            {count === 0 ? (
-              <p className="mt-1 text-sm text-slate-400">No customer ratings yet — customers can rate your store from your page.</p>
-            ) : (
-              <>
-                <p className="mt-1 text-sm text-slate-700">
-                  <span className="text-lg font-extrabold text-amber-500">★ {average.toFixed(1)}</span>{' '}
-                  <span className="text-xs text-slate-500">
-                    from {count} {count === 1 ? 'rating' : 'ratings'}
-                  </span>
-                </p>
-                <div className="mt-2 space-y-1.5">
-                  {reviews.map((r) => (
-                    <div key={r.customerId} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs">
-                      <p className="text-slate-700">
-                        <span className="text-amber-500">{'★'.repeat(r.rating)}</span>
-                        <span className="text-slate-300">{'★'.repeat(5 - r.rating)}</span>{' '}
-                        <span className="font-medium">{r.customerName}</span>
-                        <span className="text-slate-400"> · {new Date(r.at).toLocaleDateString()}</span>
+          {/* Every order sent to this store, newest first, with where each
+              one is — the same strip the customer and the driver see. */}
+          {ownOrders.length > 0 && (
+            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="mb-2 text-sm font-semibold text-slate-700">📦 Order status</h2>
+              <div className="space-y-2">
+                {[...ownOrders]
+                  .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
+                  .slice(0, 10)
+                  .map((order) => (
+                    <div key={order.id} className="rounded-lg border border-slate-200 p-2.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-slate-700">
+                          {order.customerName}
+                          {order.vendorBooked && <span className="ml-1 text-[10px] text-sky-700">· booked by you</span>}
+                        </span>
+                        <span className="font-semibold text-slate-700">₱{order.total}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        {order.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')} ·{' '}
+                        {new Date(order.requestedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </p>
-                      {r.text && <p className="text-[11px] text-slate-500">{r.text}</p>}
+                      <div className="mt-1.5">
+                        <OrderStatusStrip order={order} ride={linkedRide(order)} compact />
+                      </div>
                     </div>
                   ))}
-                </div>
-              </>
-            )}
-          </section>
-        )
-      })()}
-
-      <section ref={trustedSectionRef} className="scroll-mt-24 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-1 text-sm font-semibold text-slate-700">⭐ Trusted Riders</h2>
-        <VendorTrustedRiders vendor={vendor} />
-      </section>
-
-      <section ref={paymentsSectionRef} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-slate-700">Payment accounts</h2>
-        <p className="mt-1 text-xs text-slate-500">
-          Customers who pay by GCash or Maya see this account's QR code and number so they can send payment directly
-          to you — cash is still collected by the driver on delivery instead.
-        </p>
-        <div className="mt-3 space-y-3">
-          <PaymentAccountForm
-            label="GCash"
-            details={vendor.gcashAccount}
-            onSave={(details) => updatePharmacyPaymentAccount(vendor.id, 'gcash', details)}
-          />
-          <PaymentAccountForm
-            label="Maya"
-            details={vendor.mayaAccount}
-            onSave={(details) => updatePharmacyPaymentAccount(vendor.id, 'maya', details)}
-          />
-        </div>
-      </section>
-
-      <section ref={historySectionRef} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">Order history</h2>
-        {pastOrders.length === 0 && <p className="text-sm text-slate-400">No past orders yet.</p>}
-        <div className="space-y-2">
-          {pastOrders.map((order) => (
-            <div key={order.id} className="rounded-lg border border-slate-200 p-2.5 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-slate-700">{order.customerName}</span>
-                <span className="text-[11px] text-slate-400">{historyLabel(order)}</span>
               </div>
-              <p className="mt-0.5 text-[11px] text-slate-400">
-                {order.items.map((item) => `${item.quantity}x ${item.name}`).join(', ')} · ₱{order.total}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
+            </section>
+          )}
 
-      <VendorFooterNav
-        active={activeTab}
-        onNavigate={goToTab}
-        orderCount={newOrders.length + readyToProcessOrders.length}
-        bookEnabled={readyToProcessOrders.length > 0}
-      />
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="mb-2 text-sm font-semibold text-slate-700">Order history</h2>
+            {pastOrders.length === 0 && <p className="text-sm text-slate-400">No past orders yet.</p>}
+            <div className="space-y-2">
+              {pastOrders.map((order) => (
+                <div key={order.id} className="rounded-lg border border-slate-200 p-2.5 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-slate-700">{order.customerName}</span>
+                    <span className="text-[11px] text-slate-400">{historyLabel(order)}</span>
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-slate-400">
+                    {order.items.map((item) => `${item.quantity}x ${item.name}`).join(', ')} · ₱{order.total}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
+
+      {activeTab === 'book' && (
+        <>
+          {readyToProcessOrders.length > 0 ? (
+            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="mb-2 text-sm font-semibold text-slate-700">🛺 Book a rider for an approved order</h2>
+              <div className="space-y-3">{approvedCards('book')}</div>
+            </section>
+          ) : (
+            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-semibold text-slate-700">🛺 Book Rider</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                No approved order to book yet — once a customer approves a quotation it appears here, ready for a rider.
+              </p>
+            </section>
+          )}
+
+          {/* The vendor's own way to put an order on the road — for the ones
+              that came by phone or at the counter and never touched the app. */}
+          {showBooking ? (
+            <VendorDeliveryBooking vendor={vendor} onClose={() => setShowBooking(false)} />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowBooking(true)}
+              className="flex w-full items-center justify-between rounded-xl border border-brand-200 bg-brand-50 p-4 text-left shadow-sm transition hover:bg-brand-100"
+            >
+              <span>
+                <span className="block text-sm font-semibold text-brand-800">🛺 Book a TODA SafeRide delivery</span>
+                <span className="block text-[11px] text-brand-700/80">Send a driver for a phone or walk-in order</span>
+              </span>
+              <span aria-hidden className="shrink-0 text-brand-400">
+                ›
+              </span>
+            </button>
+          )}
+        </>
+      )}
+
+      {activeTab === 'earnings' && (
+        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 className="mb-2 text-sm font-semibold text-slate-700">💰 Earnings</h2>
+          <VendorEarnings vendor={vendor} orders={ownOrders} rides={rides} />
+        </section>
+      )}
+
+      {activeTab === 'trusted' && (
+        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 className="mb-1 text-sm font-semibold text-slate-700">⭐ Trusted Riders</h2>
+          <VendorTrustedRiders vendor={vendor} />
+        </section>
+      )}
+
+      <VendorFooterNav active={activeTab} onNavigate={goToTab} orderCount={orderCount} />
     </div>
   )
 }
@@ -511,18 +499,20 @@ function ReadyOrderCard({
   vendor,
   onProcess,
   onSendMessage,
+  initialTab,
 }: {
   order: MedsOrder
   vendor: Pharmacy
   onProcess: (preferredDriverId: string | null) => void
   onSendMessage: (text: string) => void
+  // Which tab the card opens on: the Orders page wants the details, the
+  // Book Rider page wants the booking.
+  initialTab?: 'order' | 'book'
 }) {
   const [preferredDriverId, setPreferredDriverId] = useState<string | null>(null)
   const dispatches = order.deliveryMode !== 'self_book'
   // Two tabs on an accepted order: what was ordered, and booking the rider.
-  // Opens on Book Rider — accepting was the last decision, booking is the
-  // next one, and it should be one tap away rather than under the details.
-  const [tab, setTab] = useState<'order' | 'book'>(dispatches ? 'book' : 'order')
+  const [tab, setTab] = useState<'order' | 'book'>(dispatches ? (initialTab ?? 'book') : 'order')
   const storeGps = vendor.locationGps ?? { lat: 15.7940977, lng: 120.9905849 }
   const storeIcon = vendor.businessType === 'pharmacy' || vendor.businessType === 'store' ? 'pharmacy' : 'resto'
   const mapPoints: MapPoint[] = [

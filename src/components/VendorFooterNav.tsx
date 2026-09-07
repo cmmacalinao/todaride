@@ -2,9 +2,10 @@
 // portal the way DriverFooterNav pins the driver's. Orders is where the work
 // arrives, Book Rider is how a phone order gets a driver, Earnings is what
 // the day made, Trusted Rider is who they want carrying their food.
-export type VendorTab = 'orders' | 'book' | 'earnings' | 'trusted'
+export type VendorTab = 'store' | 'orders' | 'book' | 'earnings' | 'trusted'
 
 const VENDOR_TABS: { tab: VendorTab; icon: string; label: string }[] = [
+  { tab: 'store', icon: '🏪', label: 'Store' },
   { tab: 'orders', icon: '🧾', label: 'Orders' },
   { tab: 'book', icon: '🛺', label: 'Book Rider' },
   { tab: 'earnings', icon: '💰', label: 'Earnings' },
@@ -23,8 +24,9 @@ export function VendorFooterNav({
   // a badge on the Orders tab so a vendor reading their earnings still sees
   // work come in.
   orderCount?: number
-  // Book Rider only lights up while there is an accepted order waiting for
-  // a rider — a booking with nothing to deliver is not a booking.
+  // Book Rider is a page of its own now (approved orders to book, and the
+  // walk-in booking), so it is always reachable; kept as a prop in case a
+  // caller wants to gate it again.
   bookEnabled?: boolean
 }) {
   return (

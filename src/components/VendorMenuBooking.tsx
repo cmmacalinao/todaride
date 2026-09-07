@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { DEFAULT_MEDS_DELIVERY_FEE, DEFAULT_MEDS_SERVICE_FEE, PAYMENT_METHODS } from '../mock/data'
 import { DocumentUploadField } from './DocumentUploadField'
@@ -8,6 +7,7 @@ import { BarangayAddressPicker } from './BarangayAddressPicker'
 import { DeliveryMapPicker } from './DeliveryMapPicker'
 import { StoreRatingSheet } from './StoreRatingSheet'
 import { OrderStatusStrip } from './OrderStatusStrip'
+import { ServiceTabs } from './ServiceTabs'
 import { OrderChat } from './OrderChat'
 import { TripMonitor } from './TripMonitor'
 import { VendorListRow, VendorStorefront } from './VendorStorefront'
@@ -60,7 +60,6 @@ export function VendorMenuBooking({
   initialVendorId?: string | null
 }) {
   const { rides, pharmacies, medicineProducts, medsOrders, createMedsOrder, cancelMedsOrder, ratePharmacy } = useRides()
-  const navigate = useNavigate()
   // Which store the "Rate this store" sheet is open for — from the
   // storefront header, or from a past order in the history below.
   const [ratingVendorId, setRatingVendorId] = useState<string | null>(null)
@@ -224,13 +223,9 @@ export function VendorMenuBooking({
     <div className="space-y-3">
       {step === 'browse' && (
         <div className="space-y-3">
-          <button
-            type="button"
-            onClick={() => navigate('/book/start')}
-            className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
-          >
-            ‹ Back
-          </button>
+          {/* The same two-service strip as the ride start screen, with
+              Food Express lit here — tapping TODA is the way back. */}
+          <ServiceTabs active="food" tone="light" />
 
           {/* The Food Express "storefront" — same idea as a vendor's own
               cover banner (see VendorHeaderCard), just introducing the whole

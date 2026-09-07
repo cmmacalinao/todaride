@@ -1,4 +1,4 @@
-import type { Ride, RideStatus } from '../types'
+import { MAX_VENDOR_POSTS, type Pharmacy, type Ride, type RideStatus, type VendorPost, type VendorPostComment } from '../types'
 
 // A ride that has stopped. Nothing after this is a change of state — it is a
 // record of one.
@@ -50,6 +50,58 @@ export function mergeById<T extends { id: string }>(local: T[], incoming: T[]): 
   // sides already know. Only records missing from it are preserved.
   for (const item of incoming) merged.set(item.id, item)
   return [...merged.values()]
+}
+
+// A store's feed, reconciled the same way accounts are: the union of both
+// sides by post id. Every client writes the whole blob, so a post made in
+// the seconds before this device's first shared read landed — or on a
+// phone whose copy was behind — used to be replaced by the server's list
+// and vanish; and a phone holding an older copy could erase posts made
+// elsewhere the same way. Reactions and comments are unioned per post too,
+// so two people liking at once both count.
+//
+// Deletion is a tombstone (Pharmacy.removedPostIds) — a device that still
+// has the post drops it when it sees the id, instead of restoring it.
+function unionStrings(a: string[] | undefined, b: string[] | undefined): string[] | undefined {
+  if (!a && !b) return undefined
+  return [...new Set([...(a ?? []), ...(b ?? [])])]
+}
+
+function mergePost(local: VendorPost, incoming: VendorPost): VendorPost {
+  const comments = new Map<string, VendorPostComment>()
+  for (const c of [...(local.comments ?? []), ...(incoming.comments ?? [])]) comments.set(c.id, c)
+  const merged: VendorPost = {
+    ...incoming,
+    likes: unionStrings(local.likes, incoming.likes),
+    hearts: unionStrings(local.hearts, incoming.hearts),
+  }
+  if (comments.size > 0) {
+    merged.comments = [...comments.values()]
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+      .slice(-50)
+  }
+  return merged
+}
+
+export function mergeVendorPosts(local: Pharmacy[], incoming: Pharmacy[]): Pharmacy[] {
+  const byId = new Map(local.map((p) => [p.id, p]))
+  return incoming.map((remote) => {
+    const mine = byId.get(remote.id)
+    if (!mine) return remote
+    const removed = new Set([...(remote.removedPostIds ?? []), ...(mine.removedPostIds ?? [])])
+    const posts = new Map<string, VendorPost>()
+    for (const post of [...(mine.posts ?? []), ...(remote.posts ?? [])]) {
+      if (removed.has(post.id)) continue
+      const prev = posts.get(post.id)
+      posts.set(post.id, prev ? mergePost(prev, post) : post)
+    }
+    const sorted = [...posts.values()]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, MAX_VENDOR_POSTS)
+    const next: Pharmacy = { ...remote, posts: sorted }
+    if (removed.size > 0) next.removedPostIds = [...removed].slice(-50)
+    return next
+  })
 }
 
 // How far along a ride is. A trip only ever moves forward through these,

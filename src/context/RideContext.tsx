@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useReducer, type ReactNode, useRef } from 'react'
 import { BANNER_AD_SLOT_COUNT, MAX_VENDOR_POSTS } from '../types'
-import { mergeById, mergeIncomingRides } from '../lib/rideMerge'
+import { mergeById, mergeIncomingRides, mergeVendorPosts } from '../lib/rideMerge'
 import type { RecoveryKind } from '../lib/unifiedLogin'
 import type { RidePhoto } from '../types'
 import type {
@@ -3332,12 +3332,13 @@ function reducer(state: RideState, action: RideAction): RideState {
       //
       // Accounts are unioned rather than replaced — a sign-up this device
       // has must survive a copy of the world that predates it. See
-      // mergeById.
+      // mergeById. A store's feed posts likewise — see mergeVendorPosts.
       return {
         ...action.state,
         rides: mergeIncomingRides(state.rides, action.state.rides),
         passengers: mergeById(state.passengers, action.state.passengers),
         parents: mergeById(state.parents, action.state.parents),
+        pharmacies: mergeVendorPosts(state.pharmacies, action.state.pharmacies),
       }
     case 'SET_COMMISSION':
       return { ...state, commissionPerRide: Math.max(0, action.amount) }
@@ -5660,7 +5661,14 @@ function reducer(state: RideState, action: RideAction): RideState {
       return {
         ...state,
         pharmacies: state.pharmacies.map((p) =>
-          p.id === action.pharmacyId ? { ...p, posts: (p.posts ?? []).filter((post) => post.id !== action.postId) } : p,
+          p.id === action.pharmacyId
+            ? {
+                ...p,
+                posts: (p.posts ?? []).filter((post) => post.id !== action.postId),
+                // The tombstone — see mergeVendorPosts.
+                removedPostIds: [...new Set([...(p.removedPostIds ?? []), action.postId])].slice(-50),
+              }
+            : p,
         ),
       }
     // A reaction toggles: tap once to like, again to take it back. One

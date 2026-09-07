@@ -504,6 +504,10 @@ export interface Pharmacy {
   // to the latest few (see ADD_VENDOR_POST) so the photos do not bloat the
   // shared state.
   posts?: VendorPost[]
+  // Ids of posts the vendor deleted. Posts are merged across devices by id
+  // (see lib/rideMerge mergeVendorPosts), so a deletion must be a record of
+  // its own or a device still holding the post would bring it back.
+  removedPostIds?: string[]
 }
 
 export interface VendorPost {

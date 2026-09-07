@@ -2526,10 +2526,14 @@ export function PassengerPage() {
             <VendorMenuBooking
               customerId={isGuestBooking ? guestCustomerId : passenger.id}
               customerName={isGuestBooking ? guestRider.otherName.trim() || 'them' : passenger.name}
-              defaultProvince={DEFAULT_BOOKING_PROVINCE}
-              defaultCity={DEFAULT_BOOKING_CITY}
-              defaultBarangay={DEFAULT_BOOKING_BARANGAY}
-              defaultAddressDetail={DEFAULT_BOOKING_ADDRESS_DETAIL}
+              // The customer's own registered address is the starting
+              // delivery address (their GPS pin replaces it at checkout when
+              // the phone can give one) — the app-wide default only stands
+              // in for a guest booking or a profile with no address.
+              defaultProvince={(!isGuestBooking && passenger.province) || DEFAULT_BOOKING_PROVINCE}
+              defaultCity={(!isGuestBooking && passenger.city) || DEFAULT_BOOKING_CITY}
+              defaultBarangay={(!isGuestBooking && passenger.barangay) || DEFAULT_BOOKING_BARANGAY}
+              defaultAddressDetail={(!isGuestBooking && passenger.addressDetail) || DEFAULT_BOOKING_ADDRESS_DETAIL}
               defaultContactPhone={isGuestBooking ? null : passenger.phone}
               initialVendorId={searchParams.get('vendor')}
             />

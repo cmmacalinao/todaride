@@ -153,11 +153,11 @@ export function VendorEarnings({ vendor, orders, rides }: { vendor: Pharmacy; or
                         <span>{peso(order.subtotal)}</span>
                       </div>
                       <div className="flex justify-between text-slate-500">
-                        <span>Delivery fee (driver)</span>
+                        <span>TODA fare (driver)</span>
                         <span>{peso(order.deliveryFee)}</span>
                       </div>
                       <div className="flex justify-between text-slate-500">
-                        <span>Service fee (platform, paid by customer)</span>
+                        <span>Booking fee (platform, paid by customer)</span>
                         <span>{peso(order.serviceFee)}</span>
                       </div>
                       <div className="flex justify-between text-slate-500">

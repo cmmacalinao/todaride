@@ -50,10 +50,10 @@ export type OrderViewer = 'customer' | 'vendor' | 'driver'
 export function orderStageDetail(order: MedsOrder, ride: Ride | undefined, viewer: OrderViewer = 'vendor'): string {
   const stage = orderStage(order, ride)
   const driver = ride?.driverName
-  const breakdown = `goods ₱${order.subtotal} + rider fee ₱${order.deliveryFee} + service ₱${order.serviceFee}`
+  const breakdown = `goods ₱${order.subtotal} + TODA fare ₱${order.deliveryFee} + booking fee ₱${order.serviceFee}`
   switch (stage) {
     case 'placed':
-      return viewer === 'customer' ? 'Waiting for the vendor to send your quotation' : 'Send the quotation with the rider fee'
+      return viewer === 'customer' ? 'Waiting for the vendor to send your quotation' : 'Send the quotation with the TODA fare'
     case 'quoted':
       return viewer === 'customer'
         ? `Approve ₱${order.total} (${breakdown}) to start — cash on delivery or pay online`

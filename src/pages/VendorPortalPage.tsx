@@ -15,7 +15,7 @@ import { VendorFooterNav, type VendorTab } from '../components/VendorFooterNav'
 import { TrustedRiderSelect, VendorTrustedRiders } from '../components/VendorTrustedRiders'
 import { RealLiveMap, type MapPoint } from '../components/RealLiveMap'
 import { OrderStatusStrip } from '../components/OrderStatusStrip'
-import { distanceKm, suggestedRiderFee } from '../lib/vendorOrders'
+import { distanceKm } from '../lib/vendorOrders'
 import { VendorFeedComposer, VendorFeedList } from '../components/VendorFeed'
 import { resolveVendorAccent } from '../components/VendorStorefront'
 import { formatAddressLine } from '../lib/addressFormat'
@@ -566,7 +566,7 @@ function ReadyOrderCard({
               </div>
             ))}
             <div className="flex items-center justify-between border-t border-slate-100 pt-1 text-slate-500">
-              <span>Delivery + service fee</span>
+              <span>TODA fare + booking fee</span>
               <span>₱{order.deliveryFee + order.serviceFee}</span>
             </div>
           </div>
@@ -664,15 +664,19 @@ function NewVendorOrderCard({
   onReject: (reason: string) => void
   onSendMessage: (text: string) => void
 }) {
+  const { quoteVendorDeliveryFare } = useRides()
   const [rejectReason, setRejectReason] = useState('')
   const [contactOpen, setContactOpen] = useState(false)
-  // Suggested from the distance between the store's pin and the customer's;
-  // the vendor can change it before sending.
+  // The rider's fee is the TODA fare from the store's pin to the customer's,
+  // on the same tariff every ride is priced with; the vendor can still change
+  // it before sending. The booking fee is the platform's, as set in admin.
   const km = distanceKm(vendor.locationGps, order.deliveryAddress.gps)
-  const suggested = suggestedRiderFee(vendor.locationGps, order.deliveryAddress.gps)
+  const fare = quoteVendorDeliveryFare(vendor.id, order.deliveryAddress)
+  const suggested = fare?.todaFare ?? order.deliveryFee
+  const bookingFee = fare?.bookingFee ?? order.serviceFee
   const [feeInput, setFeeInput] = useState(String(suggested))
   const riderFee = Math.max(0, Math.round(Number(feeInput) || 0))
-  const quoteTotal = order.subtotal + riderFee + order.serviceFee
+  const quoteTotal = order.subtotal + riderFee + bookingFee
 
   return (
     <div className="rounded-lg border border-slate-200 p-3">
@@ -708,7 +712,8 @@ function NewVendorOrderCard({
       </p>
 
       {/* The quotation this order will get. Goods are fixed (the menu priced
-          them); the rider fee is the vendor's call, suggested by distance. */}
+          them); the TODA fare is suggested from the tariff and the vendor can
+          adjust it; the booking fee is the admin's. */}
       <div className="mt-2 rounded-lg border border-brand-200 bg-brand-50 p-2.5 text-xs">
         <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-brand-800">Quotation to send</p>
         <div className="flex items-center justify-between text-slate-600">
@@ -717,7 +722,7 @@ function NewVendorOrderCard({
         </div>
         <div className="mt-1 flex items-center justify-between gap-2 text-slate-600">
           <span>
-            Rider fee <span className="text-slate-400">(suggested ₱{suggested})</span>
+            TODA fare (rider) <span className="text-slate-400">(tariff ₱{suggested}{km != null ? ` · ${km} km` : ''})</span>
           </span>
           <span className="flex items-center gap-1">
             ₱
@@ -732,8 +737,8 @@ function NewVendorOrderCard({
           </span>
         </div>
         <div className="mt-1 flex items-center justify-between text-slate-600">
-          <span>Service fee (platform)</span>
-          <span>₱{order.serviceFee}</span>
+          <span>Booking fee (platform, set in admin)</span>
+          <span>₱{bookingFee}</span>
         </div>
         <div className="mt-1 flex items-center justify-between border-t border-brand-200 pt-1 font-semibold text-slate-800">
           <span>Customer pays</span>

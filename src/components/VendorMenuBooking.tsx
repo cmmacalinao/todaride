@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { DEFAULT_MEDS_DELIVERY_FEE, DEFAULT_MEDS_SERVICE_FEE, PAYMENT_METHODS } from '../mock/data'
 import { DocumentUploadField } from './DocumentUploadField'
-import { resolvePhAddress, type PhAddressTags } from '../lib/customLocation'
+import { createCustomLocation, resolvePhAddress, reverseGeocodeToPhAddress, type PhAddressTags } from '../lib/customLocation'
+import { getCurrentGeoPosition } from '../lib/geo'
 import { BarangayAddressPicker } from './BarangayAddressPicker'
 import { DeliveryMapPicker } from './DeliveryMapPicker'
 import { StoreRatingSheet } from './StoreRatingSheet'
@@ -60,7 +61,8 @@ export function VendorMenuBooking({
   // menu with the cart ready, instead of on the vendor list.
   initialVendorId?: string | null
 }) {
-  const { rides, pharmacies, medicineProducts, medsOrders, createMedsOrder, cancelMedsOrder, ratePharmacy } = useRides()
+  const { rides, pharmacies, medicineProducts, medsOrders, createMedsOrder, cancelMedsOrder, ratePharmacy, quoteVendorDeliveryFare } =
+    useRides()
   // Which store the "Rate this store" sheet is open for — from the
   // storefront header, or from a past order in the history below.
   const [ratingVendorId, setRatingVendorId] = useState<string | null>(null)
@@ -108,8 +110,12 @@ export function VendorMenuBooking({
   })
   const pastOrders = myOrders.filter((o) => o.id !== activeOrder?.id)
 
-  // Seeded once from the profile — later edits come through the picker
-  // below, same pattern MedsBooking uses for its own delivery address.
+  // The delivery address starts as the customer's own: their registered
+  // address (passed in as the defaults) straight away, and — once the
+  // checkout opens — the phone's GPS pin on top of it when the phone can
+  // give one, since where they are standing is usually where the food goes.
+  // Anything they then change by hand wins over both.
+  const addressTouchedRef = useRef(false)
   useEffect(() => {
     if (!defaultBarangay) return
     let cancelled = false
@@ -129,6 +135,36 @@ export function VendorMenuBooking({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  useEffect(() => {
+    if (step !== 'checkout' || addressTouchedRef.current || deliveryPinned) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const gps = await getCurrentGeoPosition()
+        if (cancelled || addressTouchedRef.current) return
+        const { label, guess } = await reverseGeocodeToPhAddress(gps)
+        if (cancelled || addressTouchedRef.current) return
+        const location = createCustomLocation(
+          label ?? `My location (${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)})`,
+          gps,
+          guess ?? undefined,
+        )
+        setDeliveryAddress(location)
+        setDeliveryPinned(true)
+        if (guess) {
+          setAddressSeed(guess)
+          setAddressSeedKey((k) => k + 1)
+        }
+      } catch {
+        // No fix (permission off, indoors) — the registered address stands.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step])
+
   const selectedVendor = vendors.find((v) => v.id === selectedVendorId)
   const menu = selectedVendor ? medicineProducts.filter((p) => p.pharmacyId === selectedVendor.id) : []
 
@@ -137,7 +173,14 @@ export function VendorMenuBooking({
     .map(([productId, qty]) => ({ product: menu.find((m) => m.id === productId), qty }))
     .filter((l): l is { product: MedicineProduct; qty: number } => !!l.product)
   const subtotal = cartLines.reduce((sum, l) => sum + l.product.price * l.qty, 0)
-  const total = subtotal + DEFAULT_MEDS_DELIVERY_FEE + DEFAULT_MEDS_SERVICE_FEE
+  // What the delivery will cost to ride: the TODA fare from the store to
+  // the address chosen below, plus the platform's booking fee — the same
+  // numbers the vendor's quotation starts from.
+  const fare =
+    selectedVendor && deliveryAddress ? quoteVendorDeliveryFare(selectedVendor.id, deliveryAddress) : null
+  const todaFare = fare?.todaFare ?? DEFAULT_MEDS_DELIVERY_FEE
+  const bookingFee = fare?.bookingFee ?? DEFAULT_MEDS_SERVICE_FEE
+  const total = subtotal + todaFare + bookingFee
 
   function setQty(productId: string, qty: number) {
     setCart((prev) => ({ ...prev, [productId]: Math.max(0, qty) }))
@@ -165,6 +208,7 @@ export function VendorMenuBooking({
   }
 
   async function handleAddressResolve(address: PhAddressTags) {
+    addressTouchedRef.current = true
     const location = await resolvePhAddress(address)
     setDeliveryAddress(location)
     setDeliveryPinned(false)
@@ -174,6 +218,7 @@ export function VendorMenuBooking({
   // exact point; the guess (when the pin landed somewhere in our address
   // tree) re-seeds the dropdowns beneath so both say the same thing.
   function handleMapPin(location: MockLocation, guess: PhAddressTags | null) {
+    addressTouchedRef.current = true
     setDeliveryAddress(location)
     setDeliveryPinned(true)
     if (guess) {
@@ -359,12 +404,12 @@ export function VendorMenuBooking({
               </div>
             ))}
             <div className="flex items-center justify-between border-t border-slate-100 pt-1 text-slate-500">
-              <span>Rider fee (estimate — confirmed in the quotation)</span>
-              <span>₱{DEFAULT_MEDS_DELIVERY_FEE}</span>
+              <span>TODA fare (rider{deliveryAddress ? '' : ' — pick the address'} · confirmed in the quotation)</span>
+              <span>₱{todaFare}</span>
             </div>
             <div className="flex items-center justify-between text-slate-500">
-              <span>Service fee</span>
-              <span>₱{DEFAULT_MEDS_SERVICE_FEE}</span>
+              <span>Booking fee</span>
+              <span>₱{bookingFee}</span>
             </div>
             <div className="flex items-center justify-between border-t border-slate-200 pt-1 font-semibold text-slate-800">
               <span>Estimated total</span>
@@ -534,11 +579,11 @@ function ActiveVendorOrderCard({
             <span>₱{order.subtotal}</span>
           </div>
           <div className="flex items-center justify-between text-slate-500">
-            <span>Rider fee (delivery)</span>
+            <span>TODA fare (rider)</span>
             <span>₱{order.deliveryFee}</span>
           </div>
           <div className="flex items-center justify-between text-slate-500">
-            <span>Service fee</span>
+            <span>Booking fee</span>
             <span>₱{order.serviceFee}</span>
           </div>
           <div className="flex items-center justify-between border-t border-slate-200 pt-1 font-semibold text-slate-800">

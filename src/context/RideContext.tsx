@@ -2065,6 +2065,34 @@ export interface MedsRideOverrides {
   preferredDriverId?: string | null
 }
 
+// What a delivery from this store to that address costs to ride: the TODA
+// fare from the same tariff every ride is priced on (the pickup's city, or
+// the answering TODA's own schedule), treated as an errand the way Pabili
+// is, plus the platform's per-ride booking fee the admin sets. This is the
+// quotation a vendor sends — the rider gets the fare, the platform the fee.
+export function vendorDeliveryFareQuote(
+  state: RideState,
+  pharmacy: Pharmacy,
+  dropoff: MockLocation,
+): { todaFare: number; bookingFee: number } {
+  const pickup: MockLocation = {
+    id: pharmacy.id,
+    label: pharmacy.name,
+    coords: pharmacy.coords,
+    gps: pharmacy.locationGps ?? { lat: 15.7940977, lng: 120.9905849 },
+    province: pharmacy.province,
+    city: pharmacy.city,
+    barangay: pharmacy.barangay,
+  }
+  const priorityTodaOrgId = getPriorityTodaOrgId(pickup)
+  const tariff = resolveTariff(state.tariffSettings, state.cityTariffs, state.todaTariffs, pickup.city, priorityTodaOrgId)
+  const oneWay = estimateFare(pickup, dropoff, tariff, { isStudent: false, isPwdSenior: false, passengerCount: 1 })
+  return {
+    todaFare: Math.max(0, Math.round(errandBaseFare(oneWay, state.pabiliFareMode, state.pabiliFixedFare))),
+    bookingFee: Math.max(0, Math.round(state.commissionPerRide)),
+  }
+}
+
 function buildMedsDeliveryRide(
   state: RideState,
   order: MedsOrder,
@@ -5154,6 +5182,13 @@ function reducer(state: RideState, action: RideAction): RideState {
       // order once its quote is accepted. A regular quote-pipeline order is
       // unaffected: paidOnline only ever flips true there once accepted.
       const paidOnline = pricedFromMenu && action.paymentMethod !== 'cash'
+      // A vendor's delivery is priced like every ride: the TODA fare from the
+      // store to the door plus the admin's per-ride booking fee. Pharmacy
+      // orders keep their flat defaults.
+      const orderPharmacy = state.pharmacies.find((p) => p.id === action.pharmacyId)
+      const fare = orderPharmacy && orderPharmacy.businessType !== 'pharmacy'
+        ? vendorDeliveryFareQuote(state, orderPharmacy, action.deliveryAddress)
+        : { todaFare: DEFAULT_MEDS_DELIVERY_FEE, bookingFee: DEFAULT_MEDS_SERVICE_FEE }
       const order: MedsOrder = {
         id: `meds-${Date.now()}`,
         customerId: action.customerId,
@@ -5161,9 +5196,9 @@ function reducer(state: RideState, action: RideAction): RideState {
         pharmacyId: action.pharmacyId,
         items: action.items,
         subtotal,
-        deliveryFee: DEFAULT_MEDS_DELIVERY_FEE,
-        serviceFee: DEFAULT_MEDS_SERVICE_FEE,
-        total: subtotal + DEFAULT_MEDS_DELIVERY_FEE + DEFAULT_MEDS_SERVICE_FEE,
+        deliveryFee: fare.todaFare,
+        serviceFee: fare.bookingFee,
+        total: subtotal + fare.todaFare + fare.bookingFee,
         paymentMethod: action.paymentMethod,
         status: 'pending_confirmation',
         rejectionReason: null,
@@ -5241,6 +5276,10 @@ function reducer(state: RideState, action: RideAction): RideState {
       const order = state.medsOrders.find((o) => o.id === action.orderId)
       if (!order || order.status !== 'pending_confirmation' || !order.pricedFromMenu) return state
       const deliveryFee = Math.max(0, Math.round(action.deliveryFee))
+      // The booking fee is the platform's per-ride fee as the admin has it
+      // set at the moment of quoting — not the placeholder the order was
+      // created with.
+      const serviceFee = Math.max(0, Math.round(state.commissionPerRide))
       return {
         ...state,
         medsOrders: state.medsOrders.map((o) =>
@@ -5248,7 +5287,8 @@ function reducer(state: RideState, action: RideAction): RideState {
             ? {
                 ...o,
                 deliveryFee,
-                total: o.subtotal + deliveryFee + o.serviceFee,
+                serviceFee,
+                total: o.subtotal + deliveryFee + serviceFee,
                 status: 'quoted',
                 quotedAt: new Date().toISOString(),
               }
@@ -5416,6 +5456,16 @@ function reducer(state: RideState, action: RideAction): RideState {
       // far enough that the map shows two distinct pins.
       const dropGps = { lat: storeGps.lat + 0.005, lng: storeGps.lng + 0.004 }
       const now = new Date().toISOString()
+      const deliveryAddress: MockLocation = {
+        id: `sample-drop-${Date.now()}`,
+        label: `Sample delivery — near ${pharmacy.barangay || 'Poblacion'}, ${pharmacy.city}`,
+        coords: { x: Math.min(95, pharmacy.coords.x + 8), y: Math.min(95, pharmacy.coords.y + 6) },
+        gps: dropGps,
+        province: pharmacy.province,
+        city: pharmacy.city,
+        barangay: pharmacy.barangay,
+      }
+      const fare = vendorDeliveryFareQuote(state, pharmacy, deliveryAddress)
       const order: MedsOrder = {
         id: `meds-sample-${Date.now()}`,
         customerId: `sample-${Date.now()}`,
@@ -5423,24 +5473,16 @@ function reducer(state: RideState, action: RideAction): RideState {
         pharmacyId: pharmacy.id,
         items,
         subtotal,
-        deliveryFee: DEFAULT_MEDS_DELIVERY_FEE,
-        serviceFee: DEFAULT_MEDS_SERVICE_FEE,
-        total: subtotal + DEFAULT_MEDS_DELIVERY_FEE + DEFAULT_MEDS_SERVICE_FEE,
+        deliveryFee: fare.todaFare,
+        serviceFee: fare.bookingFee,
+        total: subtotal + fare.todaFare + fare.bookingFee,
         paymentMethod: 'cash',
         status: 'confirmed',
         rejectionReason: null,
         prescriptionDataUrls: [],
         prescriptionStatus: 'not_required',
         receiptDataUrl: null,
-        deliveryAddress: {
-          id: `sample-drop-${Date.now()}`,
-          label: `Sample delivery — near ${pharmacy.barangay || 'Poblacion'}, ${pharmacy.city}`,
-          coords: { x: Math.min(95, pharmacy.coords.x + 8), y: Math.min(95, pharmacy.coords.y + 6) },
-          gps: dropGps,
-          province: pharmacy.province,
-          city: pharmacy.city,
-          barangay: pharmacy.barangay,
-        },
+        deliveryAddress,
         deliveryMode: 'pharmacy_books',
         linkedRideId: null,
         paymentProofDataUrl: null,
@@ -5461,6 +5503,7 @@ function reducer(state: RideState, action: RideAction): RideState {
       const now = new Date().toISOString()
       const goods = Math.max(0, Math.round(action.goodsAmount))
       const paidToVendor = action.collection === 'paid'
+      const fare = vendorDeliveryFareQuote(state, pharmacy, action.deliveryAddress)
       const order: MedsOrder = {
         id: `meds-${Date.now()}`,
         // No account behind a walk-in customer — a synthetic id keeps every
@@ -5470,9 +5513,9 @@ function reducer(state: RideState, action: RideAction): RideState {
         pharmacyId: pharmacy.id,
         items: [{ productId: 'vendor-booked', name: action.itemsSummary.trim() || 'Order', quantity: 1, unitPrice: goods, note: null }],
         subtotal: goods,
-        deliveryFee: DEFAULT_MEDS_DELIVERY_FEE,
-        serviceFee: DEFAULT_MEDS_SERVICE_FEE,
-        total: goods + DEFAULT_MEDS_DELIVERY_FEE + DEFAULT_MEDS_SERVICE_FEE,
+        deliveryFee: fare.todaFare,
+        serviceFee: fare.bookingFee,
+        total: goods + fare.todaFare + fare.bookingFee,
         // 'gcash' here only means "settled with the vendor already" — it is
         // what makes buildMedsDeliveryRide charge the driver's fare as fees
         // only, instead of goods + fees collected on the doorstep.
@@ -6551,6 +6594,9 @@ interface RideContextValue extends RideState {
   ratePharmacy: (args: { pharmacyId: string; customerId: string; customerName: string; rating: number; text: string | null }) => void
   addVendorPost: (args: { pharmacyId: string; text: string; photoDataUrl: string | null; productId: string | null }) => void
   removeVendorPost: (pharmacyId: string, postId: string) => void
+  // The TODA fare + admin booking fee for delivering from this store to that
+  // address — see vendorDeliveryFareQuote. Null when the store is unknown.
+  quoteVendorDeliveryFare: (pharmacyId: string, dropoff: MockLocation) => { todaFare: number; bookingFee: number } | null
 }
 
 const RideContext = createContext<RideContextValue | null>(null)
@@ -7370,6 +7416,10 @@ export function RideProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'TOGGLE_PHARMACY_TRUSTED_DRIVER', pharmacyId, driverId }),
     ratePharmacy: (args) => dispatch({ type: 'RATE_PHARMACY', ...args }),
     addVendorPost: (args) => dispatch({ type: 'ADD_VENDOR_POST', ...args }),
+    quoteVendorDeliveryFare: (pharmacyId, dropoff) => {
+      const pharmacy = state.pharmacies.find((p) => p.id === pharmacyId)
+      return pharmacy ? vendorDeliveryFareQuote(state, pharmacy, dropoff) : null
+    },
     removeVendorPost: (pharmacyId, postId) => dispatch({ type: 'REMOVE_VENDOR_POST', pharmacyId, postId }),
   }
 

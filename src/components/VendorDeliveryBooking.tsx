@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useRides } from '../context/RideContext'
-import { DEFAULT_MEDS_DELIVERY_FEE, DEFAULT_MEDS_SERVICE_FEE } from '../mock/data'
 import { resolvePhAddress, type PhAddressTags } from '../lib/customLocation'
 import { BarangayAddressPicker } from './BarangayAddressPicker'
 import { DeliveryMapPicker } from './DeliveryMapPicker'
@@ -14,7 +13,7 @@ import type { MockLocation, Pharmacy } from '../types'
 // VENDOR_BOOK_DELIVERY). The delivery pin is the same live map a customer
 // pins on at checkout, with the store shown for scale.
 export function VendorDeliveryBooking({ vendor, onClose }: { vendor: Pharmacy; onClose: () => void }) {
-  const { vendorBookDelivery } = useRides()
+  const { vendorBookDelivery, quoteVendorDeliveryFare } = useRides()
   const [customerName, setCustomerName] = useState('')
   const [contactPhone, setContactPhone] = useState('')
   const [itemsSummary, setItemsSummary] = useState('')
@@ -49,7 +48,11 @@ export function VendorDeliveryBooking({ vendor, onClose }: { vendor: Pharmacy; o
   }
 
   const goods = Math.max(0, Math.round(Number(goodsAmount) || 0))
-  const fees = DEFAULT_MEDS_DELIVERY_FEE + DEFAULT_MEDS_SERVICE_FEE
+  // TODA fare to the pinned address plus the admin's booking fee — what
+  // the rider collects on top of the goods.
+  const fare = deliveryAddress ? quoteVendorDeliveryFare(vendor.id, deliveryAddress) : null
+  const fees = (fare?.todaFare ?? 0) + (fare?.bookingFee ?? 0)
+  const feeNote = fare ? `₱${fare.todaFare} TODA fare + ₱${fare.bookingFee} booking fee` : 'TODA fare + booking fee (pin the address)'
   const canBook = !!customerName.trim() && !!contactPhone.trim() && !!deliveryAddress
 
   function handleBook() {
@@ -164,8 +167,8 @@ export function VendorDeliveryBooking({ vendor, onClose }: { vendor: Pharmacy; o
         </div>
         <p className="mt-1 text-[11px] text-slate-400">
           {collection === 'cash'
-            ? `The driver pays you ₱${goods} at pickup and collects ₱${goods + fees} from the customer (order + ₱${fees} delivery & service fee).`
-            : `The driver collects only the ₱${fees} delivery & service fee from the customer.`}
+            ? `The driver pays you ₱${goods} at pickup and collects ₱${goods + fees} from the customer (order + ${feeNote}).`
+            : `The driver collects only the ${feeNote} from the customer.`}
         </p>
       </div>
 

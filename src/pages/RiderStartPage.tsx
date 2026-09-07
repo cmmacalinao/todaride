@@ -116,7 +116,11 @@ export function RiderStartPage() {
             onClick={() => navigate('/book/terminal')}
             className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-white/10"
           >
-            <span aria-hidden className="text-3xl">⬛</span>
+            {/* Same gold disc as Book a Ride's tricycle, with a map pin —
+                tracking is "where is my tricycle right now". */}
+            <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-400 text-xl leading-none">
+              📍
+            </span>
             <span className="min-w-0 flex-1">
               <span className="block text-base font-bold text-gold-400">TRACK YOUR TRIP</span>
               <span className="block text-sm font-bold text-white">

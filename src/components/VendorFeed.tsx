@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { DocumentUploadField } from './DocumentUploadField'
 import type { MedicineProduct, Pharmacy } from '../types'
-import type { VendorAccent } from './VendorStorefront'
+import { VendorBannerArt, resolveVendorAccent, type VendorAccent } from './VendorStorefront'
 
 // The vendor's page as a feed — the part of a Facebook page people actually
 // scroll: a post at a time, newest on top, each with the store's name and
@@ -100,6 +100,102 @@ export function VendorFeedList({
             )}
             {!featured && !post.photoDataUrl && <div className="pb-3" />}
             {(featured || post.photoDataUrl) && !featured && <div className="pb-1" />}
+          </article>
+        )
+      })}
+    </div>
+  )
+}
+
+// Every vendor's posts in one scroll — the Food Express page as a newsfeed.
+// Each post sits under its own store's banner (gradient, logo, name), so a
+// customer browsing sees who is cooking what today without opening each
+// store; the banner is the way in, and a featured dish can be ordered
+// straight from the post.
+export function VendorNewsfeed({
+  vendors,
+  items,
+  onOpenVendor,
+  onOrderItem,
+  limit = 20,
+}: {
+  vendors: Pharmacy[]
+  items: MedicineProduct[]
+  onOpenVendor: (vendorId: string) => void
+  onOrderItem: (vendorId: string, productId: string) => void
+  limit?: number
+}) {
+  const entries = vendors
+    .flatMap((vendor) => (vendor.posts ?? []).map((post) => ({ vendor, post })))
+    .sort((a, b) => new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime())
+    .slice(0, limit)
+  if (entries.length === 0) return null
+  return (
+    <div className="space-y-3">
+      {entries.map(({ vendor, post }) => {
+        const accent = resolveVendorAccent(vendor)
+        const featured = post.productId ? items.find((i) => i.id === post.productId) : undefined
+        return (
+          <article key={post.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            {/* The store's own banner as the post header — tap it to open
+                the store. */}
+            <button
+              type="button"
+              onClick={() => onOpenVendor(vendor.id)}
+              className={`relative flex w-full items-center gap-2.5 overflow-hidden bg-gradient-to-br px-3 py-2 text-left ${accent.gradient}`}
+            >
+              <VendorBannerArt />
+              <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
+                {vendor.logoDataUrl ? (
+                  <img src={vendor.logoDataUrl} alt="" className="h-full w-full object-contain" />
+                ) : (
+                  <span aria-hidden className="text-base">{accent.icon}</span>
+                )}
+              </span>
+              <span className="relative min-w-0 flex-1">
+                <span className="block truncate text-sm font-bold text-white drop-shadow">{vendor.name}</span>
+                <span className="block text-[11px] text-white/80">
+                  {timeAgo(post.createdAt)}
+                  {vendor.tagline ? ` · ${vendor.tagline}` : ''}
+                </span>
+              </span>
+              <span aria-hidden className="relative text-white/70">
+                ›
+              </span>
+            </button>
+            {post.text && <p className="whitespace-pre-line px-3 pt-2.5 text-sm leading-snug text-slate-700">{post.text}</p>}
+            {post.photoDataUrl && <img src={post.photoDataUrl} alt="" className="mt-2 max-h-80 w-full object-cover" loading="lazy" />}
+            {featured && (
+              <div className="m-3 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                {featured.photoDataUrl && (
+                  <img src={featured.photoDataUrl} alt={featured.name} className="h-14 w-14 shrink-0 rounded-md object-cover" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-slate-800">{featured.name}</p>
+                  <p className={`text-sm font-bold ${accent.softText}`}>₱{featured.price}</p>
+                </div>
+                {featured.inStock && featured.visible !== false && (
+                  <button
+                    type="button"
+                    onClick={() => onOrderItem(vendor.id, featured.id)}
+                    className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-white ${accent.solid} ${accent.solidHover}`}
+                  >
+                    Order
+                  </button>
+                )}
+              </div>
+            )}
+            {!featured && (
+              <div className="px-3 pb-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => onOpenVendor(vendor.id)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold text-white ${accent.solid} ${accent.solidHover}`}
+                >
+                  View menu ›
+                </button>
+              </div>
+            )}
           </article>
         )
       })}

@@ -8,6 +8,7 @@ import { DeliveryMapPicker } from './DeliveryMapPicker'
 import { StoreRatingSheet } from './StoreRatingSheet'
 import { OrderStatusStrip } from './OrderStatusStrip'
 import { ServiceTabs } from './ServiceTabs'
+import { VendorNewsfeed } from './VendorFeed'
 import { OrderChat } from './OrderChat'
 import { TripMonitor } from './TripMonitor'
 import { VendorListRow, VendorStorefront } from './VendorStorefront'
@@ -282,6 +283,24 @@ export function VendorMenuBooking({
                     />
                   ))}
               </div>
+            </div>
+          )}
+
+          {/* The newsfeed: what every store posted, newest first, each under
+              its own banner — see VendorNewsfeed. Only stores matching the
+              search, so a search narrows the feed too. */}
+          {shownVendors.some((v) => (v.posts?.length ?? 0) > 0) && (
+            <div>
+              <p className="mb-1.5 flex items-center gap-1 text-sm font-bold text-slate-700">📣 Latest from vendors</p>
+              <VendorNewsfeed
+                vendors={shownVendors}
+                items={medicineProducts}
+                onOpenVendor={openVendor}
+                onOrderItem={(vendorId, productId) => {
+                  openVendor(vendorId)
+                  setCart({ [productId]: 1 })
+                }}
+              />
             </div>
           )}
         </div>

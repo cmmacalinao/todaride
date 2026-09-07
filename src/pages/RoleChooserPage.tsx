@@ -122,7 +122,7 @@ export function RoleChooserPage() {
         </div>
 
         <div className="mb-5 flex gap-1 rounded-lg bg-white/5 p-1">
-          {(['signup', 'login'] as const).map((m) => (
+          {(['login', 'signup'] as const).map((m) => (
             <button
               key={m}
               type="button"
@@ -131,7 +131,7 @@ export function RoleChooserPage() {
                 mode === m ? 'bg-gold-400 text-navy-900 shadow-sm' : 'text-white/60 hover:bg-white/10'
               }`}
             >
-              {m === 'signup' ? 'Sign up' : 'Log in'}
+              {m === 'signup' ? 'Signup' : 'Login'}
             </button>
           ))}
         </div>

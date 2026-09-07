@@ -162,7 +162,9 @@ export function RoleChooserPage() {
                 generic identifier login instead, with no way to register a
                 new business account from here at all. */}
             <Link
-              to={vendorsEnabled ? '/vendor?role=vendor&auth=signup' : '/pharmacy?role=pharmacy&auth=signup'}
+              // The Log in / Sign up choice made on this page is the one the
+              // business form opens on — it has no toggle of its own.
+              to={vendorsEnabled ? `/vendor?role=vendor&auth=${mode}` : `/pharmacy?role=pharmacy&auth=${mode}`}
               className="flex items-center gap-3 rounded-xl border border-gold-400/40 bg-gold-400/10 p-3.5 transition hover:border-gold-400 hover:bg-gold-400/20"
             >
               <span className="text-2xl leading-none">🏪</span>

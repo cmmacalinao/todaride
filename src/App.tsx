@@ -134,6 +134,9 @@ function AppShell() {
     const params = new URLSearchParams(location.search)
     const isDriverEntryLink =
       location.pathname === '/drive' && ['invite', 'todaOrgId', 'mode', 'operatorId'].some((key) => params.has(key))
+    // Likewise a business login/sign-up link (/vendor?role=vendor&auth=…):
+    // reloading it must show the form again, not the landing page.
+    const isBusinessEntryLink = (location.pathname === '/vendor' || location.pathname === '/pharmacy') && params.has('role')
     // A vendor's page is public too: it is the link a carinderia shares on
     // Facebook, and whoever taps it must land on the store, not a login.
     const isPublicEntry =
@@ -141,7 +144,8 @@ function AppShell() {
       location.pathname === '/welcome' ||
       location.pathname.startsWith('/scan/') ||
       location.pathname.startsWith('/vendor-page/') ||
-      isDriverEntryLink
+      isDriverEntryLink ||
+      isBusinessEntryLink
     if (!isPublicEntry) navigate('/', { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

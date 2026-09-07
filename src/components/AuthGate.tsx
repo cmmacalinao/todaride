@@ -194,6 +194,19 @@ export function LegacyAuthGate() {
             which mode was selected (see authMode, lifted up to this level). */}
         {(role === 'passenger' || role === 'parent') && <SubTabs mode={authMode} setMode={setAuthMode} />}
 
+        {/* A business account arrives here from the role chooser having
+            already said Log in or Sign up, so there is no second toggle —
+            just the way back to change that choice. */}
+        {isBusinessRole && (
+          <button
+            type="button"
+            onClick={() => navigate(`/welcome?mode=${authMode}`)}
+            className="mb-3 rounded-lg border border-white/25 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10"
+          >
+            ‹ Go back
+          </button>
+        )}
+
         {showTabs && (
           <div className="mb-4 flex gap-1 rounded-lg bg-white/5 p-1">
             {allowedRoles.map((r) => (
@@ -219,8 +232,8 @@ export function LegacyAuthGate() {
           {role === 'passenger' && <PassengerAuth mode={authMode} asStudent={searchParams.get('student') === '1'} />}
           {role === 'parent' && <ParentAuth mode={authMode} />}
           {role === 'admin' && <AdminAuth />}
-          {role === 'pharmacy' && <PharmacyAuth />}
-          {role === 'vendor' && <PharmacyAuth variant="vendor" />}
+          {role === 'pharmacy' && <PharmacyAuth mode={authMode} />}
+          {role === 'vendor' && <PharmacyAuth variant="vendor" mode={authMode} />}
           {role === 'operator' && <OperatorAuth />}
           {role === 'franchise' && <FranchiseAuth />}
         </div>
@@ -451,10 +464,11 @@ const MOCK_PHARMACY_IDS = new Set(MOCK_PHARMACIES.map((p) => p.id))
 // One component serves both partner entry points: /pharmacy and /vendor share
 // the same account type, portal and login, and differ only in which business
 // categories sign-up offers (see SIGNUP_CATEGORIES).
-function PharmacyAuth({ variant = 'pharmacy' }: { variant?: 'pharmacy' | 'vendor' } = {}) {
-  // A vendor arriving from the landing page is almost always signing up for
-  // the first time, whereas a seeded pharmacy is usually logging in.
-  const [mode, setMode] = useState<'login' | 'signup'>(variant === 'vendor' ? 'signup' : 'login')
+// `mode` comes from the role chooser's own Log in / Sign up choice (via
+// ?auth=, held by LegacyAuthGate) — this form used to carry a second toggle
+// for the same question, which read as the page asking twice.
+function PharmacyAuth({ variant = 'pharmacy', mode }: { variant?: 'pharmacy' | 'vendor'; mode: 'login' | 'signup' }) {
+  const navigate = useNavigate()
   const { pharmacies } = useRides()
   const { setLoggedInPharmacyId, setAuthedAccount } = useSession()
   // Login is filtered by the same categories sign-up offers, so a resto owner
@@ -501,11 +515,26 @@ function PharmacyAuth({ variant = 'pharmacy' }: { variant?: 'pharmacy' | 'vendor
     logIntoPharmacy(pharmacy.id)
   }
 
+  const roleParam = variant === 'vendor' ? 'vendor' : 'pharmacy'
+  const switchLink = (to: 'login' | 'signup', label: string) => (
+    <button
+      type="button"
+      onClick={() => navigate(`/${roleParam}?role=${roleParam}&auth=${to}`)}
+      className="font-semibold text-brand-700 hover:underline"
+    >
+      {label}
+    </button>
+  )
+
   return (
     <div>
-      <SubTabs mode={mode} setMode={setMode} />
       {mode === 'signup' ? (
-        <PharmacySignupForm onRegistered={logIntoPharmacy} variant={variant} />
+        <>
+          <PharmacySignupForm onRegistered={logIntoPharmacy} variant={variant} />
+          <p className="mt-2 text-center text-xs text-white/70">
+            Already registered? {switchLink('login', 'Log in instead')}
+          </p>
+        </>
       ) : (
         // Same card/label/helper-text shape as IdentifierLoginForm (the
         // passenger/driver/TODA login) — a name/PIN pair works there because
@@ -515,8 +544,9 @@ function PharmacyAuth({ variant = 'pharmacy' }: { variant?: 'pharmacy' | 'vendor
         <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
           <p className="text-xs text-slate-500">
             {variant === 'vendor'
-              ? 'For partner restaurants, food sellers and other vendors — no account yet? Switch to Sign up.'
-              : 'For partner pharmacies and stores — no account yet? Switch to Sign up.'}
+              ? 'For partner restaurants, food sellers and other vendors. No account yet? '
+              : 'For partner pharmacies and stores. No account yet? '}
+            {switchLink('signup', 'Sign up')}
           </p>
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500">What kind of business is this?</label>
@@ -541,8 +571,8 @@ function PharmacyAuth({ variant = 'pharmacy' }: { variant?: 'pharmacy' | 'vendor
             </label>
             {matching.length === 0 ? (
               <p className="rounded-lg border border-dashed border-slate-300 p-2.5 text-xs text-slate-400">
-                No {BUSINESS_TYPE_LABELS[loginType].toLowerCase()} accounts registered yet — switch to Sign up to
-                create the first one.
+                No {BUSINESS_TYPE_LABELS[loginType].toLowerCase()} accounts registered yet —{' '}
+                {switchLink('signup', 'sign up')} to create the first one.
               </p>
             ) : (
               <select

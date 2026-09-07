@@ -582,18 +582,41 @@ function ReadyOrderCard({
 
       {tab === 'book' && dispatches && (
         <div className="mt-2 space-y-2">
+          {/* The order itself, highlighted, above the map: what is going,
+              where, to whom, and what the rider handles — the facts a
+              vendor checks before handing it over. Booking sits below. */}
+          <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-2.5 text-xs">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-amber-800">Order to deliver</p>
+            <div className="mt-1 space-y-0.5">
+              {order.items.map((item, i) => (
+                <div key={`${item.productId}-${i}`} className="flex items-center justify-between text-slate-700">
+                  <span className="font-medium">
+                    {item.quantity}x {item.name}
+                  </span>
+                  <span>₱{item.unitPrice * item.quantity}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-1 flex items-center justify-between border-t border-amber-200 pt-1 font-semibold text-slate-800">
+              <span>Customer pays</span>
+              <span>₱{order.total}</span>
+            </div>
+            <p className="mt-1.5 text-slate-700">
+              🏁 {order.deliveryAddress.label}
+            </p>
+            <p className="text-slate-700">
+              👤 {order.customerName}
+              {order.contactPhone ? ` · ☎ ${order.contactPhone}` : ''}
+            </p>
+            <p className="mt-1 text-[11px] text-amber-800">
+              {order.paidOnline
+                ? `Paid online — the rider collects only the ₱${driverCollects} delivery & service fee.`
+                : `Cash on delivery — the rider pays you ₱${order.subtotal} at pickup and collects ₱${driverCollects} from the customer.`}
+            </p>
+          </div>
           <div className="overflow-hidden rounded-lg border border-slate-200">
             <RealLiveMap points={mapPoints} height="180px" hideLegend />
           </div>
-          <p className="text-[11px] text-slate-600">
-            🏁 {order.deliveryAddress.label}
-            {order.contactPhone ? ` · ☎ ${order.contactPhone}` : ''}
-          </p>
-          <p className="text-[11px] text-slate-500">
-            {order.paidOnline
-              ? `Paid online — the rider collects only the ₱${driverCollects} delivery & service fee from the customer.`
-              : `Cash on delivery — the rider pays you ₱${order.subtotal} at pickup and collects ₱${driverCollects} from the customer.`}
-          </p>
           <TrustedRiderSelect vendor={vendor} value={preferredDriverId} onChange={setPreferredDriverId} />
           <button
             type="button"

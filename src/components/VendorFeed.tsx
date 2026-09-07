@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useRides } from '../context/RideContext'
+import { usePublicOrigin, useRides } from '../context/RideContext'
 import { captureNativePhoto, compressImageFile, isNativePlatform } from '../lib/photo'
 import { renderShareCard } from '../lib/shareCard'
 import { MAX_VENDOR_POSTS, type MedicineProduct, type Pharmacy, type VendorPost } from '../types'
@@ -49,6 +49,7 @@ function PostText({ text, className = '' }: { text: string; className?: string }
 // button, pointing at the store's public page.
 function PostActions({ pharmacy, post, viewer }: { pharmacy: Pharmacy; post: VendorPost; viewer: PostViewer | null | undefined }) {
   const { reactToVendorPost, commentOnVendorPost } = useRides()
+  const { origin: publicOrigin } = usePublicOrigin()
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const [shareOpen, setShareOpen] = useState(false)
@@ -60,7 +61,7 @@ function PostActions({ pharmacy, post, viewer }: { pharmacy: Pharmacy; post: Ven
   // The post's own link: the page opens on this post (see focusPostId in
   // VendorFeedList), and the edge function puts this post's photo and text
   // on the preview card rather than the store's banner.
-  const shareUrl = `${window.location.origin}/vendor-page/${pharmacy.id}?post=${encodeURIComponent(post.id)}`
+  const shareUrl = `${publicOrigin}/vendor-page/${pharmacy.id}?post=${encodeURIComponent(post.id)}`
 
   function react(reaction: 'like' | 'heart') {
     if (!viewer) return

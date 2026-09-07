@@ -3,6 +3,7 @@ import { getDefaultDishVisual } from '../lib/filipinoDishes'
 import { menuBadgeSortRank, menuCategorySortRank } from '../lib/foodCatalog'
 import { captureNativePhoto, compressImageFile, isNativePlatform, removeFlatBackground } from '../lib/photo'
 import { ShareSheet } from './ShareSheet'
+import { usePublicOrigin } from '../context/RideContext'
 import { ProfilePhotoPicker } from './ProfilePhotoPicker'
 import { storeRatingSummary } from './StoreRatingSheet'
 import { VendorFeedList, type PostViewer } from './VendorFeed'
@@ -478,7 +479,8 @@ export function VendorHeaderCard({
   const bannerVersion = pharmacy.bannerThumbKey
     ? Math.abs([...pharmacy.bannerThumbKey].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7)).toString(36)
     : null
-  const shareUrl = `${window.location.origin}/vendor-page/${pharmacy.id}${bannerVersion ? `?v=${bannerVersion}` : ''}`
+  const { origin: publicOrigin } = usePublicOrigin()
+  const shareUrl = `${publicOrigin}/vendor-page/${pharmacy.id}${bannerVersion ? `?v=${bannerVersion}` : ''}`
 
   const mapQuery = encodeURIComponent(`${pharmacy.addressDetail}, ${pharmacy.barangay}, ${pharmacy.city}`)
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${mapQuery}`

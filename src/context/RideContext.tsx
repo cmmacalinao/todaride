@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useReducer, type ReactNode, useRef } from 'react'
 import { BANNER_AD_SLOT_COUNT, MAX_VENDOR_POSTS } from '../types'
 import { mergeById, mergeIncomingRides, mergeVendorPosts } from '../lib/rideMerge'
+import { PILOT_ORIGIN } from '../lib/pilotOrigin'
 import type { RecoveryKind } from '../lib/unifiedLogin'
 import type { RidePhoto } from '../types'
 import type {
@@ -7565,7 +7566,11 @@ export function isShareableOrigin(origin: string): boolean {
 export function usePublicOrigin(): { origin: string; shareable: boolean } {
   const { publicBaseUrl } = useRides()
   const current = typeof window !== 'undefined' ? window.location.origin : ''
-  const origin = publicBaseUrl || current
+  // Super Admin's setting first; else this page's own address when it is
+  // one the world can reach; else the pilot's. A link built from
+  // localhost (the dev server) or the installed app's own origin is dead
+  // to everyone it is sent to — Facebook fetches nothing and shows no card.
+  const origin = publicBaseUrl || (isShareableOrigin(current) ? current : PILOT_ORIGIN)
   return { origin, shareable: isShareableOrigin(origin) }
 }
 

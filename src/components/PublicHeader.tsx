@@ -76,12 +76,12 @@ export function PublicHeader({ title = 'TODA SafeRide' }: { title?: string }) {
           keeps its own space in the flow, so it cannot overlap anything at
           any text size, and no measurement has to stay in step. */}
       <header className="sticky top-0 z-20 border-b border-brand-700 bg-brand-600">
-        {/* Tighter on the left than the right: the menu and the back/forward
-            arrows are edge controls, and a thumb reaches them at the edge.
+        {/* Tighter on the left than the right: the menu is an edge control,
+            and a thumb reaches it at the edge.
             The right keeps its padding so the partner mark is not flush
             against the screen. */}
         <div className="mx-auto flex max-w-lg items-center gap-2 py-1.5 pl-1 pr-4">
-          <div className={`flex shrink-0 flex-col items-center gap-0.5 ${onLanding ? '' : '-mt-1'}`}>
+          <div className="flex shrink-0 items-center">
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
@@ -91,26 +91,6 @@ export function PublicHeader({ title = 'TODA SafeRide' }: { title?: string }) {
             >
               ☰
             </button>
-            {!onLanding && (
-              <div className="flex shrink-0 items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => navigate(-1)}
-                  aria-label="Go back"
-                  className="flex h-5 w-5 items-center justify-center rounded border border-white/25 text-[11px] text-slate-200 hover:bg-white/10 active:bg-white/20"
-                >
-                  ‹
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate(1)}
-                  aria-label="Go forward"
-                  className="flex h-5 w-5 items-center justify-center rounded border border-white/25 text-[11px] text-slate-200 hover:bg-white/10 active:bg-white/20"
-                >
-                  ›
-                </button>
-              </div>
-            )}
           </div>
           {!onLanding && (
             <Link to="/" aria-label="TODA SafeRide home">

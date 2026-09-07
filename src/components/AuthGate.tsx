@@ -137,12 +137,34 @@ export function LegacyAuthGate() {
   // single row above the Passenger/Parent tabs (not one buried inside each),
   // and switching role tabs doesn't reset which mode was selected.
   const authMode: 'login' | 'signup' = searchParams.get('auth') === 'signup' ? 'signup' : 'login'
-  // Which side of the role chooser "Go back" returns to. Drivers and TODAs
-  // say it with ?mode=register / ?toda=register rather than ?auth=.
-  const chooserMode: 'login' | 'signup' =
-    authMode === 'signup' || searchParams.get('mode') === 'register' || searchParams.get('toda') === 'register'
-      ? 'signup'
-      : 'login'
+  // Drivers and TODAs say it with ?mode=register / ?toda=register rather
+  // than ?auth= — one answer for the pair of tabs at the top of the page.
+  const isTodaAdmin = searchParams.get('mode') === 'toda_admin' || !!searchParams.get('operatorId')
+  const sheetMode: 'login' | 'signup' =
+    role === 'driver'
+      ? (isTodaAdmin ? searchParams.get('toda') === 'register' : searchParams.get('mode') === 'register')
+        ? 'signup'
+        : 'login'
+      : authMode
+  // Switching sheets rewrites only the part of the address that says which
+  // sheet — role, student, invite and TODA parameters all stay.
+  function selectSheet(next: 'login' | 'signup') {
+    const params = new URLSearchParams(searchParams)
+    if (role === 'driver') {
+      if (isTodaAdmin) {
+        params.set('mode', 'toda_admin')
+        if (next === 'signup') params.set('toda', 'register')
+        else params.delete('toda')
+      } else {
+        params.set('mode', next === 'signup' ? 'register' : 'login')
+      }
+    } else {
+      params.set('auth', next)
+    }
+    navigate({ pathname: location.pathname, search: params.toString() })
+  }
+  // Admin, Operator and Franchise keep their own in-form tabs.
+  const showSheetTabs = role === 'passenger' || role === 'parent' || role === 'pharmacy' || role === 'vendor' || role === 'driver'
 
   // AuthGate doesn't always remount between entry points (e.g. browser
   // back/forward between /book and /drive without passing through '/'), so
@@ -192,18 +214,18 @@ export function LegacyAuthGate() {
           </span>
         </div>
 
-        {/* Everyone arrives here from the role chooser having already said
-            Log in or Sign up (?auth= for passengers and businesses, ?mode=
-            for drivers and TODAs), so there is no second toggle on this
-            screen — just the way back to change that choice. Each form
-            keeps a one-line text link to the other sheet. */}
+        {/* The role chooser only asked who they are; LOGIN or SIGNUP is
+            decided here, at the top of the page, and the pair switches the
+            sheet below it (?auth= for passengers and businesses, ?mode= /
+            ?toda= for drivers and TODAs). */}
         <button
           type="button"
-          onClick={() => navigate(`/welcome?mode=${chooserMode}`)}
+          onClick={() => navigate('/welcome')}
           className="mb-3 rounded-lg border border-white/25 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10"
         >
           ‹ Go back
         </button>
+        {showSheetTabs && <AuthModeTabs mode={sheetMode} setMode={selectSheet} />}
 
         {showTabs && (
           <div className="mb-4 flex gap-1 rounded-lg bg-white/5 p-1">
@@ -240,45 +262,25 @@ export function LegacyAuthGate() {
   )
 }
 
-// Still used by the Operator and Franchise screens, which are not reached
-// through the role chooser and so have nowhere else to make the choice.
-function SubTabs({ mode, setMode }: { mode: 'login' | 'signup'; setMode: (m: 'login' | 'signup') => void }) {
+// LOGIN | SIGNUP, gold on the selected side — the pair at the top of every
+// auth page (and inside the Operator and Franchise forms, which are not
+// reached through the role chooser).
+export function AuthModeTabs({ mode, setMode }: { mode: 'login' | 'signup'; setMode: (m: 'login' | 'signup') => void }) {
   return (
-    <div className="mb-3 flex gap-1 rounded-lg bg-white/5 p-1">
-      <button
-        type="button"
-        onClick={() => setMode('login')}
-        className={`flex-1 rounded-md py-2 text-sm font-bold uppercase tracking-wide transition ${
-          mode === 'login' ? 'bg-gold-400 text-navy-900 shadow-sm' : 'text-white/60'
-        }`}
-      >
-        Log in
-      </button>
-      <button
-        type="button"
-        onClick={() => setMode('signup')}
-        className={`flex-1 rounded-md py-2 text-sm font-bold uppercase tracking-wide transition ${
-          mode === 'signup' ? 'bg-gold-400 text-navy-900 shadow-sm' : 'text-white/60'
-        }`}
-      >
-        Sign up
-      </button>
+    <div className="mb-4 flex gap-1 rounded-lg bg-white/5 p-1">
+      {(['login', 'signup'] as const).map((m) => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => setMode(m)}
+          className={`flex-1 rounded-md py-2.5 text-base font-extrabold uppercase tracking-wide transition ${
+            mode === m ? 'bg-gold-400 text-navy-900 shadow-sm' : 'text-white/60 hover:bg-white/10'
+          }`}
+        >
+          {m === 'signup' ? 'Signup' : 'Login'}
+        </button>
+      ))}
     </div>
-  )
-}
-
-// The one-line "other sheet" link under a login or sign-up form, on the
-// blue page: the toggle it replaces asked the same question the role
-// chooser had just asked.
-function SwitchSheetLink({ mode, to }: { mode: 'login' | 'signup'; to: string }) {
-  const navigate = useNavigate()
-  return (
-    <p className="mt-2 text-center text-xs text-white/70">
-      {mode === 'login' ? 'No account yet? ' : 'Already have an account? '}
-      <button type="button" onClick={() => navigate(to)} className="font-semibold text-gold-400 hover:underline">
-        {mode === 'login' ? 'Sign up' : 'Log in instead'}
-      </button>
-    </p>
   )
 }
 
@@ -311,7 +313,6 @@ function PassengerAuth({ mode, asStudent = false }: { mode: 'login' | 'signup'; 
           }}
         />
       )}
-      <SwitchSheetLink mode={mode} to={`/book?role=passenger&auth=${mode === 'login' ? 'signup' : 'login'}`} />
     </div>
   )
 }
@@ -344,7 +345,6 @@ function ParentAuth({ mode }: { mode: 'login' | 'signup' }) {
           }}
         />
       )}
-      <SwitchSheetLink mode={mode} to={`/book?role=parent&auth=${mode === 'login' ? 'signup' : 'login'}`} />
     </div>
   )
 }
@@ -544,9 +544,6 @@ function PharmacyAuth({ variant = 'pharmacy', mode }: { variant?: 'pharmacy' | '
       {mode === 'signup' ? (
         <>
           <PharmacySignupForm onRegistered={logIntoPharmacy} variant={variant} />
-          <p className="mt-2 text-center text-xs text-white/70">
-            Already registered? {switchLink('login', 'Log in instead')}
-          </p>
         </>
       ) : (
         // Same card/label/helper-text shape as IdentifierLoginForm (the
@@ -871,7 +868,7 @@ function OperatorAuth() {
 
   return (
     <div>
-      <SubTabs mode={mode} setMode={setMode} />
+      <AuthModeTabs mode={mode} setMode={setMode} />
       {mode === 'signup' ? (
         <OperatorRegisterForm onSubmitted={() => setMode('login')} inviteFranchiseId={inviteFranchiseId()} />
       ) : (
@@ -1114,7 +1111,7 @@ function FranchiseAuth() {
 
   return (
     <div>
-      <SubTabs mode={mode} setMode={setMode} />
+      <AuthModeTabs mode={mode} setMode={setMode} />
       {mode === 'signup' ? (
         <FranchiseRegisterForm onSubmitted={() => setMode('login')} />
       ) : (

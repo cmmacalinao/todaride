@@ -193,7 +193,7 @@ function AppShell() {
   if (!authedAccount) {
     const publicTitle =
       location.pathname === '/welcome'
-        ? 'Login or Signup'
+        ? 'Choose your account'
         : location.pathname === '/'
           ? 'Welcome'
           : location.pathname.startsWith('/scan/')

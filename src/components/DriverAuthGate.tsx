@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { autoDetectTodaOrgId, DOCUMENT_LABELS, DOCUMENT_TYPES, MOCK_DRIVERS, MOCK_TODA_ORGANIZATIONS } from '../mock/data'
 import { getCurrentGeoPosition } from '../lib/geo'
@@ -32,7 +32,7 @@ export function DriverAuthGate({
   onTodaAdminLoggedIn: (todaOrgId: string) => void
 }) {
   const { drivers, todaOrganizations, registerDriver, driverInvites } = useRides()
-  const searchParams = new URLSearchParams(window.location.search)
+  const [searchParams] = useSearchParams()
   const inviteId = searchParams.get('invite')
   const invite = inviteId ? driverInvites.find((i) => i.id === inviteId && !i.usedByDriverId) ?? null : null
   // An Operator's "TODA sign-up" link/QR (see OperatorPortalPage.tsx) carries
@@ -45,30 +45,24 @@ export function DriverAuthGate({
   // the named DriverInvite flow above, the driver still verifies via OTP and
   // fills in their own documents; only the org choice is pre-scoped.
   const inviteTodaOrgId = !invite ? searchParams.get('todaOrgId') : null
-  // Lets the hamburger drawer's "TODA Admin" item (see NavBar.tsx) land
-  // straight on this tab after logging the driver out, instead of the
-  // default Driver login one.
-  const [mode, setMode] = useState<'login' | 'register' | 'toda_admin'>(
-    invite || inviteTodaOrgId
-      ? 'register'
-      : searchParams.get('mode') === 'toda_admin' || inviteOperatorId
-        ? 'toda_admin'
-        : // The role chooser's Driver tile links here with ?mode=register in
-          // Sign-up mode (see RoleChooserPage).
-          searchParams.get('mode') === 'register'
+  // Which sheet, from the address: the LOGIN | SIGNUP pair at the top of the
+  // page (see AuthGate) rewrites ?mode= / ?toda=, and this follows it. An
+  // invite link opens on Register unless the address says login outright.
+  // ?mode=toda_admin also lets the hamburger drawer's "TODA Admin" item
+  // (see NavBar.tsx) land straight on that sheet after logging a driver out.
+  const urlParam = searchParams.get('mode')
+  const urlMode: 'login' | 'register' | 'toda_admin' =
+    urlParam === 'toda_admin' || inviteOperatorId
+      ? 'toda_admin'
+      : urlParam === 'login'
+        ? 'login'
+        : invite || inviteTodaOrgId || urlParam === 'register'
           ? 'register'
-          : 'login',
-  )
-
-  // The other sheet, one line under the form. The Log in / Register choice
-  // was made on the role chooser (see RoleChooserPage), so there is no
-  // toggle here; a wrong choice is one tap away, or "Go back" above.
-  const otherSheet =
-    mode === 'login' ? (
-      <SwitchLink label="No account yet?" action="Register as a driver" to="/drive?mode=register" />
-    ) : mode === 'register' ? (
-      <SwitchLink label="Already registered?" action="Log in instead" to="/drive?mode=login" />
-    ) : null
+          : 'login'
+  const [mode, setMode] = useState<'login' | 'register' | 'toda_admin'>(urlMode)
+  useEffect(() => {
+    setMode(urlMode)
+  }, [urlMode])
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
@@ -81,7 +75,6 @@ export function DriverAuthGate({
           inviteTodaOrgId={inviteTodaOrgId}
         />
       )}
-      {otherSheet}
       {mode === 'toda_admin' && (
         <TodaAdminSection
           todaOrganizations={todaOrganizations}
@@ -103,44 +96,27 @@ function TodaAdminSection({
   todaOrganizations: ReturnType<typeof useRides>['todaOrganizations']
   onLoggedIn: (todaOrgId: string) => void
   inviteOperatorId: string | null
-  // Set when the role chooser's TODA tile was tapped in Sign-up mode (see
-  // RoleChooserPage) — same effect an Operator's invite link already has.
+  // ?toda=register — the SIGNUP side of the pair at the top of the page —
+  // same effect an Operator's invite link already has.
   startOnRegister: boolean
 }) {
-  // Log in or Register was chosen on the role chooser (?toda=register) or
-  // implied by an Operator's invite — no second toggle here, same as every
-  // other account type; the other sheet is one line under the form.
-  const [subMode, setSubMode] = useState<'login' | 'register'>(
-    inviteOperatorId || startOnRegister ? 'register' : 'login',
-  )
+  // Log in or Register comes from the LOGIN | SIGNUP pair at the top of the
+  // page (?toda=register, see AuthGate) or is implied by an Operator's
+  // invite; this follows whichever the address says.
+  const wantsRegister = !!inviteOperatorId || startOnRegister
+  const [subMode, setSubMode] = useState<'login' | 'register'>(wantsRegister ? 'register' : 'login')
+  useEffect(() => {
+    setSubMode(wantsRegister ? 'register' : 'login')
+  }, [wantsRegister])
 
   return (
     <div className="space-y-3">
       {subMode === 'login' ? (
-        <>
-          <TodaAdminLoginForm todaOrganizations={todaOrganizations} onLoggedIn={onLoggedIn} />
-          <SwitchLink label="New TODA?" action="Register your TODA" to="/drive?mode=toda_admin&toda=register" />
-        </>
+        <TodaAdminLoginForm todaOrganizations={todaOrganizations} onLoggedIn={onLoggedIn} />
       ) : (
-        <>
-          <TodaOrgRegisterForm onSubmitted={() => setSubMode('login')} inviteOperatorId={inviteOperatorId} />
-          <SwitchLink label="Already registered?" action="Log in instead" to="/drive?mode=toda_admin" />
-        </>
+        <TodaOrgRegisterForm onSubmitted={() => setSubMode('login')} inviteOperatorId={inviteOperatorId} />
       )}
     </div>
-  )
-}
-
-// One line under a form on the blue page, pointing at the other sheet.
-function SwitchLink({ label, action, to }: { label: string; action: string; to: string }) {
-  const navigate = useNavigate()
-  return (
-    <p className="mt-2 text-center text-xs text-white/70">
-      {label}{' '}
-      <button type="button" onClick={() => navigate(to)} className="font-semibold text-gold-400 hover:underline">
-        {action}
-      </button>
-    </p>
   )
 }
 

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
 import { PilotBranding } from '../components/PilotBranding'
@@ -10,23 +10,25 @@ interface RoleTile {
   // What this account actually is, in the rider's own words — the tile has to
   // be pickable by someone who doesn't know the app's internal role names.
   blurb: string
-  // Where each button lands. Passenger lives behind /book's AuthGate (which
-  // reads ?role= and ?auth=); Driver and TODA behind /drive's DriverAuthGate
-  // (which reads ?mode=); Food Vendors behind /vendor's AuthGate.
+  // Where the tile lands, per sheet. Passenger lives behind /book's AuthGate
+  // (which reads ?role= and ?auth=); Driver and TODA behind /drive's
+  // DriverAuthGate (which reads ?mode= / ?toda=); Food Vendors behind
+  // /vendor's AuthGate. The LOGIN | SIGNUP pair at the top of that next page
+  // switches between the two sheets — this page only asks who they are.
   loginTo: string
   signupTo: string
-  // The business card gets the gold outline the old "Partner with us" link
+  // The business tile keeps the gold outline the old "Partner with us" link
   // had, so it still reads as the invitation it is.
   business?: boolean
 }
 
-// "As who" — every role is one card, and under each card sit its own LOGIN
-// and SIGNUP. A visitor thinks "I'm a driver" before "do I have an account",
-// so the role comes first and the action second, and what they tap is what
-// they get — there is no page-level Login/Signup switch whose state a tile
-// silently depends on.
+// "As who" — one tap per role. Which sheet opens first is only a starting
+// point (Login unless the start screen's "Create an account" sent them here
+// with ?mode=signup); the pair of tabs on the next page changes it.
 export function RoleChooserPage() {
   const { medsEnabled, vendorsEnabled } = useRides()
+  const [searchParams] = useSearchParams()
+  const startOn: 'login' | 'signup' = searchParams.get('mode') === 'signup' ? 'signup' : 'login'
   const pilotBranding = usePilotBranding()
 
   const tiles: RoleTile[] = [
@@ -41,8 +43,8 @@ export function RoleChooserPage() {
     // parent role itself is untouched — only the separate way in is gone.
     {
       icon: '🧑',
-      label: 'Passenger',
-      blurb: 'Book tricycle rides for yourself — students get the discounted fare',
+      label: 'Passenger/Buyer',
+      blurb: 'Book tricycle rides and order from Food Express — students get the discounted fare',
       loginTo: '/book?role=passenger&auth=login',
       signupTo: '/book?role=passenger&auth=signup',
     },
@@ -107,7 +109,7 @@ export function RoleChooserPage() {
         >
           ‹ Go back
         </Link>
-        <div className="mb-5 flex flex-col items-center text-center">
+        <div className="mb-6 flex flex-col items-center text-center">
           <Link to="/" aria-label="Back to home" className="rounded-2xl border-2 border-white/25 p-3">
             <img src="/logo.webp" alt="TODA SafeRide" className="h-14 w-auto object-contain" />
           </Link>
@@ -122,44 +124,31 @@ export function RoleChooserPage() {
             </div>
           )}
           <h1 className="mt-4 text-sm font-semibold text-white">Who are you?</h1>
-          <p className="mt-1 text-xs text-white/50">Pick your account, then log in or sign up under it.</p>
+          <p className="mt-1 text-xs text-white/50">Pick your account — you log in or sign up on the next page.</p>
         </div>
 
         <div className="space-y-2.5">
           {tiles.map((tile) => (
-            <div
+            <Link
               key={tile.label}
-              className={`rounded-xl border p-3 ${
-                tile.business ? 'border-gold-400/40 bg-gold-400/10' : 'border-white/15 bg-white/5'
+              to={startOn === 'signup' ? tile.signupTo : tile.loginTo}
+              className={`flex items-center gap-3 rounded-xl border p-3.5 transition ${
+                tile.business
+                  ? 'border-gold-400/40 bg-gold-400/10 hover:border-gold-400 hover:bg-gold-400/20'
+                  : 'border-white/15 bg-white/5 hover:border-gold-400/50 hover:bg-white/10'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl leading-none">{tile.icon}</span>
-                <span className="min-w-0 flex-1">
-                  <span className={`block text-sm font-semibold ${tile.business ? 'text-gold-400' : 'text-white'}`}>
-                    {tile.label}
-                  </span>
-                  <span className="mt-0.5 block text-[11px] text-white/55">{tile.blurb}</span>
+              <span className="text-2xl leading-none">{tile.icon}</span>
+              <span className="min-w-0 flex-1">
+                <span className={`block text-sm font-semibold ${tile.business ? 'text-gold-400' : 'text-white'}`}>
+                  {tile.label}
                 </span>
-              </div>
-              {/* Same pair on every card, same colours: SIGNUP gold (the
-                  newcomer is the one who needs the nudge), LOGIN outlined.
-                  No selected state — there is nothing to select. */}
-              <div className="mt-2.5 flex gap-2">
-                <Link
-                  to={tile.loginTo}
-                  className="flex-1 rounded-lg border border-white/30 bg-white/5 py-2 text-center text-sm font-extrabold uppercase tracking-wide text-white hover:bg-white/15"
-                >
-                  Login
-                </Link>
-                <Link
-                  to={tile.signupTo}
-                  className="flex-1 rounded-lg bg-gold-400 py-2 text-center text-sm font-extrabold uppercase tracking-wide text-navy-900 shadow-sm hover:bg-gold-500"
-                >
-                  Signup
-                </Link>
-              </div>
-            </div>
+                <span className="mt-0.5 block text-[11px] text-white/55">{tile.blurb}</span>
+              </span>
+              <span aria-hidden className={tile.business ? 'text-gold-400' : 'text-white/30'}>
+                ›
+              </span>
+            </Link>
           ))}
         </div>
 

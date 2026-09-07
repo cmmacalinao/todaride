@@ -404,10 +404,7 @@ export function NavBar() {
         {/* Same edge treatment as PublicHeader — see the note there. */}
         <div className="mx-auto flex max-w-lg items-center justify-between py-1.5 pl-1 pr-4">
           <div className="flex min-w-0 items-center gap-2">
-            <div className="-mt-1 flex shrink-0 flex-col items-center gap-0.5">
-              {hamburgerButton}
-              <BackForwardControls onNavy />
-            </div>
+            <div className="flex shrink-0 items-center">{hamburgerButton}</div>
             <Link to="/" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
               <img src="/logo.webp" alt="TODA SafeRide" className="h-11 w-auto shrink-0 object-contain" />
             </Link>
@@ -606,7 +603,6 @@ export function NavBar() {
                 ☰
               </button>
             )}
-            <BackForwardControls onNavy />
           </div>
           <Link to="/" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
             <img
@@ -700,37 +696,3 @@ export function NavBar() {
   )
 }
 
-// Browser-style "‹ ›" history navigation, below the logo on every page.
-// Plain history.length/-1/+1 calls — SPA routing already updates the URL via
-// pushState, so the browser's own history stack is the source of truth here;
-// no need to track an app-level page stack.
-function BackForwardControls({ onNavy = false }: { onNavy?: boolean }) {
-  const navigate = useNavigate()
-  const chrome = onNavy
-    ? 'border-white/25 text-slate-200 hover:bg-white/10 active:bg-white/20'
-    : 'border-slate-200 text-slate-500 hover:bg-slate-100 active:bg-slate-200'
-  return (
-    <div className="flex shrink-0 items-center">
-      <button
-        type="button"
-        onClick={() => navigate(-1)}
-        aria-label="Go back"
-        className="-my-3 flex h-11 w-11 items-center justify-center"
-      >
-        <span aria-hidden className={`flex h-5 w-5 items-center justify-center rounded border text-[11px] ${chrome}`}>
-          ‹
-        </span>
-      </button>
-      <button
-        type="button"
-        onClick={() => navigate(1)}
-        aria-label="Go forward"
-        className="-my-3 flex h-11 w-11 items-center justify-center"
-      >
-        <span aria-hidden className={`flex h-5 w-5 items-center justify-center rounded border text-[11px] ${chrome}`}>
-          ›
-        </span>
-      </button>
-    </div>
-  )
-}

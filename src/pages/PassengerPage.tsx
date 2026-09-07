@@ -109,6 +109,7 @@ export function PassengerPage() {
     medsOrders,
     pharmacies,
     pabiliEnabled,
+    rewardsEnabled,
     medsEnabled,
     vendorsEnabled,
   } = useRides()
@@ -428,6 +429,7 @@ export function PassengerPage() {
         setTimeout(() => tripHistorySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
         break
       case 'rewards':
+        if (!rewardsEnabled) break
         setPageTab('rewards')
         scrollTop()
         break
@@ -2261,7 +2263,7 @@ export function PassengerPage() {
           </button>
         )}
         {[
-          { icon: '🎁', label: 'Rewards', tab: 'rewards' as const },
+          ...(rewardsEnabled ? [{ icon: '🎁', label: 'Rewards', tab: 'rewards' as const }] : []),
           { icon: '🆘', label: 'Emergency', tab: 'emergency' as const },
         ].map((item) => (
           <button
@@ -2310,7 +2312,7 @@ export function PassengerPage() {
         </p>
       )}
 
-      {pageTab === 'rewards' && <PassengerRewardsCard passenger={passenger} />}
+      {pageTab === 'rewards' && rewardsEnabled && <PassengerRewardsCard passenger={passenger} />}
 
       {pageTab === 'emergency' && <EmergencyHotlines province={passenger.province} city={passenger.city} />}
 

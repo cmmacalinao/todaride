@@ -36,6 +36,8 @@ export function SuperAdminPage() {
     operators,
     franchises,
     pabiliEnabled,
+    rewardsEnabled,
+    setRewardsEnabled,
     medsEnabled,
     vendorsEnabled,
     commissionPerRide,
@@ -145,13 +147,15 @@ export function SuperAdminPage() {
               <p className="text-xs font-semibold text-amber-800">🔒 Accounting &amp; Compliance</p>
               <p className="mt-0.5 text-[11px] text-amber-700">Restricted — finance officer login required</p>
             </Link>
-            <Link
-              to="/admin/income-promotion"
-              className="rounded-xl border border-emerald-300 bg-emerald-50 p-3 shadow-sm transition hover:bg-emerald-100"
-            >
-              <p className="text-xs font-semibold text-emerald-800">💰 Income &amp; Promotion</p>
-              <p className="mt-0.5 text-[11px] text-emerald-700">Revenue, campaigns, rewards &amp; ads</p>
-            </Link>
+            {rewardsEnabled && (
+              <Link
+                to="/admin/income-promotion"
+                className="rounded-xl border border-emerald-300 bg-emerald-50 p-3 shadow-sm transition hover:bg-emerald-100"
+              >
+                <p className="text-xs font-semibold text-emerald-800">💰 Income &amp; Promotion</p>
+                <p className="mt-0.5 text-[11px] text-emerald-700">Revenue, campaigns, rewards &amp; ads</p>
+              </Link>
+            )}
           </div>
 
           <PilotTodaNamePanel value={pilotTodaName} onSave={setPilotTodaName} />
@@ -260,6 +264,13 @@ export function SuperAdminPage() {
               description="Pharmacy ordering, prescriptions and pharmacy partner accounts"
               enabled={medsEnabled}
               onChange={setMedsEnabled}
+            />
+            <FeatureToggleRow
+              icon="🎁"
+              label="Rewards, promos & wallet"
+              description="The passenger's Rewards tab and page, the drawer item, and the Income & Promotion tools. Off hides them on every page."
+              enabled={rewardsEnabled}
+              onChange={setRewardsEnabled}
             />
             <FeatureToggleRow
               icon="🍽️"

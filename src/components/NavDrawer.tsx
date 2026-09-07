@@ -203,7 +203,7 @@ export function NavDrawer({
   onLogout: () => void
   onSwitchToTodaAdmin: () => void
 }) {
-  const { pabiliEnabled, medsEnabled } = useRides()
+  const { pabiliEnabled, medsEnabled, rewardsEnabled } = useRides()
   const [showShare, setShowShare] = useState(false)
 
   useEffect(() => {
@@ -218,6 +218,7 @@ export function NavDrawer({
   const items = ITEMS_BY_ROLE[role].filter((item) => {
     if (item.section === 'pabili' && !pabiliEnabled) return false
     if (item.section === 'medicine' && !medsEnabled) return false
+    if (item.section === 'rewards' && !rewardsEnabled) return false
     return true
   })
 

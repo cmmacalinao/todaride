@@ -358,6 +358,9 @@ interface RideState {
   supportMessages: SupportMessage[]
   bannerAds: (BannerAd | null)[]
   pabiliEnabled: boolean
+  // Rewards, promos and the passenger wallet — a Super Admin switch, off
+  // by default: the Rewards tab, drawer item and page stay hidden until on.
+  rewardsEnabled: boolean
   medsEnabled: boolean
   // Food/Resto and other-commodity partner vendors — deliberately separate
   // from medsEnabled so an operator can run Pabili-style vendor delivery
@@ -533,6 +536,7 @@ type RideAction =
   | { type: 'REMOVE_ANNOUNCEMENT'; announcementId: string }
   | { type: 'SET_BANNER_AD_SLOT'; index: number; ad: BannerAd | null }
   | { type: 'SET_PABILI_ENABLED'; enabled: boolean }
+  | { type: 'SET_REWARDS_ENABLED'; enabled: boolean }
   | { type: 'SET_MEDS_ENABLED'; enabled: boolean }
   | { type: 'SET_VENDORS_ENABLED'; enabled: boolean }
   | { type: 'SET_SIMULATED_OTP_ENABLED'; enabled: boolean }
@@ -1509,6 +1513,7 @@ interface StoredState {
   supportMessages?: SupportMessage[]
   bannerAds?: (BannerAd | null)[]
   pabiliEnabled?: boolean
+  rewardsEnabled?: boolean
   medsEnabled?: boolean
   vendorsEnabled?: boolean
   simulatedOtpEnabled?: boolean
@@ -1767,6 +1772,7 @@ function fromStored(parsed: StoredState): RideState {
       migrateBannerAd(parsed.bannerAds?.[i] ?? MOCK_BANNER_ADS[i] ?? null),
     ),
     pabiliEnabled: parsed.pabiliEnabled ?? false,
+    rewardsEnabled: parsed.rewardsEnabled ?? false,
     medsEnabled: parsed.medsEnabled ?? false,
     vendorsEnabled: parsed.vendorsEnabled ?? false,
     // Real codes unless somebody has said otherwise. The endpoint is live
@@ -2009,6 +2015,7 @@ function loadInitialState(): RideState {
     supportMessages: [],
     bannerAds: MOCK_BANNER_ADS,
     pabiliEnabled: false,
+    rewardsEnabled: false,
     medsEnabled: false,
     vendorsEnabled: false,
     simulatedOtpEnabled: false,
@@ -3416,6 +3423,8 @@ function reducer(state: RideState, action: RideAction): RideState {
     }
     case 'SET_PABILI_ENABLED':
       return { ...state, pabiliEnabled: action.enabled }
+    case 'SET_REWARDS_ENABLED':
+      return { ...state, rewardsEnabled: action.enabled }
     case 'SET_MEDS_ENABLED':
       return { ...state, medsEnabled: action.enabled }
     case 'SET_VENDORS_ENABLED':
@@ -5934,6 +5943,7 @@ interface RideContextValue extends RideState {
   removeAnnouncement: (announcementId: string) => void
   setBannerAdSlot: (index: number, ad: BannerAd | null) => void
   setPabiliEnabled: (enabled: boolean) => void
+  setRewardsEnabled: (enabled: boolean) => void
   setMedsEnabled: (enabled: boolean) => void
   setVendorsEnabled: (enabled: boolean) => void
   setSimulatedOtpEnabled: (enabled: boolean) => void
@@ -6837,6 +6847,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           supportMessages: state.supportMessages,
           bannerAds: state.bannerAds,
           pabiliEnabled: state.pabiliEnabled,
+          rewardsEnabled: state.rewardsEnabled,
           medsEnabled: state.medsEnabled,
           vendorsEnabled: state.vendorsEnabled,
           simulatedOtpEnabled: state.simulatedOtpEnabled,
@@ -6935,6 +6946,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     state.supportMessages,
     state.bannerAds,
     state.pabiliEnabled,
+    state.rewardsEnabled,
     state.medsEnabled,
     state.vendorsEnabled,
     state.simulatedOtpEnabled,
@@ -7134,6 +7146,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     removeAnnouncement: (announcementId) => dispatch({ type: 'REMOVE_ANNOUNCEMENT', announcementId }),
     setBannerAdSlot: (index, ad) => dispatch({ type: 'SET_BANNER_AD_SLOT', index, ad }),
     setPabiliEnabled: (enabled) => dispatch({ type: 'SET_PABILI_ENABLED', enabled }),
+    setRewardsEnabled: (enabled) => dispatch({ type: 'SET_REWARDS_ENABLED', enabled }),
     setMedsEnabled: (enabled) => dispatch({ type: 'SET_MEDS_ENABLED', enabled }),
     setVendorsEnabled: (enabled) => dispatch({ type: 'SET_VENDORS_ENABLED', enabled }),
     setSimulatedOtpEnabled: (enabled) => dispatch({ type: 'SET_SIMULATED_OTP_ENABLED', enabled }),

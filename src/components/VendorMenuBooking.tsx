@@ -314,6 +314,16 @@ export function VendorMenuBooking({
         <ActiveVendorOrderCard
           order={activeOrder}
           onCancel={() => cancelMedsOrder(activeOrder.id)}
+          onChange={() => {
+            cancelMedsOrder(activeOrder.id)
+            setSelectedVendorId(activeOrder.pharmacyId)
+            setCart(Object.fromEntries(activeOrder.items.map((i) => [i.productId, i.quantity])))
+            if (activeOrder.contactPhone) setContactPhone(activeOrder.contactPhone)
+            setDeliveryAddress(activeOrder.deliveryAddress)
+            setDeliveryPinned(true)
+            addressTouchedRef.current = true
+            goTo('menu')
+          }}
           onDismiss={() => setDismissedOrderIds((prev) => new Set(prev).add(activeOrder.id))}
         />
       </div>
@@ -719,10 +729,14 @@ export function VendorMenuBooking({
 function ActiveVendorOrderCard({
   order,
   onCancel,
+  onChange,
   onDismiss,
 }: {
   order: MedsOrder
   onCancel: () => void
+  // Reopen the menu with this order's items to edit and resend — offered
+  // only before the kitchen has started (unanswered or quoted).
+  onChange: () => void
   onDismiss: () => void
 }) {
   const { rides, pharmacies, sendMedsOrderMessage, acceptMedsQuote } = useRides()
@@ -846,13 +860,25 @@ function ActiveVendorOrderCard({
         >
           {payMethod === 'cash' ? `Approve — pay ₱${order.total} on delivery` : `Approve — I've paid ₱${order.total} online`}
         </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="w-full rounded-lg border border-amber-200 bg-white py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
-        >
-          Decline quotation
-        </button>
+        <p className="text-[11px] text-slate-500">
+          Nothing is being cooked yet — you can still change the order or turn the quotation down.
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onChange}
+            className="flex-1 rounded-lg border border-brand-300 bg-white py-2 text-sm font-medium text-brand-700 hover:bg-brand-50"
+          >
+            ✎ Change order
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 rounded-lg border border-amber-200 bg-white py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
+          >
+            Decline quotation
+          </button>
+        </div>
         <OrderChat
           messages={order.messages}
           viewerRole="customer"
@@ -886,14 +912,28 @@ function ActiveVendorOrderCard({
           ⏱ {cancelState.note}
         </p>
       )}
+      {order.status === 'pending_confirmation' && (
+        <p className="text-[11px] text-slate-500">Nothing is being cooked yet — you can still change or cancel this order.</p>
+      )}
       {cancelState.canCancel ? (
-        <button
-          type="button"
-          onClick={onCancel}
-          className="w-full rounded-lg border border-amber-200 bg-white py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
-        >
-          {cancelState.overdue ? 'Cancel order — long overdue' : 'Cancel order'}
-        </button>
+        <div className="flex gap-2">
+          {order.status === 'pending_confirmation' && (
+            <button
+              type="button"
+              onClick={onChange}
+              className="flex-1 rounded-lg border border-brand-300 bg-white py-2 text-sm font-medium text-brand-700 hover:bg-brand-50"
+            >
+              ✎ Change order
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 rounded-lg border border-amber-200 bg-white py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
+          >
+            {cancelState.overdue ? 'Cancel order — long overdue' : 'Cancel order'}
+          </button>
+        </div>
       ) : (
         <p className="text-[11px] text-slate-400">
           Being prepared — you can cancel if no rider is booked within {PREPARING_OVERDUE_MIN} min of acceptance.

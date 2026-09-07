@@ -7,7 +7,7 @@ import { getCurrentGeoPosition } from '../lib/geo'
 import { BarangayAddressPicker } from './BarangayAddressPicker'
 import { DeliveryMapPicker } from './DeliveryMapPicker'
 import { StoreRatingSheet } from './StoreRatingSheet'
-import { OrderStatusStrip } from './OrderStatusStrip'
+import { OrderStatusStrip, orderStageDetail } from './OrderStatusStrip'
 import { ServiceTabs } from './ServiceTabs'
 import { VendorNewsfeed } from './VendorFeed'
 import { OrderChat } from './OrderChat'
@@ -96,6 +96,10 @@ export function VendorMenuBooking({
   // spot the picker should treat as settled rather than ask a landmark for.
   const [deliveryPinned, setDeliveryPinned] = useState(false)
   const [dismissedOrderIds, setDismissedOrderIds] = useState<Set<string>>(new Set())
+  // The order a customer stepped back from with "Go back" — the card gives
+  // way to the vendors page, and a strip at its top brings them back to it.
+  // The order itself is untouched; this is only which screen is showing.
+  const [steppedBackOrderId, setSteppedBackOrderId] = useState<string | null>(null)
   // Open by default: the order log is the record of what was sent and where
   // each one is, and a customer with an order out wants it in view.
   const [showHistory, setShowHistory] = useState(true)
@@ -259,15 +263,30 @@ export function VendorMenuBooking({
     goTo('browse')
   }
 
-  if (activeOrder) {
+  if (activeOrder && steppedBackOrderId !== activeOrder.id) {
     return (
-      <ActiveVendorOrderCard
-        order={activeOrder}
-        onCancel={() => cancelMedsOrder(activeOrder.id)}
-        onDismiss={() => setDismissedOrderIds((prev) => new Set(prev).add(activeOrder.id))}
-      />
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => {
+            setSteppedBackOrderId(activeOrder.id)
+            goTo('browse')
+          }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          ‹ Go back
+        </button>
+        <ActiveVendorOrderCard
+          order={activeOrder}
+          onCancel={() => cancelMedsOrder(activeOrder.id)}
+          onDismiss={() => setDismissedOrderIds((prev) => new Set(prev).add(activeOrder.id))}
+        />
+      </div>
     )
   }
+  const steppedBackOrder = activeOrder && steppedBackOrderId === activeOrder.id ? activeOrder : null
+  const steppedBackVendor = steppedBackOrder ? vendors.find((v) => v.id === steppedBackOrder.pharmacyId) : null
+  const steppedBackRide = steppedBackOrder?.linkedRideId ? rides.find((r) => r.id === steppedBackOrder.linkedRideId) : undefined
 
   const query = vendorSearch.trim().toLowerCase()
   const shownVendors = vendors.filter(
@@ -281,6 +300,27 @@ export function VendorMenuBooking({
           {/* The same two-service strip as the ride start screen, with
               Food Express lit here — tapping TODA is the way back. */}
           <ServiceTabs active="food" tone="light" />
+
+          {/* The order they stepped back from is still running — one line
+              on where it is, and the way back to its card. */}
+          {steppedBackOrder && (
+            <button
+              type="button"
+              onClick={() => setSteppedBackOrderId(null)}
+              className="flex w-full items-center gap-2 rounded-xl border border-brand-200 bg-brand-50 px-3 py-2 text-left hover:bg-brand-100"
+            >
+              <span className="text-lg leading-none">🧾</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-semibold text-brand-800">
+                  Your order at {steppedBackVendor?.name ?? 'the vendor'} · ₱{steppedBackOrder.total}
+                </span>
+                <span className="block truncate text-[11px] text-brand-700">
+                  {orderStageDetail(steppedBackOrder, steppedBackRide, 'customer')}
+                </span>
+              </span>
+              <span className="text-xs font-semibold text-brand-700">View order ›</span>
+            </button>
+          )}
 
           {/* The Food Express "storefront" — same idea as a vendor's own
               cover banner (see VendorHeaderCard), just introducing the whole
@@ -678,7 +718,7 @@ function ActiveVendorOrderCard({
       <p className="text-xs text-slate-600">{order.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}</p>
       <p className="text-xs font-semibold text-slate-700">
         {order.status === 'pending_confirmation' ? `About ₱${order.total}` : `Total ₱${order.total}`}
-        {order.status === 'confirmed' && ` · goods ₱${order.subtotal} + rider ₱${order.deliveryFee} + service ₱${order.serviceFee}`}
+        {order.status === 'confirmed' && ` · goods ₱${order.subtotal} + TODA fare ₱${order.deliveryFee} + booking fee ₱${order.serviceFee}`}
       </p>
       <button
         type="button"

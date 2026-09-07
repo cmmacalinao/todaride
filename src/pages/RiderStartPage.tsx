@@ -91,7 +91,7 @@ export function RiderStartPage() {
             <TricycleIcon className="h-full w-full" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-base font-bold text-gold-400">Book a Ride</span>
+            <span className="block text-base font-bold text-gold-400">BOOK A RIDE</span>
             <span className="block text-xs text-white/60">
               Set where you are and where you are going. We find you the nearest driver.
             </span>

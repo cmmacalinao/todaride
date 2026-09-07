@@ -105,23 +105,27 @@ export function RiderStartPage() {
             the screen it now opens does the same job without being asked:
             it lists the tricycles beside them, takes a typed TRC, and
             records the trip by itself once the tricycle pulls out. */}
-        <button
-          type="button"
-          onClick={() => navigate('/book/terminal')}
-          className="flex w-full items-center gap-3 rounded-xl border border-white/20 bg-white/5 p-4 text-left shadow-sm transition hover:bg-white/10"
-        >
-          <span aria-hidden className="text-3xl">⬛</span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-base font-bold text-white">Record mo ang Biyahe</span>
-            <span className="block text-[11px] font-semibold text-white/40">for your safe ride</span>
-            <span className="block text-xs text-white/60">
-              Already at the terminal, already in a tricycle? I-track ang biyahe mo.
+        {/* One card: the tile to tap, and beneath it what the choice gives
+            you. The explainer used to be a second, louder card of its own
+            and read as an advert sitting next to the option it described. */}
+        <div className="overflow-hidden rounded-xl border border-white/20 bg-white/5 shadow-sm">
+          <button
+            type="button"
+            onClick={() => navigate('/book/terminal')}
+            className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-white/10"
+          >
+            <span aria-hidden className="text-3xl">⬛</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-base font-bold text-white">Record mo ang Biyahe</span>
+              <span className="block text-[11px] font-semibold text-white/40">for your safe ride</span>
+              <span className="block text-xs text-white/60">
+                Already at the terminal, already in a tricycle? I-track ang biyahe mo.
+              </span>
             </span>
-          </span>
-          <span aria-hidden className="text-xl text-white/30">›</span>
-        </button>
-
-        <ScanSafeRideBanner feeFree={terminalRideIsFree(terminalQrFeeWaived, commissionPerRide)} />
+            <span aria-hidden className="text-xl text-white/30">›</span>
+          </button>
+          <ScanSafeRideBanner feeFree={terminalRideIsFree(terminalQrFeeWaived, commissionPerRide)} variant="attached" />
+        </div>
       </div>
     </div>
   )
@@ -130,7 +134,28 @@ export function RiderStartPage() {
 // The case for scanning, made where the choice is being made. Its own
 // component because the same argument belongs on the booking screen too —
 // a passenger who always books is exactly who has not heard it yet.
-export function ScanSafeRideBanner({ feeFree }: { feeFree: boolean }) {
+export function ScanSafeRideBanner({ feeFree, variant = 'card' }: { feeFree: boolean; variant?: 'card' | 'attached' }) {
+  // 'attached': the info section under the "Record mo ang Biyahe" tile on
+  // the start screen — same quiet card the tile is drawn on, continuing it
+  // below a hairline, so the two read as one thing. 'card' is the
+  // stand-alone gold-framed version the booking screen still uses.
+  if (variant === 'attached') {
+    return (
+      <div className="border-t border-white/10 px-4 pb-4 pt-3">
+        <p className="text-[11px] font-bold uppercase tracking-wide text-gold-400">Sakay sa terminal o pumara?</p>
+        {feeFree && (
+          <p className="mt-1.5 inline-block rounded-md bg-emerald-600/90 px-2 py-0.5 text-[11px] font-bold text-white">
+            WALANG APP FEE — no app charge on trips you start at the terminal
+          </p>
+        )}
+        <ul className="mt-2 space-y-0.5 text-[11px] leading-snug text-white/60">
+          <li>• Naka-record ang biyahe mo — name and plate of your driver.</li>
+          <li>• Your family can see where you are and that you arrived.</li>
+          <li>• One SOS reaches your TODA and your emergency contact.</li>
+        </ul>
+      </div>
+    )
+  }
   return (
     <section className="overflow-hidden rounded-xl border-2 border-gold-400 bg-navy-900 shadow-sm">
       <div className="flex items-start gap-3 p-4">

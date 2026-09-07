@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { getDefaultDishVisual } from '../lib/filipinoDishes'
+import { menuBadgeSortRank, menuCategorySortRank } from '../lib/foodCatalog'
 import { captureNativePhoto, compressImageFile, isNativePlatform, removeFlatBackground } from '../lib/photo'
 import { ShareSheet } from './ShareSheet'
 import { ProfilePhotoPicker } from './ProfilePhotoPicker'
@@ -202,6 +203,22 @@ export function resolveVendorAccent(pharmacy: Pharmacy): VendorAccent {
     icon: theme.icon,
     label: theme.label,
   }
+}
+
+const CATEGORY_ICONS: [string, string][] = [
+  ['ulam', '🍚'],
+  ['rice', '🍚'],
+  ['soup', '🍲'],
+  ['sinigang', '🍲'],
+  ['side', '🥬'],
+  ['drink', '🥤'],
+  ['dessert', '🍮'],
+  ['snack', '🥟'],
+]
+
+function categoryIcon(category: string): string {
+  const lower = category.toLowerCase()
+  return CATEGORY_ICONS.find(([needle]) => lower.includes(needle))?.[1] ?? '🍴'
 }
 
 // The banner + avatar + tagline + address/phone/map block — everything
@@ -1043,14 +1060,62 @@ export function VendorStorefront({
 }) {
   const accent = resolveVendorAccent(pharmacy)
   const interactive = !!cart && !!onQtyChange
+  const [activeCategory, setActiveCategory] = useState('all')
+  const [search, setSearch] = useState('')
+  const [view, setView] = useState<'menu' | 'feed'>('menu')
+  const postCount = pharmacy.posts?.length ?? 0
+
+  // Built from the items a customer can actually see — a category whose
+  // every item is hidden (see `visible`) would otherwise leave an empty tab
+  // behind, promising a "Drinks" section with nothing in it.
+  const categories = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          items
+            .filter((i) => i.visible !== false)
+            .map((i) => i.menuCategory?.trim())
+            .filter((c): c is string => !!c),
+        ),
+      ),
+    [items],
+  )
+
+  const query = search.trim().toLowerCase()
+  const shownItems = items
+    .filter((item) => {
+      // A vendor can uncheck "Show on store" without deleting the item (see
+      // VendorMenuManager.tsx) — this component is always the customer/
+      // preview-facing view (the vendor's own editable list uses
+      // VendorMenuItemCard directly, not this), so a hidden item never
+      // renders here.
+      if (item.visible === false) return false
+      if (activeCategory !== 'all' && (item.menuCategory?.trim() || 'Menu') !== activeCategory) return false
+      if (query && !item.name.toLowerCase().includes(query) && !(item.description ?? '').toLowerCase().includes(query)) return false
+      return true
+    })
+    .sort((a, b) => {
+      // Same ordering a vendor sees while managing their own menu (see
+      // VendorMenuManager.tsx's shownProducts) — a customer browsing "All
+      // Menu" should see the same arrangement the vendor arranged/prioritized,
+      // not a plain A-Z list that ignores their drag order and badges.
+      if (activeCategory === 'all') {
+        const aIdx = a.sortIndex ?? Infinity
+        const bIdx = b.sortIndex ?? Infinity
+        if (aIdx !== bIdx) return aIdx - bIdx
+      }
+      const badgeDiff = menuBadgeSortRank(a.badge) - menuBadgeSortRank(b.badge)
+      if (badgeDiff !== 0) return badgeDiff
+      if (activeCategory === 'all') {
+        const rankDiff = menuCategorySortRank(a.menuCategory?.trim() || 'Menu') - menuCategorySortRank(b.menuCategory?.trim() || 'Menu')
+        if (rankDiff !== 0) return rankDiff
+      }
+      return a.name.localeCompare(b.name)
+    })
+
   const cartCount = cart ? Object.values(cart).reduce((sum, qty) => sum + qty, 0) : 0
   const cartTotal = cart ? items.reduce((sum, item) => sum + (cart[item.id] ?? 0) * item.price, 0) : 0
 
-  // The page is its feed. Under the banner a customer reads the store's
-  // posts — promos, today's special, a dish to show off — and orders from
-  // them: a post that features a dish carries the Add button. There is no
-  // menu list on this page; the menu lives in the vendor's portal and
-  // reaches the customer through what the vendor posts.
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <VendorHeaderCard
@@ -1060,14 +1125,131 @@ export function VendorStorefront({
         onRate={onRate}
       />
 
-      <div className="border-t border-slate-100 bg-slate-50 p-3">
-        <VendorFeedList
-          pharmacy={pharmacy}
-          items={items}
-          accent={accent}
-          onAdd={interactive ? (productId) => onQtyChange!(productId, (cart![productId] ?? 0) + 1) : undefined}
-        />
+      {/* Menu | Feed, the way a page has tabs under its banner. The feed is
+          the vendor's own posts — promos, today's special, a dish to show
+          off — and reads the same for a customer, a visitor and the vendor. */}
+      <div className="flex border-t border-slate-100">
+        {(['menu', 'feed'] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setView(v)}
+            className={`flex-1 py-2.5 text-center text-xs font-bold uppercase tracking-wide transition ${
+              view === v ? `border-b-2 ${accent.softText} border-current` : 'border-b-2 border-transparent text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            {v === 'menu' ? '🍽️ Menu' : `📣 Feed${postCount > 0 ? ` (${postCount})` : ''}`}
+          </button>
+        ))}
       </div>
+
+      {view === 'feed' && (
+        <div className="border-t border-slate-100 bg-slate-50 p-3">
+          <VendorFeedList
+            pharmacy={pharmacy}
+            items={items}
+            accent={accent}
+            onAdd={interactive ? (productId) => onQtyChange!(productId, (cart![productId] ?? 0) + 1) : undefined}
+          />
+        </div>
+      )}
+
+      {view === 'menu' && categories.length > 0 && (
+        <div className="flex gap-1.5 overflow-x-auto border-t border-slate-100 px-3 py-2.5">
+          <button
+            type="button"
+            onClick={() => setActiveCategory('all')}
+            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              activeCategory === 'all' ? `${accent.solid} text-white` : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+            }`}
+          >
+            ▦ All Menu
+          </button>
+          {categories.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setActiveCategory(c)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                activeCategory === c ? `${accent.solid} text-white` : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+              }`}
+            >
+              {categoryIcon(c)} {c}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {view === 'menu' && (
+      <div className={`space-y-2.5 p-3 ${categories.length === 0 ? 'border-t border-slate-100' : ''}`}>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-bold text-slate-800">Menu</h3>
+        </div>
+        {items.length > 3 && (
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search menu…"
+            className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
+          />
+        )}
+
+        {items.length === 0 && <p className="rounded-lg bg-slate-50 p-2.5 text-xs text-slate-400">No menu items yet.</p>}
+        {items.length > 0 && shownItems.length === 0 && (
+          <p className="rounded-lg bg-slate-50 p-2.5 text-xs text-slate-400">No dish matches your search.</p>
+        )}
+
+        <div className="space-y-2">
+          {shownItems.map((item) => (
+            <VendorMenuItemCard
+              key={item.id}
+              item={item}
+              accent={accent}
+              dimmed={!item.inStock}
+              right={
+                interactive && item.inStock ? (
+                  cart![item.id] ? (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => onQtyChange!(item.id, (cart![item.id] ?? 0) - 1)}
+                        className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-300 text-sm font-semibold text-slate-600"
+                      >
+                        −
+                      </button>
+                      <span className="w-5 text-center text-sm font-medium text-slate-700">{cart![item.id]}</span>
+                      <button
+                        type="button"
+                        onClick={() => onQtyChange!(item.id, (cart![item.id] ?? 0) + 1)}
+                        className={`flex h-7 w-7 items-center justify-center rounded-md text-sm font-semibold text-white ${accent.solid} ${accent.solidHover}`}
+                      >
+                        +
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onQtyChange!(item.id, 1)}
+                      className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold text-white ${accent.solid} ${accent.solidHover}`}
+                    >
+                      + Add
+                    </button>
+                  )
+                ) : (
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      item.inStock ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    {item.inStock ? 'In stock' : 'Out of stock'}
+                  </span>
+                )
+              }
+            />
+          ))}
+        </div>
+      </div>
+      )}
 
       {interactive && cartCount > 0 && (
         <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 p-3">

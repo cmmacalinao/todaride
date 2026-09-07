@@ -203,6 +203,11 @@ class SupabaseAdapter implements PersistenceAdapter {
   // Set when a save was kept local because remoteReady was still false;
   // cleared by the first write that reaches the server.
   private localOnly = false
+  // The blob as last written, so a save that only touched hot-table rows
+  // (a ride ticking along, a driver's position) does not re-upload the
+  // whole blob — several hundred KB — every 800 ms. Only the changed rows
+  // go out; the blob goes out when something in it actually changed.
+  private lastBlobJson: string | null = null
 
   // Called by RideContext once a shared read has been applied — not merely
   // received. A read that arrives but cannot be hydrated leaves the document
@@ -311,13 +316,19 @@ class SupabaseAdapter implements PersistenceAdapter {
       }
     }
 
-    work.push(
-      db.from('app_state').upsert({ id: 'singleton', state: rest, updated_by: this.writer }),
-    )
+    const blobJson = JSON.stringify(rest)
+    const blobChanged = blobJson !== this.lastBlobJson
+    if (blobChanged) {
+      work.push(
+        db.from('app_state').upsert({ id: 'singleton', state: rest, updated_by: this.writer }),
+      )
+    }
+    if (work.length === 0) return
 
     try {
       await Promise.all(work)
       this.localOnly = false
+      if (blobChanged) this.lastBlobJson = blobJson
     } catch (err) {
       console.warn('[persistence] could not write to the shared state', err)
     }
@@ -332,6 +343,14 @@ class SupabaseAdapter implements PersistenceAdapter {
     // would also be where the subtle bugs live; at a pilot's data volume the
     // simple thing is fast enough and is obviously correct.
     let timer: ReturnType<typeof setTimeout> | null = null
+    // How many reads in a row were thrown away because a save began while
+    // they were in flight. A device that saves every second (a ride ticking
+    // along) and reads slowly (a strained server) would otherwise never
+    // apply a read at all — and keep writing its own stale copy over
+    // everyone else's. After two deferrals the read is applied regardless;
+    // HYDRATE merges rides, accounts and posts, so what this device changed
+    // in the meantime survives the merge and goes out on its next save.
+    let deferred = 0
     const refetch = () => {
       if (timer) clearTimeout(timer)
       // A single user action can touch several tables — accepting a ride
@@ -343,10 +362,12 @@ class SupabaseAdapter implements PersistenceAdapter {
         const seqAtStart = this.saveSeq
         if (this.saveInFlight) await this.saveInFlight
         const shared = await this.fetchShared()
-        if (this.saveSeq !== seqAtStart) {
+        if (this.saveSeq !== seqAtStart && deferred < 2) {
+          deferred += 1
           refetch()
           return
         }
+        deferred = 0
         if (shared) onRemote(shared)
       }, 120)
     }

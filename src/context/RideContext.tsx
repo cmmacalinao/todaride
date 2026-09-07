@@ -2065,11 +2065,12 @@ export interface MedsRideOverrides {
   preferredDriverId?: string | null
 }
 
-// What a delivery from this store to that address costs to ride: the TODA
-// fare from the same tariff every ride is priced on (the pickup's city, or
-// the answering TODA's own schedule), treated as an errand the way Pabili
-// is, plus the platform's per-ride booking fee the admin sets. This is the
-// quotation a vendor sends — the rider gets the fare, the platform the fee.
+// What a delivery from this store to that address costs to ride: the
+// standard one-way TODA fare — the same tariff and the same estimate a
+// passenger booking that trip would get (the pickup's city, or the answering
+// TODA's own schedule); no errand pricing — plus the platform's per-ride
+// booking fee the admin sets. This is the quotation a vendor sends — the
+// rider gets the fare, the platform the fee.
 export function vendorDeliveryFareQuote(
   state: RideState,
   pharmacy: Pharmacy,
@@ -2088,7 +2089,7 @@ export function vendorDeliveryFareQuote(
   const tariff = resolveTariff(state.tariffSettings, state.cityTariffs, state.todaTariffs, pickup.city, priorityTodaOrgId)
   const oneWay = estimateFare(pickup, dropoff, tariff, { isStudent: false, isPwdSenior: false, passengerCount: 1 })
   return {
-    todaFare: Math.max(0, Math.round(errandBaseFare(oneWay, state.pabiliFareMode, state.pabiliFixedFare))),
+    todaFare: Math.max(0, Math.round(oneWay)),
     bookingFee: Math.max(0, Math.round(state.commissionPerRide)),
   }
 }

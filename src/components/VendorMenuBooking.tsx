@@ -22,6 +22,41 @@ const VENDOR_TYPE_ICONS: Record<string, string> = {
   other_commodity: '📦',
 }
 
+// How long a customer waits before an order counts as overdue: a vendor who
+// has not answered at all (no quotation) after this many minutes, or one
+// who accepted but still has no rider booked after this many.
+const UNANSWERED_OVERDUE_MIN = 15
+const PREPARING_OVERDUE_MIN = 60
+
+// Whether a customer can pull this order back, and the line that says why.
+// Unanswered orders (no quotation yet) can always be cancelled — nothing
+// has been cooked. A quoted one is a quotation they may still turn down.
+// An accepted order being prepared can be cancelled only once it is long
+// overdue with no rider booked. Nothing with a rider on the road.
+export function customerCancelState(order: MedsOrder): { canCancel: boolean; note: string | null; overdue: boolean } {
+  const minutesSince = (iso: string | null) => (iso ? Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)) : 0)
+  if (order.status === 'pending_confirmation') {
+    const waited = minutesSince(order.requestedAt)
+    const overdue = waited >= UNANSWERED_OVERDUE_MIN
+    return {
+      canCancel: true,
+      overdue,
+      note: overdue ? `No reply from the vendor for ${waited} min — long overdue` : `No reply from the vendor yet (${waited} min)`,
+    }
+  }
+  if (order.status === 'quoted') return { canCancel: true, overdue: false, note: null }
+  if (order.status === 'confirmed') {
+    const waited = minutesSince(order.confirmedAt ?? order.quotedAt ?? order.requestedAt)
+    const overdue = waited >= PREPARING_OVERDUE_MIN
+    return {
+      canCancel: overdue,
+      overdue,
+      note: overdue ? `Accepted ${waited} min ago and still no rider booked — long overdue` : null,
+    }
+  }
+  return { canCancel: false, overdue: false, note: null }
+}
+
 // An order still counts as "in flight" at any pre-terminal status — same
 // rule MedsBooking's activeOrder uses.
 // 'quoted' is the step that needs the customer most — the quotation is
@@ -535,6 +570,26 @@ export function VendorMenuBooking({
                   <div className="mt-2">
                     <OrderStatusStrip order={order} ride={rides.find((r) => r.id === order.linkedRideId)} viewer="customer" />
                   </div>
+                  {(() => {
+                    const cancel = customerCancelState(order)
+                    if (!cancel.canCancel && !cancel.note) return null
+                    return (
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <span className={`text-[11px] ${cancel.overdue ? 'font-semibold text-amber-700' : 'text-slate-500'}`}>
+                          {cancel.note ?? 'Quotation waiting for your approval'}
+                        </span>
+                        {cancel.canCancel && (
+                          <button
+                            type="button"
+                            onClick={() => cancelMedsOrder(order.id)}
+                            className="shrink-0 rounded-lg border border-amber-200 bg-white px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50"
+                          >
+                            Cancel order
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })()}
                   {order.status === 'dispatched' && (
                     <button
                       type="button"
@@ -582,6 +637,14 @@ function ActiveVendorOrderCard({
   const [paymentProofDataUrl, setPaymentProofDataUrl] = useState<string | null>(null)
   const payoutAccount = payMethod === 'gcash' ? vendor?.gcashAccount : payMethod === 'maya' ? vendor?.mayaAccount : null
   const canApprove = payMethod === 'cash' || payMethod === 'card' || !!payoutAccount
+  // Re-render once a minute so the "waiting N min" line counts up and the
+  // overdue cancel appears on its own.
+  const [, setClockTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setClockTick((n) => n + 1), 60_000)
+    return () => clearInterval(id)
+  }, [])
+  const cancelState = customerCancelState(order)
 
   if (linkedRide) {
     return (
@@ -720,13 +783,24 @@ function ActiveVendorOrderCard({
         {order.status === 'pending_confirmation' ? `About ₱${order.total}` : `Total ₱${order.total}`}
         {order.status === 'confirmed' && ` · goods ₱${order.subtotal} + TODA fare ₱${order.deliveryFee} + booking fee ₱${order.serviceFee}`}
       </p>
-      <button
-        type="button"
-        onClick={onCancel}
-        className="w-full rounded-lg border border-amber-200 bg-white py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
-      >
-        Cancel order
-      </button>
+      {cancelState.note && (
+        <p className={`text-[11px] ${cancelState.overdue ? 'font-semibold text-amber-700' : 'text-slate-500'}`}>
+          ⏱ {cancelState.note}
+        </p>
+      )}
+      {cancelState.canCancel ? (
+        <button
+          type="button"
+          onClick={onCancel}
+          className="w-full rounded-lg border border-amber-200 bg-white py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
+        >
+          {cancelState.overdue ? 'Cancel order — long overdue' : 'Cancel order'}
+        </button>
+      ) : (
+        <p className="text-[11px] text-slate-400">
+          Being prepared — you can cancel if no rider is booked within {PREPARING_OVERDUE_MIN} min of acceptance.
+        </p>
+      )}
       <OrderChat
         messages={order.messages}
         viewerRole="customer"

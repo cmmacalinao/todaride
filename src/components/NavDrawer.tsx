@@ -8,6 +8,7 @@ export type DrawerSection =
   | 'home'
   | 'ride'
   | 'pabili'
+  | 'food'
   | 'current'
   | 'history'
   | 'rewards'
@@ -41,8 +42,7 @@ interface MenuItem {
 const PASSENGER_ITEMS: MenuItem[] = [
   { icon: '🏠', label: 'Home', section: 'home' },
   { icon: '🚗', label: 'Book a Ride', section: 'ride' },
-  { icon: '🛍️', label: 'Pabili', section: 'pabili' },
-  { icon: '💊', label: 'Buy Medicine', section: 'medicine' },
+  { icon: '🍽️', label: 'Food Express', section: 'food' },
   { icon: '📍', label: 'My Current Ride', section: 'current' },
   { icon: '🧾', label: 'Ride History', section: 'history' },
   { icon: '🎁', label: 'Rewards, Promos & Wallet', section: 'rewards' },
@@ -61,8 +61,6 @@ const PASSENGER_ITEMS: MenuItem[] = [
 const PARENT_ITEMS: MenuItem[] = [
   { icon: '🏠', label: 'Home', section: 'home' },
   { icon: '🚗', label: 'Book a Ride', section: 'ride' },
-  { icon: '🛍️', label: 'Pabili', section: 'pabili' },
-  { icon: '💊', label: 'Buy Medicine', section: 'medicine' },
   { icon: '📍', label: 'My Current Ride', section: 'current' },
   { icon: '🧾', label: 'Ride History', section: 'history' },
   { icon: '🆘', label: 'Emergency / SOS', section: 'current' },

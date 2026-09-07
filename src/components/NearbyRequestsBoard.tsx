@@ -3,6 +3,7 @@ import { formatTripRoute } from '../lib/addressFormat'
 import { getActiveTodaCommission } from '../mock/data'
 import { getDispatchWindow } from '../lib/tracking'
 import type { Driver, GeoCoords, Ride, TodaOrganization } from '../types'
+import { rideServiceTag } from '../lib/vendorOrders'
 
 const SERVICE_ICON: Record<string, string> = {
   pabili: '🛍️',
@@ -120,7 +121,7 @@ export function NearbyRequestsBoard({ requests, onAccept, onDecline, busyNote = 
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-slate-700">
-                {SERVICE_ICON[ride.serviceType] ?? SERVICE_ICON.ride} {ride.passengerName}
+                {rideServiceTag(ride)?.icon ?? SERVICE_ICON.ride} {ride.passengerName}
               </p>
               <p className="mt-0.5 truncate text-xs text-slate-500">
                 {formatTripRoute(ride.pickup.label, ride.dropoff.label, 3)}

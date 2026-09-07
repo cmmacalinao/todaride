@@ -1,4 +1,5 @@
 import { formatTripRoute } from '../lib/addressFormat'
+import { rideServiceTag } from '../lib/vendorOrders'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
@@ -322,8 +323,7 @@ function ParentSelfBooking({
               <div key={r.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-slate-700">
-                    {r.serviceType === 'pabili' && '🛍️ '}
-                    {r.serviceType === 'buy_medicine' && '💊 '}
+                    {rideServiceTag(r) ? `${rideServiceTag(r)!.icon} ` : ''}
                     {formatTripRoute(r.pickup.label, r.dropoff.label)}
                   </span>
                   <StatusBadge status={r.status} />
@@ -411,8 +411,7 @@ function StudentMonitor({
             <div key={r.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="font-medium text-slate-700">
-                  {r.serviceType === 'pabili' && '🛍️ '}
-                  {r.serviceType === 'buy_medicine' && '💊 '}
+                  {rideServiceTag(r) ? `${rideServiceTag(r)!.icon} ` : ''}
                   {formatTripRoute(r.pickup.label, r.dropoff.label)}
                 </span>
                 <StatusBadge status={r.status} />

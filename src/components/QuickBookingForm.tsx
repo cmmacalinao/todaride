@@ -87,11 +87,14 @@ export function QuickBookingForm({
   const [pickupGps, setPickupGps] = useState<GeoCoords | null>(null)
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'locating' | 'done' | 'error'>('idle')
   const [gpsError, setGpsError] = useState('')
-  const [serviceType, setServiceType] = useState<ServiceType>(() => {
+  // Fixed for the life of the form: there is no service switch any more
+  // (Pabili and Buy Medicine are not offered on any screen), so the type is
+  // whatever the caller opened the form with — a plain ride unless told.
+  const serviceType: ServiceType = (() => {
     if (initialServiceType === 'pabili' && !pabiliEnabled) return 'ride'
     if (initialServiceType === 'buy_medicine' && !medsEnabled) return 'ride'
     return initialServiceType ?? 'ride'
-  })
+  })()
   const [pabiliItems, setPabiliItems] = useState('')
   // Bumping this remounts PabiliItemsInput fresh (clearing its internal rows)
   // after a successful submit — the child owns its own row state and has no
@@ -155,17 +158,6 @@ export function QuickBookingForm({
     setGpsError('')
     setSpecialPickupRequested(false)
     setPickupPickerSeed((prev) => ({
-      key: prev.key + 1,
-      province: location.province,
-      city: location.city,
-      barangay: location.barangay,
-      addressDetail: '',
-    }))
-  }
-
-  function handleDropoffQuickPick(location: MockLocation) {
-    setDropoffId(location.id)
-    setDropoffPickerSeed((prev) => ({
       key: prev.key + 1,
       province: location.province,
       city: location.city,
@@ -257,20 +249,6 @@ export function QuickBookingForm({
     }
   }
 
-  // Pabili defaults to buying from the public market near CLSU (the current
-  // default "where I am" for booking — see DEFAULT_BOOKING_* in
-  // mock/data.ts) and delivering there too, so both fields start pre-filled
-  // instead of blank.
-  async function handleSelectPabili() {
-    setServiceType('pabili')
-    setPassengerCount(1)
-
-    const store = await resolveNearbyPublicMarket(DEFAULT_BOOKING_CITY, DEFAULT_BOOKING_PROVINCE)
-    setCustomLocations((prev) => [...prev, store])
-    handlePickupQuickPick(store)
-    handleDropoffQuickPick(CLSU_MAIN_GATE_LOCATION)
-  }
-
   async function handleUseMyGps() {
     setGpsStatus('locating')
     setGpsError('')
@@ -348,44 +326,13 @@ export function QuickBookingForm({
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
       </div>
-      {(pabiliEnabled || medsEnabled) && (
-        <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
-          <button
-            type="button"
-            onClick={() => setServiceType('ride')}
-            className={`flex-1 rounded-md py-1.5 text-xs font-medium transition ${
-              !isPabili && !isBuyMedicine ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500'
-            }`}
-          >
-            🛵 Ride
-          </button>
-          {pabiliEnabled && (
-            <button
-              type="button"
-              onClick={handleSelectPabili}
-              className={`flex-1 rounded-md py-1.5 text-xs font-medium transition ${
-                isPabili ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500'
-              }`}
-            >
-              🛍️ Pabili
-            </button>
-          )}
-          {medsEnabled && (
-            <button
-              type="button"
-              onClick={() => setServiceType('buy_medicine')}
-              className={`flex-1 rounded-md py-1.5 text-xs font-medium transition ${
-                isBuyMedicine ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500'
-              }`}
-            >
-              💊 Buy Medicine
-            </button>
-          )}
-        </div>
-      )}
+      {/* No service switch: Pabili and Buy Medicine are no longer offered
+          on any screen. The errand fields below still render for a booking
+          that arrives already typed as one (initialServiceType), so an old
+          link or a parent's saved preference does not break. */}
       {isPabili && (
         <p className="text-xs text-slate-500">
-          Tell the driver what to buy — food, groceries, medicine, anything from a nearby store.
+          Tell the driver what to buy — food, groceries, anything from a nearby store.
         </p>
       )}
 

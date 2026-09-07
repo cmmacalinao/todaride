@@ -30,3 +30,15 @@ export function distanceKm(a: GeoCoords | null, b: GeoCoords | null | undefined)
 export function isVendorDeliveryRide(ride: Pick<Ride, 'serviceType' | 'pickup'>): boolean {
   return (ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine') && /^(pharm|vendor)-/.test(ride.pickup.id)
 }
+
+// What to call a ride that is not a plain passenger trip, everywhere a
+// list or a monitor tags one. Food Express is the service people see; the
+// errand types underneath it (Pabili, Buy Medicine) are no longer offered
+// on any screen, so a leftover ride of that kind is labelled plainly rather
+// than by a service name nobody can pick any more. Null for a plain ride.
+export function rideServiceTag(ride: Pick<Ride, 'serviceType' | 'pickup'>): { icon: string; label: string } | null {
+  if (isVendorDeliveryRide(ride)) return { icon: '🍽️', label: 'Food Express' }
+  if (ride.serviceType === 'pabili') return { icon: '🛍️', label: 'Errand' }
+  if (ride.serviceType === 'buy_medicine') return { icon: '💊', label: 'Medicine' }
+  return null
+}

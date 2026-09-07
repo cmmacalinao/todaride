@@ -1,4 +1,5 @@
 import { formatTripRoute } from '../lib/addressFormat'
+import { rideServiceTag } from '../lib/vendorOrders'
 import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AdminSectionTabs, useAdminTab } from '../components/AdminSectionTabs'
@@ -1884,8 +1885,7 @@ export function AdminPage() {
               <div key={r.id} className="rounded-lg border border-slate-200 p-3 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-slate-700">
-                    {r.serviceType === 'pabili' && '🛍️ '}
-                    {r.serviceType === 'buy_medicine' && '💊 '}
+                    {rideServiceTag(r) ? `${rideServiceTag(r)!.icon} ` : ''}
                     {r.passengerName}
                   </span>
                   <span className="text-slate-400">{waitingMinutes <= 0 ? 'just now' : `${waitingMinutes}m ago`}</span>

@@ -1,4 +1,5 @@
 import { formatAddressLine } from '../lib/addressFormat'
+import { rideServiceTag } from '../lib/vendorOrders'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ETA_SECONDS_PER_LEG, useRides } from '../context/RideContext'
@@ -849,11 +850,14 @@ export function TripMonitor({
         <h2 className="text-sm font-semibold text-brand-800">{title}</h2>
         <StatusBadge status={ride.status} />
       </div>
-      {(ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine') && (
-        <p className="text-sm text-slate-700">
-          {ride.serviceType === 'pabili' ? '🛍️ Pabili' : '💊 Buy Medicine'}
-        </p>
-      )}
+      {(() => {
+        const tag = rideServiceTag(ride)
+        return tag ? (
+          <p className="text-sm text-slate-700">
+            {tag.icon} {tag.label}
+          </p>
+        ) : null
+      })()}
       {(ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine') && ride.pabiliItems && (
         <p className="rounded-lg bg-white p-2 text-xs text-slate-600">🛒 {ride.pabiliItems}</p>
       )}

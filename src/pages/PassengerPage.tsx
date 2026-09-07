@@ -1,5 +1,6 @@
 import { formatAddressLine } from '../lib/addressFormat'
 import { formatTripRoute } from '../lib/addressFormat'
+import { rideServiceTag } from '../lib/vendorOrders'
 import { showInMiddle, showInMiddleWhenSettled } from '../lib/showInMiddle'
 import { NearbyDriversPicker, buildNearbyDrivers } from '../components/NearbyDriversPicker'
 import { RidePaymentForm } from '../components/RidePaymentForm'
@@ -2683,8 +2684,7 @@ export function PassengerPage() {
               <div key={r.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-slate-700">
-                    {r.serviceType === 'pabili' && '🛍️ Pabili · '}
-                    {r.serviceType === 'buy_medicine' && '💊 Buy Medicine · '}
+                    {rideServiceTag(r) ? `${rideServiceTag(r)!.icon} ${rideServiceTag(r)!.label} · ` : ''}
                     {formatTripRoute(r.pickup.label, r.dropoff.label)}
                   </span>
                   <StatusBadge status={r.status} />

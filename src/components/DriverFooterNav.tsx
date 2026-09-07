@@ -77,7 +77,7 @@ export function DriverFooterNav({
               aria-current={isActive ? 'page' : undefined}
               title={tab.label}
               className={`relative flex flex-1 flex-col items-center gap-0.5 rounded-lg px-1 py-1 text-[10px] font-medium transition-colors ${
-                isActive ? 'bg-brand-50 text-brand-700' : 'text-slate-500 hover:bg-slate-50 active:bg-slate-100'
+                isActive ? 'bg-gold-400 text-navy-900' : 'text-slate-500 hover:bg-slate-50 active:bg-slate-100'
               }`}
             >
               <span className={`text-lg leading-none ${pulse ? 'animate-pulse' : ''}`}>{tab.icon}</span>

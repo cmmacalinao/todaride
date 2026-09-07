@@ -2184,7 +2184,7 @@ export function PassengerPage() {
           }}
           className={`flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border py-1.5 transition ${
             homeMode === 'ride' && pageTab === 'book'
-              ? 'border-brand-600 bg-white shadow-md'
+              ? 'border-gold-500 bg-gold-400 shadow-md'
               : 'border-transparent bg-slate-100 hover:bg-slate-200'
           }`}
         >
@@ -2217,7 +2217,7 @@ export function PassengerPage() {
             type="button"
             onClick={m.onClick}
             className={`flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border py-1.5 transition ${
-              m.on ? 'border-brand-600 bg-white shadow-md' : 'border-transparent bg-slate-100 hover:bg-slate-200'
+              m.on ? 'border-gold-500 bg-gold-400 shadow-md' : 'border-transparent bg-slate-100 hover:bg-slate-200'
             }`}
           >
             <span className="text-[15px] leading-none">{m.icon}</span>
@@ -2233,7 +2233,7 @@ export function PassengerPage() {
           title="See drivers near you and pick one"
           className={`relative flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border py-1.5 transition ${
             requestedDriverId
-              ? 'border-brand-600 bg-white shadow-md'
+              ? 'border-gold-500 bg-gold-400 shadow-md'
               : 'border-transparent bg-slate-100 hover:bg-slate-200'
           }`}
         >
@@ -2273,7 +2273,7 @@ export function PassengerPage() {
             aria-pressed={pageTab === item.tab}
             className={`flex w-9 shrink-0 items-center justify-center rounded-lg border text-base transition ${
               pageTab === item.tab
-                ? 'border-brand-600 bg-white shadow-md'
+                ? 'border-gold-500 bg-gold-400 shadow-md'
                 : 'border-transparent bg-slate-100 hover:bg-slate-200'
             }`}
           >

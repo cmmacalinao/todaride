@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useReducer, type ReactNode, useRef } from 'react'
-import { BANNER_AD_SLOT_COUNT } from '../types'
+import { BANNER_AD_SLOT_COUNT, MAX_VENDOR_POSTS } from '../types'
 import { mergeById, mergeIncomingRides } from '../lib/rideMerge'
 import type { RecoveryKind } from '../lib/unifiedLogin'
 import type { RidePhoto } from '../types'
@@ -5652,7 +5652,7 @@ function reducer(state: RideState, action: RideAction): RideState {
       return {
         ...state,
         pharmacies: state.pharmacies.map((p) =>
-          p.id === action.pharmacyId ? { ...p, posts: [post, ...(p.posts ?? [])].slice(0, 20) } : p,
+          p.id === action.pharmacyId && (p.posts ?? []).length < MAX_VENDOR_POSTS ? { ...p, posts: [post, ...(p.posts ?? [])] } : p,
         ),
       }
     }

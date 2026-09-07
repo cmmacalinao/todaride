@@ -472,7 +472,13 @@ export function VendorHeaderCard({
   // handed straight to navigator.share: that sheet doesn't exist on most
   // desktop browsers, and even on a phone an explicit Facebook/Messenger row
   // is what a vendor here reaches for, not "the OS thing".
-  const shareUrl = `${window.location.origin}/vendor-page/${pharmacy.id}`
+  // ?v= changes whenever the banner picture does (see bannerThumbKey), so
+  // Facebook and the others — which cache a preview per exact URL — fetch
+  // the new banner instead of showing the card they remembered.
+  const bannerVersion = pharmacy.bannerThumbKey
+    ? Math.abs([...pharmacy.bannerThumbKey].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7)).toString(36)
+    : null
+  const shareUrl = `${window.location.origin}/vendor-page/${pharmacy.id}${bannerVersion ? `?v=${bannerVersion}` : ''}`
 
   const mapQuery = encodeURIComponent(`${pharmacy.addressDetail}, ${pharmacy.barangay}, ${pharmacy.city}`)
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${mapQuery}`

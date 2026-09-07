@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { VendorHeaderCard, VendorStorefront, resolveVendorAccent } from '../components/VendorStorefront'
 import { VendorBrandingEditor } from '../components/VendorBrandingEditor'
@@ -16,6 +16,7 @@ import { VendorBrandingEditor } from '../components/VendorBrandingEditor'
 // to seeing the exact result, on the exact page a customer lands on.
 export function VendorPublicPage() {
   const { pharmacyId } = useParams<{ pharmacyId: string }>()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { pharmacies, medicineProducts } = useRides()
   const [tab, setTab] = useState<'preview' | 'customize'>('preview')
@@ -87,7 +88,7 @@ export function VendorPublicPage() {
           <p className="text-xs text-slate-500">
             This is exactly what a customer sees and orders from when they tap into your vendor page.
           </p>
-          <VendorStorefront pharmacy={pharmacy} items={items} />
+          <VendorStorefront pharmacy={pharmacy} items={items} focusPostId={searchParams.get('post')} />
         </>
       )}
     </div>

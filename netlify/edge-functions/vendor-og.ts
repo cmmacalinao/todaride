@@ -140,14 +140,19 @@ export default async function handler(request: Request, context: Context) {
     // A post: its own photo, else the dish it features, else the store's
     // banner. The store: the banner picture, else the cover photo or logo,
     // else the app's own icon so the card is never blank.
-    const picture =
-      pictureResponse(url.origin, [
-        ...(post ? [post.photoDataUrl, featured?.photoDataUrl] : []),
-        vendor?.bannerThumbDataUrl,
-        vendor?.coverPhotoDataUrl,
-        vendor?.logoDataUrl,
-      ]) ?? Response.redirect(`${url.origin}/pwa-512x512.png`, 302)
-    return picture
+    // Tiers, not one flat list: the WebP-avoidance inside pictureResponse
+    // must never let the store's banner (a JPEG) win over the post's own
+    // photo (a WebP) — the post is what was shared.
+    const tiers: (string | null | undefined)[][] = [
+      ...(post ? [[post.photoDataUrl, featured?.photoDataUrl]] : []),
+      [vendor?.bannerThumbDataUrl],
+      [vendor?.coverPhotoDataUrl, vendor?.logoDataUrl],
+    ]
+    for (const tier of tiers) {
+      const picture = pictureResponse(url.origin, tier)
+      if (picture) return picture
+    }
+    return Response.redirect(`${url.origin}/pwa-512x512.png`, 302)
   }
 
   // The page itself: let the platform serve index.html as usual, then fill

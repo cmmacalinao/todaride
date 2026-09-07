@@ -55,7 +55,7 @@ export function VendorFooterNav({
                 disabled
                   ? 'cursor-not-allowed text-slate-300'
                   : isActive
-                    ? 'bg-brand-50 text-brand-700'
+                    ? 'bg-gold-400 text-navy-900'
                     : 'text-slate-500 hover:bg-slate-50 active:bg-slate-100'
               }`}
             >

@@ -521,6 +521,11 @@ export interface VendorPost {
   comments?: VendorPostComment[]
 }
 
+// How many posts a store keeps on its feed. A vendor at the limit picks one
+// to delete before posting again (see VendorFeedComposer); the reducer
+// refuses a fourth so no path around the composer can grow it.
+export const MAX_VENDOR_POSTS = 3
+
 export interface VendorPostComment {
   id: string
   authorId: string

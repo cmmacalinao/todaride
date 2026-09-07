@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { captureNativePhoto, compressImageFile, isNativePlatform } from '../lib/photo'
-import type { MedicineProduct, Pharmacy, VendorPost } from '../types'
+import { MAX_VENDOR_POSTS, type MedicineProduct, type Pharmacy, type VendorPost } from '../types'
 import { ShareSheet } from './ShareSheet'
 import { VendorBannerArt, resolveVendorAccent, type VendorAccent } from './VendorStorefront'
 
@@ -289,11 +289,11 @@ export function VendorFeedList({
   )
 }
 
-// Every vendor's posts in one scroll — the Food Express page IS this feed.
-// Each post sits under its own store's banner (gradient, logo, name), so a
-// customer browsing sees who is cooking what today without opening each
-// store; the banner is the way in, and a featured dish can be ordered
-// straight from the post.
+// The Food Express page IS this feed: one card per store that has posted,
+// newest store first, showing that store's latest post. Older posts are
+// behind it — a flick up on the card (or ▼) turns to the previous one, a
+// flick down (or ▲) back toward the latest — so the page stays one card
+// per store however much a store has posted.
 export function VendorNewsfeed({
   vendors,
   items,
@@ -310,104 +310,192 @@ export function VendorNewsfeed({
   onOrderItem: (vendorId: string, productId: string) => void
   limit?: number
 }) {
-  const entries = vendors
-    .flatMap((vendor) => (vendor.posts ?? []).map((post) => ({ vendor, post })))
-    .sort((a, b) => new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime())
+  const byNewest = (a: VendorPost, b: VendorPost) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  const cards = vendors
+    .map((vendor) => ({ vendor, posts: [...(vendor.posts ?? [])].sort(byNewest) }))
+    .filter((c) => c.posts.length > 0)
+    .sort((a, b) => byNewest(a.posts[0], b.posts[0]))
     .slice(0, limit)
-  if (entries.length === 0) return null
+  if (cards.length === 0) return null
   return (
     <div className="space-y-3">
-      {entries.map(({ vendor, post }) => {
-        const accent = resolveVendorAccent(vendor)
-        const featured = post.productId ? items.find((i) => i.id === post.productId) : undefined
-        return (
-          <article key={post.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            {/* The store's own banner as the post header — tap it to open
-                the store. */}
+      {cards.map(({ vendor, posts }) => (
+        <VendorFeedCard
+          key={vendor.id}
+          vendor={vendor}
+          posts={posts}
+          items={items}
+          viewer={viewer}
+          onOpenVendor={onOpenVendor}
+          onOrderItem={onOrderItem}
+        />
+      ))}
+    </div>
+  )
+}
+
+function VendorFeedCard({
+  vendor,
+  posts,
+  items,
+  viewer,
+  onOpenVendor,
+  onOrderItem,
+}: {
+  vendor: Pharmacy
+  posts: VendorPost[]
+  items: MedicineProduct[]
+  viewer?: PostViewer | null
+  onOpenVendor: (vendorId: string) => void
+  onOrderItem: (vendorId: string, productId: string) => void
+}) {
+  const accent = resolveVendorAccent(vendor)
+  // 0 = the latest; higher = older. Clamped if a post is deleted underneath.
+  const [index, setIndex] = useState(0)
+  const shown = Math.min(index, posts.length - 1)
+  const post = posts[shown]
+  const featured = post.productId ? items.find((i) => i.id === post.productId) : undefined
+  const canOlder = shown < posts.length - 1
+  const canNewer = shown > 0
+  const older = () => canOlder && setIndex(shown + 1)
+  const newer = () => canNewer && setIndex(shown - 1)
+
+  // A flick — quick, mostly vertical — turns the post. A slow drag is the
+  // page scrolling and is left alone.
+  const touch = useRef<{ x: number; y: number; at: number } | null>(null)
+  function onTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0]
+    touch.current = { x: t.clientX, y: t.clientY, at: Date.now() }
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    const start = touch.current
+    touch.current = null
+    if (!start || posts.length < 2) return
+    const t = e.changedTouches[0]
+    const dx = t.clientX - start.x
+    const dy = t.clientY - start.y
+    if (Date.now() - start.at > 350 || Math.abs(dy) < 70 || Math.abs(dx) > 40) return
+    if (dy < 0) older()
+    else newer()
+  }
+
+  return (
+    <article
+      className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
+      {/* The store's own banner as the card header — tap it to open the
+          store. */}
+      <button
+        type="button"
+        onClick={() => onOpenVendor(vendor.id)}
+        className={`relative flex w-full items-center gap-2.5 overflow-hidden bg-gradient-to-br px-3 py-2 text-left ${accent.gradient}`}
+      >
+        <VendorBannerArt />
+        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
+          {vendor.logoDataUrl ? (
+            <img src={vendor.logoDataUrl} alt="" className="h-full w-full object-contain" />
+          ) : (
+            <span aria-hidden className="text-base">{accent.icon}</span>
+          )}
+        </span>
+        <span className="relative min-w-0 flex-1">
+          <span className="block truncate text-sm font-bold text-white drop-shadow">{vendor.name}</span>
+          <span className="block text-[11px] text-white/80">
+            {timeAgo(post.createdAt)}
+            {vendor.tagline ? ` · ${vendor.tagline}` : ''}
+          </span>
+        </span>
+        <span aria-hidden className="relative text-white/70">
+          ›
+        </span>
+      </button>
+
+      {/* Which post of the store's is showing, and the way to the others. */}
+      {posts.length > 1 && (
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-3 py-1 text-[11px] text-slate-500">
+          <button
+            type="button"
+            onClick={newer}
+            disabled={!canNewer}
+            className="rounded-md px-2 py-0.5 font-semibold text-slate-600 hover:bg-slate-200 disabled:opacity-30"
+          >
+            ▲ Newer
+          </button>
+          <span>
+            {shown === 0 ? 'Latest' : `${shown + 1} of ${posts.length}`} · swipe up for older
+          </span>
+          <button
+            type="button"
+            onClick={older}
+            disabled={!canOlder}
+            className="rounded-md px-2 py-0.5 font-semibold text-slate-600 hover:bg-slate-200 disabled:opacity-30"
+          >
+            ▼ Older
+          </button>
+        </div>
+      )}
+
+      <div key={post.id}>
+        {post.text && <p className="whitespace-pre-line px-3 pt-2.5 text-sm leading-snug text-slate-700">{post.text}</p>}
+        {/* The photo and the featured dish are the post: tapping either
+            goes to the vendor's page to order — the dish, when the post
+            names one, straight into the cart. */}
+        {post.photoDataUrl && (
+          <button
+            type="button"
+            onClick={() => (featured ? onOrderItem(vendor.id, featured.id) : onOpenVendor(vendor.id))}
+            title={`Open ${vendor.name} to order`}
+            className="mt-2 block w-full"
+          >
+            <img src={post.photoDataUrl} alt="" className="block h-auto w-full" loading="lazy" />
+          </button>
+        )}
+        {featured && (
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => onOrderItem(vendor.id, featured.id)}
+            onKeyDown={(e) => e.key === 'Enter' && onOrderItem(vendor.id, featured.id)}
+            title={`Open ${vendor.name} to order`}
+            className="m-3 flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2 hover:border-slate-300 hover:bg-slate-100"
+          >
+            {featured.photoDataUrl && (
+              <img src={featured.photoDataUrl} alt={featured.name} className="h-14 w-14 shrink-0 rounded-md object-cover" />
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-slate-800">{featured.name}</p>
+              <p className={`text-sm font-bold ${accent.softText}`}>₱{featured.price}</p>
+            </div>
+            {featured.inStock && featured.visible !== false && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onOrderItem(vendor.id, featured.id)
+                }}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-white ${accent.solid} ${accent.solidHover}`}
+              >
+                Order
+              </button>
+            )}
+          </div>
+        )}
+        {!featured && (
+          <div className="px-3 pb-3 pt-2">
             <button
               type="button"
               onClick={() => onOpenVendor(vendor.id)}
-              className={`relative flex w-full items-center gap-2.5 overflow-hidden bg-gradient-to-br px-3 py-2 text-left ${accent.gradient}`}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold text-white ${accent.solid} ${accent.solidHover}`}
             >
-              <VendorBannerArt />
-              <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
-                {vendor.logoDataUrl ? (
-                  <img src={vendor.logoDataUrl} alt="" className="h-full w-full object-contain" />
-                ) : (
-                  <span aria-hidden className="text-base">{accent.icon}</span>
-                )}
-              </span>
-              <span className="relative min-w-0 flex-1">
-                <span className="block truncate text-sm font-bold text-white drop-shadow">{vendor.name}</span>
-                <span className="block text-[11px] text-white/80">
-                  {timeAgo(post.createdAt)}
-                  {vendor.tagline ? ` · ${vendor.tagline}` : ''}
-                </span>
-              </span>
-              <span aria-hidden className="relative text-white/70">
-                ›
-              </span>
+              View menu ›
             </button>
-            {post.text && <p className="whitespace-pre-line px-3 pt-2.5 text-sm leading-snug text-slate-700">{post.text}</p>}
-            {/* The photo and the featured dish are the post: tapping either
-                goes to the vendor's page to order — the dish, when the post
-                names one, straight into the cart. */}
-            {post.photoDataUrl && (
-              <button
-                type="button"
-                onClick={() => (featured ? onOrderItem(vendor.id, featured.id) : onOpenVendor(vendor.id))}
-                title={`Open ${vendor.name} to order`}
-                className="mt-2 block w-full"
-              >
-                <img src={post.photoDataUrl} alt="" className="block h-auto w-full" loading="lazy" />
-              </button>
-            )}
-            {featured && (
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => onOrderItem(vendor.id, featured.id)}
-                onKeyDown={(e) => e.key === 'Enter' && onOrderItem(vendor.id, featured.id)}
-                title={`Open ${vendor.name} to order`}
-                className="m-3 flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2 hover:border-slate-300 hover:bg-slate-100"
-              >
-                {featured.photoDataUrl && (
-                  <img src={featured.photoDataUrl} alt={featured.name} className="h-14 w-14 shrink-0 rounded-md object-cover" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-800">{featured.name}</p>
-                  <p className={`text-sm font-bold ${accent.softText}`}>₱{featured.price}</p>
-                </div>
-                {featured.inStock && featured.visible !== false && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onOrderItem(vendor.id, featured.id)
-                    }}
-                    className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-white ${accent.solid} ${accent.solidHover}`}
-                  >
-                    Order
-                  </button>
-                )}
-              </div>
-            )}
-            {!featured && (
-              <div className="px-3 pb-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => onOpenVendor(vendor.id)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold text-white ${accent.solid} ${accent.solidHover}`}
-                >
-                  View menu ›
-                </button>
-              </div>
-            )}
-            <PostActions pharmacy={vendor} post={post} viewer={viewer} />
-          </article>
-        )
-      })}
-    </div>
+          </div>
+        )}
+        <PostActions pharmacy={vendor} post={post} viewer={viewer} />
+      </div>
+    </article>
   )
 }
 
@@ -430,15 +518,17 @@ function PhotoGalleryIcon() {
 }
 
 export function VendorFeedComposer({ pharmacy, items }: { pharmacy: Pharmacy; items: MedicineProduct[] }) {
-  const { addVendorPost } = useRides()
+  const { addVendorPost, removeVendorPost } = useRides()
   const accent = resolveVendorAccent(pharmacy)
+  const posts = pharmacy.posts ?? []
+  const atLimit = posts.length >= MAX_VENDOR_POSTS
   const inputRef = useRef<HTMLInputElement>(null)
   const [text, setText] = useState('')
   const [photo, setPhoto] = useState<string | null>(null)
   const [photoBusy, setPhotoBusy] = useState(false)
   const [productId, setProductId] = useState('')
   const [pickingDish, setPickingDish] = useState(false)
-  const canPost = text.trim().length > 0 || !!photo
+  const canPost = (text.trim().length > 0 || !!photo) && !atLimit
   const featured = productId ? items.find((i) => i.id === productId) : null
 
   // Web: click the input synchronously — awaiting anything first makes some
@@ -583,7 +673,34 @@ export function VendorFeedComposer({ pharmacy, items }: { pharmacy: Pharmacy; it
           Post
         </button>
       </div>
-      <p className="mt-1.5 text-[10px] text-slate-400">Photos are shrunk automatically before posting to keep the app light.</p>
+      {atLimit && (
+        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+          <p className="text-xs font-semibold text-amber-800">
+            Your feed keeps {MAX_VENDOR_POSTS} posts. Delete one to post a new one:
+          </p>
+          <div className="mt-1.5 space-y-1">
+            {posts.map((p) => (
+              <div key={p.id} className="flex items-center gap-2 rounded-md bg-white px-2 py-1.5 text-xs">
+                {p.photoDataUrl && <img src={p.photoDataUrl} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />}
+                <span className="min-w-0 flex-1 truncate text-slate-700">
+                  {p.text.trim().split('\n')[0] || (p.photoDataUrl ? 'Photo post' : 'Post')}
+                  <span className="text-slate-400"> · {timeAgo(p.createdAt)}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeVendorPost(pharmacy.id, p.id)}
+                  className="shrink-0 rounded-md border border-red-200 px-2 py-0.5 font-semibold text-red-600 hover:bg-red-50"
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <p className="mt-1.5 text-[10px] text-slate-400">
+        Photos are shrunk automatically before posting to keep the app light. Up to {MAX_VENDOR_POSTS} posts stay on your feed.
+      </p>
     </div>
   )
 }

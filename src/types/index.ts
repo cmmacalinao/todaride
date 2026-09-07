@@ -493,6 +493,21 @@ export interface Pharmacy {
   // DEFAULT_VENDOR_PER_ORDER_FEE in mock/data.ts.
   monthlyPlatformFee?: number
   perOrderFee?: number
+  // The vendor's own feed on their page — announcements, promos, a dish
+  // worth showing off — newest first, the way a Facebook page reads. Kept
+  // to the latest few (see ADD_VENDOR_POST) so the photos do not bloat the
+  // shared state.
+  posts?: VendorPost[]
+}
+
+export interface VendorPost {
+  id: string
+  text: string
+  photoDataUrl: string | null
+  // A menu item this post features, if any — drawn as a card under the
+  // text with its price and an Add button for a customer.
+  productId: string | null
+  createdAt: string
 }
 
 export interface StoreReview {

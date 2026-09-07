@@ -5,6 +5,7 @@ import { captureNativePhoto, compressImageFile, isNativePlatform, removeFlatBack
 import { ShareSheet } from './ShareSheet'
 import { ProfilePhotoPicker } from './ProfilePhotoPicker'
 import { storeRatingSummary } from './StoreRatingSheet'
+import { VendorFeedList } from './VendorFeed'
 import { MENU_ITEM_BADGES, type MedicineProduct, type Pharmacy } from '../types'
 
 // One shared "shape", three audiences: a vendor sees exactly this header +
@@ -1040,6 +1041,8 @@ export function VendorStorefront({
   const interactive = !!cart && !!onQtyChange
   const [activeCategory, setActiveCategory] = useState('all')
   const [search, setSearch] = useState('')
+  const [view, setView] = useState<'menu' | 'feed'>('menu')
+  const postCount = pharmacy.posts?.length ?? 0
 
   // Built from the items a customer can actually see — a category whose
   // every item is hidden (see `visible`) would otherwise leave an empty tab
@@ -1101,7 +1104,36 @@ export function VendorStorefront({
         onRate={onRate}
       />
 
-      {categories.length > 0 && (
+      {/* Menu | Feed, the way a page has tabs under its banner. The feed is
+          the vendor's own posts — promos, today's special, a dish to show
+          off — and reads the same for a customer, a visitor and the vendor. */}
+      <div className="flex border-t border-slate-100">
+        {(['menu', 'feed'] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setView(v)}
+            className={`flex-1 py-2.5 text-center text-xs font-bold uppercase tracking-wide transition ${
+              view === v ? `border-b-2 ${accent.softText} border-current` : 'border-b-2 border-transparent text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            {v === 'menu' ? '🍽️ Menu' : `📣 Feed${postCount > 0 ? ` (${postCount})` : ''}`}
+          </button>
+        ))}
+      </div>
+
+      {view === 'feed' && (
+        <div className="border-t border-slate-100 bg-slate-50 p-3">
+          <VendorFeedList
+            pharmacy={pharmacy}
+            items={items}
+            accent={accent}
+            onAdd={interactive ? (productId) => onQtyChange!(productId, (cart![productId] ?? 0) + 1) : undefined}
+          />
+        </div>
+      )}
+
+      {view === 'menu' && categories.length > 0 && (
         <div className="flex gap-1.5 overflow-x-auto border-t border-slate-100 px-3 py-2.5">
           <button
             type="button"
@@ -1127,6 +1159,7 @@ export function VendorStorefront({
         </div>
       )}
 
+      {view === 'menu' && (
       <div className={`space-y-2.5 p-3 ${categories.length === 0 ? 'border-t border-slate-100' : ''}`}>
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-bold text-slate-800">Menu</h3>
@@ -1195,6 +1228,7 @@ export function VendorStorefront({
           ))}
         </div>
       </div>
+      )}
 
       {interactive && cartCount > 0 && (
         <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 p-3">

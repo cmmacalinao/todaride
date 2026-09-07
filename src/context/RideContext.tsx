@@ -79,6 +79,7 @@ import type {
   PaymentMethod,
   Pharmacy,
   StoreReview,
+  VendorPost,
   PromoDiscountType,
   PromoOffer,
   PromoOfferKind,
@@ -1403,6 +1404,8 @@ type RideAction =
   | { type: 'UPDATE_PHARMACY_LOCATION'; pharmacyId: string; locationGps: GeoCoords }
   | { type: 'TOGGLE_PHARMACY_TRUSTED_DRIVER'; pharmacyId: string; driverId: string }
   | { type: 'RATE_PHARMACY'; pharmacyId: string; customerId: string; customerName: string; rating: number; text: string | null }
+  | { type: 'ADD_VENDOR_POST'; pharmacyId: string; text: string; photoDataUrl: string | null; productId: string | null }
+  | { type: 'REMOVE_VENDOR_POST'; pharmacyId: string; postId: string }
   | { type: 'REMOVE_MEDICINE_PRODUCT'; productId: string }
   | { type: 'REORDER_MEDICINE_PRODUCTS'; orderedIds: string[] }
 
@@ -5560,6 +5563,33 @@ function reducer(state: RideState, action: RideAction): RideState {
         ),
       }
     }
+    // The vendor's feed. Newest first, and only the latest twenty are kept:
+    // each post can carry a photo, and the feed lives inside the shared
+    // state every phone downloads.
+    case 'ADD_VENDOR_POST': {
+      const text = action.text.trim()
+      if (!text && !action.photoDataUrl) return state
+      const post: VendorPost = {
+        id: `post-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        text,
+        photoDataUrl: action.photoDataUrl,
+        productId: action.productId,
+        createdAt: new Date().toISOString(),
+      }
+      return {
+        ...state,
+        pharmacies: state.pharmacies.map((p) =>
+          p.id === action.pharmacyId ? { ...p, posts: [post, ...(p.posts ?? [])].slice(0, 20) } : p,
+        ),
+      }
+    }
+    case 'REMOVE_VENDOR_POST':
+      return {
+        ...state,
+        pharmacies: state.pharmacies.map((p) =>
+          p.id === action.pharmacyId ? { ...p, posts: (p.posts ?? []).filter((post) => post.id !== action.postId) } : p,
+        ),
+      }
     case 'TOGGLE_PHARMACY_TRUSTED_DRIVER': {
       return {
         ...state,
@@ -6501,6 +6531,8 @@ interface RideContextValue extends RideState {
   updatePharmacyLocation: (pharmacyId: string, locationGps: GeoCoords) => void
   togglePharmacyTrustedDriver: (pharmacyId: string, driverId: string) => void
   ratePharmacy: (args: { pharmacyId: string; customerId: string; customerName: string; rating: number; text: string | null }) => void
+  addVendorPost: (args: { pharmacyId: string; text: string; photoDataUrl: string | null; productId: string | null }) => void
+  removeVendorPost: (pharmacyId: string, postId: string) => void
 }
 
 const RideContext = createContext<RideContextValue | null>(null)
@@ -7319,6 +7351,8 @@ export function RideProvider({ children }: { children: ReactNode }) {
     togglePharmacyTrustedDriver: (pharmacyId, driverId) =>
       dispatch({ type: 'TOGGLE_PHARMACY_TRUSTED_DRIVER', pharmacyId, driverId }),
     ratePharmacy: (args) => dispatch({ type: 'RATE_PHARMACY', ...args }),
+    addVendorPost: (args) => dispatch({ type: 'ADD_VENDOR_POST', ...args }),
+    removeVendorPost: (pharmacyId, postId) => dispatch({ type: 'REMOVE_VENDOR_POST', pharmacyId, postId }),
   }
 
   return <RideContext.Provider value={value}>{children}</RideContext.Provider>

@@ -16,6 +16,8 @@ import { TrustedRiderSelect, VendorTrustedRiders } from '../components/VendorTru
 import { RealLiveMap, type MapPoint } from '../components/RealLiveMap'
 import { OrderStatusStrip } from '../components/OrderStatusStrip'
 import { distanceKm, suggestedRiderFee } from '../lib/vendorOrders'
+import { VendorFeedComposer, VendorFeedList } from '../components/VendorFeed'
+import { resolveVendorAccent } from '../components/VendorStorefront'
 import { formatAddressLine } from '../lib/addressFormat'
 import { PaymentAccountForm, ORDER_STATUS_LABELS } from './PharmacyPortalPage'
 import type { MedsOrder, Pharmacy, Ride } from '../types'
@@ -43,6 +45,7 @@ export function VendorPortalPage() {
     updatePharmacyPaymentAccount,
     sendMedsOrderMessage,
     addVendorSampleOrder,
+    removeVendorPost,
   } = useRides()
   const location = useLocation()
   const navigate = useNavigate()
@@ -376,6 +379,27 @@ export function VendorPortalPage() {
           </div>
         </div>
       )}
+      </section>
+
+      {/* The vendor's feed — what customers see under the Feed tab of the
+          store page. Write a post here, delete one below. */}
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-700">📣 My page feed</h2>
+        <p className="mt-0.5 text-[11px] text-slate-500">
+          Promos, today's special, a dish to show off — posts appear on your page under Feed, newest first, and go out
+          with your shared link.
+        </p>
+        <div className="mt-2">
+          <VendorFeedComposer pharmacy={vendor} items={menu} />
+        </div>
+        <div className="mt-3">
+          <VendorFeedList
+            pharmacy={vendor}
+            items={menu}
+            accent={resolveVendorAccent(vendor)}
+            onRemove={(postId) => removeVendorPost(vendor.id, postId)}
+          />
+        </div>
       </section>
 
       {/* VendorMenuManager renders its own full card — the same banner/info

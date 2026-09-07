@@ -135,9 +135,9 @@ export function VendorMenuBooking({
   // way to the vendors page, and a strip at its top brings them back to it.
   // The order itself is untouched; this is only which screen is showing.
   const [steppedBackOrderId, setSteppedBackOrderId] = useState<string | null>(null)
-  // Open by default: the order log is the record of what was sent and where
-  // each one is, and a customer with an order out wants it in view.
-  const [showHistory, setShowHistory] = useState(true)
+  // Cancelled & completed orders start folded; the ones in process are
+  // always in view above them.
+  const [showHistory, setShowHistory] = useState(false)
 
   const myOrders = medsOrders.filter((o) => o.customerId === customerId && o.pricedFromMenu)
   const activeOrder = myOrders.find((o) => {
@@ -593,70 +593,116 @@ export function VendorMenuBooking({
         </div>
       )}
 
-      {pastOrders.length > 0 && step === 'browse' && (
-        <section>
-          <button
-            type="button"
-            onClick={() => setShowHistory((v) => !v)}
-            className="mb-2 flex w-full items-center justify-between text-sm font-semibold text-slate-700"
-          >
-            📦 My orders ({pastOrders.length})
-            <span className="text-xs text-slate-400">{showHistory ? '▲ Hide' : '▼ Show'}</span>
-          </button>
-          {/* Every order this customer has sent, newest first, each with
-              where it is right now — not only the one currently in flight. */}
-          {showHistory && (
-            <div className="space-y-2">
-              {[...pastOrders]
-                .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
-                .map((order) => (
-                <div key={order.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-slate-700">{order.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}</span>
-                    <span className="text-xs font-semibold text-slate-700">₱{order.total}</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400">
-                    {pharmacies.find((p) => p.id === order.pharmacyId)?.name ?? 'Vendor'} ·{' '}
-                    {new Date(order.requestedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                  <div className="mt-2">
-                    <OrderStatusStrip order={order} ride={rides.find((r) => r.id === order.linkedRideId)} viewer="customer" />
-                  </div>
-                  {(() => {
-                    const cancel = customerCancelState(order)
-                    if (!cancel.canCancel && !cancel.note) return null
-                    return (
-                      <div className="mt-2 flex items-center justify-between gap-2">
-                        <span className={`text-[11px] ${cancel.overdue ? 'font-semibold text-amber-700' : 'text-slate-500'}`}>
-                          {cancel.note ?? 'Quotation waiting for your approval'}
-                        </span>
-                        {cancel.canCancel && (
-                          <button
-                            type="button"
-                            onClick={() => cancelMedsOrder(order.id)}
-                            className="shrink-0 rounded-lg border border-amber-200 bg-white px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50"
-                          >
-                            Cancel order
-                          </button>
-                        )}
-                      </div>
-                    )
-                  })()}
-                  {order.status === 'dispatched' && (
+      {pastOrders.length > 0 && step === 'browse' && (() => {
+        // An order is "in process" from the moment it is sent until the
+        // rider has delivered it; only then — or when it was cancelled or
+        // declined — does it move to the past list, which stays folded.
+        const isInProcess = (order: MedsOrder) => {
+          if (order.status === 'cancelled' || order.status === 'rejected') return false
+          if (order.status !== 'dispatched') return true
+          const rideStatus = rides.find((r) => r.id === order.linkedRideId)?.status
+          return rideStatus !== 'completed' && rideStatus !== 'cancelled' && rideStatus !== 'declined'
+        }
+        const byNewest = (a: MedsOrder, b: MedsOrder) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime()
+        const currentOrders = pastOrders.filter(isInProcess).sort(byNewest)
+        const finishedOrders = pastOrders.filter((o) => !isInProcess(o)).sort(byNewest)
+
+        const renderOrder = (order: MedsOrder, inProcess: boolean) => {
+          const ride = rides.find((r) => r.id === order.linkedRideId)
+          const cancel = customerCancelState(order)
+          const finishedLabel =
+            order.status === 'cancelled' ? 'Cancelled' : order.status === 'rejected' ? 'Declined by the vendor' : 'Completed'
+          return (
+            <div
+              key={order.id}
+              className={`rounded-lg border p-3 text-sm ${
+                inProcess ? 'border-brand-300 bg-brand-50 shadow-sm ring-1 ring-brand-200' : 'border-slate-200 bg-white'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className={`font-medium ${inProcess ? 'text-brand-900' : 'text-slate-700'}`}>
+                  {order.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}
+                </span>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  {inProcess ? (
+                    <span className="rounded-full bg-brand-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                      In process
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">{finishedLabel}</span>
+                  )}
+                  <span className="text-xs font-semibold text-slate-700">₱{order.total}</span>
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                {pharmacies.find((p) => p.id === order.pharmacyId)?.name ?? 'Vendor'} ·{' '}
+                {new Date(order.requestedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </p>
+              {/* The stage strip is the point of a current order; a finished
+                  one only needs the one-word outcome above. */}
+              {inProcess && (
+                <div className="mt-2">
+                  <OrderStatusStrip order={order} ride={ride} viewer="customer" />
+                </div>
+              )}
+              {inProcess && (cancel.canCancel || cancel.note) && (
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <span className={`text-[11px] ${cancel.overdue ? 'font-semibold text-amber-700' : 'text-slate-500'}`}>
+                    {cancel.note ?? 'Quotation waiting for your approval'}
+                  </span>
+                  {cancel.canCancel && (
                     <button
                       type="button"
-                      onClick={() => setRatingVendorId(order.pharmacyId)}
-                      className="mt-1 text-xs font-semibold text-brand-700 hover:underline"
+                      onClick={() => cancelMedsOrder(order.id)}
+                      className="shrink-0 rounded-lg border border-amber-200 bg-white px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50"
                     >
-                      ⭐ Rate this store
+                      Cancel order
                     </button>
                   )}
                 </div>
-              ))}
+              )}
+              {order.status === 'dispatched' && !inProcess && (
+                <button
+                  type="button"
+                  onClick={() => setRatingVendorId(order.pharmacyId)}
+                  className="mt-1 text-xs font-semibold text-brand-700 hover:underline"
+                >
+                  ⭐ Rate this store
+                </button>
+              )}
             </div>
-          )}
-        </section>
-      )}
+          )
+        }
+
+        return (
+          <section className="space-y-2">
+            {currentOrders.length > 0 && (
+              <>
+                <p className="flex items-center justify-between text-sm font-semibold text-slate-700">
+                  <span>📦 My orders in process ({currentOrders.length})</span>
+                </p>
+                <div className="space-y-2">{currentOrders.map((o) => renderOrder(o, true))}</div>
+              </>
+            )}
+            {finishedOrders.length > 0 && (
+              <div className="rounded-lg border border-slate-200 bg-white">
+                <button
+                  type="button"
+                  onClick={() => setShowHistory((v) => !v)}
+                  aria-expanded={showHistory}
+                  className="flex w-full items-center justify-between px-3 py-2.5 text-left text-sm font-semibold text-slate-600"
+                >
+                  <span>🗂 Cancelled & completed ({finishedOrders.length})</span>
+                  <span className="text-xs text-slate-400">{showHistory ? '▲ Hide' : '▼ Show'}</span>
+                </button>
+                {showHistory && (
+                  <div className="space-y-2 border-t border-slate-100 p-2">{finishedOrders.map((o) => renderOrder(o, false))}</div>
+                )}
+              </div>
+            )}
+          </section>
+        )
+      })()}
 
       {ratingVendor && (
         <StoreRatingSheet

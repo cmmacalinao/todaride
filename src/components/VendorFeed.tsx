@@ -271,69 +271,122 @@ export function VendorFeedList({
   )
 }
 
-// The Food Express page as a newsfeed — banners only. One banner per store
-// that has posted, newest post first: the store's gradient, logo and name,
-// with when it last posted and the first line of that post. Everything
-// else — the post itself, its photo, the featured dish, likes and comments
-// — lives on the store's own page, which is where a tap on the banner
-// goes. Stores that have never posted do not appear here; the search box
-// above is how a customer finds those.
+// Every vendor's posts in one scroll — the Food Express page IS this feed.
+// Each post sits under its own store's banner (gradient, logo, name), so a
+// customer browsing sees who is cooking what today without opening each
+// store; the banner is the way in, and a featured dish can be ordered
+// straight from the post.
 export function VendorNewsfeed({
   vendors,
+  items,
+  viewer,
   onOpenVendor,
+  onOrderItem,
   limit = 20,
 }: {
   vendors: Pharmacy[]
+  items: MedicineProduct[]
+  // Who is reading — see PostViewer.
+  viewer?: PostViewer | null
   onOpenVendor: (vendorId: string) => void
+  onOrderItem: (vendorId: string, productId: string) => void
   limit?: number
 }) {
   const entries = vendors
-    .map((vendor) => {
-      const latest = [...(vendor.posts ?? [])].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      )[0]
-      return latest ? { vendor, post: latest, count: vendor.posts?.length ?? 0 } : null
-    })
-    .filter((e): e is { vendor: Pharmacy; post: VendorPost; count: number } => !!e)
+    .flatMap((vendor) => (vendor.posts ?? []).map((post) => ({ vendor, post })))
     .sort((a, b) => new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime())
     .slice(0, limit)
   if (entries.length === 0) return null
   return (
-    <div className="space-y-2">
-      {entries.map(({ vendor, post, count }) => {
+    <div className="space-y-3">
+      {entries.map(({ vendor, post }) => {
         const accent = resolveVendorAccent(vendor)
-        const snippet = post.text.trim().split('\n')[0] || (post.photoDataUrl ? 'Posted a photo' : 'New post')
+        const featured = post.productId ? items.find((i) => i.id === post.productId) : undefined
         return (
-          <button
-            key={vendor.id}
-            type="button"
-            onClick={() => onOpenVendor(vendor.id)}
-            title={`Open ${vendor.name}`}
-            className={`relative flex w-full items-center gap-3 overflow-hidden rounded-xl bg-gradient-to-br ${accent.gradient} px-3 py-3 text-left text-white shadow-sm transition hover:brightness-105`}
-          >
-            <VendorBannerArt />
-            <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/80 bg-white/20 text-lg">
-              {vendor.logoDataUrl ? (
-                <img src={vendor.logoDataUrl} alt="" className="h-full w-full bg-white object-cover" />
-              ) : (
-                <span aria-hidden>{accent.icon}</span>
-              )}
-            </span>
-            <span className="relative min-w-0 flex-1">
-              <span className="block truncate text-base font-extrabold drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">{vendor.name}</span>
-              <span className="block truncate text-xs text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
-                {timeAgo(post.createdAt)} · {snippet}
+          <article key={post.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            {/* The store's own banner as the post header — tap it to open
+                the store. */}
+            <button
+              type="button"
+              onClick={() => onOpenVendor(vendor.id)}
+              className={`relative flex w-full items-center gap-2.5 overflow-hidden bg-gradient-to-br px-3 py-2 text-left ${accent.gradient}`}
+            >
+              <VendorBannerArt />
+              <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
+                {vendor.logoDataUrl ? (
+                  <img src={vendor.logoDataUrl} alt="" className="h-full w-full object-contain" />
+                ) : (
+                  <span aria-hidden className="text-base">{accent.icon}</span>
+                )}
               </span>
-            </span>
-            {count > 1 && (
-              <span className="relative shrink-0 rounded-full bg-black/30 px-2 py-0.5 text-[11px] font-semibold">
-                {count} posts
+              <span className="relative min-w-0 flex-1">
+                <span className="block truncate text-sm font-bold text-white drop-shadow">{vendor.name}</span>
+                <span className="block text-[11px] text-white/80">
+                  {timeAgo(post.createdAt)}
+                  {vendor.tagline ? ` · ${vendor.tagline}` : ''}
+                </span>
               </span>
+              <span aria-hidden className="relative text-white/70">
+                ›
+              </span>
+            </button>
+            {post.text && <p className="whitespace-pre-line px-3 pt-2.5 text-sm leading-snug text-slate-700">{post.text}</p>}
+            {/* The photo and the featured dish are the post: tapping either
+                goes to the vendor's page to order — the dish, when the post
+                names one, straight into the cart. */}
+            {post.photoDataUrl && (
+              <button
+                type="button"
+                onClick={() => (featured ? onOrderItem(vendor.id, featured.id) : onOpenVendor(vendor.id))}
+                title={`Open ${vendor.name} to order`}
+                className="mt-2 block w-full"
+              >
+                <img src={post.photoDataUrl} alt="" className="block h-auto w-full" loading="lazy" />
+              </button>
             )}
-            <span aria-hidden className="relative shrink-0 text-white/80">
-              ›
-            </span>
-          </button>
+            {featured && (
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => onOrderItem(vendor.id, featured.id)}
+                onKeyDown={(e) => e.key === 'Enter' && onOrderItem(vendor.id, featured.id)}
+                title={`Open ${vendor.name} to order`}
+                className="m-3 flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2 hover:border-slate-300 hover:bg-slate-100"
+              >
+                {featured.photoDataUrl && (
+                  <img src={featured.photoDataUrl} alt={featured.name} className="h-14 w-14 shrink-0 rounded-md object-cover" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-slate-800">{featured.name}</p>
+                  <p className={`text-sm font-bold ${accent.softText}`}>₱{featured.price}</p>
+                </div>
+                {featured.inStock && featured.visible !== false && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onOrderItem(vendor.id, featured.id)
+                    }}
+                    className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-white ${accent.solid} ${accent.solidHover}`}
+                  >
+                    Order
+                  </button>
+                )}
+              </div>
+            )}
+            {!featured && (
+              <div className="px-3 pb-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => onOpenVendor(vendor.id)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold text-white ${accent.solid} ${accent.solidHover}`}
+                >
+                  View menu ›
+                </button>
+              </div>
+            )}
+            <PostActions pharmacy={vendor} post={post} viewer={viewer} />
+          </article>
         )
       })}
     </div>

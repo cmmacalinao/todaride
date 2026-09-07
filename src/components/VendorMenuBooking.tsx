@@ -418,16 +418,25 @@ export function VendorMenuBooking({
             </div>
           )}
 
-          {/* The page is the newsfeed, banners only: one banner per store
-              that has posted, newest first — see VendorNewsfeed. Tapping a
-              banner opens that store's page, where the posts themselves
-              (photo, featured dish, likes, comments) and the menu are. A
-              search narrows this list to matching stores too. */}
+          {/* The page is the newsfeed: every store's posts, newest first,
+              each under its own banner, with Like · Heart · Comment · Share
+              — see VendorNewsfeed. Tapping a post's photo or featured dish
+              opens that store's page to order. The list of all stores is
+              hidden; the search box above brings up matching stores. */}
           {vendors.length > 0 && (
             <div>
               <p className="mb-1.5 flex items-center gap-1 text-sm font-bold text-slate-700">📣 Latest from vendors</p>
               {shownVendors.some((v) => (v.posts?.length ?? 0) > 0) ? (
-                <VendorNewsfeed vendors={shownVendors} onOpenVendor={openVendor} />
+                <VendorNewsfeed
+                  vendors={shownVendors}
+                  items={medicineProducts}
+                  viewer={{ id: customerId, name: customerName }}
+                  onOpenVendor={openVendor}
+                  onOrderItem={(vendorId, productId) => {
+                    openVendor(vendorId)
+                    setCart({ [productId]: 1 })
+                  }}
+                />
               ) : (
                 <p className="rounded-lg bg-slate-50 p-3 text-center text-xs text-slate-400">
                   No posts yet — search a store above to see its menu.

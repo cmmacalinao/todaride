@@ -60,15 +60,17 @@ export function RiderStartPage() {
             every other Food/Vendor entry point in the app. */}
         {foodExpressAvailable && (
           <div className="flex overflow-hidden rounded-full border border-white/15 bg-white/5 p-1">
+            {/* "SafeRide" keeps its own casing and colour — it is the brand
+                — while the service name beside it is the shouted part. */}
             <span className="flex-1 rounded-full bg-gold-400 py-2.5 text-center text-sm font-extrabold uppercase tracking-wide text-navy-900">
-              SafeRide TODA
+              <span className="normal-case tracking-normal text-blue-700">SafeRide</span> TODA
             </span>
             <button
               type="button"
               onClick={() => navigate('/book', { state: { section: 'food' } })}
               className="flex-1 rounded-full py-2.5 text-center text-sm font-extrabold uppercase tracking-wide text-white/70 transition hover:bg-white/10"
             >
-              SafeRide Food Express
+              <span className="normal-case tracking-normal text-gold-400">SafeRide</span> Food Express
             </button>
           </div>
         )}

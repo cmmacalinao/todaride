@@ -17,7 +17,7 @@
 //   /vendor-page/<id>/og-image[?post=<postId>]
 //
 // The banner picture is drawn on the vendor's device and stored on the
-// record (Pharmacy.bannerThumbDataUrl, see lib/bannerThumb) — a 1200×630
+// record (Pharmacy.bannerThumbDataUrl, see lib/bannerThumb) — a 960×504
 // JPEG of the banner as the page shows it, which is what a crawler wants.
 // Before it exists, the cover photo or logo stands in as before.
 //
@@ -205,7 +205,7 @@ export default async function handler(request: Request, context: Context) {
     `<meta property="og:url" content="${escapeHtml(pageUrl)}" />`,
     `<meta property="og:image" content="${escapeHtml(imageUrl)}" />`,
     `<meta property="og:image:alt" content="${escapeHtml(post ? `${name}: ${(post.text ?? '').slice(0, 80)}` : name)}" />`,
-    ...(post ? [] : [`<meta property="og:image:width" content="1200" />`, `<meta property="og:image:height" content="630" />`]),
+    ...(post ? [] : [`<meta property="og:image:width" content="960" />`, `<meta property="og:image:height" content="504" />`]),
     `<meta name="twitter:card" content="summary_large_image" />`,
     `<meta name="twitter:title" content="${escapeHtml(title)}" />`,
     `<meta name="twitter:description" content="${escapeHtml(description)}" />`,

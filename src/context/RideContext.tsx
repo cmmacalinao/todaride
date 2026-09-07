@@ -6699,7 +6699,12 @@ export function RideProvider({ children }: { children: ReactNode }) {
         // world, which is what happened on 2026-09-06.
         try {
           const hydrated = fromStored(shared as unknown as StoredState)
-          justHydratedRef.current = true
+          // Normally the hydrated state is already in storage and must not
+          // be echoed back. But if this device saved something before the
+          // read landed (a post, a like — kept local only), the merged
+          // state is new to the server and has to go out now, not on the
+          // next edit that may never come.
+          justHydratedRef.current = !getPersistence().hasLocalOnlyChanges()
           dispatch({ type: 'HYDRATE', state: hydrated })
           getPersistence().markSynced()
         } catch (err) {
@@ -6951,8 +6956,15 @@ export function RideProvider({ children }: { children: ReactNode }) {
     // state with what we were just handed. Skip our next save.
     return getPersistence().subscribe((incoming) => {
       try {
-        justHydratedRef.current = true
+        // See the startup read above for why this is not always true.
+        justHydratedRef.current = !getPersistence().hasLocalOnlyChanges()
         dispatch({ type: 'HYDRATE', state: fromStored(incoming as unknown as StoredState) })
+        // A shared read applied by this path counts too. Without this a
+        // device whose first read at startup failed (no signal for a
+        // moment) was hydrated by the heartbeat later but never unlocked
+        // saving — every post, like or edit it made stayed on the phone
+        // until the next reload. That is what "I can't post" looked like.
+        getPersistence().markSynced()
       } catch {
         // Ignore anything unreadable rather than blanking a live screen.
       }

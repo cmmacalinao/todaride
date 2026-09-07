@@ -9,13 +9,15 @@
 // the result is stored on the Pharmacy record (bannerThumbDataUrl) so the
 // edge function (netlify/edge-functions/vendor-og.ts) can hand it out.
 //
-// 1200×630 is the size every crawler is happiest with (1.91:1, "large
-// image" cards); JPEG at 0.8 keeps it around 60–100 KB.
+// 960×504 keeps the 1.91:1 "large image" shape every crawler wants (they
+// ask for at least 600×315) at roughly 45 KB as JPEG 0.72 — this picture
+// rides inside the shared state blob every device reads, so its size is
+// everyone's download.
 import type { Pharmacy } from '../types'
 import { resolveVendorAccent } from '../components/VendorStorefront'
 
-const W = 1200
-const H = 630
+const W = 960
+const H = 504
 
 // Tailwind stops the theme gradients are written in — see VENDOR_THEME_COLORS
 // and VENDOR_THEME in VendorStorefront — resolved to the hex the browser
@@ -229,7 +231,7 @@ export async function renderBannerThumbnail(pharmacy: Pharmacy): Promise<string 
   ctx.fillStyle = 'rgba(255,255,255,0.85)'
   ctx.fillText(`${accent.icon} ${accent.label} · TODA SafeRide Food Express`, textX, H / 2 + 104)
 
-  return canvas.toDataURL('image/jpeg', 0.8)
+  return canvas.toDataURL('image/jpeg', 0.72)
 }
 
 // Everything the thumbnail is drawn from — when any of it changes, the
@@ -237,6 +239,7 @@ export async function renderBannerThumbnail(pharmacy: Pharmacy): Promise<string 
 export function bannerThumbKey(pharmacy: Pharmacy): string {
   const pos = pharmacy.coverPhotoPosition ?? null
   return JSON.stringify([
+    'v2',
     pharmacy.name,
     pharmacy.tagline ?? null,
     pharmacy.themeColor ?? null,

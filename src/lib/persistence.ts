@@ -19,6 +19,11 @@ export interface PersistenceAdapter {
   // The caller has applied a shared read; from here on saves may go out.
   // See SupabaseAdapter.remoteReady for why nothing is written before this.
   markSynced(): void
+  // Whether something was saved here that never reached the server (saved
+  // before the first shared read landed). The caller uses it to push the
+  // merged state right after that read instead of waiting for the next
+  // edit — see the hydrate paths in RideContext.
+  hasLocalOnlyChanges(): boolean
   readonly isShared: boolean
 }
 
@@ -29,7 +34,7 @@ export interface PersistenceAdapter {
 // socket has nothing to say. Long enough that five testers cost almost no
 // bandwidth, short enough that a driver accepting is seen before the
 // passenger gives up and reloads.
-const POLL_WHILE_VISIBLE_MS = 12000
+const POLL_WHILE_VISIBLE_MS = 45000
 
 const HOT: { key: string; table: string; columns: (row: Record<string, unknown>) => Record<string, unknown> }[] = [
   {
@@ -141,6 +146,10 @@ class LocalAdapter implements PersistenceAdapter {
     // Nothing shared to protect.
   }
 
+  hasLocalOnlyChanges() {
+    return false
+  }
+
   save(next: Record<string, unknown>) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
@@ -191,12 +200,19 @@ class SupabaseAdapter implements PersistenceAdapter {
   // overwriting it; once it has (and been hydrated from it), its saves are
   // edits to that world and go through as before.
   private remoteReady = false
+  // Set when a save was kept local because remoteReady was still false;
+  // cleared by the first write that reaches the server.
+  private localOnly = false
 
   // Called by RideContext once a shared read has been applied — not merely
   // received. A read that arrives but cannot be hydrated leaves the document
   // on whatever it started with, and that must stay local too.
   markSynced() {
     this.remoteReady = true
+  }
+
+  hasLocalOnlyChanges() {
+    return this.localOnly
   }
 
   // Still writes locally as well: it is the first paint on the next launch,
@@ -262,6 +278,7 @@ class SupabaseAdapter implements PersistenceAdapter {
       // subscription's refetch (realtime, heartbeat, focus, online) hydrates
       // it as soon as the server can be read, and saves flow from then on.
       console.warn('[persistence] not yet synced with the shared state — kept this change locally only')
+      this.localOnly = true
       return
     }
 
@@ -300,6 +317,7 @@ class SupabaseAdapter implements PersistenceAdapter {
 
     try {
       await Promise.all(work)
+      this.localOnly = false
     } catch (err) {
       console.warn('[persistence] could not write to the shared state', err)
     }

@@ -1,20 +1,25 @@
-// Link previews for a vendor's page.
+// Link previews for a vendor's page — and for a single post on it.
 //
 // The app draws /vendor-page/<id> in the browser, and Facebook's, Messenger's,
 // Viber's and WhatsApp's crawlers do not run it — they read the raw HTML and
 // see the generic "TodaRide" title, so a shared carinderia link arrived as a
 // blank card. This runs at the edge in front of that HTML and writes the
-// Open Graph tags every one of those apps reads: the vendor's name, tagline,
-// address and menu size, and their own logo or profile photo as the image.
-// Nothing else changes — the same index.html is returned with a fuller <head>,
-// and the app takes over from there exactly as before.
+// Open Graph tags every one of those apps reads. Nothing else changes — the
+// same index.html is returned with a fuller <head>, and the app takes over
+// from there exactly as before, so tapping the card lands on our page.
 //
-// Two routes, both under the vendor's path so nothing new has to be shared:
-//   /vendor-page/<id>            the page, with Open Graph tags injected
-//   /vendor-page/<id>/og-image   the vendor's photo as a real image URL
-// The photo is stored as a data URL inside the shared state (see
-// Pharmacy.coverPhotoDataUrl / logoDataUrl); a crawler needs an https URL it
-// can fetch, so the second route decodes it on the way out.
+// Two kinds of link, told apart by ?post=:
+//   /vendor-page/<id>                 the store — its banner as the picture
+//   /vendor-page/<id>?post=<postId>   one post — that post's own photo (or
+//                                     its featured dish) as the picture, the
+//                                     post's words as the text
+// and the image route that serves the picture as a real file:
+//   /vendor-page/<id>/og-image[?post=<postId>]
+//
+// The banner picture is drawn on the vendor's device and stored on the
+// record (Pharmacy.bannerThumbDataUrl, see lib/bannerThumb) — a 1200×630
+// JPEG of the banner as the page shows it, which is what a crawler wants.
+// Before it exists, the cover photo or logo stands in as before.
 //
 // Reads the same public anon key the app itself ships with — it is not a
 // secret — with the site's environment taking precedence when set.
@@ -27,6 +32,14 @@ const SUPABASE_KEY =
   Netlify.env.get('VITE_SUPABASE_ANON_KEY') ??
   'sb_publishable_8H6LxGfWP_ltongE7Rq91g_K_ZLp-i-'
 
+interface PostLike {
+  id: string
+  text?: string
+  photoDataUrl?: string | null
+  productId?: string | null
+  createdAt?: string
+}
+
 interface VendorLike {
   id: string
   name?: string
@@ -37,12 +50,18 @@ interface VendorLike {
   city?: string
   logoDataUrl?: string | null
   coverPhotoDataUrl?: string | null
+  bannerThumbDataUrl?: string | null
   storeReviews?: { rating: number }[]
+  posts?: PostLike[]
 }
 
 interface ProductLike {
+  id?: string
   pharmacyId?: string
   visible?: boolean
+  name?: string
+  price?: number
+  photoDataUrl?: string | null
 }
 
 // One read of the shared state; cached briefly at the edge so a burst of
@@ -79,43 +98,56 @@ function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; type: string } | 
   return { bytes: new TextEncoder().encode(decodeURIComponent(m[3])), type }
 }
 
+// The picture for a set of candidates, in order of preference: a data URL
+// is decoded and served; a path shipped with the site is redirected to.
+// SVG is skipped everywhere — Facebook will not render it as a preview.
+// Facebook's crawler renders WebP inconsistently, so among data URLs a
+// PNG/JPEG wins over a WebP even when it is a later choice.
+function pictureResponse(origin: string, candidates: (string | null | undefined)[]): Response | null {
+  const photos = candidates.filter((p): p is string => !!p && !p.endsWith('.svg'))
+  const decoded = photos
+    .filter((p) => p.startsWith('data:'))
+    .map(dataUrlToBytes)
+    .filter((d): d is { bytes: Uint8Array; type: string } => !!d && !d.type.includes('svg'))
+  const best = decoded.find((d) => d.type !== 'image/webp') ?? decoded[0] ?? null
+  if (best) {
+    return new Response(best.bytes, {
+      headers: {
+        'Content-Type': best.type,
+        'Cache-Control': 'public, max-age=300',
+        'Access-Control-Allow-Origin': '*',
+      },
+    })
+  }
+  const pathPhoto = photos.find((p) => p.startsWith('/'))
+  if (pathPhoto) return Response.redirect(`${origin}${pathPhoto}`, 302)
+  return null
+}
+
 export default async function handler(request: Request, context: Context) {
   const url = new URL(request.url)
   const match = /^\/vendor-page\/([^/]+)(\/og-image)?\/?$/.exec(url.pathname)
   if (!match) return context.next()
   const [, id, wantsImage] = match
+  const postId = url.searchParams.get('post')
 
   const state = await loadState()
   const vendor = state?.pharmacies.find((p) => p.id === id)
+  const post = postId ? vendor?.posts?.find((p) => p.id === postId) ?? null : null
+  const featured = post?.productId ? state?.medicineProducts.find((p) => p.id === post.productId) ?? null : null
 
   if (wantsImage) {
-    // Profile photo first, logo second — but Facebook's crawler renders WebP
-    // inconsistently, so a PNG/JPEG candidate wins over a WebP one even if
-    // it is the second choice. Only when both are WebP is WebP served.
-    const photos = [vendor?.coverPhotoDataUrl, vendor?.logoDataUrl].filter((p): p is string => !!p)
-    // A seed store's photo is a path shipped with the site rather than a
-    // data URL — hand the crawler that file directly. SVG is skipped
-    // everywhere: Facebook will not render it as a preview.
-    const pathPhoto = photos.find((p) => p.startsWith('/') && !p.endsWith('.svg'))
-    const candidates = photos
-      .filter((p) => p.startsWith('data:'))
-      .map(dataUrlToBytes)
-      .filter((d): d is { bytes: Uint8Array; type: string } => !!d && !d.type.includes('svg'))
-    const decoded = candidates.find((d) => d.type !== 'image/webp') ?? candidates[0] ?? null
-    if (!decoded && pathPhoto) {
-      return Response.redirect(`${url.origin}${pathPhoto}`, 302)
-    }
-    if (!decoded) {
-      // No photo of their own: the app's own icon, so the card is never blank.
-      return Response.redirect(`${url.origin}/pwa-512x512.png`, 302)
-    }
-    return new Response(decoded.bytes, {
-      headers: {
-        'Content-Type': decoded.type,
-        'Cache-Control': 'public, max-age=300',
-        'Access-Control-Allow-Origin': '*',
-      },
-    })
+    // A post: its own photo, else the dish it features, else the store's
+    // banner. The store: the banner picture, else the cover photo or logo,
+    // else the app's own icon so the card is never blank.
+    const picture =
+      pictureResponse(url.origin, [
+        ...(post ? [post.photoDataUrl, featured?.photoDataUrl] : []),
+        vendor?.bannerThumbDataUrl,
+        vendor?.coverPhotoDataUrl,
+        vendor?.logoDataUrl,
+      ]) ?? Response.redirect(`${url.origin}/pwa-512x512.png`, 302)
+    return picture
   }
 
   // The page itself: let the platform serve index.html as usual, then fill
@@ -130,28 +162,45 @@ export default async function handler(request: Request, context: Context) {
   const rating = reviews.length ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : null
   const kind = vendor.businessType === 'resto_food' ? 'Resto / Food' : vendor.businessType === 'other_commodity' ? 'Store' : 'Pharmacy'
   const where = [vendor.addressDetail, vendor.barangay, vendor.city].filter(Boolean).join(', ')
-  const description = [
-    vendor.tagline,
-    `${kind}${items ? ` · ${items} item${items === 1 ? '' : 's'} on the menu` : ''}${rating ? ` · ★ ${rating}` : ''}`,
-    where,
-    'Order on TODA SafeRide Food Express — delivered by a TODA rider.',
-  ]
-    .filter(Boolean)
-    .join(' · ')
-  const title = `${name} — TODA SafeRide Food Express`
-  const pageUrl = `${url.origin}/vendor-page/${encodeURIComponent(id)}`
-  const imageUrl = `${pageUrl}/og-image`
+
+  let title: string
+  let description: string
+  let pageUrl = `${url.origin}/vendor-page/${encodeURIComponent(id)}`
+  let imageUrl = `${pageUrl}/og-image`
+  let ogType = 'website'
+  if (post) {
+    // The post is the card: the store's name as the title, the post's own
+    // words (and the dish it features) as the text, its photo as the picture.
+    title = `${name} — TODA SafeRide Food Express`
+    const words = (post.text ?? '').trim().replace(/\s+/g, ' ').slice(0, 200)
+    const dish = featured?.name ? `${featured.name}${featured.price != null ? ` ₱${featured.price}` : ''}` : null
+    description = [words, dish, 'Order on TODA SafeRide Food Express — delivered by a TODA rider.'].filter(Boolean).join(' · ')
+    pageUrl = `${pageUrl}?post=${encodeURIComponent(post.id)}`
+    imageUrl = `${imageUrl}?post=${encodeURIComponent(post.id)}`
+    ogType = 'article'
+  } else {
+    title = `${name} — TODA SafeRide Food Express`
+    description = [
+      vendor.tagline,
+      `${kind}${items ? ` · ${items} item${items === 1 ? '' : 's'} on the menu` : ''}${rating ? ` · ★ ${rating}` : ''}`,
+      where,
+      'Order on TODA SafeRide Food Express — delivered by a TODA rider.',
+    ]
+      .filter(Boolean)
+      .join(' · ')
+  }
 
   const tags = [
     `<title>${escapeHtml(title)}</title>`,
     `<meta name="description" content="${escapeHtml(description)}" />`,
-    `<meta property="og:type" content="website" />`,
+    `<meta property="og:type" content="${ogType}" />`,
     `<meta property="og:site_name" content="TODA SafeRide" />`,
     `<meta property="og:title" content="${escapeHtml(title)}" />`,
     `<meta property="og:description" content="${escapeHtml(description)}" />`,
     `<meta property="og:url" content="${escapeHtml(pageUrl)}" />`,
     `<meta property="og:image" content="${escapeHtml(imageUrl)}" />`,
-    `<meta property="og:image:alt" content="${escapeHtml(name)}" />`,
+    `<meta property="og:image:alt" content="${escapeHtml(post ? `${name}: ${(post.text ?? '').slice(0, 80)}` : name)}" />`,
+    ...(post ? [] : [`<meta property="og:image:width" content="1200" />`, `<meta property="og:image:height" content="630" />`]),
     `<meta name="twitter:card" content="summary_large_image" />`,
     `<meta name="twitter:title" content="${escapeHtml(title)}" />`,
     `<meta name="twitter:description" content="${escapeHtml(description)}" />`,

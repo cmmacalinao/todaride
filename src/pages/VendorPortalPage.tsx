@@ -19,6 +19,7 @@ import { distanceKm } from '../lib/vendorOrders'
 import { VendorFeedComposer, VendorFeedList } from '../components/VendorFeed'
 import { resolveVendorAccent } from '../components/VendorStorefront'
 import { formatAddressLine } from '../lib/addressFormat'
+import { bannerThumbKey, renderBannerThumbnail } from '../lib/bannerThumb'
 import { PaymentAccountForm, ORDER_STATUS_LABELS } from './PharmacyPortalPage'
 import type { MedsOrder, Pharmacy, Ride } from '../types'
 
@@ -47,6 +48,7 @@ export function VendorPortalPage() {
     addVendorSampleOrder,
     removeVendorPost,
   } = useRides()
+  const { setVendorBannerThumb } = useRides()
   const location = useLocation()
   const navigate = useNavigate()
   const [showBooking, setShowBooking] = useState(false)
@@ -72,6 +74,23 @@ export function VendorPortalPage() {
       navigate('/pharmacy', { replace: true })
     }
   }, [vendor, navigate])
+
+  // The banner as one picture, for link previews (see lib/bannerThumb):
+  // drawn here, on the vendor's own device, whenever the branding it is
+  // made of changes — and once for a store that has none yet. A short
+  // pause folds a burst of edits (dragging the photo) into one redraw.
+  useEffect(() => {
+    if (!vendor) return
+    const key = bannerThumbKey(vendor)
+    if (vendor.bannerThumbDataUrl && vendor.bannerThumbKey === key) return
+    const id = window.setTimeout(() => {
+      void renderBannerThumbnail(vendor).then((dataUrl) => {
+        if (dataUrl) setVendorBannerThumb(vendor.id, dataUrl, key)
+      })
+    }, 1500)
+    return () => window.clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendor && bannerThumbKey(vendor), vendor?.bannerThumbKey, !!vendor?.bannerThumbDataUrl])
 
   useEffect(() => {
     const section = (location.state as { section?: string } | null)?.section

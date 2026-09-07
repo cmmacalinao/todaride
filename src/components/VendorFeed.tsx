@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { captureNativePhoto, compressImageFile, isNativePlatform } from '../lib/photo'
 import type { MedicineProduct, Pharmacy, VendorPost } from '../types'
@@ -27,7 +27,10 @@ function PostActions({ pharmacy, post, viewer }: { pharmacy: Pharmacy; post: Ven
   const comments = post.comments ?? []
   const liked = !!viewer && likes.includes(viewer.id)
   const hearted = !!viewer && hearts.includes(viewer.id)
-  const shareUrl = `${window.location.origin}/vendor-page/${pharmacy.id}`
+  // The post's own link: the page opens on this post (see focusPostId in
+  // VendorFeedList), and the edge function puts this post's photo and text
+  // on the preview card rather than the store's banner.
+  const shareUrl = `${window.location.origin}/vendor-page/${pharmacy.id}?post=${encodeURIComponent(post.id)}`
 
   function react(reaction: 'like' | 'heart') {
     if (!viewer) return
@@ -160,6 +163,7 @@ export function VendorFeedList({
   items,
   accent,
   viewer,
+  focusPostId,
   onAdd,
   onOpenMenu,
   onRemove,
@@ -167,6 +171,9 @@ export function VendorFeedList({
   pharmacy: Pharmacy
   items: MedicineProduct[]
   accent: VendorAccent
+  // A shared post's link opens the page on that post: it is scrolled into
+  // view and outlined so the reader lands on what was shared.
+  focusPostId?: string | null
   // Who is reading — see PostViewer. The vendor on their own portal
   // passes themselves, so the store can answer comments as itself.
   viewer?: PostViewer | null
@@ -180,6 +187,10 @@ export function VendorFeedList({
   onRemove?: (postId: string) => void
 }) {
   const posts = pharmacy.posts ?? []
+  const focusRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (focusPostId) focusRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [focusPostId])
   if (posts.length === 0) {
     return (
       <p className="rounded-lg bg-slate-50 p-3 text-center text-xs text-slate-400">
@@ -191,8 +202,15 @@ export function VendorFeedList({
     <div className="space-y-3">
       {posts.map((post) => {
         const featured = post.productId ? items.find((i) => i.id === post.productId) : undefined
+        const focused = post.id === focusPostId
         return (
-          <article key={post.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <article
+            key={post.id}
+            ref={focused ? focusRef : undefined}
+            className={`overflow-hidden rounded-xl border bg-white ${
+              focused ? 'border-brand-400 ring-2 ring-brand-200' : 'border-slate-200'
+            }`}
+          >
             <header className="flex items-center gap-2 px-3 pt-3">
               <span className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br ${accent.gradient}`}>
                 {pharmacy.logoDataUrl ? (

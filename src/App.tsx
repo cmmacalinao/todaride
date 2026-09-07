@@ -277,7 +277,14 @@ function AppShell() {
   // without an account.
   const vendorPageMatch = /^\/vendor-page\/([^/]+)/.exec(location.pathname)
   if (isRiderRole && vendorPageMatch) {
-    return <Navigate to={`/book?vendor=${encodeURIComponent(vendorPageMatch[1])}`} replace />
+    // A shared post's link (?post=) opens the store on that post.
+    const sharedPost = new URLSearchParams(location.search).get('post')
+    return (
+      <Navigate
+        to={`/book?vendor=${encodeURIComponent(vendorPageMatch[1])}${sharedPost ? `&post=${encodeURIComponent(sharedPost)}` : ''}`}
+        replace
+      />
+    )
   }
   if (isRiderRole && !isRiderApp && !isDevBench) {
     // Somebody who registered from a vendor's page goes back to that vendor

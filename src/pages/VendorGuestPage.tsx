@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { VendorStorefront } from '../components/VendorStorefront'
 import { rememberReturnTo } from '../lib/returnTo'
@@ -11,6 +11,10 @@ import { rememberReturnTo } from '../lib/returnTo'
 // open rather than to the generic home screen. See takeReturnTo in App.tsx.
 export function VendorGuestPage() {
   const { pharmacyId } = useParams<{ pharmacyId: string }>()
+  const [searchParams] = useSearchParams()
+  // A shared post's link — the page opens on that post, and after signing
+  // up they come back to it too.
+  const focusPostId = searchParams.get('post')
   const navigate = useNavigate()
   const { pharmacies, medicineProducts, vendorsEnabled } = useRides()
   const pharmacy = pharmacies.find((p) => p.id === pharmacyId)
@@ -33,7 +37,7 @@ export function VendorGuestPage() {
   }
 
   const items = medicineProducts.filter((p) => p.pharmacyId === pharmacy.id)
-  const orderPath = `/book?vendor=${encodeURIComponent(pharmacy.id)}`
+  const orderPath = `/book?vendor=${encodeURIComponent(pharmacy.id)}${focusPostId ? `&post=${encodeURIComponent(focusPostId)}` : ''}`
 
   function goRegister() {
     rememberReturnTo(orderPath)
@@ -43,7 +47,7 @@ export function VendorGuestPage() {
   return (
     // pb-28 keeps the last menu item clear of the sticky order bar below.
     <div className="mx-auto max-w-lg space-y-3 px-4 pb-28 pt-4">
-      <VendorStorefront pharmacy={pharmacy} items={items} />
+      <VendorStorefront pharmacy={pharmacy} items={items} focusPostId={focusPostId} />
 
       <div
         className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-2px_10px_rgba(15,23,42,0.08)] backdrop-blur"

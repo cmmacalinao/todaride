@@ -2483,6 +2483,7 @@ export function PassengerPage() {
               defaultAddressDetail={(!isGuestBooking && passenger.addressDetail) || DEFAULT_BOOKING_ADDRESS_DETAIL}
               defaultContactPhone={isGuestBooking ? null : passenger.phone}
               initialVendorId={searchParams.get('vendor')}
+              initialPostId={searchParams.get('post')}
             />
           ) : (
           <>

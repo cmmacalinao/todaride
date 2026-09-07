@@ -474,6 +474,12 @@ export interface Pharmacy {
   // (see VendorStorefront.tsx), e.g. "Lutong Bahay, Everyday!" — purely
   // cosmetic, same optional/nullable reasoning as the branding fields above.
   tagline?: string | null
+  // The banner as one picture (1200×630 JPEG), drawn on the vendor's own
+  // device from the fields above (see lib/bannerThumb) — what a shared
+  // link shows as its preview image. bannerThumbKey records which branding
+  // it was drawn from, so a change redraws it.
+  bannerThumbDataUrl?: string | null
+  bannerThumbKey?: string | null
   // Drivers this vendor prefers for its deliveries — the "Trusted Rider"
   // tab of the vendor portal. The first one who is online and approved is
   // offered each delivery ahead of the terminal queue (see

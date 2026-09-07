@@ -1403,6 +1403,7 @@ type RideAction =
       tagline: string | null
     }
   | { type: 'UPDATE_PHARMACY_LOCATION'; pharmacyId: string; locationGps: GeoCoords }
+  | { type: 'SET_VENDOR_BANNER_THUMB'; pharmacyId: string; dataUrl: string | null; key: string | null }
   | { type: 'TOGGLE_PHARMACY_TRUSTED_DRIVER'; pharmacyId: string; driverId: string }
   | { type: 'RATE_PHARMACY'; pharmacyId: string; customerId: string; customerName: string; rating: number; text: string | null }
   | { type: 'ADD_VENDOR_POST'; pharmacyId: string; text: string; photoDataUrl: string | null; productId: string | null }
@@ -5582,6 +5583,13 @@ function reducer(state: RideState, action: RideAction): RideState {
         ),
       }
     }
+    case 'SET_VENDOR_BANNER_THUMB':
+      return {
+        ...state,
+        pharmacies: state.pharmacies.map((p) =>
+          p.id === action.pharmacyId ? { ...p, bannerThumbDataUrl: action.dataUrl, bannerThumbKey: action.key } : p,
+        ),
+      }
     case 'UPDATE_VENDOR_BRANDING': {
       return {
         ...state,
@@ -6643,6 +6651,8 @@ interface RideContextValue extends RideState {
     tagline: string | null
   }) => void
   updatePharmacyLocation: (pharmacyId: string, locationGps: GeoCoords) => void
+  // The banner drawn as one picture for link previews — see lib/bannerThumb.
+  setVendorBannerThumb: (pharmacyId: string, dataUrl: string | null, key: string | null) => void
   togglePharmacyTrustedDriver: (pharmacyId: string, driverId: string) => void
   ratePharmacy: (args: { pharmacyId: string; customerId: string; customerName: string; rating: number; text: string | null }) => void
   addVendorPost: (args: { pharmacyId: string; text: string; photoDataUrl: string | null; productId: string | null }) => void
@@ -7466,6 +7476,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     updatePharmacyPaymentAccount: (pharmacyId, method, details) =>
       dispatch({ type: 'UPDATE_PHARMACY_PAYMENT_ACCOUNT', pharmacyId, method, details }),
     updateVendorBranding: (args) => dispatch({ type: 'UPDATE_VENDOR_BRANDING', ...args }),
+    setVendorBannerThumb: (pharmacyId, dataUrl, key) => dispatch({ type: 'SET_VENDOR_BANNER_THUMB', pharmacyId, dataUrl, key }),
     updatePharmacyLocation: (pharmacyId, locationGps) => dispatch({ type: 'UPDATE_PHARMACY_LOCATION', pharmacyId, locationGps }),
     togglePharmacyTrustedDriver: (pharmacyId, driverId) =>
       dispatch({ type: 'TOGGLE_PHARMACY_TRUSTED_DRIVER', pharmacyId, driverId }),

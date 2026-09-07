@@ -84,6 +84,7 @@ export function VendorMenuBooking({
   defaultAddressDetail,
   defaultContactPhone,
   initialVendorId,
+  initialPostId,
 }: {
   customerId: string
   customerName: string
@@ -95,6 +96,8 @@ export function VendorMenuBooking({
   // A shared vendor link (/book?vendor=<id>) opens straight on that store's
   // menu with the cart ready, instead of on the vendor list.
   initialVendorId?: string | null
+  // With initialVendorId: open that store's Feed on this post (a shared link).
+  initialPostId?: string | null
 }) {
   const { rides, pharmacies, medicineProducts, medsOrders, createMedsOrder, cancelMedsOrder, ratePharmacy, quoteVendorDeliveryFare } =
     useRides()
@@ -514,6 +517,7 @@ export function VendorMenuBooking({
             onCheckout={() => goTo('checkout')}
             onRate={() => setRatingVendorId(selectedVendor.id)}
             viewer={{ id: customerId, name: customerName }}
+            focusPostId={initialVendor && selectedVendor.id === initialVendor.id ? initialPostId : null}
           />
         </div>
       )}

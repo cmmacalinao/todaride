@@ -1047,6 +1047,7 @@ export function VendorStorefront({
   onCheckout,
   onRate,
   viewer,
+  focusPostId,
 }: {
   pharmacy: Pharmacy
   items: MedicineProduct[]
@@ -1060,12 +1061,14 @@ export function VendorStorefront({
   onRate?: () => void
   // Who is reading the Feed tab — see PostViewer in VendorFeed.
   viewer?: PostViewer | null
+  // Opened from a shared post's link: start on the Feed tab, on that post.
+  focusPostId?: string | null
 }) {
   const accent = resolveVendorAccent(pharmacy)
   const interactive = !!cart && !!onQtyChange
   const [activeCategory, setActiveCategory] = useState('all')
   const [search, setSearch] = useState('')
-  const [view, setView] = useState<'menu' | 'feed'>('menu')
+  const [view, setView] = useState<'menu' | 'feed'>(focusPostId ? 'feed' : 'menu')
   const postCount = pharmacy.posts?.length ?? 0
   const cardRef = useRef<HTMLDivElement>(null)
 
@@ -1168,6 +1171,7 @@ export function VendorStorefront({
             onAdd={interactive ? (productId) => onQtyChange!(productId, (cart![productId] ?? 0) + 1) : undefined}
             onOpenMenu={openMenuFromPost}
             viewer={viewer}
+            focusPostId={focusPostId}
           />
         </div>
       )}

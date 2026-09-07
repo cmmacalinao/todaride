@@ -137,6 +137,9 @@ function AppShell() {
     // Likewise a business login/sign-up link (/vendor?role=vendor&auth=…):
     // reloading it must show the form again, not the landing page.
     const isBusinessEntryLink = (location.pathname === '/vendor' || location.pathname === '/pharmacy') && params.has('role')
+    // And the passenger/parent one (/book?role=passenger&auth=…) from the
+    // same chooser.
+    const isRiderEntryLink = location.pathname === '/book' && params.has('role')
     // A vendor's page is public too: it is the link a carinderia shares on
     // Facebook, and whoever taps it must land on the store, not a login.
     const isPublicEntry =
@@ -145,7 +148,8 @@ function AppShell() {
       location.pathname.startsWith('/scan/') ||
       location.pathname.startsWith('/vendor-page/') ||
       isDriverEntryLink ||
-      isBusinessEntryLink
+      isBusinessEntryLink ||
+      isRiderEntryLink
     if (!isPublicEntry) navigate('/', { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

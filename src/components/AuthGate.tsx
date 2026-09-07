@@ -136,9 +136,13 @@ export function LegacyAuthGate() {
   // Shared between Passenger and Parent so the Log in/Sign up choice is a
   // single row above the Passenger/Parent tabs (not one buried inside each),
   // and switching role tabs doesn't reset which mode was selected.
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>(
-    searchParams.get('auth') === 'signup' ? 'signup' : 'login',
-  )
+  const authMode: 'login' | 'signup' = searchParams.get('auth') === 'signup' ? 'signup' : 'login'
+  // Which side of the role chooser "Go back" returns to. Drivers and TODAs
+  // say it with ?mode=register / ?toda=register rather than ?auth=.
+  const chooserMode: 'login' | 'signup' =
+    authMode === 'signup' || searchParams.get('mode') === 'register' || searchParams.get('toda') === 'register'
+      ? 'signup'
+      : 'login'
 
   // AuthGate doesn't always remount between entry points (e.g. browser
   // back/forward between /book and /drive without passing through '/'), so
@@ -188,24 +192,18 @@ export function LegacyAuthGate() {
           </span>
         </div>
 
-        {/* Log in/Sign up sits above Passenger/Parent — it's the more
-            fundamental choice (what are you here to do), and putting it
-            first means switching Passenger↔Parent below it doesn't reset
-            which mode was selected (see authMode, lifted up to this level). */}
-        {(role === 'passenger' || role === 'parent') && <SubTabs mode={authMode} setMode={setAuthMode} />}
-
-        {/* A business account arrives here from the role chooser having
-            already said Log in or Sign up, so there is no second toggle —
-            just the way back to change that choice. */}
-        {isBusinessRole && (
-          <button
-            type="button"
-            onClick={() => navigate(`/welcome?mode=${authMode}`)}
-            className="mb-3 rounded-lg border border-white/25 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10"
-          >
-            ‹ Go back
-          </button>
-        )}
+        {/* Everyone arrives here from the role chooser having already said
+            Log in or Sign up (?auth= for passengers and businesses, ?mode=
+            for drivers and TODAs), so there is no second toggle on this
+            screen — just the way back to change that choice. Each form
+            keeps a one-line text link to the other sheet. */}
+        <button
+          type="button"
+          onClick={() => navigate(`/welcome?mode=${chooserMode}`)}
+          className="mb-3 rounded-lg border border-white/25 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10"
+        >
+          ‹ Go back
+        </button>
 
         {showTabs && (
           <div className="mb-4 flex gap-1 rounded-lg bg-white/5 p-1">
@@ -242,17 +240,15 @@ export function LegacyAuthGate() {
   )
 }
 
-// Always rendered directly on LegacyAuthGate's blue page (never inside one
-// of the white auth cards), so this is gold-on-navy like RoleChooserPage's
-// own login/signup toggle rather than the light-mode brand-600 pill used
-// inside those cards.
+// Still used by the Operator and Franchise screens, which are not reached
+// through the role chooser and so have nowhere else to make the choice.
 function SubTabs({ mode, setMode }: { mode: 'login' | 'signup'; setMode: (m: 'login' | 'signup') => void }) {
   return (
     <div className="mb-3 flex gap-1 rounded-lg bg-white/5 p-1">
       <button
         type="button"
         onClick={() => setMode('login')}
-        className={`flex-1 rounded-md py-1.5 text-xs font-medium transition ${
+        className={`flex-1 rounded-md py-2 text-sm font-bold uppercase tracking-wide transition ${
           mode === 'login' ? 'bg-gold-400 text-navy-900 shadow-sm' : 'text-white/60'
         }`}
       >
@@ -261,13 +257,28 @@ function SubTabs({ mode, setMode }: { mode: 'login' | 'signup'; setMode: (m: 'lo
       <button
         type="button"
         onClick={() => setMode('signup')}
-        className={`flex-1 rounded-md py-1.5 text-xs font-medium transition ${
+        className={`flex-1 rounded-md py-2 text-sm font-bold uppercase tracking-wide transition ${
           mode === 'signup' ? 'bg-gold-400 text-navy-900 shadow-sm' : 'text-white/60'
         }`}
       >
         Sign up
       </button>
     </div>
+  )
+}
+
+// The one-line "other sheet" link under a login or sign-up form, on the
+// blue page: the toggle it replaces asked the same question the role
+// chooser had just asked.
+function SwitchSheetLink({ mode, to }: { mode: 'login' | 'signup'; to: string }) {
+  const navigate = useNavigate()
+  return (
+    <p className="mt-2 text-center text-xs text-white/70">
+      {mode === 'login' ? 'No account yet? ' : 'Already have an account? '}
+      <button type="button" onClick={() => navigate(to)} className="font-semibold text-gold-400 hover:underline">
+        {mode === 'login' ? 'Sign up' : 'Log in instead'}
+      </button>
+    </p>
   )
 }
 
@@ -288,7 +299,7 @@ function PassengerAuth({ mode, asStudent = false }: { mode: 'login' | 'signup'; 
             setAuthedAccount({ role: 'passenger', id })
             setSessionRole('passenger')
           }}
-          noAccountHint="No passenger account found for that name, email, or number — switch to Sign up."
+          noAccountHint="No passenger account found for that name, email, or number — tap Sign up below."
         />
       ) : (
         <PassengerRegisterForm
@@ -300,6 +311,7 @@ function PassengerAuth({ mode, asStudent = false }: { mode: 'login' | 'signup'; 
           }}
         />
       )}
+      <SwitchSheetLink mode={mode} to={`/book?role=passenger&auth=${mode === 'login' ? 'signup' : 'login'}`} />
     </div>
   )
 }
@@ -321,7 +333,7 @@ function ParentAuth({ mode }: { mode: 'login' | 'signup' }) {
             setAuthedAccount({ role: 'parent', id })
             setSessionRole('parent')
           }}
-          noAccountHint="No parent account found for that name, email, or number — switch to Sign up."
+          noAccountHint="No parent account found for that name, email, or number — tap Sign up below."
         />
       ) : (
         <ParentRegisterForm
@@ -332,6 +344,7 @@ function ParentAuth({ mode }: { mode: 'login' | 'signup' }) {
           }}
         />
       )}
+      <SwitchSheetLink mode={mode} to={`/book?role=parent&auth=${mode === 'login' ? 'signup' : 'login'}`} />
     </div>
   )
 }

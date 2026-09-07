@@ -91,6 +91,14 @@ export function RoleChooserPage() {
         }}
       />
       <div className="relative mx-auto max-w-lg">
+        {/* The way back to the main login, in words — the logo above also
+            links home, but a picture is not a button to everyone. */}
+        <Link
+          to="/"
+          className="mb-3 inline-block rounded-lg border border-white/25 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10"
+        >
+          ‹ Go back
+        </Link>
         <div className="mb-6 flex flex-col items-center text-center">
           <Link to="/" aria-label="Back to home" className="rounded-2xl border-2 border-white/25 p-3">
             <img src="/logo.webp" alt="TODA SafeRide" className="h-14 w-auto object-contain" />
@@ -119,11 +127,11 @@ export function RoleChooserPage() {
               key={m}
               type="button"
               onClick={() => setMode(m)}
-              className={`flex-1 rounded-md py-2 text-xs font-semibold transition ${
+              className={`flex-1 rounded-md py-2.5 text-base font-extrabold uppercase tracking-wide transition ${
                 mode === m ? 'bg-gold-400 text-navy-900 shadow-sm' : 'text-white/60 hover:bg-white/10'
               }`}
             >
-              {m === 'signup' ? 'Sign up' : 'Login'}
+              {m === 'signup' ? 'Sign up' : 'Log in'}
             </button>
           ))}
         </div>

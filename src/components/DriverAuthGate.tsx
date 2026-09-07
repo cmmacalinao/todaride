@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { autoDetectTodaOrgId, DOCUMENT_LABELS, DOCUMENT_TYPES, MOCK_DRIVERS, MOCK_TODA_ORGANIZATIONS } from '../mock/data'
 import { getCurrentGeoPosition } from '../lib/geo'
@@ -59,6 +60,16 @@ export function DriverAuthGate({
           : 'login',
   )
 
+  // The other sheet, one line under the form. The Log in / Register choice
+  // was made on the role chooser (see RoleChooserPage), so there is no
+  // toggle here; a wrong choice is one tap away, or "Go back" above.
+  const otherSheet =
+    mode === 'login' ? (
+      <SwitchLink label="No account yet?" action="Register as a driver" to="/drive?mode=register" />
+    ) : mode === 'register' ? (
+      <SwitchLink label="Already registered?" action="Log in instead" to="/drive?mode=login" />
+    ) : null
+
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
       {mode === 'login' && <LoginForm drivers={drivers} onLoggedIn={onLoggedIn} />}
@@ -70,6 +81,7 @@ export function DriverAuthGate({
           inviteTodaOrgId={inviteTodaOrgId}
         />
       )}
+      {otherSheet}
       {mode === 'toda_admin' && (
         <TodaAdminSection
           todaOrganizations={todaOrganizations}
@@ -95,36 +107,40 @@ function TodaAdminSection({
   // RoleChooserPage) — same effect an Operator's invite link already has.
   startOnRegister: boolean
 }) {
+  // Log in or Register was chosen on the role chooser (?toda=register) or
+  // implied by an Operator's invite — no second toggle here, same as every
+  // other account type; the other sheet is one line under the form.
   const [subMode, setSubMode] = useState<'login' | 'register'>(
     inviteOperatorId || startOnRegister ? 'register' : 'login',
   )
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
-        <button
-          onClick={() => setSubMode('login')}
-          className={`flex-1 rounded-md py-1.5 text-xs font-medium transition ${
-            subMode === 'login' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500'
-          }`}
-        >
-          Log in
-        </button>
-        <button
-          onClick={() => setSubMode('register')}
-          className={`flex-1 rounded-md py-1.5 text-xs font-medium transition ${
-            subMode === 'register' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500'
-          }`}
-        >
-          Register new TODA
-        </button>
-      </div>
       {subMode === 'login' ? (
-        <TodaAdminLoginForm todaOrganizations={todaOrganizations} onLoggedIn={onLoggedIn} />
+        <>
+          <TodaAdminLoginForm todaOrganizations={todaOrganizations} onLoggedIn={onLoggedIn} />
+          <SwitchLink label="New TODA?" action="Register your TODA" to="/drive?mode=toda_admin&toda=register" />
+        </>
       ) : (
-        <TodaOrgRegisterForm onSubmitted={() => setSubMode('login')} inviteOperatorId={inviteOperatorId} />
+        <>
+          <TodaOrgRegisterForm onSubmitted={() => setSubMode('login')} inviteOperatorId={inviteOperatorId} />
+          <SwitchLink label="Already registered?" action="Log in instead" to="/drive?mode=toda_admin" />
+        </>
       )}
     </div>
+  )
+}
+
+// One line under a form on the blue page, pointing at the other sheet.
+function SwitchLink({ label, action, to }: { label: string; action: string; to: string }) {
+  const navigate = useNavigate()
+  return (
+    <p className="mt-2 text-center text-xs text-white/70">
+      {label}{' '}
+      <button type="button" onClick={() => navigate(to)} className="font-semibold text-gold-400 hover:underline">
+        {action}
+      </button>
+    </p>
   )
 }
 

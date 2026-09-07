@@ -319,10 +319,9 @@ export function VendorFeedList({
 }
 
 // The Food Express page IS this feed: one card per store that has posted,
-// newest store first, showing that store's latest post. Older posts are
-// behind it — a flick up on the card (or ▼) turns to the previous one, a
-// flick down (or ▲) back toward the latest — so the page stays one card
-// per store however much a store has posted.
+// newest store first, showing that store's latest post only. The rest of
+// a store's posts are on its own page (Feed tab), a tap on the banner
+// away — so the page stays one card per store however much it posted.
 export function VendorNewsfeed({
   vendors,
   items,
@@ -379,41 +378,11 @@ function VendorFeedCard({
   onOrderItem: (vendorId: string, productId: string) => void
 }) {
   const accent = resolveVendorAccent(vendor)
-  // 0 = the latest; higher = older. Clamped if a post is deleted underneath.
-  const [index, setIndex] = useState(0)
-  const shown = Math.min(index, posts.length - 1)
-  const post = posts[shown]
+  const post = posts[0]
   const featured = post.productId ? items.find((i) => i.id === post.productId) : undefined
-  const canOlder = shown < posts.length - 1
-  const canNewer = shown > 0
-  const older = () => canOlder && setIndex(shown + 1)
-  const newer = () => canNewer && setIndex(shown - 1)
-
-  // A flick — quick, mostly vertical — turns the post. A slow drag is the
-  // page scrolling and is left alone.
-  const touch = useRef<{ x: number; y: number; at: number } | null>(null)
-  function onTouchStart(e: React.TouchEvent) {
-    const t = e.touches[0]
-    touch.current = { x: t.clientX, y: t.clientY, at: Date.now() }
-  }
-  function onTouchEnd(e: React.TouchEvent) {
-    const start = touch.current
-    touch.current = null
-    if (!start || posts.length < 2) return
-    const t = e.changedTouches[0]
-    const dx = t.clientX - start.x
-    const dy = t.clientY - start.y
-    if (Date.now() - start.at > 350 || Math.abs(dy) < 70 || Math.abs(dx) > 40) return
-    if (dy < 0) older()
-    else newer()
-  }
 
   return (
-    <article
-      className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-    >
+    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       {/* The store's own banner as the card header — tap it to open the
           store. */}
       <button
@@ -436,35 +405,15 @@ function VendorFeedCard({
             {vendor.tagline ? ` · ${vendor.tagline}` : ''}
           </span>
         </span>
+        {posts.length > 1 && (
+          <span className="relative shrink-0 rounded-full bg-black/25 px-2 py-0.5 text-[10px] font-semibold text-white">
+            +{posts.length - 1} more
+          </span>
+        )}
         <span aria-hidden className="relative text-white/70">
           ›
         </span>
       </button>
-
-      {/* Which post of the store's is showing, and the way to the others. */}
-      {posts.length > 1 && (
-        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-3 py-1 text-[11px] text-slate-500">
-          <button
-            type="button"
-            onClick={newer}
-            disabled={!canNewer}
-            className="rounded-md px-2 py-0.5 font-semibold text-slate-600 hover:bg-slate-200 disabled:opacity-30"
-          >
-            ▲ Newer
-          </button>
-          <span>
-            {shown === 0 ? 'Latest' : `${shown + 1} of ${posts.length}`} · swipe up for older
-          </span>
-          <button
-            type="button"
-            onClick={older}
-            disabled={!canOlder}
-            className="rounded-md px-2 py-0.5 font-semibold text-slate-600 hover:bg-slate-200 disabled:opacity-30"
-          >
-            ▼ Older
-          </button>
-        </div>
-      )}
 
       <div key={post.id}>
         <PostText text={post.text} className="px-3 pt-2.5" />

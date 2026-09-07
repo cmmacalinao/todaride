@@ -143,16 +143,25 @@ export function VendorMenuBooking({
     setCart((prev) => ({ ...prev, [productId]: Math.max(0, qty) }))
   }
 
+  // Each step is a new "page" to the person using it, and a page opens at
+  // its top — these steps change no route, so the app-wide scroll-to-top
+  // on navigation does not cover them.
+  function goTo(next: 'browse' | 'menu' | 'checkout') {
+    setStep(next)
+    window.scrollTo({ top: 0 })
+    document.getElementById('root')?.scrollTo({ top: 0 })
+  }
+
   function openVendor(vendorId: string) {
     setSelectedVendorId(vendorId)
     setCart({})
-    setStep('menu')
+    goTo('menu')
   }
 
   function backToBrowse() {
     setSelectedVendorId(null)
     setCart({})
-    setStep('browse')
+    goTo('browse')
   }
 
   async function handleAddressResolve(address: PhAddressTags) {
@@ -202,7 +211,7 @@ export function VendorMenuBooking({
     })
     setCart({})
     setSelectedVendorId(null)
-    setStep('browse')
+    goTo('browse')
   }
 
   if (activeOrder) {
@@ -321,7 +330,7 @@ export function VendorMenuBooking({
             items={menu}
             cart={cart}
             onQtyChange={setQty}
-            onCheckout={() => setStep('checkout')}
+            onCheckout={() => goTo('checkout')}
             onRate={() => setRatingVendorId(selectedVendor.id)}
           />
         </div>
@@ -332,7 +341,7 @@ export function VendorMenuBooking({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setStep('menu')}
+              onClick={() => goTo('menu')}
               className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
             >
               ‹ Menu

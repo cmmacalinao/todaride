@@ -318,6 +318,11 @@ function AppShell() {
     <>
       <ScrollToTopOnLogin accountId={authedAccount.id} />
       <NavBar />
+      {/* Every screen opens at its top. Keyed on the pathname (not the
+          query), and it runs in a layout effect at render time, so the few
+          screens that then scroll to a section on purpose (PassengerPage's
+          50 ms section scrolls) still get the last word. */}
+      <ScrollToTopOfPublicView pathname={location.pathname} />
       {/* Measured against the real header: the minimal one renders 67px
           tall with the larger logo and the hamburger/back stack, so 70px
           clears it with a hair to spare. Re-measure if that header's contents

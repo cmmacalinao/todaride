@@ -24,7 +24,7 @@ export function ServiceTabs({ active, tone = 'dark' }: { active: 'toda' | 'food'
         type="button"
         onClick={isActive ? undefined : to}
         aria-current={isActive ? 'page' : undefined}
-        className={`flex-1 rounded-full py-2.5 text-center text-base font-black uppercase tracking-wide transition ${
+        className={`flex-1 rounded-full py-1.5 text-center text-sm font-black uppercase tracking-wide transition ${
           isActive ? 'bg-gold-400 text-navy-900 shadow-sm' : idle
         }`}
       >
@@ -37,7 +37,7 @@ export function ServiceTabs({ active, tone = 'dark' }: { active: 'toda' | 'food'
   }
 
   return (
-    <div className={`flex overflow-hidden rounded-full border p-1 ${shell}`}>
+    <div className={`flex overflow-hidden rounded-full border p-0.5 ${shell}`}>
       {tab('toda', 'TODA', () => navigate('/book/start'))}
       {tab('food', 'Food Express', () => navigate('/book', { state: { section: 'food' } }))}
     </div>

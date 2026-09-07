@@ -80,6 +80,7 @@ import type {
   Pharmacy,
   StoreReview,
   VendorPost,
+  VendorPostComment,
   PromoDiscountType,
   PromoOffer,
   PromoOfferKind,
@@ -1406,6 +1407,8 @@ type RideAction =
   | { type: 'RATE_PHARMACY'; pharmacyId: string; customerId: string; customerName: string; rating: number; text: string | null }
   | { type: 'ADD_VENDOR_POST'; pharmacyId: string; text: string; photoDataUrl: string | null; productId: string | null }
   | { type: 'REMOVE_VENDOR_POST'; pharmacyId: string; postId: string }
+  | { type: 'REACT_VENDOR_POST'; pharmacyId: string; postId: string; reaction: 'like' | 'heart'; actorId: string }
+  | { type: 'COMMENT_VENDOR_POST'; pharmacyId: string; postId: string; authorId: string; authorName: string; text: string }
   | { type: 'REMOVE_MEDICINE_PRODUCT'; productId: string }
   | { type: 'REORDER_MEDICINE_PRODUCTS'; orderedIds: string[] }
 
@@ -5652,6 +5655,55 @@ function reducer(state: RideState, action: RideAction): RideState {
           p.id === action.pharmacyId ? { ...p, posts: (p.posts ?? []).filter((post) => post.id !== action.postId) } : p,
         ),
       }
+    // A reaction toggles: tap once to like, again to take it back. One
+    // entry per account either way.
+    case 'REACT_VENDOR_POST': {
+      const key = action.reaction === 'like' ? 'likes' : 'hearts'
+      return {
+        ...state,
+        pharmacies: state.pharmacies.map((p) =>
+          p.id !== action.pharmacyId
+            ? p
+            : {
+                ...p,
+                posts: (p.posts ?? []).map((post) => {
+                  if (post.id !== action.postId) return post
+                  const current = post[key] ?? []
+                  const next = current.includes(action.actorId)
+                    ? current.filter((id) => id !== action.actorId)
+                    : [...current, action.actorId]
+                  return { ...post, [key]: next }
+                }),
+              },
+        ),
+      }
+    }
+    case 'COMMENT_VENDOR_POST': {
+      const text = action.text.trim()
+      if (!text) return state
+      const comment: VendorPostComment = {
+        id: `cmt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        authorId: action.authorId,
+        authorName: action.authorName,
+        text: text.slice(0, 500),
+        createdAt: new Date().toISOString(),
+      }
+      return {
+        ...state,
+        pharmacies: state.pharmacies.map((p) =>
+          p.id !== action.pharmacyId
+            ? p
+            : {
+                ...p,
+                posts: (p.posts ?? []).map((post) =>
+                  // Capped so a busy post cannot grow the shared state
+                  // without bound; the newest fifty stay.
+                  post.id === action.postId ? { ...post, comments: [...(post.comments ?? []), comment].slice(-50) } : post,
+                ),
+              },
+        ),
+      }
+    }
     case 'TOGGLE_PHARMACY_TRUSTED_DRIVER': {
       return {
         ...state,
@@ -6595,6 +6647,8 @@ interface RideContextValue extends RideState {
   ratePharmacy: (args: { pharmacyId: string; customerId: string; customerName: string; rating: number; text: string | null }) => void
   addVendorPost: (args: { pharmacyId: string; text: string; photoDataUrl: string | null; productId: string | null }) => void
   removeVendorPost: (pharmacyId: string, postId: string) => void
+  reactToVendorPost: (pharmacyId: string, postId: string, reaction: 'like' | 'heart', actorId: string) => void
+  commentOnVendorPost: (args: { pharmacyId: string; postId: string; authorId: string; authorName: string; text: string }) => void
   // The TODA fare + admin booking fee for delivering from this store to that
   // address — see vendorDeliveryFareQuote. Null when the store is unknown.
   quoteVendorDeliveryFare: (pharmacyId: string, dropoff: MockLocation) => { todaFare: number; bookingFee: number } | null
@@ -7422,6 +7476,9 @@ export function RideProvider({ children }: { children: ReactNode }) {
       return pharmacy ? vendorDeliveryFareQuote(state, pharmacy, dropoff) : null
     },
     removeVendorPost: (pharmacyId, postId) => dispatch({ type: 'REMOVE_VENDOR_POST', pharmacyId, postId }),
+    reactToVendorPost: (pharmacyId, postId, reaction, actorId) =>
+      dispatch({ type: 'REACT_VENDOR_POST', pharmacyId, postId, reaction, actorId }),
+    commentOnVendorPost: (args) => dispatch({ type: 'COMMENT_VENDOR_POST', ...args }),
   }
 
   return <RideContext.Provider value={value}>{children}</RideContext.Provider>

@@ -209,6 +209,7 @@ export function VendorPortalPage() {
                 pharmacy={vendor}
                 items={menu}
                 accent={resolveVendorAccent(vendor)}
+                viewer={{ id: vendor.id, name: vendor.name }}
                 onRemove={(postId) => removeVendorPost(vendor.id, postId)}
               />
             </div>

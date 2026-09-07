@@ -5,7 +5,7 @@ import { captureNativePhoto, compressImageFile, isNativePlatform, removeFlatBack
 import { ShareSheet } from './ShareSheet'
 import { ProfilePhotoPicker } from './ProfilePhotoPicker'
 import { storeRatingSummary } from './StoreRatingSheet'
-import { VendorFeedList } from './VendorFeed'
+import { VendorFeedList, type PostViewer } from './VendorFeed'
 import { MENU_ITEM_BADGES, type MedicineProduct, type Pharmacy } from '../types'
 
 // One shared "shape", three audiences: a vendor sees exactly this header +
@@ -1046,6 +1046,7 @@ export function VendorStorefront({
   onQtyChange,
   onCheckout,
   onRate,
+  viewer,
 }: {
   pharmacy: Pharmacy
   items: MedicineProduct[]
@@ -1057,6 +1058,8 @@ export function VendorStorefront({
   onCheckout?: () => void
   // Customer ordering view only — see VendorHeaderCard.
   onRate?: () => void
+  // Who is reading the Feed tab — see PostViewer in VendorFeed.
+  viewer?: PostViewer | null
 }) {
   const accent = resolveVendorAccent(pharmacy)
   const interactive = !!cart && !!onQtyChange
@@ -1064,6 +1067,19 @@ export function VendorStorefront({
   const [search, setSearch] = useState('')
   const [view, setView] = useState<'menu' | 'feed'>('menu')
   const postCount = pharmacy.posts?.length ?? 0
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  // A tap on a post's photo or featured dish is "I want that": switch to
+  // the menu, put the dish (if the post named one) in the cart, and scroll
+  // back up to the tabs so the menu is what they are looking at.
+  function openMenuFromPost(productId: string | null) {
+    if (productId && interactive) {
+      const item = items.find((i) => i.id === productId)
+      if (item && item.inStock && item.visible !== false) onQtyChange!(productId, (cart![productId] ?? 0) + 1)
+    }
+    setView('menu')
+    cardRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }
 
   // Built from the items a customer can actually see — a category whose
   // every item is hidden (see `visible`) would otherwise leave an empty tab
@@ -1117,7 +1133,7 @@ export function VendorStorefront({
   const cartTotal = cart ? items.reduce((sum, item) => sum + (cart[item.id] ?? 0) * item.price, 0) : 0
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div ref={cardRef} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <VendorHeaderCard
         pharmacy={pharmacy}
         itemCount={items.filter((i) => i.visible !== false).length}
@@ -1150,6 +1166,8 @@ export function VendorStorefront({
             items={items}
             accent={accent}
             onAdd={interactive ? (productId) => onQtyChange!(productId, (cart![productId] ?? 0) + 1) : undefined}
+            onOpenMenu={openMenuFromPost}
+            viewer={viewer}
           />
         </div>
       )}

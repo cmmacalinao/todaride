@@ -1,8 +1,141 @@
 import { useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { captureNativePhoto, compressImageFile, isNativePlatform } from '../lib/photo'
-import type { MedicineProduct, Pharmacy } from '../types'
+import type { MedicineProduct, Pharmacy, VendorPost } from '../types'
+import { ShareSheet } from './ShareSheet'
 import { VendorBannerArt, resolveVendorAccent, type VendorAccent } from './VendorStorefront'
+
+// Who is looking at the feed — the account a like, heart or comment is
+// recorded under. Null for a visitor who is not logged in: they can read
+// everything and share, but not react or comment.
+export interface PostViewer {
+  id: string
+  name: string
+}
+
+// Like · Heart · Comment · Share under a post, the way a Facebook post has
+// them, plus the comment thread. Shared by the store's own page and the
+// Food Express newsfeed. Share opens the same sheet as the store's Share
+// button, pointing at the store's public page.
+function PostActions({ pharmacy, post, viewer }: { pharmacy: Pharmacy; post: VendorPost; viewer: PostViewer | null | undefined }) {
+  const { reactToVendorPost, commentOnVendorPost } = useRides()
+  const [commentsOpen, setCommentsOpen] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [shareOpen, setShareOpen] = useState(false)
+  const likes = post.likes ?? []
+  const hearts = post.hearts ?? []
+  const comments = post.comments ?? []
+  const liked = !!viewer && likes.includes(viewer.id)
+  const hearted = !!viewer && hearts.includes(viewer.id)
+  const shareUrl = `${window.location.origin}/vendor-page/${pharmacy.id}`
+
+  function react(reaction: 'like' | 'heart') {
+    if (!viewer) return
+    reactToVendorPost(pharmacy.id, post.id, reaction, viewer.id)
+  }
+  function sendComment() {
+    const text = draft.trim()
+    if (!text || !viewer) return
+    commentOnVendorPost({ pharmacyId: pharmacy.id, postId: post.id, authorId: viewer.id, authorName: viewer.name, text })
+    setDraft('')
+    setCommentsOpen(true)
+  }
+
+  const actionClass = (active: boolean) =>
+    `flex flex-1 items-center justify-center gap-1 rounded-md py-1.5 text-xs font-semibold transition ${
+      active ? 'text-brand-700' : 'text-slate-500 hover:bg-slate-100'
+    } disabled:cursor-default disabled:hover:bg-transparent`
+
+  return (
+    <div className="border-t border-slate-100 px-2 pb-2 pt-1">
+      {(likes.length > 0 || hearts.length > 0 || comments.length > 0) && (
+        <div className="flex items-center justify-between px-1 pb-1 text-[11px] text-slate-400">
+          <span>
+            {likes.length > 0 && `👍 ${likes.length}`}
+            {likes.length > 0 && hearts.length > 0 && ' · '}
+            {hearts.length > 0 && `❤️ ${hearts.length}`}
+          </span>
+          {comments.length > 0 && (
+            <button type="button" onClick={() => setCommentsOpen((v) => !v)} className="hover:underline">
+              {comments.length} comment{comments.length === 1 ? '' : 's'}
+            </button>
+          )}
+        </div>
+      )}
+      <div className="flex items-center">
+        <button
+          type="button"
+          onClick={() => react('like')}
+          disabled={!viewer}
+          title={viewer ? (liked ? 'Unlike' : 'Like') : 'Log in to like'}
+          className={actionClass(liked)}
+        >
+          <span aria-hidden>{liked ? '👍' : '👍🏻'}</span> Like
+        </button>
+        <button
+          type="button"
+          onClick={() => react('heart')}
+          disabled={!viewer}
+          title={viewer ? (hearted ? 'Remove heart' : 'Heart') : 'Log in to react'}
+          className={actionClass(hearted)}
+        >
+          <span aria-hidden>{hearted ? '❤️' : '🤍'}</span> Heart
+        </button>
+        <button type="button" onClick={() => setCommentsOpen((v) => !v)} className={actionClass(commentsOpen)}>
+          <span aria-hidden>💬</span> Comment
+        </button>
+        <button type="button" onClick={() => setShareOpen(true)} className={actionClass(false)}>
+          <span aria-hidden>↗</span> Share
+        </button>
+      </div>
+      {commentsOpen && (
+        <div className="mt-1.5 space-y-1.5 px-1">
+          {comments.map((c) => (
+            <div key={c.id} className="rounded-xl bg-slate-100 px-2.5 py-1.5">
+              <p className="text-[11px] font-semibold text-slate-700">
+                {c.authorName} <span className="font-normal text-slate-400">· {timeAgo(c.createdAt)}</span>
+              </p>
+              <p className="whitespace-pre-line text-xs text-slate-700">{c.text}</p>
+            </div>
+          ))}
+          {viewer ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                sendComment()
+              }}
+              className="flex items-center gap-1.5"
+            >
+              <input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Write a comment…"
+                maxLength={500}
+                className="min-w-0 flex-1 rounded-full bg-slate-100 px-3 py-1.5 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-200"
+              />
+              <button
+                type="submit"
+                disabled={!draft.trim()}
+                className="rounded-full bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:bg-slate-300"
+              >
+                Send
+              </button>
+            </form>
+          ) : (
+            <p className="text-[11px] text-slate-400">Log in to comment.</p>
+          )}
+        </div>
+      )}
+      {shareOpen && (
+        <ShareSheet
+          title={`${pharmacy.name}: ${post.text.trim().slice(0, 80) || 'see this post'}`}
+          url={shareUrl}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
+    </div>
+  )
+}
 
 // The vendor's page as a feed — the part of a Facebook page people actually
 // scroll: a post at a time, newest on top, each with the store's name and
@@ -26,14 +159,23 @@ export function VendorFeedList({
   pharmacy,
   items,
   accent,
+  viewer,
   onAdd,
+  onOpenMenu,
   onRemove,
 }: {
   pharmacy: Pharmacy
   items: MedicineProduct[]
   accent: VendorAccent
+  // Who is reading — see PostViewer. The vendor on their own portal
+  // passes themselves, so the store can answer comments as itself.
+  viewer?: PostViewer | null
   // A customer who can order: the featured dish gets an Add button.
   onAdd?: (productId: string) => void
+  // A customer tapping the post itself — the photo, or the featured dish —
+  // is taken to the menu to order (the dish, when there is one, goes into
+  // the cart on the way). See VendorStorefront.
+  onOpenMenu?: (productId: string | null) => void
   // The vendor on their own portal: each post gets a Delete.
   onRemove?: (postId: string) => void
 }) {
@@ -74,11 +216,30 @@ export function VendorFeedList({
               )}
             </header>
             {post.text && <p className="whitespace-pre-line px-3 pt-2 text-sm leading-snug text-slate-700">{post.text}</p>}
-            {post.photoDataUrl && (
-              <img src={post.photoDataUrl} alt="" className="mt-2 block h-auto w-full" loading="lazy" />
-            )}
+            {post.photoDataUrl &&
+              (onOpenMenu ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenMenu(featured?.id ?? null)}
+                  title="Open the menu to order"
+                  className="mt-2 block w-full"
+                >
+                  <img src={post.photoDataUrl} alt="" className="block h-auto w-full" loading="lazy" />
+                </button>
+              ) : (
+                <img src={post.photoDataUrl} alt="" className="mt-2 block h-auto w-full" loading="lazy" />
+              ))}
             {featured && (
-              <div className="m-3 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
+              <div
+                role={onOpenMenu ? 'button' : undefined}
+                tabIndex={onOpenMenu ? 0 : undefined}
+                onClick={onOpenMenu ? () => onOpenMenu(featured.id) : undefined}
+                onKeyDown={onOpenMenu ? (e) => e.key === 'Enter' && onOpenMenu(featured.id) : undefined}
+                title={onOpenMenu ? 'Open the menu to order' : undefined}
+                className={`m-3 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2 ${
+                  onOpenMenu ? 'cursor-pointer hover:border-slate-300 hover:bg-slate-100' : ''
+                }`}
+              >
                 {featured.photoDataUrl && (
                   <img src={featured.photoDataUrl} alt={featured.name} className="h-14 w-14 shrink-0 rounded-md object-cover" />
                 )}
@@ -90,7 +251,10 @@ export function VendorFeedList({
                 {onAdd && featured.inStock && featured.visible !== false && (
                   <button
                     type="button"
-                    onClick={() => onAdd(featured.id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onAdd(featured.id)
+                    }}
                     className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-white ${accent.solid} ${accent.solidHover}`}
                   >
                     + Add
@@ -98,8 +262,8 @@ export function VendorFeedList({
                 )}
               </div>
             )}
-            {!featured && !post.photoDataUrl && <div className="pb-3" />}
-            {(featured || post.photoDataUrl) && !featured && <div className="pb-1" />}
+            {!featured && !post.photoDataUrl && <div className="pb-2" />}
+            <PostActions pharmacy={pharmacy} post={post} viewer={viewer} />
           </article>
         )
       })}
@@ -107,96 +271,69 @@ export function VendorFeedList({
   )
 }
 
-// Every vendor's posts in one scroll — the Food Express page as a newsfeed.
-// Each post sits under its own store's banner (gradient, logo, name), so a
-// customer browsing sees who is cooking what today without opening each
-// store; the banner is the way in, and a featured dish can be ordered
-// straight from the post.
+// The Food Express page as a newsfeed — banners only. One banner per store
+// that has posted, newest post first: the store's gradient, logo and name,
+// with when it last posted and the first line of that post. Everything
+// else — the post itself, its photo, the featured dish, likes and comments
+// — lives on the store's own page, which is where a tap on the banner
+// goes. Stores that have never posted do not appear here; the search box
+// above is how a customer finds those.
 export function VendorNewsfeed({
   vendors,
-  items,
   onOpenVendor,
-  onOrderItem,
   limit = 20,
 }: {
   vendors: Pharmacy[]
-  items: MedicineProduct[]
   onOpenVendor: (vendorId: string) => void
-  onOrderItem: (vendorId: string, productId: string) => void
   limit?: number
 }) {
   const entries = vendors
-    .flatMap((vendor) => (vendor.posts ?? []).map((post) => ({ vendor, post })))
+    .map((vendor) => {
+      const latest = [...(vendor.posts ?? [])].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      )[0]
+      return latest ? { vendor, post: latest, count: vendor.posts?.length ?? 0 } : null
+    })
+    .filter((e): e is { vendor: Pharmacy; post: VendorPost; count: number } => !!e)
     .sort((a, b) => new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime())
     .slice(0, limit)
   if (entries.length === 0) return null
   return (
-    <div className="space-y-3">
-      {entries.map(({ vendor, post }) => {
+    <div className="space-y-2">
+      {entries.map(({ vendor, post, count }) => {
         const accent = resolveVendorAccent(vendor)
-        const featured = post.productId ? items.find((i) => i.id === post.productId) : undefined
+        const snippet = post.text.trim().split('\n')[0] || (post.photoDataUrl ? 'Posted a photo' : 'New post')
         return (
-          <article key={post.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            {/* The store's own banner as the post header — tap it to open
-                the store. */}
-            <button
-              type="button"
-              onClick={() => onOpenVendor(vendor.id)}
-              className={`relative flex w-full items-center gap-2.5 overflow-hidden bg-gradient-to-br px-3 py-2 text-left ${accent.gradient}`}
-            >
-              <VendorBannerArt />
-              <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
-                {vendor.logoDataUrl ? (
-                  <img src={vendor.logoDataUrl} alt="" className="h-full w-full object-contain" />
-                ) : (
-                  <span aria-hidden className="text-base">{accent.icon}</span>
-                )}
+          <button
+            key={vendor.id}
+            type="button"
+            onClick={() => onOpenVendor(vendor.id)}
+            title={`Open ${vendor.name}`}
+            className={`relative flex w-full items-center gap-3 overflow-hidden rounded-xl bg-gradient-to-br ${accent.gradient} px-3 py-3 text-left text-white shadow-sm transition hover:brightness-105`}
+          >
+            <VendorBannerArt />
+            <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/80 bg-white/20 text-lg">
+              {vendor.logoDataUrl ? (
+                <img src={vendor.logoDataUrl} alt="" className="h-full w-full bg-white object-cover" />
+              ) : (
+                <span aria-hidden>{accent.icon}</span>
+              )}
+            </span>
+            <span className="relative min-w-0 flex-1">
+              <span className="block truncate text-base font-extrabold drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">{vendor.name}</span>
+              <span className="block truncate text-xs text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
+                {timeAgo(post.createdAt)} · {snippet}
               </span>
-              <span className="relative min-w-0 flex-1">
-                <span className="block truncate text-sm font-bold text-white drop-shadow">{vendor.name}</span>
-                <span className="block text-[11px] text-white/80">
-                  {timeAgo(post.createdAt)}
-                  {vendor.tagline ? ` · ${vendor.tagline}` : ''}
-                </span>
+            </span>
+            {count > 1 && (
+              <span className="relative shrink-0 rounded-full bg-black/30 px-2 py-0.5 text-[11px] font-semibold">
+                {count} posts
               </span>
-              <span aria-hidden className="relative text-white/70">
-                ›
-              </span>
-            </button>
-            {post.text && <p className="whitespace-pre-line px-3 pt-2.5 text-sm leading-snug text-slate-700">{post.text}</p>}
-            {post.photoDataUrl && <img src={post.photoDataUrl} alt="" className="mt-2 block h-auto w-full" loading="lazy" />}
-            {featured && (
-              <div className="m-3 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
-                {featured.photoDataUrl && (
-                  <img src={featured.photoDataUrl} alt={featured.name} className="h-14 w-14 shrink-0 rounded-md object-cover" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-800">{featured.name}</p>
-                  <p className={`text-sm font-bold ${accent.softText}`}>₱{featured.price}</p>
-                </div>
-                {featured.inStock && featured.visible !== false && (
-                  <button
-                    type="button"
-                    onClick={() => onOrderItem(vendor.id, featured.id)}
-                    className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-white ${accent.solid} ${accent.solidHover}`}
-                  >
-                    Order
-                  </button>
-                )}
-              </div>
             )}
-            {!featured && (
-              <div className="px-3 pb-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => onOpenVendor(vendor.id)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold text-white ${accent.solid} ${accent.solidHover}`}
-                >
-                  View menu ›
-                </button>
-              </div>
-            )}
-          </article>
+            <span aria-hidden className="relative shrink-0 text-white/80">
+              ›
+            </span>
+          </button>
         )
       })}
     </div>

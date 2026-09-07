@@ -508,6 +508,19 @@ export interface VendorPost {
   // text with its price and an Add button for a customer.
   productId: string | null
   createdAt: string
+  // Who reacted — account ids, one entry per person, so a second tap takes
+  // the reaction back. Optional: posts made before reactions existed.
+  likes?: string[]
+  hearts?: string[]
+  comments?: VendorPostComment[]
+}
+
+export interface VendorPostComment {
+  id: string
+  authorId: string
+  authorName: string
+  text: string
+  createdAt: string
 }
 
 export interface StoreReview {

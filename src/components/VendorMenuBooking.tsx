@@ -12,6 +12,7 @@ import { ServiceTabs } from './ServiceTabs'
 import { OrderChat } from './OrderChat'
 import { TripMonitor } from './TripMonitor'
 import { VendorListRow, VendorStorefront } from './VendorStorefront'
+import { VendorNewsfeed } from './VendorFeed'
 import type { BusinessType, MedicineProduct, MedsOrder, MockLocation, PaymentMethod, Pharmacy } from '../types'
 
 const VENDOR_BUSINESS_TYPES: BusinessType[] = ['resto_food', 'other_commodity']
@@ -378,7 +379,7 @@ export function VendorMenuBooking({
           <input
             value={vendorSearch}
             onChange={(e) => setVendorSearch(e.target.value)}
-            placeholder="Search vendors by name or barangay"
+            placeholder="Search vendors by name or barangay to pick a store"
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
 
@@ -393,7 +394,10 @@ export function VendorMenuBooking({
             </p>
           )}
 
-          {shownVendors.length > 0 && (
+          {/* The store list only while a search is typed — the page itself
+              is the feed below; the search box is how a customer picks a
+              particular store. */}
+          {query && shownVendors.length > 0 && (
             <div>
               <p className="mb-1.5 flex items-center gap-1 text-sm font-bold text-slate-700">🌟 Vendors</p>
               {/* One line per store — see VendorListRow. Open stores first,
@@ -414,9 +418,23 @@ export function VendorMenuBooking({
             </div>
           )}
 
-          {/* No newsfeed here: a store's posts are read on its own page,
-              under its banner (Menu | Feed) — this page is the list of
-              stores, one banner strip each. */}
+          {/* The page is the newsfeed, banners only: one banner per store
+              that has posted, newest first — see VendorNewsfeed. Tapping a
+              banner opens that store's page, where the posts themselves
+              (photo, featured dish, likes, comments) and the menu are. A
+              search narrows this list to matching stores too. */}
+          {vendors.length > 0 && (
+            <div>
+              <p className="mb-1.5 flex items-center gap-1 text-sm font-bold text-slate-700">📣 Latest from vendors</p>
+              {shownVendors.some((v) => (v.posts?.length ?? 0) > 0) ? (
+                <VendorNewsfeed vendors={shownVendors} onOpenVendor={openVendor} />
+              ) : (
+                <p className="rounded-lg bg-slate-50 p-3 text-center text-xs text-slate-400">
+                  No posts yet — search a store above to see its menu.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -437,6 +455,7 @@ export function VendorMenuBooking({
             onQtyChange={setQty}
             onCheckout={() => goTo('checkout')}
             onRate={() => setRatingVendorId(selectedVendor.id)}
+            viewer={{ id: customerId, name: customerName }}
           />
         </div>
       )}

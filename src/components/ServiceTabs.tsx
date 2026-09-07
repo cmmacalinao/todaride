@@ -12,8 +12,11 @@ export function ServiceTabs({ active, tone = 'dark' }: { active: 'toda' | 'food'
   if (!vendorsEnabled) return null
 
   const shell = tone === 'dark' ? 'border-white/15 bg-white/5' : 'border-slate-200 bg-slate-100'
-  const idle = tone === 'dark' ? 'text-white/70 hover:bg-white/10' : 'text-slate-600 hover:bg-white'
-  const brandIdle = tone === 'dark' ? 'text-gold-400' : 'text-brand-700'
+  const idle = tone === 'dark' ? 'text-white/80 hover:bg-white/10' : 'text-slate-700 hover:bg-white'
+  // "SafeRide" is the quiet part — small, plain weight, muted — so the
+  // service name is what the eye lands on.
+  const brandActive = 'text-navy-900/60'
+  const brandIdle = tone === 'dark' ? 'text-white/50' : 'text-slate-400'
   const tab = (key: 'toda' | 'food', label: string, to: () => void) => {
     const isActive = key === active
     return (
@@ -21,11 +24,14 @@ export function ServiceTabs({ active, tone = 'dark' }: { active: 'toda' | 'food'
         type="button"
         onClick={isActive ? undefined : to}
         aria-current={isActive ? 'page' : undefined}
-        className={`flex-1 rounded-full py-2.5 text-center text-sm font-extrabold uppercase tracking-wide transition ${
+        className={`flex-1 rounded-full py-2.5 text-center text-base font-black uppercase tracking-wide transition ${
           isActive ? 'bg-gold-400 text-navy-900 shadow-sm' : idle
         }`}
       >
-        <span className={`normal-case tracking-normal ${isActive ? 'text-blue-700' : brandIdle}`}>SafeRide</span> {label}
+        <span className={`mr-0.5 text-[11px] font-medium normal-case tracking-normal ${isActive ? brandActive : brandIdle}`}>
+          SafeRide
+        </span>{' '}
+        {label}
       </button>
     )
   }

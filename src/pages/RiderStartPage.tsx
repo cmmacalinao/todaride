@@ -116,7 +116,7 @@ export function RiderStartPage() {
           >
             <span aria-hidden className="text-3xl">⬛</span>
             <span className="min-w-0 flex-1">
-              <span className="block text-base font-bold text-gold-400">Record mo ang Biyahe</span>
+              <span className="block text-base font-bold text-gold-400">TRACK YOUR TRIP</span>
               <span className="block text-sm font-bold text-white">
                 for your <span className="font-extrabold italic text-gold-400">SAFE</span> ride
               </span>

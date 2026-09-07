@@ -75,7 +75,7 @@ export function VendorFeedList({
             </header>
             {post.text && <p className="whitespace-pre-line px-3 pt-2 text-sm leading-snug text-slate-700">{post.text}</p>}
             {post.photoDataUrl && (
-              <img src={post.photoDataUrl} alt="" className="mt-2 max-h-80 w-full object-cover" loading="lazy" />
+              <img src={post.photoDataUrl} alt="" className="mt-2 block h-auto w-full" loading="lazy" />
             )}
             {featured && (
               <div className="m-3 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
@@ -164,7 +164,7 @@ export function VendorNewsfeed({
               </span>
             </button>
             {post.text && <p className="whitespace-pre-line px-3 pt-2.5 text-sm leading-snug text-slate-700">{post.text}</p>}
-            {post.photoDataUrl && <img src={post.photoDataUrl} alt="" className="mt-2 max-h-80 w-full object-cover" loading="lazy" />}
+            {post.photoDataUrl && <img src={post.photoDataUrl} alt="" className="mt-2 block h-auto w-full" loading="lazy" />}
             {featured && (
               <div className="m-3 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
                 {featured.photoDataUrl && (
@@ -300,7 +300,7 @@ export function VendorFeedComposer({ pharmacy, items }: { pharmacy: Pharmacy; it
 
       {photo && (
         <div className="relative mt-2 overflow-hidden rounded-lg border border-slate-200">
-          <img src={photo} alt="Post photo" className="max-h-56 w-full object-cover" />
+          <img src={photo} alt="Post photo" className="block h-auto w-full" />
           <button
             type="button"
             onClick={() => setPhoto(null)}

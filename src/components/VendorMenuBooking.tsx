@@ -324,8 +324,25 @@ export function VendorMenuBooking({
   const steppedBackRide = steppedBackOrder?.linkedRideId ? rides.find((r) => r.id === steppedBackOrder.linkedRideId) : undefined
 
   const query = vendorSearch.trim().toLowerCase()
+  // A search matches a store by name or place, OR by what it sells: typing
+  // "inasal" lists every store with a dish called that, with the matching
+  // dishes named under each strip.
+  const matchingDishes = (vendorId: string): MedicineProduct[] =>
+    query
+      ? medicineProducts.filter(
+          (p) =>
+            p.pharmacyId === vendorId &&
+            p.visible !== false &&
+            (p.name.toLowerCase().includes(query) || (p.description ?? '').toLowerCase().includes(query)),
+        )
+      : []
   const shownVendors = vendors.filter(
-    (v) => !query || v.name.toLowerCase().includes(query) || v.barangay.toLowerCase().includes(query) || v.city.toLowerCase().includes(query),
+    (v) =>
+      !query ||
+      v.name.toLowerCase().includes(query) ||
+      v.barangay.toLowerCase().includes(query) ||
+      v.city.toLowerCase().includes(query) ||
+      matchingDishes(v.id).length > 0,
   )
 
   return (
@@ -379,7 +396,7 @@ export function VendorMenuBooking({
           <input
             value={vendorSearch}
             onChange={(e) => setVendorSearch(e.target.value)}
-            placeholder="Search vendors by name or barangay to pick a store"
+            placeholder="Search a store or a food (e.g. inasal, lugaw)"
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
 
@@ -406,14 +423,36 @@ export function VendorMenuBooking({
               <div className="space-y-1.5">
                 {[...shownVendors]
                   .sort((a, b) => Number(b.isOpen) - Number(a.isOpen) || a.name.localeCompare(b.name))
-                  .map((v) => (
-                    <VendorListRow
-                      key={v.id}
-                      pharmacy={v}
-                      itemCount={medicineProducts.filter((p) => p.pharmacyId === v.id && p.visible !== false).length}
-                      onSelect={() => openVendor(v.id)}
-                    />
-                  ))}
+                  .map((v) => {
+                    const dishes = matchingDishes(v.id)
+                    return (
+                      <div key={v.id}>
+                        <VendorListRow
+                          pharmacy={v}
+                          itemCount={medicineProducts.filter((p) => p.pharmacyId === v.id && p.visible !== false).length}
+                          onSelect={() => openVendor(v.id)}
+                        />
+                        {dishes.length > 0 && (
+                          <div className="mx-2 -mt-1 flex flex-wrap gap-1 rounded-b-lg border border-t-0 border-slate-200 bg-white px-2 pb-1.5 pt-2">
+                            {dishes.slice(0, 4).map((d) => (
+                              <button
+                                key={d.id}
+                                type="button"
+                                onClick={() => {
+                                  openVendor(v.id)
+                                  setCart({ [d.id]: 1 })
+                                }}
+                                className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 hover:bg-amber-100"
+                              >
+                                🍽️ {d.name} · ₱{d.price}
+                              </button>
+                            ))}
+                            {dishes.length > 4 && <span className="px-1 text-[11px] text-slate-400">+{dishes.length - 4} more</span>}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
               </div>
             </div>
           )}

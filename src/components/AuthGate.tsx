@@ -646,7 +646,7 @@ const SIGNUP_CATEGORIES: Record<'pharmacy' | 'vendor', { value: BusinessType; ic
       value: 'store',
       icon: '🏪',
       label: 'Store',
-      blurb: 'Connects to Pabili — passengers can pick you by name for an errand.',
+      blurb: 'Connects to Food Express — customers can pick you by name for a delivery.',
     },
   ],
   vendor: [

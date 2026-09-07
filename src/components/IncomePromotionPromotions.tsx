@@ -119,7 +119,7 @@ export function IncomePromotionPromotions() {
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="mb-1 text-sm font-semibold text-slate-700">{editingId ? 'Edit promotion' : 'Create promotion'}</h3>
         <div className="space-y-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3">
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title, e.g. '10% off Pabili this week'" className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs" />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title, e.g. '10% off rides this week'" className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs" />
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" rows={2} className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs" />
           <select value={kind} onChange={(e) => setKind(e.target.value as PromoOfferKind)} className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs">
             {KIND_OPTIONS.map((k) => (

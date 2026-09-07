@@ -630,7 +630,7 @@ export function QuickBookingForm({
             )}
             {isPabili && (
               <div className="flex items-center justify-between text-xs text-slate-500">
-                <span>Pabili service fee</span>
+                <span>Service fee</span>
                 <span>₱{serviceFee}</span>
               </div>
             )}

@@ -700,9 +700,9 @@ export function DriverPage() {
   const pabiliPriorityControl = pabiliEnabled ? (
     <label className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
       <span>
-        <span className="block text-xs font-medium text-slate-700">Prioritize Pabili errands</span>
+        <span className="block text-xs font-medium text-slate-700">Prioritize Food Express deliveries</span>
         <span className="block text-xs text-slate-500">
-          Get offered Pabili (bili/errand) requests before other drivers in the Pila.
+          Get offered Food Express delivery requests before other drivers in the Pila.
         </span>
       </span>
       <input

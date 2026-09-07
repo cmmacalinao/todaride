@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
-import { DocumentUploadField } from './DocumentUploadField'
+import { captureNativePhoto, compressImageFile, isNativePlatform } from '../lib/photo'
 import type { MedicineProduct, Pharmacy } from '../types'
 import { VendorBannerArt, resolveVendorAccent, type VendorAccent } from './VendorStorefront'
 
@@ -205,12 +205,56 @@ export function VendorNewsfeed({
 
 // Where the vendor writes a post: a line or two, an optional photo, and
 // optionally the dish it is about.
+// The "what's on your mind" box, the way a Facebook page has one: the
+// store's logo, a "Post on your Feed" line to write in, and under it a row
+// of Photo / Feature a dish / Post. A tapped photo is shrunk before it is
+// kept (see compressImageFile — 480px wide, WebP) so a 4 MB camera shot
+// does not land in the shared state as 4 MB.
 export function VendorFeedComposer({ pharmacy, items }: { pharmacy: Pharmacy; items: MedicineProduct[] }) {
   const { addVendorPost } = useRides()
+  const accent = resolveVendorAccent(pharmacy)
+  const inputRef = useRef<HTMLInputElement>(null)
   const [text, setText] = useState('')
   const [photo, setPhoto] = useState<string | null>(null)
+  const [photoBusy, setPhotoBusy] = useState(false)
   const [productId, setProductId] = useState('')
+  const [pickingDish, setPickingDish] = useState(false)
   const canPost = text.trim().length > 0 || !!photo
+  const featured = productId ? items.find((i) => i.id === productId) : null
+
+  // Web: click the input synchronously — awaiting anything first makes some
+  // mobile browsers refuse to open the picker. Native: camera-or-library.
+  function handlePhotoTap() {
+    if (!isNativePlatform()) {
+      inputRef.current?.click()
+      return
+    }
+    setPhotoBusy(true)
+    void (async () => {
+      try {
+        const native = await captureNativePhoto({ source: 'prompt' })
+        if (native) {
+          setPhoto(native)
+          return
+        }
+        inputRef.current?.click()
+      } finally {
+        setPhotoBusy(false)
+      }
+    })()
+  }
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setPhotoBusy(true)
+    try {
+      setPhoto(await compressImageFile(file))
+    } finally {
+      setPhotoBusy(false)
+    }
+  }
 
   function handlePost() {
     if (!canPost) return
@@ -218,48 +262,107 @@ export function VendorFeedComposer({ pharmacy, items }: { pharmacy: Pharmacy; it
     setText('')
     setPhoto(null)
     setProductId('')
+    setPickingDish(false)
   }
 
   return (
-    <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        rows={3}
-        placeholder="What's new at your store? A promo, today's special, a new dish…"
-        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-      />
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <div>
-          <p className="mb-1 text-[11px] font-medium text-slate-500">Photo (optional)</p>
-          <DocumentUploadField label="Post photo" dataUrl={photo} onUpload={setPhoto} onRemove={() => setPhoto(null)} />
-        </div>
-        <div>
-          <p className="mb-1 text-[11px] font-medium text-slate-500">Feature a menu item (optional)</p>
-          <select
-            value={productId}
-            onChange={(e) => setProductId(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-          >
-            <option value="">— None —</option>
-            {items
-              .filter((i) => i.visible !== false)
-              .map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.name} · ₱{i.price}
-                </option>
-              ))}
-          </select>
-        </div>
+    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+      <div className="flex items-start gap-2.5">
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br ${accent.gradient} text-base`}
+        >
+          {pharmacy.logoDataUrl ? (
+            <img src={pharmacy.logoDataUrl} alt="" className="h-full w-full bg-white object-cover" />
+          ) : (
+            <span aria-hidden>{accent.icon}</span>
+          )}
+        </span>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={text || photo ? 3 : 2}
+          placeholder="Post on your Feed — a promo, today's special, a new dish…"
+          className="min-h-[2.5rem] w-full resize-none rounded-2xl bg-slate-100 px-3.5 py-2.5 text-sm placeholder:text-slate-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-200"
+        />
       </div>
-      <button
-        type="button"
-        onClick={handlePost}
-        disabled={!canPost}
-        className="w-full rounded-lg bg-brand-600 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-      >
-        📣 Post to my page
-      </button>
+
+      {photo && (
+        <div className="relative mt-2 overflow-hidden rounded-lg border border-slate-200">
+          <img src={photo} alt="Post photo" className="max-h-56 w-full object-cover" />
+          <button
+            type="button"
+            onClick={() => setPhoto(null)}
+            aria-label="Remove photo"
+            className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-sm text-white hover:bg-black/75"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+      {featured && (
+        <p className="mt-2 flex items-center justify-between rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800">
+          <span>
+            🍽️ Featuring <span className="font-semibold">{featured.name}</span> · ₱{featured.price}
+          </span>
+          <button type="button" onClick={() => setProductId('')} className="font-semibold hover:underline">
+            Remove
+          </button>
+        </p>
+      )}
+      {pickingDish && !featured && (
+        <select
+          autoFocus
+          value={productId}
+          onChange={(e) => {
+            setProductId(e.target.value)
+            setPickingDish(false)
+          }}
+          className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+        >
+          <option value="">Which dish to feature?</option>
+          {items
+            .filter((i) => i.visible !== false)
+            .map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.name} · ₱{i.price}
+              </option>
+            ))}
+        </select>
+      )}
+
+      <div className="mt-2 flex items-center gap-1 border-t border-slate-100 pt-2">
+        <button
+          type="button"
+          onClick={handlePhotoTap}
+          disabled={photoBusy}
+          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-60"
+        >
+          <span aria-hidden className="text-base leading-none text-emerald-600">
+            📷
+          </span>
+          {photoBusy ? 'Shrinking…' : photo ? 'Change photo' : 'Photo'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setPickingDish((v) => !v)}
+          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+        >
+          <span aria-hidden className="text-base leading-none">
+            🍽️
+          </span>
+          Feature a dish
+        </button>
+        <button
+          type="button"
+          onClick={handlePost}
+          disabled={!canPost}
+          className="ml-auto rounded-lg bg-brand-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          Post
+        </button>
+      </div>
+      <p className="mt-1.5 text-[10px] text-slate-400">Photos are shrunk automatically before posting to keep the app light.</p>
     </div>
   )
 }

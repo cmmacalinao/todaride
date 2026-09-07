@@ -202,16 +202,9 @@ export function VendorPortalPage() {
 
           {/* The vendor's feed — what customers see under the Feed tab of
               the store page. Write a post here, delete one below. */}
-          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-700">📣 My page feed</h2>
-            <p className="mt-0.5 text-[11px] text-slate-500">
-              Promos, today's special, a dish to show off — posts appear on your page under Feed, newest first, and go
-              out with your shared link.
-            </p>
-            <div className="mt-2">
-              <VendorFeedComposer pharmacy={vendor} items={menu} />
-            </div>
-            <div className="mt-3">
+          <section className="space-y-3">
+            <VendorFeedComposer pharmacy={vendor} items={menu} />
+            <div>
               <VendorFeedList
                 pharmacy={vendor}
                 items={menu}

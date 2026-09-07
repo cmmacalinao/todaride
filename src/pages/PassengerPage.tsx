@@ -33,7 +33,6 @@ import { isWithinRetentionDays } from '../lib/tracking'
 import {
   createCustomLocation,
   resolvePhAddress,
-  resolveNearbyPublicMarket,
   reverseGeocodeToPhAddress,
   type PhAddressTags,
 } from '../lib/customLocation'
@@ -1230,24 +1229,6 @@ export function PassengerPage() {
     setStoreName(store.name)
   }
 
-  // Pabili defaults to buying from the public market near CLSU (the current
-  // default "where I am" for booking — see DEFAULT_BOOKING_* in
-  // mock/data.ts) and delivering there too, so both fields start pre-filled
-  // instead of blank. The passenger can still change either afterward.
-  async function handleSelectPabili() {
-    setServiceType('pabili')
-    setPassengerCount(1)
-
-    // CLSU is the current default "where I am" for booking (see
-    // DEFAULT_BOOKING_* in mock/data.ts) — both the store search and the
-    // delivery address start there rather than the passenger's own
-    // registered home address.
-    const store = await resolveNearbyPublicMarket(DEFAULT_BOOKING_CITY, DEFAULT_BOOKING_PROVINCE)
-    setCustomLocations((prev) => [...prev, store])
-    handlePickupQuickPick(store)
-    handleDropoffQuickPick(CLSU_MAIN_GATE_LOCATION)
-  }
-
   // "My location" used to register the coordinate and nothing else: the map
   // knew where you were, and the address box above it stayed empty, so the
   // next thing you had to do was type out the address of the spot you were
@@ -2243,36 +2224,11 @@ export function PassengerPage() {
             <span className="truncate text-[10px] font-semibold text-slate-700">Contact</span>
           </button>
         )}
+        {/* Only Food Express sits beside TODA Ride now. The Pabili and
+            Medicine errands are no longer offered from this footer — Food
+            Express is the one partner service a passenger orders through;
+            the errand flows underneath it stay for that. */}
         {[
-          ...(pabiliEnabled
-            ? [
-                {
-                  key: 'pabili',
-                  icon: '🛍️',
-                  label: 'Pabili',
-                  on: homeMode === 'buy' && isPabili && !foodHinted && pageTab === 'book',
-                  // chooseErrand first: handleSelectPabili only sets the
-                  // service type and resolves the store/delivery defaults, it
-                  // never switches homeMode — so on its own this card left the
-                  // page in Ride mode and never lit up.
-                  onClick: () => {
-                    chooseErrand('pabili')
-                    void handleSelectPabili()
-                  },
-                },
-              ]
-            : []),
-          ...(medsEnabled
-            ? [
-                {
-                  key: 'meds',
-                  icon: '💊',
-                  label: 'Medicine',
-                  on: homeMode === 'buy' && isBuyMedicine && pageTab === 'book',
-                  onClick: () => chooseErrand('buy_medicine'),
-                },
-              ]
-            : []),
           // Food is its own partner service (resto/store vendors). It rides
           // on the Pabili flow underneath, but that's plumbing — Super Admin
           // switching errands off must not take Food Express with it, so

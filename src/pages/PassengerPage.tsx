@@ -2190,41 +2190,7 @@ export function PassengerPage() {
           <span className="text-[15px] leading-none">🛵</span>
           <span className="truncate text-[10px] font-semibold text-slate-700">TODA Ride</span>
         </button>
-        {/* Right of Ride, because choosing who drives you is part of booking
-            a ride rather than a service of its own. The dot marks a driver
-            already picked for this booking. */}
-        <button
-          type="button"
-          onClick={() => setShowDrivers(true)}
-          title="See drivers near you and pick one"
-          className={`relative flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border py-1.5 transition ${
-            requestedDriverId
-              ? 'border-brand-600 bg-white shadow-md'
-              : 'border-transparent bg-slate-100 hover:bg-slate-200'
-          }`}
-        >
-          <span className="text-[15px] leading-none">🧑‍✈️</span>
-          <span className="truncate text-[10px] font-semibold text-slate-700">Drivers</span>
-          {requestedDriverId && (
-            <span aria-hidden className="absolute right-1.5 top-1 h-2 w-2 rounded-full bg-brand-600" />
-          )}
-        </button>
-        {/* An action, not a mode to switch into — kept beside the two tabs
-            above it rather than among the errand tiles further along, since
-            it belongs with "who is driving me" not "what am I buying".
-            Absent whenever there is no assigned driver: nobody to reach. */}
-        {footerContact && (
-          <button
-            type="button"
-            onClick={() => setFooterContactOpen(true)}
-            title={`Contact ${footerContact.name}`}
-            className="flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border border-transparent bg-slate-100 py-1.5 transition hover:bg-slate-200"
-          >
-            <span className="text-[15px] leading-none">☎️</span>
-            <span className="truncate text-[10px] font-semibold text-slate-700">Contact</span>
-          </button>
-        )}
-        {/* Only Food Express sits beside TODA Ride now. The Pabili and
+        {/* Food Express sits right beside TODA Ride. The Pabili and
             Medicine errands are no longer offered from this footer — Food
             Express is the one partner service a passenger orders through;
             the errand flows underneath it stay for that. */}
@@ -2257,6 +2223,39 @@ export function PassengerPage() {
             <span className="truncate text-[10px] font-semibold text-slate-700">{m.label}</span>
           </button>
         ))}
+        {/* After the two services: choosing who drives you comes once you
+            know what you are booking. The dot marks a driver already picked
+            for this booking. */}
+        <button
+          type="button"
+          onClick={() => setShowDrivers(true)}
+          title="See drivers near you and pick one"
+          className={`relative flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border py-1.5 transition ${
+            requestedDriverId
+              ? 'border-brand-600 bg-white shadow-md'
+              : 'border-transparent bg-slate-100 hover:bg-slate-200'
+          }`}
+        >
+          <span className="text-[15px] leading-none">🧑‍✈️</span>
+          <span className="truncate text-[10px] font-semibold text-slate-700">Drivers Near You</span>
+          {requestedDriverId && (
+            <span aria-hidden className="absolute right-1.5 top-1 h-2 w-2 rounded-full bg-brand-600" />
+          )}
+        </button>
+        {/* An action, not a mode to switch into — kept beside Drivers, since
+            it belongs with "who is driving me". Absent whenever there is no
+            assigned driver: nobody to reach. */}
+        {footerContact && (
+          <button
+            type="button"
+            onClick={() => setFooterContactOpen(true)}
+            title={`Contact ${footerContact.name}`}
+            className="flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border border-transparent bg-slate-100 py-1.5 transition hover:bg-slate-200"
+          >
+            <span className="text-[15px] leading-none">☎️</span>
+            <span className="truncate text-[10px] font-semibold text-slate-700">Contact</span>
+          </button>
+        )}
         {[
           { icon: '🎁', label: 'Rewards', tab: 'rewards' as const },
           { icon: '🆘', label: 'Emergency', tab: 'emergency' as const },

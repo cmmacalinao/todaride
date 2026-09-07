@@ -1076,21 +1076,23 @@ export function VendorStorefront({
   const interactive = !!cart && !!onQtyChange
   const [activeCategory, setActiveCategory] = useState('all')
   const [search, setSearch] = useState('')
-  const [view, setView] = useState<'menu' | 'feed'>(focusPostId ? 'feed' : 'menu')
-  const postCount = pharmacy.posts?.length ?? 0
   const cardRef = useRef<HTMLDivElement>(null)
+  // The store's page is its menu. Its post lives on the Food Express feed;
+  // the one time a post shows here is when a shared post link opened this
+  // page — that post sits above the menu so the reader lands on what was
+  // shared, and the menu is right under it to order from.
+  const sharedPost = focusPostId ? (pharmacy.posts ?? []).find((p) => p.id === focusPostId) ?? null : null
 
-  // A tap on a post's photo or featured dish is "I want that": switch to
-  // the menu, put the dish (if the post named one) in the cart, and scroll
-  // back up to the tabs so the menu is what they are looking at.
+  // A tap on the shared post's photo or featured dish is "I want that": put
+  // the dish (if the post named one) in the cart and scroll to the menu.
   function openMenuFromPost(productId: string | null) {
     if (productId && interactive) {
       const item = items.find((i) => i.id === productId)
       if (item && item.inStock && item.visible !== false) onQtyChange!(productId, (cart![productId] ?? 0) + 1)
     }
-    setView('menu')
-    cardRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    menuRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
   }
+  const menuRef = useRef<HTMLDivElement>(null)
 
   // Built from the items a customer can actually see — a category whose
   // every item is hidden (see `visible`) would otherwise leave an empty tab
@@ -1152,28 +1154,11 @@ export function VendorStorefront({
         onRate={onRate}
       />
 
-      {/* Menu | Feed, the way a page has tabs under its banner. The feed is
-          the vendor's own posts — promos, today's special, a dish to show
-          off — and reads the same for a customer, a visitor and the vendor. */}
-      <div className="flex border-t border-slate-100">
-        {(['menu', 'feed'] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => setView(v)}
-            className={`flex-1 py-2.5 text-center text-xs font-bold uppercase tracking-wide transition ${
-              view === v ? `border-b-2 ${accent.softText} border-current` : 'border-b-2 border-transparent text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            {v === 'menu' ? '🍽️ Menu' : `📣 Feed${postCount > 0 ? ` (${postCount})` : ''}`}
-          </button>
-        ))}
-      </div>
-
-      {view === 'feed' && (
+      {sharedPost && (
         <div className="border-t border-slate-100 bg-slate-50 p-3">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">📣 Shared post</p>
           <VendorFeedList
-            pharmacy={pharmacy}
+            pharmacy={{ ...pharmacy, posts: [sharedPost] }}
             items={items}
             accent={accent}
             onAdd={interactive ? (productId) => onQtyChange!(productId, (cart![productId] ?? 0) + 1) : undefined}
@@ -1184,7 +1169,7 @@ export function VendorStorefront({
         </div>
       )}
 
-      {view === 'menu' && categories.length > 0 && (
+      {categories.length > 0 && (
         <div className="flex gap-1.5 overflow-x-auto border-t border-slate-100 px-3 py-2.5">
           <button
             type="button"
@@ -1210,8 +1195,7 @@ export function VendorStorefront({
         </div>
       )}
 
-      {view === 'menu' && (
-      <div className={`space-y-2.5 p-3 ${categories.length === 0 ? 'border-t border-slate-100' : ''}`}>
+      <div ref={menuRef} className={`space-y-2.5 border-t border-slate-100 p-3`}>
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-bold text-slate-800">Menu</h3>
         </div>
@@ -1279,7 +1263,6 @@ export function VendorStorefront({
           ))}
         </div>
       </div>
-      )}
 
       {interactive && cartCount > 0 && (
         <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 p-3">

@@ -210,6 +210,17 @@ export function VendorNewsfeed({
 // of Photo / Feature a dish / Post. A tapped photo is shrunk before it is
 // kept (see compressImageFile — 480px wide, WebP) so a 4 MB camera shot
 // does not land in the shared state as 4 MB.
+function PhotoGalleryIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" className="h-6 w-6" fill="none">
+      <rect x="2.5" y="6" width="14" height="15" rx="2.5" transform="rotate(-8 9.5 13.5)" fill="#34a853" opacity="0.55" />
+      <rect x="6" y="4" width="15" height="16" rx="2.5" fill="#45bd62" />
+      <circle cx="11" cy="9" r="1.8" fill="white" />
+      <path d="M8 17.5 L12.2 12.6 L14.6 15.3 L16.4 13.4 L19 17.5 Z" fill="white" />
+    </svg>
+  )
+}
+
 export function VendorFeedComposer({ pharmacy, items }: { pharmacy: Pharmacy; items: MedicineProduct[] }) {
   const { addVendorPost } = useRides()
   const accent = resolveVendorAccent(pharmacy)
@@ -332,16 +343,18 @@ export function VendorFeedComposer({ pharmacy, items }: { pharmacy: Pharmacy; it
       )}
 
       <div className="mt-2 flex items-center gap-1 border-t border-slate-100 pt-2">
+        {/* The photo control is the green gallery icon alone, the way a
+            Facebook composer has it — no label; the title and aria-label
+            carry the words. */}
         <button
           type="button"
           onClick={handlePhotoTap}
           disabled={photoBusy}
-          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-60"
+          aria-label={photo ? 'Change photo' : 'Add photo'}
+          title={photoBusy ? 'Shrinking the photo…' : photo ? 'Change photo' : 'Add photo'}
+          className={`flex h-9 w-9 items-center justify-center rounded-lg hover:bg-slate-100 disabled:opacity-60 ${photoBusy ? 'animate-pulse' : ''}`}
         >
-          <span aria-hidden className="text-base leading-none text-emerald-600">
-            📷
-          </span>
-          {photoBusy ? 'Shrinking…' : photo ? 'Change photo' : 'Photo'}
+          <PhotoGalleryIcon />
         </button>
         <button
           type="button"

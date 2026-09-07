@@ -2375,11 +2375,6 @@ export function PassengerPage() {
               pick it up and deliver it to you.
             </p>
           )}
-          {showVendorMenu && (
-            <p className="text-xs text-slate-500">
-              Order straight from a partner vendor's own priced menu — no need to tell your driver what to buy.
-            </p>
-          )}
           {isBuyMedicine && (
             <p className="text-xs text-slate-500">
               Order medicine from a nearby participating pharmacy — your driver picks it up and delivers it to you.

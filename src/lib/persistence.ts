@@ -1,3 +1,4 @@
+import type { RealtimeChannel } from '@supabase/supabase-js'
 import { getSupabase, getWriterId, supabaseConfigured } from './supabaseClient'
 
 // How the app's state gets from one device to another — or doesn't.
@@ -208,6 +209,9 @@ class SupabaseAdapter implements PersistenceAdapter {
   // whole blob — several hundred KB — every 800 ms. Only the changed rows
   // go out; the blob goes out when something in it actually changed.
   private lastBlobJson: string | null = null
+  // The realtime channel, once subscribed — the blob's change notice is
+  // sent over it (see saveAsync).
+  private channel: RealtimeChannel | null = null
 
   // Called by RideContext once a shared read has been applied — not merely
   // received. A read that arrives but cannot be hydrated leaves the document
@@ -328,7 +332,15 @@ class SupabaseAdapter implements PersistenceAdapter {
     try {
       await Promise.all(work)
       this.localOnly = false
-      if (blobChanged) this.lastBlobJson = blobJson
+      if (blobChanged) {
+        this.lastBlobJson = blobJson
+        // Tell the other devices the blob changed — a few bytes, not the
+        // blob. Realtime's own row-change notice for app_state carried the
+        // whole new row (several hundred KB) to every connected device on
+        // every write, and that was most of the project's realtime traffic;
+        // they only need to know to re-read.
+        void this.channel?.send({ type: 'broadcast', event: 'blob-changed', payload: { writer: this.writer } })
+      }
     } catch (err) {
       console.warn('[persistence] could not write to the shared state', err)
     }
@@ -373,16 +385,19 @@ class SupabaseAdapter implements PersistenceAdapter {
     }
 
     const channel = db.channel('toda-saferide')
-    for (const table of ['app_state', ...HOT.map((h) => h.table)]) {
-      channel.on('postgres_changes', { event: '*', schema: 'public', table }, (payload) => {
-        // Skip the echo of this device's own write to app_state; the hot
-        // tables carry no writer column, so those still round-trip.
-        const updatedBy = (payload.new as { updated_by?: string } | null)?.updated_by
-        if (table === 'app_state' && updatedBy === this.writer) return
-        refetch()
-      })
+    // The hot tables' rows are small, so their change notices are cheap.
+    // The blob is not: its notice is the small broadcast below instead of
+    // a postgres_changes subscription that would deliver the whole row.
+    for (const table of HOT.map((h) => h.table)) {
+      channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => refetch())
     }
+    channel.on('broadcast', { event: 'blob-changed' }, (msg) => {
+      const writer = (msg.payload as { writer?: string } | undefined)?.writer
+      if (writer === this.writer) return
+      refetch()
+    })
     channel.subscribe()
+    this.channel = channel
 
     // Coming back from the background is its own kind of change.
     //
@@ -441,6 +456,7 @@ class SupabaseAdapter implements PersistenceAdapter {
         window.removeEventListener('focus', onWake)
         window.removeEventListener('online', onWake)
       }
+      this.channel = null
       void db.removeChannel(channel)
       unsubLocal()
     }

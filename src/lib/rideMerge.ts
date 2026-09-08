@@ -86,9 +86,14 @@ function mergePost(local: VendorPost, incoming: VendorPost): VendorPost {
 
 export function mergeVendorPosts(local: Pharmacy[], incoming: Pharmacy[]): Pharmacy[] {
   const byId = new Map(local.map((p) => [p.id, p]))
-  return incoming.map((remote) => {
+  // Vendor and pharmacy accounts are accounts: unioned by id like
+  // passengers (mergeById), never dropped because the copy arriving from
+  // elsewhere has not heard of one — or, worse, is a copy of the seeds.
+  const incomingIds = new Set(incoming.map((p) => p.id))
+  const onlyMine = local.filter((p) => !incomingIds.has(p.id))
+  return [...incoming, ...onlyMine].map((remote) => {
     const mine = byId.get(remote.id)
-    if (!mine) return remote
+    if (!mine || mine === remote) return remote
     const removed = new Set([...(remote.removedPostIds ?? []), ...(mine.removedPostIds ?? [])])
     const posts = new Map<string, VendorPost>()
     for (const post of [...(mine.posts ?? []), ...(remote.posts ?? [])]) {

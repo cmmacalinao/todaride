@@ -6746,6 +6746,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
         // persistence.ts remoteReady): pushing it would erase the shared
         // world, which is what happened on 2026-09-06.
         try {
+          assertUsableSharedState(shared)
           const hydrated = fromStored(shared as unknown as StoredState)
           // Normally the hydrated state is already in storage and must not
           // be echoed back. But if this device saved something before the
@@ -7008,6 +7009,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
       try {
         // See the startup read above for why this is not always true.
         justHydratedRef.current = !getPersistence().hasLocalOnlyChanges()
+        assertUsableSharedState(incoming)
         dispatch({ type: 'HYDRATE', state: fromStored(incoming as unknown as StoredState) })
         // A shared read applied by this path counts too. Without this a
         // device whose first read at startup failed (no signal for a
@@ -7579,6 +7581,22 @@ export function useRides() {
 // origins — Android reports https://localhost, iOS capacitor://localhost —
 // so a QR built from one is unscannable by anyone but the person holding
 // the device.
+// A shared read this document may hydrate from. An empty or partial read
+// — a row that came back without the stamp every save writes, or without
+// the collections every world has — is not "the shared state is empty";
+// it is a read that failed halfway, and hydrating it would fill the
+// screen with the seeds and (once marked synced) write those seeds over
+// everyone's data. That is what happened on 2026-09-06 and again on
+// 2026-09-08 at 10:10: a fresh-start reload hydrated a short read and
+// erased every registered vendor, order and switch.
+function assertUsableSharedState(shared: Record<string, unknown>): void {
+  const stamped = typeof shared.schemaVersion === 'number'
+  const hasWorld = Array.isArray(shared.pharmacies) && Array.isArray(shared.todaOrganizations)
+  if (!stamped || !hasWorld) {
+    throw new Error('shared state read is incomplete — not hydrating from it')
+  }
+}
+
 export function isShareableOrigin(origin: string): boolean {
   return /^https?:\/\//.test(origin) && !/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|$)/.test(origin)
 }

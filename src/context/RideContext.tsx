@@ -7581,18 +7581,31 @@ export function useRides() {
 // origins — Android reports https://localhost, iOS capacitor://localhost —
 // so a QR built from one is unscannable by anyone but the person holding
 // the device.
-// A shared read this document may hydrate from. An empty or partial read
-// — a row that came back without the stamp every save writes, or without
-// the collections every world has — is not "the shared state is empty";
-// it is a read that failed halfway, and hydrating it would fill the
-// screen with the seeds and (once marked synced) write those seeds over
-// everyone's data. That is what happened on 2026-09-06 and again on
-// 2026-09-08 at 10:10: a fresh-start reload hydrated a short read and
-// erased every registered vendor, order and switch.
+// A shared read this document may hydrate from. An empty or malformed read
+// — the collections every real world has are missing, or present but
+// empty — is not "the shared state is empty"; it is a read that failed
+// halfway or landed on seed data, and hydrating it would fill the screen
+// with that and (once marked synced) write it over everyone's data. That
+// is what happened on 2026-09-06 and again on 2026-09-08 at 10:10: a
+// fresh-start reload hydrated a short read and erased every registered
+// vendor, order and switch.
+//
+// The schema stamp is NOT part of this check. It was, for one day
+// (2026-09-08), and that turned a single write missing the stamp — one
+// stray save, from who knows which build — into a permanent block: every
+// device that read it refused to ever sync again, showing its own stale
+// copy forever, which is a worse failure than the one this guard exists
+// to prevent. A world with real vendors and real TODAs in it is real
+// data regardless of whether it happens to carry this version's stamp;
+// the very next save re-stamps it, so a missing stamp heals itself the
+// moment anyone acts, rather than needing a manual repair like this one
+// did.
 function assertUsableSharedState(shared: Record<string, unknown>): void {
-  const stamped = typeof shared.schemaVersion === 'number'
-  const hasWorld = Array.isArray(shared.pharmacies) && Array.isArray(shared.todaOrganizations)
-  if (!stamped || !hasWorld) {
+  const hasWorld =
+    Array.isArray(shared.pharmacies) &&
+    shared.pharmacies.length > 0 &&
+    Array.isArray(shared.todaOrganizations)
+  if (!hasWorld) {
     throw new Error('shared state read is incomplete — not hydrating from it')
   }
 }

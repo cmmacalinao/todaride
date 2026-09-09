@@ -857,6 +857,8 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
           fitPointIds={fitPointIds}
           followAll={followAll}
           frozen={locked}
+          draggableIds={draggableIds}
+          onPointDragEnd={onPointDragEnd}
           height={fullscreen || fill ? "100%" : height}
           onFailed={() => setGoogleFailed(true)}
         />

@@ -11,6 +11,13 @@ interface GoogleLiveMapProps {
   routeVariant?: 'trip' | 'pickup'
   onMapClick?: (gps: GeoCoords) => void
   onPointClick?: (id: string) => void
+  // Which points the reader can pick up and drop elsewhere — a correction
+  // for a tap (or a geocoded address) that landed a street out. Same
+  // contract as the Vector/OSM backends in RealLiveMap.tsx: a point drawn
+  // from `points` is draggable exactly when its id is listed here,
+  // regardless of whether it came from a map tap or an address form.
+  draggableIds?: string[]
+  onPointDragEnd?: (id: string, gps: GeoCoords) => void
   // Lets the caller (RealLiveMap.tsx) fall back to the OSM/Leaflet canvas
   // when the Google Maps script fails to load (bad key, network block, CSP)
   // instead of rendering nothing.
@@ -35,7 +42,7 @@ interface GoogleLiveMapProps {
 // markers/polyline in place) rather than pulling in a React wrapper library
 // — matches the dependency-free pattern already used for the Google
 // geocoding/routing swap in geocode.ts/routing.ts.
-export function GoogleLiveMap({ points, routeLine, routeIsReal, routeVariant, onMapClick, onPointClick, onFailed, refitSignal, followAll, fitPointIds, frozen, height = '220px' }: GoogleLiveMapProps) {
+export function GoogleLiveMap({ points, routeLine, routeIsReal, routeVariant, onMapClick, onPointClick, draggableIds, onPointDragEnd, onFailed, refitSignal, followAll, fitPointIds, frozen, height = '220px' }: GoogleLiveMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<GoogleMap | null>(null)
   const markersRef = useRef<Map<string, GoogleMarker>>(new Map())
@@ -66,6 +73,8 @@ export function GoogleLiveMap({ points, routeLine, routeIsReal, routeVariant, on
   onMapClickRef.current = onMapClick
   const onPointClickRef = useRef(onPointClick)
   onPointClickRef.current = onPointClick
+  const onPointDragEndRef = useRef(onPointDragEnd)
+  onPointDragEndRef.current = onPointDragEnd
 
   useEffect(() => {
     const loading = loadGoogleMaps()
@@ -114,6 +123,13 @@ export function GoogleLiveMap({ points, routeLine, routeIsReal, routeVariant, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // A stable primitive for the effect's dependency list — the array itself
+  // is a fresh identity most renders (built inline by the caller), which
+  // would otherwise rebuild every marker on every render regardless of
+  // whether the draggable set actually changed. Same trick VectorLiveMap
+  // uses for the same reason.
+  const draggableKey = (draggableIds ?? []).join(',')
+
   useEffect(() => {
     const map = mapRef.current
     const google = window.google
@@ -157,11 +173,17 @@ export function GoogleLiveMap({ points, routeLine, routeIsReal, routeVariant, on
           : p.icon === 'pharmacy'
             ? { text: '💊', fontSize: '11px' }
             : null
+      // Same rule as the Vector/OSM backends: draggable exactly when this
+      // point's id is listed, whether it got here from a tap, a drag, or a
+      // geocoded address — the caller decides which pins may move, not
+      // which backend happened to render them.
+      const draggable = !!draggableIds?.includes(p.id)
       const existing = markersRef.current.get(p.id)
       if (existing) {
         existing.setPosition(position)
         existing.setIcon(icon)
         existing.setLabel(label)
+        existing.setDraggable(draggable)
       } else {
         const marker = new google.maps.Marker({
           position,
@@ -170,8 +192,16 @@ export function GoogleLiveMap({ points, routeLine, routeIsReal, routeVariant, on
           icon,
           label: label ?? undefined,
           zIndex: p.pulse ? 10 : 1,
+          draggable,
         })
         marker.addListener('click', () => onPointClickRef.current?.(p.id))
+        // Fires once the reader lets go — mid-drag movement is the SDK's
+        // own doing, nothing here needs to track it. getPosition() reads
+        // wherever they dropped it.
+        marker.addListener('dragend', () => {
+          const dropped = marker.getPosition()
+          if (dropped) onPointDragEndRef.current?.(p.id, { lat: dropped.lat(), lng: dropped.lng() })
+        })
         markersRef.current.set(p.id, marker)
       }
     }
@@ -229,7 +259,7 @@ export function GoogleLiveMap({ points, routeLine, routeIsReal, routeVariant, on
         map.fitBounds(bounds, 30)
       }
     }
-  }, [points, routeLine, routeIsReal, routeVariant, status, refitSignal, followAll, fitPointIds, frozen])
+  }, [points, routeLine, routeIsReal, routeVariant, status, refitSignal, followAll, fitPointIds, frozen, draggableKey])
 
   if (status === 'failed') return null
   return <div ref={containerRef} style={{ height, width: '100%', cursor: onMapClick ? 'crosshair' : undefined }} />

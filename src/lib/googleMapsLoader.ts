@@ -61,12 +61,20 @@ export interface GoogleMarkerOptions {
   // icon (see GoogleLiveMap) instead of a custom bitmap icon.
   label?: GoogleMarkerLabel
   zIndex?: number
+  // A pin the reader can pick up and move — same idea as draggableIds on
+  // the Vector/OSM backends (see GoogleLiveMap).
+  draggable?: boolean
 }
 
 export interface GoogleMarker {
   setPosition: (latLng: GoogleLatLng) => void
   setIcon: (icon: GoogleMarkerIcon) => void
   setLabel: (label: GoogleMarkerLabel | null) => void
+  setDraggable: (draggable: boolean) => void
+  // Real Google LatLng, not the plain GoogleLatLng shape above — method-
+  // based, the same as GoogleMapClickEvent.latLng, since that is what the
+  // SDK actually hands back from a drag.
+  getPosition: () => { lat: () => number; lng: () => number } | null
   setMap: (map: GoogleMap | null) => void
   addListener: (event: string, handler: () => void) => void
 }

@@ -343,6 +343,14 @@ interface RideState {
   // pharmacy confirmation, prescription review); once a pharmacy confirms,
   // a real Ride is created and MedsOrder.linkedRideId points at it.
   pharmacies: Pharmacy[]
+  // A tombstone: pharmacy ids that were explicitly purged as junk/duplicate
+  // accounts. mergeVendorPosts unions accounts by id so a sign-up in flight
+  // during a race is never lost — but that same rule means a device whose
+  // local storage still remembers a deleted id (stale test data, an old
+  // duplicate) resurrects it on its next save. Listing it here stops the
+  // resurrection permanently instead of relying on a cleanup that the next
+  // stale device just undoes.
+  removedPharmacyIds: string[]
   medicineProducts: MedicineProduct[]
   medsOrders: MedsOrder[]
   // TaaS Level 2/3 — see the TODASafeRide-as-a-Service business roadmap.
@@ -1503,6 +1511,7 @@ interface StoredState {
   partnershipRevenue?: PartnershipRevenueEntry[]
   adSenseSettings?: AdSenseSettings
   pharmacies?: Pharmacy[]
+  removedPharmacyIds?: string[]
   medicineProducts?: MedicineProduct[]
   medsOrders?: MedsOrder[]
   operators?: Operator[]
@@ -1725,7 +1734,8 @@ function fromStored(parsed: StoredState): RideState {
     incomePromotionSettings: { ...DEFAULT_INCOME_PROMOTION_SETTINGS, ...parsed.incomePromotionSettings },
     partnershipRevenue: parsed.partnershipRevenue ?? [],
     adSenseSettings: { ...DEFAULT_ADSENSE_SETTINGS, ...parsed.adSenseSettings, slots: { ...DEFAULT_ADSENSE_SETTINGS.slots, ...parsed.adSenseSettings?.slots } },
-    pharmacies: withLateSeedVendors(parsed.pharmacies),
+    pharmacies: withLateSeedVendors(parsed.pharmacies).filter((p) => !(parsed.removedPharmacyIds ?? []).includes(p.id)),
+    removedPharmacyIds: parsed.removedPharmacyIds ?? [],
     medicineProducts: withLateSeedVendorMenus(parsed.medicineProducts),
     // Older saved sessions predate the order-chat feature — default each
     // order's messages to an empty array rather than crashing on .map/.length.
@@ -2005,6 +2015,7 @@ function loadInitialState(): RideState {
     partnershipRevenue: [],
     adSenseSettings: DEFAULT_ADSENSE_SETTINGS,
     pharmacies: MOCK_PHARMACIES,
+    removedPharmacyIds: [],
     medicineProducts: [...MOCK_MEDICINE_PRODUCTS, ...MOCK_VENDOR_MENU_ITEMS],
     medsOrders: [],
     operators: MOCK_OPERATORS,
@@ -3349,12 +3360,23 @@ function reducer(state: RideState, action: RideAction): RideState {
       // Accounts are unioned rather than replaced — a sign-up this device
       // has must survive a copy of the world that predates it. See
       // mergeById. A store's feed posts likewise — see mergeVendorPosts.
-      return {
-        ...action.state,
-        rides: mergeIncomingRides(state.rides, action.state.rides),
-        passengers: mergeById(state.passengers, action.state.passengers),
-        parents: mergeById(state.parents, action.state.parents),
-        pharmacies: mergeVendorPosts(state.pharmacies, action.state.pharmacies),
+      {
+        // A tombstoned id stays purged even when the incoming copy — or
+        // this device's own memory — still carries it: unioning ids alone
+        // (mergeVendorPosts) can't tell a stale duplicate from a sign-up in
+        // flight, so the explicit purge list is what actually wins.
+        const removedPharmacyIds = [
+          ...new Set([...(state.removedPharmacyIds ?? []), ...(action.state.removedPharmacyIds ?? [])]),
+        ]
+        const removedSet = new Set(removedPharmacyIds)
+        return {
+          ...action.state,
+          rides: mergeIncomingRides(state.rides, action.state.rides),
+          passengers: mergeById(state.passengers, action.state.passengers),
+          parents: mergeById(state.parents, action.state.parents),
+          pharmacies: mergeVendorPosts(state.pharmacies, action.state.pharmacies).filter((p) => !removedSet.has(p.id)),
+          removedPharmacyIds,
+        }
       }
     case 'SET_COMMISSION':
       return { ...state, commissionPerRide: Math.max(0, action.amount) }
@@ -6838,6 +6860,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           partnershipRevenue: state.partnershipRevenue,
           adSenseSettings: state.adSenseSettings,
           pharmacies: state.pharmacies,
+          removedPharmacyIds: state.removedPharmacyIds,
           medicineProducts: state.medicineProducts,
           medsOrders: state.medsOrders,
           operators: state.operators,

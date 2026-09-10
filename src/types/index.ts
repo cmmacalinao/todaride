@@ -464,6 +464,12 @@ export interface Pharmacy {
   // CSS object-position (50/50 = centered), plus an optional zoom (1 = fit,
   // up to 3) applied around that same point. Null/undefined = centered, 1×.
   coverPhotoPosition?: { x: number; y: number; scale?: number } | null
+  // A full-bleed photo behind the whole banner strip, replacing the themed
+  // gradient/wave art entirely — distinct from coverPhotoDataUrl, which
+  // stays a smaller accent picture seated on top of that gradient. Every
+  // upload path compresses to ~480px/WebP first (see lib/photo.ts) since
+  // this, like every vendor image, rides inside the shared state blob.
+  bannerBackgroundDataUrl?: string | null
   logoDataUrl?: string | null
   // A named preset from VENDOR_THEME_COLORS (see VendorStorefront.tsx) that
   // overrides the businessType-derived gradient — lets a vendor pick their

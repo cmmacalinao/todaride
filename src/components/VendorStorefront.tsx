@@ -301,6 +301,8 @@ export function VendorHeaderCard({
   onCoverUpload,
   onPinLocation,
   onCoverPositionChange,
+  onBannerBackgroundUpload,
+  onBannerBackgroundRemove,
   onRate,
 }: {
   pharmacy: Pharmacy
@@ -325,13 +327,22 @@ export function VendorHeaderCard({
   // object-position percentages (50/50 = centred) and saved on the pharmacy
   // (coverPhotoPosition), so a customer sees the same framing.
   onCoverPositionChange?: (position: { x: number; y: number; scale?: number }) => void
+  // Present only on the vendor's own edit screen — replaces the themed
+  // gradient/wave art behind everything with the vendor's own full-bleed
+  // photo (see bannerBackgroundDataUrl in types/index.ts). Distinct from
+  // onCoverUpload, which stays a smaller accent picture seated on top of
+  // whatever background is showing.
+  onBannerBackgroundUpload?: (dataUrl: string) => void
+  onBannerBackgroundRemove?: () => void
 }) {
   const [favorited, setFavorited] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const logoInputRef = useRef<HTMLInputElement>(null)
   const coverInputRef = useRef<HTMLInputElement>(null)
+  const bannerInputRef = useRef<HTMLInputElement>(null)
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [uploadingCover, setUploadingCover] = useState(false)
+  const [uploadingBanner, setUploadingBanner] = useState(false)
   // "📷 Profile Photo" opens a chooser (upload, or one of the seed dishes)
   // rather than the file picker straight away — see ProfilePhotoPicker.
   const [photoPickerOpen, setPhotoPickerOpen] = useState(false)
@@ -449,6 +460,23 @@ export function VendorHeaderCard({
     }
   }
 
+  // The banner background is a full photographic backdrop, not artwork on a
+  // plain backdrop to cut out — removeFlatBackground's onlyIfFlat pass would
+  // treat a genuinely flat-colored photo (a solid-color storefront sign, a
+  // plain wall) as background to strip and crop down to whatever's left,
+  // which is exactly wrong here. Compress only.
+  async function handleBannerFileChange(e: React.ChangeEvent<HTMLInputElement>, onUpload: (dataUrl: string) => void, setBusy: (busy: boolean) => void) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setBusy(true)
+    try {
+      onUpload(await compressImageFile(file))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   useEffect(() => {
     try {
       setFavorited(localStorage.getItem(`toda-vendor-fav-${pharmacy.id}`) === '1')
@@ -488,13 +516,26 @@ export function VendorHeaderCard({
   return (
     <div>
       <div className={`relative h-32 overflow-hidden bg-gradient-to-br ${accent.gradient}`}>
-        {/* The themed banner art is always the background now; a vendor's
-            profile photo is a picture ON it, not a replacement for it —
-            scaled to the header's height and seated on the right, with its
-            left edge feathered into the gradient so the name/tagline area
-            stays clean. Capped at ~55% of the width so a landscape shot
-            can't crowd the text; object-cover trims the excess. */}
-        <VendorBannerArt />
+        {pharmacy.bannerBackgroundDataUrl ? (
+          <>
+            {/* A vendor's own photo standing in for the themed gradient/wave
+                art entirely — full-bleed, not the smaller accent picture
+                coverPhotoDataUrl seats on top of whatever's behind it. A
+                dark wash keeps the name/tagline text readable over
+                whatever the photo actually looks like. */}
+            <img src={pharmacy.bannerBackgroundDataUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-black/25" />
+          </>
+        ) : (
+          // The themed banner art is the background when there's no custom
+          // one; a vendor's profile photo is a picture ON it, not a
+          // replacement for it — scaled to the header's height and seated
+          // on the right, with its left edge feathered into the gradient so
+          // the name/tagline area stays clean. Capped at ~55% of the width
+          // so a landscape shot can't crowd the text; object-cover trims
+          // the excess.
+          <VendorBannerArt />
+        )}
         {pharmacy.coverPhotoDataUrl && (
           <>
             {/* A fixed frame rather than the photo's own width: object-cover
@@ -615,6 +656,41 @@ export function VendorHeaderCard({
                 onClose={() => setPhotoPickerOpen(false)}
               />
             )}
+          </>
+        )}
+
+        {onBannerBackgroundUpload && (
+          <>
+            <input
+              ref={bannerInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleBannerFileChange(e, onBannerBackgroundUpload, setUploadingBanner)}
+            />
+            <div className="absolute bottom-2 left-2 flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => bannerInputRef.current?.click()}
+                disabled={uploadingBanner}
+                aria-label={pharmacy.bannerBackgroundDataUrl ? 'Replace banner background' : 'Upload banner background'}
+                className="flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm hover:bg-white disabled:opacity-60"
+              >
+                {uploadingBanner ? '…' : '🖼️ Banner Background'}
+              </button>
+              {pharmacy.bannerBackgroundDataUrl && onBannerBackgroundRemove && (
+                <button
+                  type="button"
+                  onClick={onBannerBackgroundRemove}
+                  disabled={uploadingBanner}
+                  aria-label="Remove banner background"
+                  title="Remove banner background"
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-xs shadow-sm hover:bg-white disabled:opacity-60"
+                >
+                  🗑️
+                </button>
+              )}
+            </div>
           </>
         )}
 
@@ -909,7 +985,11 @@ export function VendorListRow({
       onClick={onSelect}
       className={`relative flex h-14 w-full items-center gap-2.5 overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br ${accent.gradient} px-2.5 text-left shadow-sm transition hover:brightness-105`}
     >
-      <VendorBannerArt />
+      {pharmacy.bannerBackgroundDataUrl ? (
+        <img src={pharmacy.bannerBackgroundDataUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <VendorBannerArt />
+      )}
       {pharmacy.coverPhotoDataUrl && (
         <span aria-hidden className="absolute inset-0 overflow-hidden">
           <img
@@ -982,9 +1062,14 @@ export function VendorFeatureCard({
       className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
     >
       <div className={`relative h-16 overflow-hidden bg-gradient-to-br ${accent.gradient}`}>
-        {/* Same treatment as VendorHeaderCard: themed art underneath, the
-            profile photo height-fitted on the right. */}
-        <VendorBannerArt />
+        {/* Same treatment as VendorHeaderCard: a custom banner background
+            stands in for the themed art when the vendor set one, and the
+            profile photo is height-fitted on the right either way. */}
+        {pharmacy.bannerBackgroundDataUrl ? (
+          <img src={pharmacy.bannerBackgroundDataUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <VendorBannerArt />
+        )}
         {pharmacy.coverPhotoDataUrl && (
           <div aria-hidden className="absolute inset-0 overflow-hidden">
             <img

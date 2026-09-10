@@ -145,14 +145,27 @@ export async function renderBannerThumbnail(pharmacy: Pharmacy): Promise<string 
   const ctx = canvas.getContext('2d')
   if (!ctx) return null
 
-  // Gradient, the same diagonal (bg-gradient-to-br) as the page.
   const accent = resolveVendorAccent(pharmacy)
-  const stops = gradientStops(accent.gradient)
-  const grad = ctx.createLinearGradient(0, 0, W, H)
-  stops.forEach((color, i) => grad.addColorStop(stops.length === 1 ? 0 : i / (stops.length - 1), color))
-  ctx.fillStyle = grad
-  ctx.fillRect(0, 0, W, H)
-  drawBannerArt(ctx)
+
+  // A custom banner background stands in for the gradient/wave art
+  // entirely — same rule VendorHeaderCard renders live (see
+  // VendorStorefront.tsx).
+  const banner = pharmacy.bannerBackgroundDataUrl ? await loadImage(pharmacy.bannerBackgroundDataUrl) : null
+  if (banner && banner.naturalWidth > 0) {
+    // object-cover
+    const r = Math.max(W / banner.naturalWidth, H / banner.naturalHeight)
+    const dw = banner.naturalWidth * r
+    const dh = banner.naturalHeight * r
+    ctx.drawImage(banner, (W - dw) / 2, (H - dh) / 2, dw, dh)
+  } else {
+    // Gradient, the same diagonal (bg-gradient-to-br) as the page.
+    const stops = gradientStops(accent.gradient)
+    const grad = ctx.createLinearGradient(0, 0, W, H)
+    stops.forEach((color, i) => grad.addColorStop(stops.length === 1 ? 0 : i / (stops.length - 1), color))
+    ctx.fillStyle = grad
+    ctx.fillRect(0, 0, W, H)
+    drawBannerArt(ctx)
+  }
 
   // The profile photo, seated where the vendor put it: the page's header
   // keeps the picture `scale × header height` tall, centred on
@@ -239,13 +252,14 @@ export async function renderBannerThumbnail(pharmacy: Pharmacy): Promise<string 
 export function bannerThumbKey(pharmacy: Pharmacy): string {
   const pos = pharmacy.coverPhotoPosition ?? null
   return JSON.stringify([
-    'v2',
+    'v3',
     pharmacy.name,
     pharmacy.tagline ?? null,
     pharmacy.themeColor ?? null,
     pharmacy.businessType,
     (pharmacy.coverPhotoDataUrl ?? '').length,
     (pharmacy.logoDataUrl ?? '').length,
+    (pharmacy.bannerBackgroundDataUrl ?? '').length,
     pos && [Math.round(pos.x), Math.round(pos.y), Math.round((pos.scale ?? 1) * 100)],
   ])
 }

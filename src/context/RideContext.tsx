@@ -1411,6 +1411,7 @@ type RideAction =
       pharmacyId: string
       coverPhotoDataUrl: string | null
       coverPhotoPosition: { x: number; y: number; scale?: number } | null
+      bannerBackgroundDataUrl: string | null
       logoDataUrl: string | null
       themeColor: string | null
       tagline: string | null
@@ -5640,6 +5641,7 @@ function reducer(state: RideState, action: RideAction): RideState {
                 ...p,
                 coverPhotoDataUrl: action.coverPhotoDataUrl,
                 coverPhotoPosition: action.coverPhotoPosition,
+                bannerBackgroundDataUrl: action.bannerBackgroundDataUrl,
                 logoDataUrl: action.logoDataUrl,
                 themeColor: action.themeColor,
                 tagline: action.tagline,
@@ -6716,6 +6718,7 @@ interface RideContextValue extends RideState {
     pharmacyId: string
     coverPhotoDataUrl: string | null
     coverPhotoPosition: { x: number; y: number; scale?: number } | null
+    bannerBackgroundDataUrl: string | null
     logoDataUrl: string | null
     themeColor: string | null
     tagline: string | null

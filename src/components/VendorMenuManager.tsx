@@ -140,6 +140,7 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
     patch: Partial<{
       coverPhotoDataUrl: string | null
       coverPhotoPosition: { x: number; y: number; scale?: number } | null
+      bannerBackgroundDataUrl: string | null
       logoDataUrl: string | null
       themeColor: string | null
       tagline: string | null
@@ -149,6 +150,7 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
       pharmacyId: pharmacy.id,
       coverPhotoDataUrl: pharmacy.coverPhotoDataUrl ?? null,
       coverPhotoPosition: pharmacy.coverPhotoPosition ?? null,
+      bannerBackgroundDataUrl: pharmacy.bannerBackgroundDataUrl ?? null,
       logoDataUrl: pharmacy.logoDataUrl ?? null,
       themeColor: pharmacy.themeColor ?? null,
       tagline: pharmacy.tagline ?? null,
@@ -249,6 +251,8 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
         onCoverUpload={(dataUrl) => setBranding({ coverPhotoDataUrl: dataUrl })}
         onPinLocation={() => setShowLocationPicker(true)}
         onCoverPositionChange={(position) => setBranding({ coverPhotoPosition: position })}
+        onBannerBackgroundUpload={(dataUrl) => setBranding({ bannerBackgroundDataUrl: dataUrl })}
+        onBannerBackgroundRemove={() => setBranding({ bannerBackgroundDataUrl: null })}
       />
 
       <div className="space-y-3 px-4 pb-4">

@@ -17,6 +17,7 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
     patch: Partial<{
       coverPhotoDataUrl: string | null
       coverPhotoPosition: { x: number; y: number; scale?: number } | null
+      bannerBackgroundDataUrl: string | null
       logoDataUrl: string | null
       themeColor: string | null
       tagline: string | null
@@ -26,6 +27,7 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
       pharmacyId: pharmacy.id,
       coverPhotoDataUrl: pharmacy.coverPhotoDataUrl ?? null,
       coverPhotoPosition: pharmacy.coverPhotoPosition ?? null,
+      bannerBackgroundDataUrl: pharmacy.bannerBackgroundDataUrl ?? null,
       logoDataUrl: pharmacy.logoDataUrl ?? null,
       themeColor: pharmacy.themeColor ?? null,
       tagline: pharmacy.tagline ?? null,
@@ -36,6 +38,12 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
   return (
     <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <h2 className="text-sm font-semibold text-slate-700">🎨 Customize your vendor page</h2>
+      <DocumentUploadField
+        label="Banner background (optional)"
+        dataUrl={pharmacy.bannerBackgroundDataUrl ?? null}
+        onUpload={(dataUrl) => setBranding({ bannerBackgroundDataUrl: dataUrl })}
+        onRemove={() => setBranding({ bannerBackgroundDataUrl: null })}
+      />
       <DocumentUploadField
         label="Profile photo (optional)"
         dataUrl={pharmacy.coverPhotoDataUrl ?? null}
@@ -78,6 +86,7 @@ export function VendorThemePicker({ pharmacy }: { pharmacy: Pharmacy }) {
       pharmacyId: pharmacy.id,
       coverPhotoDataUrl: pharmacy.coverPhotoDataUrl ?? null,
       coverPhotoPosition: pharmacy.coverPhotoPosition ?? null,
+      bannerBackgroundDataUrl: pharmacy.bannerBackgroundDataUrl ?? null,
       logoDataUrl: pharmacy.logoDataUrl ?? null,
       themeColor: pharmacy.themeColor === key ? null : key,
       tagline: pharmacy.tagline ?? null,

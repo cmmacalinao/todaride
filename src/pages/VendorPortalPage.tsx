@@ -11,7 +11,7 @@ import { VendorDeliveryBooking } from '../components/VendorDeliveryBooking'
 import { ACTIVE_RIDE_STATUSES, VendorDeliveryTracker, deliveryPhaseLabel } from '../components/VendorDeliveryTracker'
 import { VendorEarnings } from '../components/VendorEarnings'
 import { storeRatingSummary } from '../components/StoreRatingSheet'
-import { VendorFooterNav, type VendorTab } from '../components/VendorFooterNav'
+import { VendorFooterNav, VendorSidebarNav, type VendorTab } from '../components/VendorFooterNav'
 import { TrustedRiderSelect, VendorTrustedRiders } from '../components/VendorTrustedRiders'
 import { RealLiveMap, type MapPoint } from '../components/RealLiveMap'
 import { OrderStatusStrip } from '../components/OrderStatusStrip'
@@ -57,6 +57,34 @@ export function VendorPortalPage() {
   // run before the early returns below (Rules of Hooks), so this is safe
   // even on the "not logged in"/"vendor not found" fallback renders.
   const [activeTab, setActiveTab] = useState<VendorTab>('orders')
+  // 'auto' follows the actual window width — a phone gets the tab-bar
+  // layout, a wide browser gets the sidebar — but a vendor working a
+  // counter monitor in a small window, or checking orders on a phone
+  // propped up wide, can pin it either way. Sticks per-browser so it
+  // doesn't reset every visit.
+  const [viewMode, setViewMode] = useState<'auto' | 'desktop' | 'mobile'>(() => {
+    try {
+      const saved = localStorage.getItem('vendorPortalViewMode')
+      return saved === 'desktop' || saved === 'mobile' ? saved : 'auto'
+    } catch {
+      return 'auto'
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('vendorPortalViewMode', viewMode)
+    } catch {
+      // Private/blocked storage — the choice just won't survive a reload.
+    }
+  }, [viewMode])
+  const [wideWindow, setWideWindow] = useState(() => window.innerWidth >= 900)
+  useEffect(() => {
+    if (viewMode !== 'auto') return
+    const onResize = () => setWideWindow(window.innerWidth >= 900)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [viewMode])
+  const isDesktop = viewMode === 'desktop' ? true : viewMode === 'mobile' ? false : wideWindow
   const vendor = pharmacies.find((p) => p.id === loggedInPharmacyId)
 
   // Each footer tab is its own page: switching draws that page from its top.
@@ -199,15 +227,21 @@ export function VendorPortalPage() {
     ))
 
   return (
-    // Tighter than the other portals on purpose (the vendor asked for ~60%
-    // less air): 10px between cards and 6px to the screen edge, instead of
-    // the 24px/16px the shared layout uses.
-    // pb-20 reserves the bottom strip for VendorFooterNav.
-    //
-    // One page per footer tab, not one long sheet: the footer switches what
-    // is drawn, and each page opens at its top.
-    <div className="mx-auto max-w-lg space-y-2.5 px-1.5 py-2.5 pb-20">
+    // Mobile keeps the original tight layout (10px between cards, 6px to
+    // the screen edge — the vendor asked for ~60% less air than the other
+    // portals — and pb-20 reserving the bottom strip for VendorFooterNav).
+    // Desktop trades that phone-width column for a sidebar-plus-content
+    // shell with normal breathing room; every tab's own content below is
+    // shared between both, untouched.
+    <div className={isDesktop ? 'mx-auto max-w-6xl px-6 py-6' : 'mx-auto max-w-lg space-y-2.5 px-1.5 py-2.5 pb-20'}>
+      <div className="flex justify-end">
+        <VendorViewModeToggle mode={viewMode} onChange={setViewMode} />
+      </div>
       <AnnouncementFeed viewer="partners" />
+
+      <div className={isDesktop ? 'flex items-start gap-6' : ''}>
+        {isDesktop && <VendorSidebarNav active={activeTab} onNavigate={goToTab} orderCount={orderCount} />}
+        <div className={isDesktop ? 'min-w-0 flex-1 space-y-4' : 'space-y-2.5'}>
 
       {activeTab === 'store' && (
         <>
@@ -514,8 +548,45 @@ export function VendorPortalPage() {
           <VendorTrustedRiders vendor={vendor} />
         </section>
       )}
+        </div>
+      </div>
 
-      <VendorFooterNav active={activeTab} onNavigate={goToTab} orderCount={orderCount} />
+      {!isDesktop && <VendorFooterNav active={activeTab} onNavigate={goToTab} orderCount={orderCount} />}
+    </div>
+  )
+}
+
+// Overrides the automatic phone-vs-desktop layout pick. 'Auto' is the
+// default for everyone; 'Desktop'/'Mobile' pin the choice regardless of the
+// actual window width, for a vendor whose screen doesn't match how they
+// want to work it (a wide phone-mirroring window, a small counter monitor).
+function VendorViewModeToggle({
+  mode,
+  onChange,
+}: {
+  mode: 'auto' | 'desktop' | 'mobile'
+  onChange: (mode: 'auto' | 'desktop' | 'mobile') => void
+}) {
+  const options: { value: 'auto' | 'desktop' | 'mobile'; label: string }[] = [
+    { value: 'mobile', label: '📱 Mobile' },
+    { value: 'auto', label: 'Auto' },
+    { value: 'desktop', label: '🖥️ Desktop' },
+  ]
+  return (
+    <div className="inline-flex gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          aria-pressed={mode === o.value}
+          className={`rounded-md px-2 py-1 text-[11px] font-semibold transition ${
+            mode === o.value ? 'bg-brand-600 text-white' : 'text-slate-500 hover:bg-slate-50'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   )
 }

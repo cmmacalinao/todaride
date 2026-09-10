@@ -142,12 +142,12 @@ export function VendorPortalPage() {
     navigate(location.pathname, { replace: true, state: {} })
     // The hamburger drawer's items (see NavDrawer.tsx's PHARMACY_ITEMS,
     // shared with the Pharmacy/Store portal) map onto the footer's pages:
-    // 'products' and 'payments' live on the Store page, 'history' with the
-    // orders.
+    // 'products' now lives on its own Menu page, 'payments' stays on Store,
+    // 'history' with the orders.
     const tabFor: Record<string, VendorTab> = {
       home: 'store',
       orders: 'orders',
-      products: 'store',
+      products: 'menu',
       payments: 'store',
       history: 'orders',
     }
@@ -284,13 +284,6 @@ export function VendorPortalPage() {
             </div>
           </section>
 
-          {/* VendorMenuManager renders its own full card — the same
-              banner/info header VendorStorefront shows a customer, plus an
-              editable menu list — so no extra section wrapper/heading here. */}
-          <section>
-            <VendorMenuManager pharmacy={vendor} products={menu} />
-          </section>
-
           {(() => {
             const { average, count } = storeRatingSummary(vendor)
             const reviews = (vendor.storeReviews ?? []).slice(0, 10)
@@ -346,6 +339,13 @@ export function VendorPortalPage() {
             </div>
           </section>
         </>
+      )}
+
+      {activeTab === 'menu' && (
+        // VendorMenuManager renders its own full card — the same
+        // banner/info header VendorStorefront shows a customer, plus an
+        // editable menu list — so no extra section wrapper/heading here.
+        <VendorMenuManager pharmacy={vendor} products={menu} />
       )}
 
       {activeTab === 'orders' && (

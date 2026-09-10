@@ -1,11 +1,15 @@
-// The four places a vendor goes back to all day, pinned to the bottom of the
-// portal the way DriverFooterNav pins the driver's. Orders is where the work
-// arrives, Book Rider is how a phone order gets a driver, Earnings is what
-// the day made, Trusted Rider is who they want carrying their food.
-export type VendorTab = 'store' | 'orders' | 'book' | 'earnings' | 'trusted'
+// The six places a vendor goes back to all day, pinned to the bottom of the
+// portal the way DriverFooterNav pins the driver's. Menu is the dishes
+// themselves (add, edit, price, take something off the menu) — split out
+// from Store so it's reachable on its own instead of buried partway down
+// that page. Orders is where the work arrives, Book Rider is how a phone
+// order gets a driver, Earnings is what the day made, Trusted Rider is who
+// they want carrying their food.
+export type VendorTab = 'store' | 'menu' | 'orders' | 'book' | 'earnings' | 'trusted'
 
 const VENDOR_TABS: { tab: VendorTab; icon: string; label: string }[] = [
   { tab: 'store', icon: '🏪', label: 'Store' },
+  { tab: 'menu', icon: '📋', label: 'Menu' },
   { tab: 'orders', icon: '🧾', label: 'Orders' },
   { tab: 'book', icon: '🛺', label: 'Book Rider' },
   { tab: 'earnings', icon: '💰', label: 'Earnings' },

@@ -29,20 +29,6 @@ export function VendorSidebarNav({
 }) {
   return (
     <nav aria-label="Vendor sections" className="sticky top-6 w-52 shrink-0 space-y-1">
-      {/* The hamburger's own Profile/Settings/Help/Privacy/Safety/Logout —
-          normally a small icon up in the header, easy to lose once the
-          sidebar takes over the page. Same drawer, opened from here via a
-          DOM event (see NavBar.tsx) since the drawer's state lives there,
-          not in this component. */}
-      <button
-        type="button"
-        onClick={() => window.dispatchEvent(new Event('todaride:open-nav-drawer'))}
-        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"
-      >
-        <span className="text-lg leading-none">☰</span>
-        <span className="leading-none">Menu</span>
-      </button>
-      <div className="!mt-2 border-t border-slate-200" />
       {VENDOR_TABS.map((t) => {
         const isActive = t.tab === active
         const badge = t.tab === 'orders' ? orderCount : 0

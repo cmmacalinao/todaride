@@ -240,7 +240,29 @@ export function VendorPortalPage() {
       <AnnouncementFeed viewer="partners" />
 
       <div className={isDesktop ? 'flex items-start gap-6' : ''}>
-        {isDesktop && <VendorSidebarNav active={activeTab} onNavigate={goToTab} orderCount={orderCount} />}
+        {isDesktop && (
+          // One sticky column: the tabs plus the two shortcuts a vendor
+          // otherwise had to open Store and scroll partway down for. On
+          // mobile these stay inside the Store tab itself (below).
+          <div className="sticky top-6 w-52 shrink-0 space-y-4">
+            <VendorSidebarNav active={activeTab} onNavigate={goToTab} orderCount={orderCount} />
+            <div className="space-y-2 border-t border-slate-200 pt-4">
+              <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <VendorThemePicker pharmacy={vendor} />
+              </section>
+              <button
+                type="button"
+                onClick={() => navigate(`/vendor-page/${vendor.id}`)}
+                className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:bg-slate-50"
+              >
+                <span className="text-sm font-semibold text-slate-700">🏪 View My Page</span>
+                <span aria-hidden className="shrink-0 text-slate-400">
+                  ›
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
         <div className={isDesktop ? 'min-w-0 flex-1 space-y-4' : 'space-y-2.5'}>
 
       {activeTab === 'store' && (
@@ -252,22 +274,26 @@ export function VendorPortalPage() {
             </h1>
           </section>
 
-          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <VendorThemePicker pharmacy={vendor} />
-          </section>
+          {!isDesktop && (
+            <>
+              <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <VendorThemePicker pharmacy={vendor} />
+              </section>
 
-          <button
-            type="button"
-            onClick={() => navigate(`/vendor-page/${vendor.id}`)}
-            className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:bg-slate-50"
-          >
-            <span>
-              <span className="block text-sm font-semibold text-slate-700">🏪 View My Page</span>
-            </span>
-            <span aria-hidden className="shrink-0 text-slate-400">
-              ›
-            </span>
-          </button>
+              <button
+                type="button"
+                onClick={() => navigate(`/vendor-page/${vendor.id}`)}
+                className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:bg-slate-50"
+              >
+                <span>
+                  <span className="block text-sm font-semibold text-slate-700">🏪 View My Page</span>
+                </span>
+                <span aria-hidden className="shrink-0 text-slate-400">
+                  ›
+                </span>
+              </button>
+            </>
+          )}
 
           {/* The vendor's feed — what customers see under the Feed tab of
               the store page. Write a post here, delete one below. */}

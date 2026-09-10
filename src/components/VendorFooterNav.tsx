@@ -19,7 +19,10 @@ const VENDOR_TABS: { tab: VendorTab; icon: string; label: string }[] = [
 // The same five tabs as VendorFooterNav, as a persistent left rail instead
 // of a bottom bar — the desktop view of VendorPortalPage swaps one for the
 // other rather than keeping both, since a bottom bar pinned under a wide
-// browser window reads as a mobile page that never grew up.
+// browser window reads as a mobile page that never grew up. Unstyled for
+// position/width on purpose: VendorPortalPage sticks this together with a
+// couple of store-level shortcuts (theme, View My Page) in one sticky
+// column, so the column owns that layout instead of this nav fighting it.
 export function VendorSidebarNav({
   active,
   onNavigate,
@@ -32,7 +35,7 @@ export function VendorSidebarNav({
   bookEnabled?: boolean
 }) {
   return (
-    <nav aria-label="Vendor sections" className="sticky top-6 w-52 shrink-0 space-y-1">
+    <nav aria-label="Vendor sections" className="space-y-1">
       {VENDOR_TABS.map((t) => {
         const isActive = t.tab === active
         const badge = t.tab === 'orders' ? orderCount : 0

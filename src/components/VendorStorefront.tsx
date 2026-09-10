@@ -1077,11 +1077,15 @@ export function VendorStorefront({
   const [activeCategory, setActiveCategory] = useState('all')
   const [search, setSearch] = useState('')
   const cardRef = useRef<HTMLDivElement>(null)
-  // The store's page is its menu. Its post lives on the Food Express feed;
-  // the one time a post shows here is when a shared post link opened this
-  // page — that post sits above the menu so the reader lands on what was
-  // shared, and the menu is right under it to order from.
-  const sharedPost = focusPostId ? (pharmacy.posts ?? []).find((p) => p.id === focusPostId) ?? null : null
+  // A store keeps one post at a time (see VendorFeedComposer) — its photo
+  // and message sit above the menu here so a reader lands on it first and
+  // the menu is right under it to order from. A shared post link
+  // (focusPostId) pins that exact post even if the store has since
+  // replaced it with a newer one; otherwise this is just whatever the
+  // store currently has posted.
+  const shownPost = focusPostId
+    ? (pharmacy.posts ?? []).find((p) => p.id === focusPostId) ?? null
+    : (pharmacy.posts ?? [])[0] ?? null
 
   // A tap on the shared post's photo or featured dish is "I want that": put
   // the dish (if the post named one) in the cart and scroll to the menu.
@@ -1154,11 +1158,13 @@ export function VendorStorefront({
         onRate={onRate}
       />
 
-      {sharedPost && (
+      {shownPost && (
         <div className="border-t border-slate-100 bg-slate-50 p-3">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">📣 Shared post</p>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            {focusPostId ? '📣 Shared post' : '📣 Latest update'}
+          </p>
           <VendorFeedList
-            pharmacy={{ ...pharmacy, posts: [sharedPost] }}
+            pharmacy={{ ...pharmacy, posts: [shownPost] }}
             items={items}
             accent={accent}
             onAdd={interactive ? (productId) => onQtyChange!(productId, (cart![productId] ?? 0) + 1) : undefined}

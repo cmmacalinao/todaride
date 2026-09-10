@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useHeaderHeight } from '../lib/useHeaderHeight'
 import { useAdminViewMode } from '../lib/adminViewMode'
 import { AdminViewToggle } from './AdminViewToggle'
@@ -103,6 +103,16 @@ export function NavBar() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [activePanel, setActivePanel] = useState<AccountPanelKind | null>(null)
   const [activeSection, setActiveSection] = useState<DrawerSection>('home')
+  // The hamburger button lives here, in the header — but a desktop layout
+  // (see VendorSidebarNav) puts its own "Menu" entry in a sidebar instead,
+  // nowhere near this component's state. A DOM event is the simplest way
+  // for that distant button to open the same drawer without lifting
+  // drawerOpen into a context every page would have to thread through.
+  useEffect(() => {
+    const open = () => setDrawerOpen(true)
+    window.addEventListener('todaride:open-nav-drawer', open)
+    return () => window.removeEventListener('todaride:open-nav-drawer', open)
+  }, [])
   // The /book header badge must reflect whoever actually authenticated, not
   // whichever mock identity currentPassengerId/currentParentId happen to
   // still hold from a previous session — otherwise a parent login can show

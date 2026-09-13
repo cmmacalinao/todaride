@@ -28,6 +28,7 @@ export const ORDER_STATUS_LABELS: Record<MedsOrderStatus, string> = {
   cancelled: 'Cancelled',
   ready_for_pickup: 'Ready — customer booking their own ride',
   dispatched: 'Dispatched',
+  delivered: 'Delivered (outside the app)',
 }
 
 // TODARIDE MEDS — a pharmacy/store's own portal, mirroring TodaAdminPage.tsx's

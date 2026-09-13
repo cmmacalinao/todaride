@@ -43,10 +43,11 @@ export function deliveryPhaseLabel(ride: Ride): string {
 // asks "have you gotten off?"), none of which is the vendor's to do. This
 // reads the same ride the driver and customer are on, and only reads it.
 export function VendorDeliveryTracker({ order, ride, vendor }: { order: MedsOrder; ride: Ride; vendor: Pharmacy }) {
-  const { drivers, sendMedsOrderMessage } = useRides()
+  const { drivers, sendMedsOrderMessage, vendorSwitchToOtherDelivery } = useRides()
   const driver = ride.driverId ? drivers.find((d) => d.id === ride.driverId) : undefined
   const [contact, setContact] = useState<{ name: string; phone: string } | null>(null)
   const [showTimeline, setShowTimeline] = useState(false)
+  const [confirmSwitch, setConfirmSwitch] = useState(false)
   // Keeps the ETA ticking between state updates while the ride is live.
   useNow(15000, ACTIVE_RIDE_STATUSES.has(ride.status))
 
@@ -94,6 +95,49 @@ export function VendorDeliveryTracker({ order, ride, vendor }: { order: MedsOrde
       </p>
 
       <p className="mt-2 text-xs font-semibold text-sky-800">{deliveryPhaseLabel(ride)}</p>
+
+      {/* No TODA member or official rider has taken this yet — give the
+          vendor a way out instead of leaving them stuck watching "Finding a
+          driver…" indefinitely. Gone the moment someone accepts (ride.status
+          moves past 'requested'), since pulling the ride out from under a
+          driver already on the way is a cancellation, not a delivery-method
+          switch. */}
+      {ride.status === 'requested' && (
+        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2">
+          {confirmSwitch ? (
+            <div className="space-y-1.5">
+              <p className="text-[11px] text-amber-800">
+                Stop waiting for a TODA rider and deliver this order another way (yourself, or another courier)?
+              </p>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => vendorSwitchToOtherDelivery(order.id)}
+                  className="flex-1 rounded-md bg-amber-600 py-1.5 text-[11px] font-semibold text-white hover:bg-amber-700"
+                >
+                  Yes, switch delivery method
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmSwitch(false)}
+                  className="rounded-md border border-slate-300 px-2 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Keep waiting
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmSwitch(true)}
+              className="text-[11px] font-semibold text-amber-800 hover:underline"
+            >
+              No TODA rider accepting? Switch delivery method →
+            </button>
+          )}
+        </div>
+      )}
+
       {showEta && (
         <p className="text-[11px] text-slate-600">
           {ride.status === 'ongoing' ? 'To the customer: ' : 'To your store: '}

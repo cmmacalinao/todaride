@@ -1335,6 +1335,12 @@ type RideAction =
       deliveryMode: 'pharmacy_books' | 'self_book'
     }
   | { type: 'CANCEL_MEDS_ORDER'; orderId: string }
+  // Nobody has accepted the dispatched ride yet (still 'requested') and the
+  // vendor doesn't want to keep waiting — cancels that ride and reopens the
+  // order for the vendor to fulfill some other way. See VENDOR_MARK_DELIVERED_OTHER
+  // for closing it out once actually delivered.
+  | { type: 'VENDOR_SWITCH_TO_OTHER_DELIVERY'; orderId: string }
+  | { type: 'VENDOR_MARK_DELIVERED_OTHER'; orderId: string }
   | { type: 'SEND_MEDS_ORDER_MESSAGE'; orderId: string; sender: 'customer' | 'pharmacy'; text: string }
   | { type: 'PHARMACY_PROCESS_MEDS_ORDER'; orderId: string; preferredDriverId?: string | null }
   | { type: 'MEDS_ORDER_BOOK_OWN_RIDE'; orderId: string; overrides?: MedsRideOverrides }
@@ -5362,6 +5368,33 @@ function reducer(state: RideState, action: RideAction): RideState {
             : o,
         ),
       }
+    case 'VENDOR_SWITCH_TO_OTHER_DELIVERY': {
+      const order = state.medsOrders.find((o) => o.id === action.orderId)
+      if (!order || order.status !== 'dispatched' || !order.linkedRideId) return state
+      const ride = state.rides.find((r) => r.id === order.linkedRideId)
+      // Only while nobody has accepted yet — once a driver is on the way,
+      // pulling the ride out from under them is a cancellation, not a
+      // delivery-method switch. That's still DRIVER_CANCEL_RIDE/CANCEL_RIDE's job.
+      if (!ride || ride.status !== 'requested') return state
+      return {
+        ...state,
+        rides: state.rides.map((r) =>
+          r.id === ride.id ? { ...r, status: 'cancelled', cancelledBy: 'vendor', cancelledAt: new Date().toISOString() } : r,
+        ),
+        medsOrders: state.medsOrders.map((o) =>
+          o.id === action.orderId ? { ...o, status: 'confirmed', linkedRideId: null, deliveryMode: 'vendor_other' } : o,
+        ),
+      }
+    }
+    case 'VENDOR_MARK_DELIVERED_OTHER':
+      return {
+        ...state,
+        medsOrders: state.medsOrders.map((o) =>
+          o.id === action.orderId && o.status === 'confirmed' && o.deliveryMode === 'vendor_other'
+            ? { ...o, status: 'delivered' }
+            : o,
+        ),
+      }
     case 'SEND_MEDS_ORDER_MESSAGE': {
       const order = state.medsOrders.find((o) => o.id === action.orderId)
       if (!order || !action.text.trim()) return state
@@ -6659,6 +6692,8 @@ interface RideContextValue extends RideState {
     deliveryMode: 'pharmacy_books' | 'self_book',
   ) => void
   cancelMedsOrder: (orderId: string) => void
+  vendorSwitchToOtherDelivery: (orderId: string) => void
+  vendorMarkDeliveredOther: (orderId: string) => void
   sendMedsOrderMessage: (orderId: string, sender: 'customer' | 'pharmacy', text: string) => void
   processMedsOrder: (orderId: string, preferredDriverId?: string | null) => void
   bookOwnMedsRide: (orderId: string, overrides?: MedsRideOverrides) => void
@@ -7551,6 +7586,8 @@ export function RideProvider({ children }: { children: ReactNode }) {
     acceptMedsQuote: (orderId, paymentMethod, paymentProofDataUrl, deliveryMode) =>
       dispatch({ type: 'CUSTOMER_ACCEPT_QUOTE', orderId, paymentMethod, paymentProofDataUrl, deliveryMode }),
     cancelMedsOrder: (orderId) => dispatch({ type: 'CANCEL_MEDS_ORDER', orderId }),
+    vendorSwitchToOtherDelivery: (orderId) => dispatch({ type: 'VENDOR_SWITCH_TO_OTHER_DELIVERY', orderId }),
+    vendorMarkDeliveredOther: (orderId) => dispatch({ type: 'VENDOR_MARK_DELIVERED_OTHER', orderId }),
     sendMedsOrderMessage: (orderId, sender, text) => dispatch({ type: 'SEND_MEDS_ORDER_MESSAGE', orderId, sender, text }),
     processMedsOrder: (orderId, preferredDriverId) =>
       dispatch({ type: 'PHARMACY_PROCESS_MEDS_ORDER', orderId, preferredDriverId: preferredDriverId ?? null }),

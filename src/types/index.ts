@@ -566,7 +566,12 @@ export interface StoreReview {
 // between processing and the customer booking their own ride) → dispatched
 // (a real Ride exists — look at it for further delivery status instead of
 // tracking progress twice here). rejected/cancelled are terminal off-ramps
-// reachable from any pre-dispatch state.
+// reachable from any pre-dispatch state. 'delivered' is the terminal state
+// for deliveryMode 'vendor_other' — a dispatch nobody accepted, switched by
+// the vendor to a delivery outside the app's own driver network (see
+// VENDOR_SWITCH_TO_OTHER_DELIVERY / VENDOR_MARK_DELIVERED_OTHER) — there is
+// no Ride to fall back to for its own delivery status the way 'dispatched'
+// orders have.
 export type MedsOrderStatus =
   | 'pending_confirmation'
   | 'quoted'
@@ -575,6 +580,7 @@ export type MedsOrderStatus =
   | 'cancelled'
   | 'ready_for_pickup'
   | 'dispatched'
+  | 'delivered'
 
 export interface MedsOrderItem {
   productId: string
@@ -617,8 +623,12 @@ export interface MedsOrder {
   // this field existed. 'self_book': confirmation instead leaves the order
   // at 'ready_for_pickup' and the customer dispatches the Ride themselves
   // (e.g. to pick their own favorite driver, or time it around their day)
-  // via bookOwnMedsRide.
-  deliveryMode: 'pharmacy_books' | 'self_book'
+  // via bookOwnMedsRide. 'vendor_other': set when the vendor switches away
+  // from TODA dispatch because nobody accepted the ride (see
+  // VENDOR_SWITCH_TO_OTHER_DELIVERY) — the order goes back to 'confirmed'
+  // with no linked Ride, and the vendor closes it out themselves via
+  // VENDOR_MARK_DELIVERED_OTHER once it's actually delivered.
+  deliveryMode: 'pharmacy_books' | 'self_book' | 'vendor_other'
   // Set once a Ride is actually created for this order (either
   // automatically when the pharmacy processes it, or via bookOwnMedsRide) —
   // from here on, DriverPage/TripMonitor (looking up this Ride) are the
@@ -1238,7 +1248,7 @@ export interface Ride {
   outOfAreaKm: number
   outOfAreaFee: number
   pabiliBoughtIndexes: number[]
-  cancelledBy: 'passenger' | 'driver' | null
+  cancelledBy: 'passenger' | 'driver' | 'vendor' | null
   cancellationReason: RideCancellationReason | null
   // The driver's own words, when the preset reason needs them. Optional.
   cancellationNote: string | null

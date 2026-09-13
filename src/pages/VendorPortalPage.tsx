@@ -44,6 +44,7 @@ export function VendorPortalPage() {
     vendorSendQuote,
     rejectMedsOrder,
     processMedsOrder,
+    vendorMarkDeliveredOther,
     updatePharmacyPaymentAccount,
     sendMedsOrderMessage,
     addVendorSampleOrder,
@@ -222,6 +223,7 @@ export function VendorPortalPage() {
         vendor={vendor}
         initialTab={initialTab}
         onProcess={(preferredDriverId) => processMedsOrder(order.id, preferredDriverId)}
+        onMarkDeliveredOther={() => vendorMarkDeliveredOther(order.id)}
         onSendMessage={(text) => sendMedsOrderMessage(order.id, 'pharmacy', text)}
       />
     ))
@@ -625,18 +627,23 @@ function ReadyOrderCard({
   vendor,
   onProcess,
   onSendMessage,
+  onMarkDeliveredOther,
   initialTab,
 }: {
   order: MedsOrder
   vendor: Pharmacy
   onProcess: (preferredDriverId: string | null) => void
   onSendMessage: (text: string) => void
+  // No TODA rider accepted the last dispatch, and the vendor switched to
+  // delivering it some other way (see VENDOR_SWITCH_TO_OTHER_DELIVERY) —
+  // this closes the order out once it's actually been delivered.
+  onMarkDeliveredOther: () => void
   // Which tab the card opens on: the Orders page wants the details, the
   // Book Rider page wants the booking.
   initialTab?: 'order' | 'book'
 }) {
   const [preferredDriverId, setPreferredDriverId] = useState<string | null>(null)
-  const dispatches = order.deliveryMode !== 'self_book'
+  const dispatches = order.deliveryMode !== 'self_book' && order.deliveryMode !== 'vendor_other'
   // Two tabs on an accepted order: what was ordered, and booking the rider.
   const [tab, setTab] = useState<'order' | 'book'>(dispatches ? (initialTab ?? 'book') : 'order')
   const storeGps = vendor.locationGps ?? { lat: 15.7940977, lng: 120.9905849 }
@@ -661,7 +668,11 @@ function ReadyOrderCard({
       </div>
       <p className="mt-0.5 text-[11px] font-semibold text-emerald-700">
         ✓ Approved{order.paidOnline ? ` · paid online via ${order.paymentMethod}` : ' · cash on delivery'} —{' '}
-        {dispatches ? 'prepare it, then book a rider' : 'customer will book their own ride'}
+        {order.deliveryMode === 'vendor_other'
+          ? 'no rider accepted — deliver it yourself, or try another rider'
+          : dispatches
+            ? 'prepare it, then book a rider'
+            : 'customer will book their own ride'}
       </p>
       {order.paymentProofDataUrl && (
         <a href={order.paymentProofDataUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block">
@@ -705,7 +716,7 @@ function ReadyOrderCard({
               <img src={order.paymentProofDataUrl} alt="Payment confirmation" className="h-14 w-14 rounded-md border border-emerald-300 object-cover" />
             </a>
           )}
-          {!dispatches && (
+          {order.deliveryMode === 'self_book' && (
             <button
               type="button"
               onClick={() => onProcess(null)}
@@ -713,6 +724,30 @@ function ReadyOrderCard({
             >
               Mark ready for pickup
             </button>
+          )}
+          {order.deliveryMode === 'vendor_other' && (
+            <div className="mt-2 space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+              <p className="text-[11px] text-amber-800">
+                No TODA rider accepted the last request. Deliver it yourself (or through another courier), or try
+                dispatching a rider again.
+              </p>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={onMarkDeliveredOther}
+                  className="flex-1 rounded-lg bg-emerald-600 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
+                >
+                  ✓ Mark as delivered
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onProcess(null)}
+                  className="flex-1 rounded-lg border border-brand-300 bg-white py-2 text-xs font-semibold text-brand-700 hover:bg-brand-50"
+                >
+                  🛺 Try another rider
+                </button>
+              </div>
+            </div>
           )}
           <div className="mt-2">
             <OrderChat messages={order.messages} viewerRole="pharmacy" otherPartyLabel={order.customerName} onSend={onSendMessage} />

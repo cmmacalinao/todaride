@@ -24,6 +24,7 @@ export function orderStage(order: MedsOrder, ride: Ride | undefined): OrderStage
   if (order.status === 'rejected') return 'declined'
   if (order.status === 'pending_confirmation') return 'placed'
   if (order.status === 'quoted') return 'quoted'
+  if (order.status === 'delivered') return 'delivered'
   if (order.status === 'confirmed' || order.status === 'ready_for_pickup') return 'accepted'
   // dispatched — the ride says how far along it is.
   if (!ride) return 'rider_booked'
@@ -61,7 +62,11 @@ export function orderStageDetail(order: MedsOrder, ride: Ride | undefined, viewe
     case 'accepted':
       return order.deliveryMode === 'self_book'
         ? 'Ready — customer books their own ride'
-        : `${order.paidOnline ? `Paid online via ${order.paymentMethod}` : 'Cash on delivery'} — being prepared, rider not booked yet`
+        : order.deliveryMode === 'vendor_other'
+          ? viewer === 'customer'
+            ? 'No rider accepted — the vendor is arranging delivery another way'
+            : 'No rider accepted — deliver it yourself, then mark it delivered'
+          : `${order.paidOnline ? `Paid online via ${order.paymentMethod}` : 'Cash on delivery'} — being prepared, rider not booked yet`
     case 'rider_booked':
       return ride?.status === 'requested' || !driver
         ? 'Finding a TODA SafeRide rider…'

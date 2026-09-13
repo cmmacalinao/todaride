@@ -73,7 +73,7 @@ function showUpdatingSplash(): void {
   if (!root) return
   root.innerHTML = `
     <div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#1e3a8a;font-family:system-ui,-apple-system,'Segoe UI',sans-serif">
-      <img src="/logo.webp" alt="TODA Ride Mobility" style="width:150px;max-width:60vw;height:auto" />
+      <img src="/logo.png" alt="TODA Ride Mobility" style="width:150px;max-width:60vw;height:auto" />
       <div style="width:26px;height:26px;border:3px solid rgba(255,255,255,.28);border-top-color:#fbbf24;border-radius:50%;animation:toda-spin .8s linear infinite"></div>
       <p style="margin:0;color:#e2e8f0;font-size:13px;letter-spacing:.01em">Kinukuha ang pinakabagong bersyon…</p>
       <!-- An escape hatch, because this screen must never be a dead end. The

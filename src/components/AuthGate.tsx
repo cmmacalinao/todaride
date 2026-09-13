@@ -201,7 +201,7 @@ export function LegacyAuthGate() {
             aria-label="Back to home"
           >
             <img
-            src="/logo.webp"
+            src="/logo.png"
             alt="TODA Ride Mobility"
             className={isBusinessRole ? 'h-28 w-auto object-contain' : 'h-16 w-auto object-contain'}
           />

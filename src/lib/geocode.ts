@@ -85,6 +85,43 @@ export async function reverseGeocode(gps: GeoCoords): Promise<string | null> {
   }
 }
 
+export interface PlaceSuggestion {
+  label: string
+  gps: GeoCoords
+}
+
+// The fallback DestinationSearch reaches for once the local landmark list
+// (see lib/landmarkSearch.ts) comes up empty — a live, multi-result lookup
+// against Nominatim's search endpoint, scoped to the city/province already
+// picked so "palengke" -like typos aside, a real but unseeded place (a
+// specific sari-sari store, a newer subdivision) still resolves to
+// something. Never called per-keystroke: Nominatim's usage policy caps free
+// use at ~1 request/second, so the caller is responsible for debouncing to a
+// real pause in typing, not just a short one. Returns [] rather than
+// throwing on any failure (offline, timeout, no results) — an empty list and
+// a real miss look identical to the search box either way.
+export async function searchNearbyPlaces(
+  query: string,
+  scope: { city?: string; province?: string },
+  limit = 5,
+): Promise<PlaceSuggestion[]> {
+  const q = query.trim()
+  if (!q) return []
+  const scoped = [q, scope.city, scope.province ?? 'Nueva Ecija', 'Philippines'].filter(Boolean).join(', ')
+  const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=0&limit=${limit}&countrycodes=ph&q=${encodeURIComponent(scoped)}`
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 6000)
+    const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: controller.signal })
+    clearTimeout(timeout)
+    if (!res.ok) return []
+    const results = (await res.json()) as { lat: string; lon: string; display_name: string }[]
+    return results.map((r) => ({ label: r.display_name, gps: { lat: parseFloat(r.lat), lng: parseFloat(r.lon) } }))
+  } catch {
+    return []
+  }
+}
+
 // Free, keyless geocoding via OpenStreetMap's Nominatim search API — turns a
 // typed address into a real lat/lng. Small informal Philippine subdivision/
 // sitio names are frequently missing from OSM's free data even when the

@@ -94,7 +94,7 @@ export function PublicHeader({ title = 'TODA Ride Mobility' }: { title?: string 
           </div>
           {!onLanding && (
             <Link to="/" aria-label="TODA Ride Mobility home">
-              <img src="/logo.webp" alt="TODA Ride Mobility" className="h-11 w-auto shrink-0 object-contain" />
+              <img src="/logo.png" alt="TODA Ride Mobility" className="h-11 w-auto shrink-0 object-contain" />
             </Link>
           )}
           <span className="min-w-0 truncate text-sm font-semibold text-gold-400">{title}</span>

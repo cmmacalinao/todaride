@@ -2597,7 +2597,11 @@ export const MOCK_OPERATORS: Operator[] = [
     // both render through the same <img> (see NavBar/PublicHeader).
     logoDataUrl: '/partner-logo.png',
     // The same partner's banner, on the sign-in screen — same reasoning.
-    bannerDataUrl: '/partner-banner.webp',
+    // Unset: the seeded file baked the old logo into the image itself, so a
+    // rebrand can't just swap a src — left null until an Operator uploads a
+    // current one from their own portal (falls back to the plain
+    // PilotBranding text badge in the meantime, see LandingPage).
+    bannerDataUrl: null,
     activationFee: 45000,
     monthlyPlatformFee: 8000,
     perBookingFee: 2,

@@ -111,7 +111,7 @@ export function RoleChooserPage() {
         </Link>
         <div className="mb-6 flex flex-col items-center text-center">
           <Link to="/" aria-label="Back to home" className="rounded-2xl border-2 border-white/25 p-3">
-            <img src="/logo.webp" alt="TODA Ride Mobility" className="h-14 w-auto object-contain" />
+            <img src="/logo.png" alt="TODA Ride Mobility" className="h-14 w-auto object-contain" />
           </Link>
           {/* Same resolution as the launch screen behind this one — see
               usePilotBranding — so the two doors into the app never

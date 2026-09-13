@@ -406,7 +406,7 @@ export function NavBar() {
           <div className="flex min-w-0 items-center gap-2">
             <div className="flex shrink-0 items-center">{hamburgerButton}</div>
             <Link to="/" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-              <img src="/logo.webp" alt="TODA Ride Mobility" className="h-11 w-auto shrink-0 object-contain" />
+              <img src="/logo.png" alt="TODA Ride Mobility" className="h-11 w-auto shrink-0 object-contain" />
             </Link>
             <Link
               to="/"
@@ -606,7 +606,7 @@ export function NavBar() {
           </div>
           <Link to="/" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
             <img
-              src="/logo.webp"
+              src="/logo.png"
               alt="TODA Ride Mobility"
               className={`w-auto shrink-0 object-contain ${isSimulatorPage ? 'h-7' : 'h-11'}`}
             />

@@ -58,11 +58,10 @@ import { makeGuestPassengerId, useGuestRider } from '../components/GuestRiderFie
 import { PassengerRewardsCard } from '../components/PassengerRewardsCard'
 import { GroupRideInlinePanel, type GroupRiderEntry } from '../components/GroupRideInlinePanel'
 import { ContactSheet } from '../components/ContactSheet'
-import { DestinationSearch } from '../components/DestinationSearch'
+import { DestinationSearch, type SelectedPlace } from '../components/DestinationSearch'
 import type {
   DriverReportReason,
   GeoCoords,
-  Landmark,
   MockLocation,
   PaymentMethod,
   Pharmacy,
@@ -784,14 +783,15 @@ export function PassengerPage() {
   // A landmark already carries a real coordinate (see mock/data.ts), so
   // there is no geocoding round trip here — straight into the same pin
   // handler a map tap uses, just without a reverse-geocoded guess to reseed
-  // the address form with.
-  function handlePickupLandmark(landmark: Landmark) {
-    handlePinPickup(createCustomLocation(landmark.name, landmark.gps), null)
+  // the address form with. Works the same for a seeded Landmark or a live
+  // OpenStreetMap fallback result — see DestinationSearch's SelectedPlace.
+  function handlePickupLandmark(place: SelectedPlace) {
+    handlePinPickup(createCustomLocation(place.name, place.gps), null)
     setOpenEnd(null)
   }
 
-  function handleDropoffLandmark(landmark: Landmark) {
-    handlePinDropoff(createCustomLocation(landmark.name, landmark.gps), null)
+  function handleDropoffLandmark(place: SelectedPlace) {
+    handlePinDropoff(createCustomLocation(place.name, place.gps), null)
     setOpenEnd(null)
   }
 

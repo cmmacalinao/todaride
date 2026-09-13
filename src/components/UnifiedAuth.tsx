@@ -165,7 +165,7 @@ export function UnifiedAuth() {
     <div className="mx-auto max-w-sm px-5 pb-10 pt-8">
       <div className="mb-8 flex justify-center">
         <button type="button" onClick={() => navigate('/')} aria-label="TODA Ride Mobility home">
-          <img src="/logo.webp" alt="TODA Ride Mobility" className="h-28 w-auto object-contain" />
+          <img src="/logo.png" alt="TODA Ride Mobility" className="h-28 w-auto object-contain" />
         </button>
       </div>
 

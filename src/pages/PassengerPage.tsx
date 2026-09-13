@@ -1809,7 +1809,9 @@ export function PassengerPage() {
                     type="button"
                     onClick={openGroupRide}
                     aria-expanded={groupRideOpen}
-                    className="flex flex-1 items-center justify-center gap-1 rounded-md py-1.5 text-[11px] font-semibold text-slate-500 transition hover:bg-slate-200"
+                    className={`flex flex-1 items-center justify-center gap-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
+                      groupRideOpen ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'
+                    }`}
                   >
                     <span aria-hidden className="text-[11px] leading-none">👥</span>
                     Group ride

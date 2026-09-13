@@ -104,7 +104,7 @@ export const VendorMenuBooking = forwardRef<
     // Told on every cart change so the app-wide footer (see PassengerPage)
     // can show a View Cart tile without holding the cart itself — null once
     // the cart is empty or its store's menu isn't the screen showing.
-    onCartChange?: (info: { count: number; total: number } | null) => void
+    onCartChange?: (info: { count: number; total: number; atCheckout: boolean } | null) => void
   }
 >(function VendorMenuBooking(
   {
@@ -286,9 +286,9 @@ export const VendorMenuBooking = forwardRef<
   // empty to another store's — it never reads this component's state
   // directly.
   useEffect(() => {
-    onCartChange?.(cartItemCount > 0 ? { count: cartItemCount, total: subtotal } : null)
+    onCartChange?.(cartItemCount > 0 ? { count: cartItemCount, total: subtotal, atCheckout: step === 'checkout' } : null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartItemCount, subtotal])
+  }, [cartItemCount, subtotal, step])
 
   // Leaves nothing behind in the footer once this screen itself is left
   // (switching to Book a Ride/Food Order, or away from the app entirely).
@@ -445,33 +445,6 @@ export const VendorMenuBooking = forwardRef<
               <span className="text-xs font-semibold text-brand-700">View order ›</span>
             </button>
           )}
-
-          {/* The Food Order/PaDeliver "storefront" — same idea as a vendor's
-              own cover banner (see VendorHeaderCard), just introducing the
-              whole service instead of one vendor. Gradient + stripe texture
-              is deliberately the same visual language, not a different look
-              bolted onto the same flow — only the copy tells the two apart. */}
-          <div
-            className={`relative overflow-hidden rounded-2xl p-4 text-white shadow-sm ${
-              isGoods ? 'bg-gradient-to-br from-sky-600 via-blue-600 to-indigo-700' : 'bg-gradient-to-br from-amber-500 via-orange-500 to-rose-600'
-            }`}
-          >
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 opacity-10"
-              style={{
-                backgroundImage: 'repeating-linear-gradient(-45deg, white 0, white 2px, transparent 2px, transparent 14px)',
-              }}
-            />
-            <p className="relative text-lg font-extrabold leading-tight">
-              {isGoods ? '📦 PaDeliver — from Partner Store' : '🍽️ Food Order'}
-            </p>
-            <p className="relative mt-0.5 text-xs text-white/90">
-              {isGoods
-                ? "Order straight from a partner store's own priced catalog — groceries, hardware, whatever they sell — delivered by your driver."
-                : "Order straight from a partner vendor's own priced menu — cooked fresh, delivered by your driver."}
-            </p>
-          </div>
 
           {/* The Store/Book a Delivery switcher now lives one level up, as a
               strip under the main ServiceTabs (see PassengerPage's

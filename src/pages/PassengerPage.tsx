@@ -335,7 +335,7 @@ export function PassengerPage() {
   // VendorMenuBookingHandle) purely so the app-wide footer below can show a
   // View Cart tile without that screen's own cart ever living here.
   const vendorMenuRef = useRef<VendorMenuBookingHandle>(null)
-  const [vendorCart, setVendorCart] = useState<{ count: number; total: number } | null>(null)
+  const [vendorCart, setVendorCart] = useState<{ count: number; total: number; atCheckout: boolean } | null>(null)
 
   // Lets the landing page's "💊 Buy a Medicine" button link straight into
   // the Medicine flow (/book?service=buy_medicine) instead of dropping the
@@ -2239,7 +2239,14 @@ export function PassengerPage() {
             type="button"
             onClick={() => vendorMenuRef.current?.openCart()}
             title={`View cart — ${vendorCart.count} item${vendorCart.count === 1 ? '' : 's'}, ₱${vendorCart.total}`}
-            className="relative flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border border-transparent bg-slate-100 py-1.5 transition hover:bg-slate-200"
+            // Gold to match Drivers Near You's own selected state — lit only
+            // while Checkout, what this tile jumps to, is the screen actually
+            // showing.
+            className={`relative flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border py-1.5 transition ${
+              vendorCart.atCheckout
+                ? 'border-gold-500 bg-gold-400 shadow-md'
+                : 'border-transparent bg-slate-100 hover:bg-slate-200'
+            }`}
           >
             <span className="text-[15px] leading-none">🛒</span>
             <span className="truncate text-[10px] font-semibold text-slate-700">

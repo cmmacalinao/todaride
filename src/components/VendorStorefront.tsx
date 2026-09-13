@@ -1243,6 +1243,33 @@ export function VendorStorefront({
         onRate={onRate}
       />
 
+      {/* Repeats the bottom bar's numbers right where an add just happened —
+          the menu can run well past one screen, and the bottom bar (see
+          below) is then out of view at the exact moment it would confirm
+          the tap landed. */}
+      {interactive && cartCount > 0 && (
+        <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 p-3">
+          <div className="flex items-center gap-2 text-sm text-slate-700">
+            <span className="text-lg">🛒</span>
+            <div>
+              <p className="font-semibold">Added to cart</p>
+              <p className="text-[11px] text-slate-500">
+                {cartCount} item{cartCount === 1 ? '' : 's'} · ₱{cartTotal}
+              </p>
+            </div>
+          </div>
+          {onCheckout && (
+            <button
+              type="button"
+              onClick={onCheckout}
+              className={`flex items-center gap-1 rounded-lg px-4 py-2 text-sm font-semibold text-white ${accent.solid} ${accent.solidHover}`}
+            >
+              Checkout →
+            </button>
+          )}
+        </div>
+      )}
+
       {shownPost && (
         <div className="border-t border-slate-100 bg-slate-50 p-3">
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
@@ -1304,7 +1331,11 @@ export function VendorStorefront({
           <p className="rounded-lg bg-slate-50 p-2.5 text-xs text-slate-400">No dish matches your search.</p>
         )}
 
-        <div className="space-y-2">
+        {/* Capped to about 5 rows and scrolled from there — a long menu used
+            to push checkout and everything else on the page far below the
+            fold; swiping inside this box instead keeps the rest of the page
+            put. */}
+        <div className="max-h-[440px] space-y-2 overflow-y-auto pr-0.5">
           {shownItems.map((item) => (
             <VendorMenuItemCard
               key={item.id}

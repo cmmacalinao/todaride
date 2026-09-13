@@ -5,6 +5,7 @@ import { DocumentUploadField } from './DocumentUploadField'
 import { createCustomLocation, resolvePhAddress, reverseGeocodeToPhAddress, type PhAddressTags } from '../lib/customLocation'
 import { getCurrentGeoPosition } from '../lib/geo'
 import { BarangayAddressPicker } from './BarangayAddressPicker'
+import { DeliveryMapPicker } from './DeliveryMapPicker'
 import { StoreRatingSheet } from './StoreRatingSheet'
 import { OrderStatusStrip, orderStageDetail } from './OrderStatusStrip'
 import { OrderChat } from './OrderChat'
@@ -146,6 +147,10 @@ export const VendorMenuBooking = forwardRef<
   const [cart, setCart] = useState<Record<string, number>>({})
   const [contactPhone, setContactPhone] = useState(defaultContactPhone ?? '')
   const [deliveryAddress, setDeliveryAddress] = useState<MockLocation | null>(null)
+  // The map is opt-in — Checkout shows the address form by default, and a
+  // customer who would rather pin the spot switches this strip to Map
+  // instead of both sitting on the screen at once.
+  const [deliveryInputMode, setDeliveryInputMode] = useState<'form' | 'map'>('form')
   // What the Province/City/Barangay dropdowns under the map are seeded with.
   // A map pin (or GPS fix) reverse-geocodes to a guess at those three, and
   // the picker is remounted (via `key`) to show it — otherwise the form would
@@ -309,6 +314,19 @@ export const VendorMenuBooking = forwardRef<
     const location = await resolvePhAddress(address)
     setDeliveryAddress(location)
     setDeliveryPinned(false)
+  }
+
+  // From the map — a tap, a drag, or the GPS button. The location is the
+  // exact point; the guess (when the pin landed somewhere in our address
+  // tree) re-seeds the dropdowns beneath so both say the same thing.
+  function handleMapPin(location: MockLocation, guess: PhAddressTags | null) {
+    addressTouchedRef.current = true
+    setDeliveryAddress(location)
+    setDeliveryPinned(true)
+    if (guess) {
+      setAddressSeed(guess)
+      setAddressSeedKey((k) => k + 1)
+    }
   }
 
   const canPlaceOrder = cartLines.length > 0 && !!deliveryAddress && !!contactPhone.trim() && !!selectedVendor
@@ -628,6 +646,29 @@ export const VendorMenuBooking = forwardRef<
 
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500">Deliver to</label>
+            <div className="mb-2 flex gap-1 rounded-lg bg-slate-100 p-1">
+              <button
+                type="button"
+                onClick={() => setDeliveryInputMode('form')}
+                className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
+                  deliveryInputMode === 'form' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                📍 Address Form
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeliveryInputMode('map')}
+                className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
+                  deliveryInputMode === 'map' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                🗺️ Set Delivery Address to Map
+              </button>
+            </div>
+            {deliveryInputMode === 'map' && selectedVendor && (
+              <DeliveryMapPicker vendor={selectedVendor} deliveryAddress={deliveryAddress} onChange={handleMapPin} />
+            )}
             <BarangayAddressPicker
               key={addressSeedKey}
               label="Delivery address"

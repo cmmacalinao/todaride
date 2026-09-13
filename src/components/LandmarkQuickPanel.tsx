@@ -39,6 +39,9 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
   const [justAdded, setJustAdded] = useState('')
   const [justMoved, setJustMoved] = useState('')
   const [confirmingRemoveId, setConfirmingRemoveId] = useState<string | null>(null)
+  const [listFilterText, setListFilterText] = useState('')
+  const [listFilterCategory, setListFilterCategory] = useState<LandmarkCategory | 'all'>('all')
+  const [listSort, setListSort] = useState<'name-asc' | 'name-desc' | 'category'>('name-asc')
 
   const pending =
     Number.isFinite(Number(lat)) && Number.isFinite(Number(lng)) && lat.trim() !== '' && lng.trim() !== ''
@@ -46,6 +49,29 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
       : null
 
   const cityLandmarks = landmarks.filter((l) => l.city === city)
+
+  // The chip list below, narrowed and sorted for actually finding one
+  // landmark among what can now be hundreds — the seeded OSM sweep alone
+  // puts 150+ in San Jose City. The map itself and the Add/nudge flow above
+  // stay driven by the full cityLandmarks list; this filtering is purely
+  // about scanning the list, not about what exists.
+  const normalizedFilter = listFilterText.trim().toLowerCase()
+  const visibleLandmarks = cityLandmarks
+    .filter((l) => listFilterCategory === 'all' || l.category === listFilterCategory)
+    .filter(
+      (l) =>
+        !normalizedFilter ||
+        l.name.toLowerCase().includes(normalizedFilter) ||
+        l.aliases.some((a) => a.toLowerCase().includes(normalizedFilter)),
+    )
+    .sort((a, b) =>
+      listSort === 'name-desc'
+        ? b.name.localeCompare(a.name)
+        : listSort === 'category'
+          ? LANDMARK_CATEGORY_LABELS[a.category].localeCompare(LANDMARK_CATEGORY_LABELS[b.category]) ||
+            a.name.localeCompare(b.name)
+          : a.name.localeCompare(b.name),
+    )
 
   // Snapshot of which pins the map frames itself on, taken once per city
   // rather than recomputed every render — RealLiveMap re-fits whenever the
@@ -148,6 +174,8 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
           onChange={(e) => {
             setCity(e.target.value)
             setJustMoved('')
+            setListFilterText('')
+            setListFilterCategory('all')
           }}
           className="max-w-[12rem] rounded-lg border border-slate-300 px-2 py-1 text-[11px]"
         >
@@ -228,8 +256,56 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       {cityLandmarks.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={listFilterText}
+            onChange={(e) => setListFilterText(e.target.value)}
+            placeholder={`Filter ${city}'s ${cityLandmarks.length} landmarks…`}
+            className="min-w-[10rem] flex-1 rounded-lg border border-slate-300 px-2 py-1 text-[11px]"
+          />
+          <select
+            value={listFilterCategory}
+            onChange={(e) => setListFilterCategory(e.target.value as LandmarkCategory | 'all')}
+            className="rounded-lg border border-slate-300 px-2 py-1 text-[11px]"
+          >
+            <option value="all">All categories</option>
+            {(Object.keys(LANDMARK_CATEGORY_LABELS) as LandmarkCategory[]).map((c) => (
+              <option key={c} value={c}>
+                {LANDMARK_CATEGORY_ICONS[c]} {LANDMARK_CATEGORY_LABELS[c]}
+              </option>
+            ))}
+          </select>
+          <select
+            value={listSort}
+            onChange={(e) => setListSort(e.target.value as typeof listSort)}
+            title="Arrange the list below"
+            className="rounded-lg border border-slate-300 px-2 py-1 text-[11px]"
+          >
+            <option value="name-asc">Sort: Name (A–Z)</option>
+            <option value="name-desc">Sort: Name (Z–A)</option>
+            <option value="category">Sort: Category</option>
+          </select>
+          {(listFilterText || listFilterCategory !== 'all') && (
+            <button
+              type="button"
+              onClick={() => {
+                setListFilterText('')
+                setListFilterCategory('all')
+              }}
+              className="text-[11px] font-medium text-slate-500 underline hover:text-slate-700"
+            >
+              Clear filter
+            </button>
+          )}
+        </div>
+      )}
+
+      {cityLandmarks.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
-          {cityLandmarks.map((l) =>
+          {visibleLandmarks.length === 0 && (
+            <p className="text-[11px] text-slate-400">No landmarks match this filter.</p>
+          )}
+          {visibleLandmarks.map((l) =>
             confirmingRemoveId === l.id ? (
               <span
                 key={l.id}
@@ -293,6 +369,7 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
       ) : (
         <p className="text-[11px] text-slate-500">
           {landmarks.length} landmark{landmarks.length === 1 ? '' : 's'} total · {cityLandmarks.length} in {city}
+          {visibleLandmarks.length !== cityLandmarks.length && ` · ${visibleLandmarks.length} shown`}
         </p>
       )}
     </section>

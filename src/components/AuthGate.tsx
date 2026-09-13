@@ -32,7 +32,7 @@ const ROLE_LABELS: Record<GateRole, string> = {
   driver: 'Driver',
   admin: 'Admin',
   pharmacy: 'Pharmacy',
-  vendor: 'Food / Vendor',
+  vendor: 'Merchant',
   operator: 'Operator',
   franchise: 'Franchise',
 }

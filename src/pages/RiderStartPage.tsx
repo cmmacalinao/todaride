@@ -128,35 +128,21 @@ export function RiderStartPage() {
             'goods_delivery' section cases. Book a Delivery doesn't depend
             on any registered vendor, so it's offered even when Store isn't. */}
         <div className="overflow-hidden rounded-xl border border-white/20 bg-white/5 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-white/10 p-4 pb-3">
+          <button
+            type="button"
+            onClick={() => navigate('/book', { state: { section: 'goods_store' } })}
+            className="flex w-full items-center gap-2 border-b border-white/10 p-4 pb-3 text-left transition hover:bg-white/10"
+          >
             <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-400 text-xl leading-none">
               📦
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-base font-bold text-gold-400">PADELIVER</span>
+              <span className="block text-base font-bold text-gold-400">PaDeliver</span>
               <span className="block text-xs text-white/60">Goods — from a store's shelf, or straight from you.</span>
             </span>
-          </div>
-          {vendorCatalogsAvailable && (
-            <button
-              type="button"
-              onClick={() => navigate('/book', { state: { section: 'goods_store' } })}
-              className={`flex w-full items-center gap-3 p-4 py-3 text-left transition hover:bg-white/10 ${
-                vendorCatalogsAvailable ? 'border-b border-white/10' : ''
-              }`}
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold text-white">🏬 Store</span>
-                <span className="block text-xs text-white/60">Browse a partner store's own priced catalog and check out.</span>
-              </span>
-              <span aria-hidden className="text-xl text-white/30">›</span>
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => navigate('/book', { state: { section: 'goods_delivery' } })}
-            className="flex w-full items-center gap-3 p-4 py-3 text-left transition hover:bg-white/10"
-          >
+            <span aria-hidden className="text-xl text-white/40">›</span>
+          </button>
+          <div className={`flex items-start gap-3 py-3 pl-14 pr-4 ${vendorCatalogsAvailable ? 'border-b border-white/10' : ''}`}>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-bold text-white">🛺 Book a Delivery</span>
               <span className="block text-xs text-white/60">
@@ -164,8 +150,15 @@ export function RiderStartPage() {
                 carries it, nothing to buy.
               </span>
             </span>
-            <span aria-hidden className="text-xl text-white/30">›</span>
-          </button>
+          </div>
+          {vendorCatalogsAvailable && (
+            <div className="flex items-start gap-3 py-3 pl-14 pr-4">
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold text-white">🏬 Partner Stores</span>
+                <span className="block text-xs text-white/60">Browse a partner store's own priced catalog and check out.</span>
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>

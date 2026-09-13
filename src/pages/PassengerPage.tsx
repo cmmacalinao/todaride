@@ -1820,7 +1820,7 @@ export function PassengerPage() {
                     }`}
                   >
                     <span aria-hidden className="text-[11px] leading-none">👥</span>
-                    Group ride
+                    Group Ride
                   </button>
                 </div>
                 {guestRider.bookingFor === 'other' && (

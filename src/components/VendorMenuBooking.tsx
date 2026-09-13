@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { DEFAULT_MEDS_DELIVERY_FEE, DEFAULT_MEDS_SERVICE_FEE, PAYMENT_METHODS } from '../mock/data'
 import { DocumentUploadField } from './DocumentUploadField'
@@ -103,6 +104,7 @@ export function VendorMenuBooking({
   // catalogKind). Defaults to both, same as before this split existed.
   catalogTypes?: BusinessType[]
 }) {
+  const navigate = useNavigate()
   const { rides, pharmacies, medicineProducts, medsOrders, createMedsOrder, cancelMedsOrder, ratePharmacy, quoteVendorDeliveryFare } =
     useRides()
   const businessTypes = catalogTypes ?? VENDOR_BUSINESS_TYPES
@@ -422,6 +424,42 @@ export function VendorMenuBooking({
                 : "Order straight from a partner vendor's own priced menu — cooked fresh, delivered by your driver."}
             </p>
           </div>
+
+          {/* Store and Book a Delivery are PaDeliver's two sub-services —
+              this screen is Store, so the only thing missing from here is a
+              way to reach Book a Delivery without backing out to the
+              RiderStartPage chooser first. Not shown on Food Order, which
+              has no such sibling. */}
+          {isGoods && (
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex items-center gap-3 border-b border-slate-100 p-3 py-2.5 bg-slate-50">
+                <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-base leading-none">
+                  🏬
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-slate-700">Store</span>
+                  <span className="block text-xs text-slate-500">Browse a partner store's own priced catalog and check out.</span>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/book', { state: { section: 'goods_delivery' } })}
+                className="flex w-full items-center gap-3 p-3 py-2.5 text-left transition hover:bg-slate-50"
+              >
+                <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-base leading-none">
+                  🛺
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-slate-700">Book a Delivery</span>
+                  <span className="block text-xs text-slate-500">
+                    Already have the package? Tell us where to pick it up and where it's going — your driver just
+                    carries it, nothing to buy.
+                  </span>
+                </span>
+                <span aria-hidden className="text-xl text-slate-300">›</span>
+              </button>
+            </div>
+          )}
 
           <input
             value={vendorSearch}

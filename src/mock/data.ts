@@ -3550,32 +3550,6 @@ export const MOCK_PHARMACIES: Pharmacy[] = [
   // tab (browse vendor -> menu -> cart -> checkout) is demoable without
   // anyone having to register and stock a vendor account first.
   {
-    id: 'vendor-1',
-    name: "Aling Nena's Carinderia",
-    businessType: 'resto_food',
-    adminPin: '1231',
-    contactPhone: '0917-600-2001',
-    province: 'Nueva Ecija',
-    city: 'San Jose City',
-    barangay: 'Abar 2nd',
-    addressDetail: 'Along the market road, beside the tricycle terminal',
-    coords: { x: 60, y: 62 },
-    locationGps: { lat: 15.7996, lng: 120.9861 },
-    isOpen: true,
-    verificationStatus: 'approved',
-    gcashAccount: { accountName: "Aling Nena's Carinderia", accountNumber: '0917-600-2001', qrDataUrl: null },
-    mayaAccount: null,
-    // Demo branding for the Registered Vendor page customization feature
-    // (see VendorStorefront.tsx) — an illustrated, non-photographic logo
-    // and cover banner (plain SVG, not real photography) so the seed vendor
-    // shows what a customized page looks like out of the box.
-    tagline: 'Lutong Bahay, Everyday!',
-    logoDataUrl:
-      "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20200%20200%22%3E%0A%20%20%3Ccircle%20cx%3D%22100%22%20cy%3D%22100%22%20r%3D%2298%22%20fill%3D%22%23FFFFFF%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22100%22%20cy%3D%22100%22%20r%3D%2298%22%20fill%3D%22none%22%20stroke%3D%22%23F1F1F1%22%20stroke-width%3D%222%22%2F%3E%0A%20%20%3Cg%20stroke%3D%22%23F97316%22%20stroke-width%3D%223%22%20opacity%3D%220.55%22%3E%0A%20%20%20%20%3Cline%20x1%3D%22100%22%20y1%3D%22118%22%20x2%3D%22100%22%20y2%3D%2298%22%2F%3E%0A%20%20%20%20%3Cline%20x1%3D%22118%22%20y1%3D%22122%22%20x2%3D%22112%22%20y2%3D%22104%22%2F%3E%0A%20%20%20%20%3Cline%20x1%3D%22132%22%20y1%3D%22132%22%20x2%3D%22120%22%20y2%3D%22118%22%2F%3E%0A%20%20%20%20%3Cline%20x1%3D%22140%22%20y1%3D%22146%22%20x2%3D%22126%22%20y2%3D%22136%22%2F%3E%0A%20%20%20%20%3Cline%20x1%3D%2282%22%20y1%3D%22122%22%20x2%3D%2288%22%20y2%3D%22104%22%2F%3E%0A%20%20%20%20%3Cline%20x1%3D%2268%22%20y1%3D%22132%22%20x2%3D%2280%22%20y2%3D%22118%22%2F%3E%0A%20%20%20%20%3Cline%20x1%3D%2260%22%20y1%3D%22146%22%20x2%3D%2274%22%20y2%3D%22136%22%2F%3E%0A%20%20%3C%2Fg%3E%0A%20%20%3Cellipse%20cx%3D%22100%22%20cy%3D%22140%22%20rx%3D%2246%22%20ry%3D%2230%22%20fill%3D%22%23F97316%22%2F%3E%0A%20%20%3Cellipse%20cx%3D%22100%22%20cy%3D%22136%22%20rx%3D%2240%22%20ry%3D%2224%22%20fill%3D%22%23FB923C%22%2F%3E%0A%20%20%3Cg%20fill%3D%22%234B2A1D%22%3E%0A%20%20%20%20%3Crect%20x%3D%2246%22%20y%3D%2266%22%20width%3D%225%22%20height%3D%2240%22%20rx%3D%222%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2240%22%20y%3D%2250%22%20width%3D%224%22%20height%3D%2220%22%20rx%3D%222%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2247%22%20y%3D%2250%22%20width%3D%224%22%20height%3D%2220%22%20rx%3D%222%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2254%22%20y%3D%2250%22%20width%3D%224%22%20height%3D%2220%22%20rx%3D%222%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2242%22%20y%3D%2266%22%20width%3D%2216%22%20height%3D%226%22%20rx%3D%222%22%2F%3E%0A%20%20%3C%2Fg%3E%0A%20%20%3Cg%20fill%3D%22%234B2A1D%22%3E%0A%20%20%20%20%3Crect%20x%3D%22148%22%20y%3D%2270%22%20width%3D%225%22%20height%3D%2238%22%20rx%3D%222%22%2F%3E%0A%20%20%20%20%3Cellipse%20cx%3D%22150.5%22%20cy%3D%2258%22%20rx%3D%2211%22%20ry%3D%2215%22%2F%3E%0A%20%20%3C%2Fg%3E%0A%20%20%3Cg%20fill%3D%22%23FFFFFF%22%20stroke%3D%22%23241a14%22%20stroke-width%3D%223%22%20stroke-linejoin%3D%22round%22%3E%0A%20%20%20%20%3Crect%20x%3D%2282%22%20y%3D%2260%22%20width%3D%2236%22%20height%3D%2214%22%20rx%3D%223%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M84%2060%20c-10%200%20-16%20-9%20-12%20-18%20c3%20-7%2011%20-9%2015%20-4%20c2%20-9%2015%20-9%2017%200%20c4%20-5%2012%20-3%2015%204%20c4%209%20-2%2018%20-12%2018%20z%22%2F%3E%0A%20%20%3C%2Fg%3E%0A%20%20%3Ctext%20x%3D%22100%22%20y%3D%22168%22%20font-family%3D%22Georgia%2C%20'Times%20New%20Roman'%2C%20serif%22%20font-style%3D%22italic%22%20font-weight%3D%22bold%22%20font-size%3D%2224%22%20fill%3D%22%234B2A1D%22%20text-anchor%3D%22middle%22%3EAling%20Nena's%3C%2Ftext%3E%0A%20%20%3Ctext%20x%3D%22100%22%20y%3D%22186%22%20font-family%3D%22Arial%2C%20Helvetica%2C%20sans-serif%22%20font-weight%3D%22bold%22%20font-size%3D%2214%22%20letter-spacing%3D%222%22%20fill%3D%22%234B2A1D%22%20text-anchor%3D%22middle%22%3ECARINDERIA%3C%2Ftext%3E%0A%3C%2Fsvg%3E",
-    coverPhotoDataUrl:
-      "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20800%20300%22%3E%0A%20%20%3Cdefs%3E%0A%20%20%20%20%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%0A%20%20%20%20%20%20%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23FDBA74%22%2F%3E%0A%20%20%20%20%20%20%3Cstop%20offset%3D%2250%25%22%20stop-color%3D%22%23FB923C%22%2F%3E%0A%20%20%20%20%20%20%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%23EA580C%22%2F%3E%0A%20%20%20%20%3C%2FlinearGradient%3E%0A%20%20%3C%2Fdefs%3E%0A%20%20%3Crect%20width%3D%22800%22%20height%3D%22300%22%20fill%3D%22url(%23g)%22%2F%3E%0A%20%20%3Ctext%20x%3D%22660%22%20y%3D%2290%22%20font-size%3D%2270%22%20opacity%3D%220.16%22%3E%26%23127860%3B%3C%2Ftext%3E%0A%20%20%3Ctext%20x%3D%2240%22%20y%3D%22270%22%20font-size%3D%2270%22%20opacity%3D%220.16%22%3E%26%23127848%3B%3C%2Ftext%3E%0A%20%20%3Ctext%20x%3D%22380%22%20y%3D%2270%22%20font-size%3D%2260%22%20opacity%3D%220.13%22%3E%26%23127858%3B%3C%2Ftext%3E%0A%20%20%3Ctext%20x%3D%22220%22%20y%3D%22250%22%20font-size%3D%2255%22%20opacity%3D%220.13%22%3E%26%23127859%3B%3C%2Ftext%3E%0A%20%20%3Ctext%20x%3D%22560%22%20y%3D%22240%22%20font-size%3D%2250%22%20opacity%3D%220.13%22%3E%26%23127866%3B%3C%2Ftext%3E%0A%3C%2Fsvg%3E",
-  },
-  {
     id: 'vendor-2',
     name: 'CLSU Grill & Rice Bowl',
     businessType: 'resto_food',
@@ -3693,6 +3667,19 @@ export const MOCK_PHARMACIES: Pharmacy[] = [
     tagline: 'Sari-sari needs, para sa buong pamilya',
     themeColor: 'blue',
     logoDataUrl: seedVendorLogo('NR', '#2563eb'),
+    // A sample post so the Merchant/Store Partners feed has at least one
+    // store that has actually posted — the feed only ever shows those, see
+    // VendorMenuBooking. vendor-7 is left without one on purpose, so the
+    // filtering is visible in the demo rather than every seed looking alike.
+    posts: [
+      {
+        id: 'post-v6-1',
+        text: 'LPG tank exchange available na ulit — ready stock! Tawag lang o i-book sa PaDeliver. 🔥',
+        photoDataUrl: null,
+        productId: 'menu-v6-7',
+        createdAt: '2026-09-11T02:00:00.000Z',
+      },
+    ],
   },
   {
     id: 'vendor-7',
@@ -3733,6 +3720,15 @@ export const MOCK_PHARMACIES: Pharmacy[] = [
     tagline: 'Para sa eskwela at opisina',
     themeColor: 'purple',
     logoDataUrl: seedVendorLogo('CS', '#7e22ce'),
+    posts: [
+      {
+        id: 'post-v8-1',
+        text: 'Back-to-school bundle promo! Bond paper, notebooks and ballpens — pa-deliver diretso sa bahay. ✏️',
+        photoDataUrl: null,
+        productId: 'menu-v8-1',
+        createdAt: '2026-09-12T05:30:00.000Z',
+      },
+    ],
   },
 ]
 
@@ -3781,14 +3777,6 @@ export const MOCK_MEDICINE_PRODUCTS: MedicineProduct[] = [
 // 'otc' so CREATE_MEDS_ORDER's Rx-prescription check never fires on a food
 // order; `menuCategory`/`photoDataUrl` are what actually organize a menu.
 export const MOCK_VENDOR_MENU_ITEMS: MedicineProduct[] = [
-  { id: 'menu-1', pharmacyId: 'vendor-1', name: 'Chicken Adobo', genericName: null, category: 'otc', price: 90, inStock: true, menuCategory: 'Ulam', photoDataUrl: null, description: 'Classic Filipino adobo, tender and flavorful.', badge: 'best_seller' },
-  { id: 'menu-2', pharmacyId: 'vendor-1', name: 'Beef Kaldereta', genericName: null, category: 'otc', price: 110, inStock: true, menuCategory: 'Ulam', photoDataUrl: null, description: 'Rich and savory kaldereta.', badge: 'popular' },
-  { id: 'menu-3', pharmacyId: 'vendor-1', name: 'Pork Sinigang', genericName: null, category: 'otc', price: 100, inStock: true, menuCategory: 'Ulam', photoDataUrl: null, description: 'Sour and comforting.', badge: 'must_try' },
-  { id: 'menu-4', pharmacyId: 'vendor-1', name: 'Fried Tilapia', genericName: null, category: 'otc', price: 80, inStock: true, menuCategory: 'Ulam', photoDataUrl: null, description: 'Crispy and delicious.', badge: 'favorite' },
-  { id: 'menu-5', pharmacyId: 'vendor-1', name: 'Plain Rice', genericName: null, category: 'otc', price: 15, inStock: true, menuCategory: 'Rice', photoDataUrl: null },
-  { id: 'menu-6', pharmacyId: 'vendor-1', name: 'Iced Tea', genericName: null, category: 'otc', price: 20, inStock: true, menuCategory: 'Drinks', photoDataUrl: null },
-  { id: 'menu-7', pharmacyId: 'vendor-1', name: 'Buko Juice', genericName: null, category: 'otc', price: 25, inStock: true, menuCategory: 'Drinks', photoDataUrl: null },
-  { id: 'menu-8', pharmacyId: 'vendor-1', name: 'Leche Flan', genericName: null, category: 'otc', price: 35, inStock: false, menuCategory: 'Dessert', photoDataUrl: null },
   { id: 'menu-9', pharmacyId: 'vendor-2', name: 'Pork BBQ (2 sticks)', genericName: null, category: 'otc', price: 60, inStock: true, menuCategory: 'Grill', photoDataUrl: null },
   { id: 'menu-10', pharmacyId: 'vendor-2', name: 'Chicken Inasal', genericName: null, category: 'otc', price: 95, inStock: true, menuCategory: 'Grill', photoDataUrl: null },
   { id: 'menu-11', pharmacyId: 'vendor-2', name: 'Sisig Rice Bowl', genericName: null, category: 'otc', price: 85, inStock: true, menuCategory: 'Rice Bowls', photoDataUrl: null },

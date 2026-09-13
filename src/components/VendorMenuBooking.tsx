@@ -445,11 +445,10 @@ export function VendorMenuBooking({
             </p>
           )}
 
-          {/* The full store directory, browsable even with no search typed —
-              a customer can scroll every partner store, and a store with no
-              posts yet is still findable this way. Typing in the box above
-              narrows this same list to a name/place/dish match. */}
-          {shownVendors.length > 0 && (
+          {/* The store list only while a search is typed — the page itself
+              is the feed below; the search box is how a customer picks a
+              particular store. */}
+          {query && shownVendors.length > 0 && (
             <div>
               <p className="mb-1.5 flex items-center gap-1 text-sm font-bold text-slate-700">🌟 Stores</p>
               {/* One line per store — see VendorListRow. Open stores first,
@@ -499,10 +498,12 @@ export function VendorMenuBooking({
               hidden; the search box above brings up matching stores. */}
           {vendors.length > 0 && (
             <div>
-              <p className="mb-1.5 flex items-center gap-1 text-sm font-bold text-slate-700">📣 Latest from vendors</p>
+              <p className="mb-1.5 flex items-center gap-1 text-sm font-bold text-slate-700">
+                📣 {isGoods ? 'Merchant/Store Partners' : 'Food Merchant Partners'}
+              </p>
               {shownVendors.some((v) => (v.posts?.length ?? 0) > 0) ? (
                 <VendorNewsfeed
-                  vendors={shownVendors}
+                  vendors={shownVendors.filter((v) => (v.posts?.length ?? 0) > 0)}
                   items={medicineProducts}
                   viewer={{ id: customerId, name: customerName }}
                   onOpenVendor={openVendor}

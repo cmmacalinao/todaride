@@ -533,6 +533,11 @@ type RideAction =
   | { type: 'RESUBMIT_DRIVER_DOCUMENT'; driverId: string; docType: DocumentType; dataUrl: string }
   | { type: 'ADD_SAFETY_PHOTO'; rideId: string; dataUrl: string; takenBy: string }
   | { type: 'HYDRATE'; state: RideState }
+  // A stray or duplicate store, purged for good — see HYDRATE's tombstone
+  // handling for why this has to be an explicit id list rather than just
+  // filtering the array here: a plain removal would only last until the
+  // next sync pulled the same id back in from another device's copy.
+  | { type: 'REMOVE_PHARMACY'; pharmacyId: string }
   | { type: 'SET_COMMISSION'; amount: number }
   | { type: 'RESET_ACCOUNT_PIN'; kind: RecoveryKind; id: string; pin: string }
   | { type: 'SUSPEND_ACCOUNT'; suspension: AccountSuspension }
@@ -1877,6 +1882,14 @@ function withLateSeedVendors(stored: Pharmacy[] | undefined): Pharmacy[] {
         ;(next as Record<string, unknown>)[key] = seed[key]
         changed = true
       }
+    }
+    // Same idea for a seed's sample post: only while the store has never
+    // posted of its own (an empty array here still means "no post yet",
+    // unlike the fields above), so a real post it made in its own portal is
+    // never displaced by the seed's placeholder one.
+    if ((next.posts?.length ?? 0) === 0 && (seed.posts?.length ?? 0) > 0) {
+      next.posts = seed.posts
+      changed = true
     }
     return next
   })
@@ -3388,6 +3401,12 @@ function reducer(state: RideState, action: RideAction): RideState {
           pharmacies: mergeVendorPosts(state.pharmacies, action.state.pharmacies).filter((p) => !removedSet.has(p.id)),
           removedPharmacyIds,
         }
+      }
+    case 'REMOVE_PHARMACY':
+      return {
+        ...state,
+        pharmacies: state.pharmacies.filter((p) => p.id !== action.pharmacyId),
+        removedPharmacyIds: [...new Set([...state.removedPharmacyIds, action.pharmacyId])],
       }
     case 'SET_COMMISSION':
       return { ...state, commissionPerRide: Math.max(0, action.amount) }
@@ -6778,6 +6797,8 @@ interface RideContextValue extends RideState {
   // A share card drawn later for a post that was made without one.
   setVendorPostSharePhoto: (pharmacyId: string, postId: string, dataUrl: string) => void
   removeVendorPost: (pharmacyId: string, postId: string) => void
+  // Purges a stray or duplicate store for good — see REMOVE_PHARMACY.
+  removePharmacy: (pharmacyId: string) => void
   reactToVendorPost: (pharmacyId: string, postId: string, reaction: 'like' | 'heart', actorId: string) => void
   commentOnVendorPost: (args: { pharmacyId: string; postId: string; authorId: string; authorName: string; text: string }) => void
   // The TODA fare + admin booking fee for delivering from this store to that
@@ -7631,6 +7652,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
       return pharmacy ? vendorDeliveryFareQuote(state, pharmacy, dropoff) : null
     },
     removeVendorPost: (pharmacyId, postId) => dispatch({ type: 'REMOVE_VENDOR_POST', pharmacyId, postId }),
+    removePharmacy: (pharmacyId) => dispatch({ type: 'REMOVE_PHARMACY', pharmacyId }),
     reactToVendorPost: (pharmacyId, postId, reaction, actorId) =>
       dispatch({ type: 'REACT_VENDOR_POST', pharmacyId, postId, reaction, actorId }),
     commentOnVendorPost: (args) => dispatch({ type: 'COMMENT_VENDOR_POST', ...args }),

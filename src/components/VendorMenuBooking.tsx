@@ -85,6 +85,7 @@ export function VendorMenuBooking({
   defaultContactPhone,
   initialVendorId,
   initialPostId,
+  catalogTypes,
 }: {
   customerId: string
   customerName: string
@@ -98,17 +99,27 @@ export function VendorMenuBooking({
   initialVendorId?: string | null
   // With initialVendorId: open that store's Feed on this post (a shared link).
   initialPostId?: string | null
+  // Which vendors this screen browses — 'resto_food' for Food Order,
+  // 'other_commodity' for PaDeliver's Store (see RiderStartPage/PassengerPage's
+  // catalogKind). Defaults to both, same as before this split existed.
+  catalogTypes?: BusinessType[]
 }) {
   const { rides, pharmacies, medicineProducts, medsOrders, createMedsOrder, cancelMedsOrder, ratePharmacy, quoteVendorDeliveryFare } =
     useRides()
+  const businessTypes = catalogTypes ?? VENDOR_BUSINESS_TYPES
+  // Whether this screen is PaDeliver's goods marketplace rather than Food
+  // Order — the two share this whole flow (browse → menu → checkout) but
+  // read as different products, so the banner/copy/tab below need to say
+  // which one a passenger is actually looking at.
+  const isGoods = businessTypes.length > 0 && businessTypes.every((t) => t === 'other_commodity')
   // Which store the "Rate this store" sheet is open for — from the
   // storefront header, or from a past order in the history below.
   const [ratingVendorId, setRatingVendorId] = useState<string | null>(null)
   const ratingVendor = ratingVendorId ? pharmacies.find((p) => p.id === ratingVendorId) : undefined
 
   const vendors = useMemo(
-    () => pharmacies.filter((p) => VENDOR_BUSINESS_TYPES.includes(p.businessType) && p.verificationStatus === 'approved'),
-    [pharmacies],
+    () => pharmacies.filter((p) => businessTypes.includes(p.businessType) && p.verificationStatus === 'approved'),
+    [pharmacies, businessTypes],
   )
 
   const initialVendor = initialVendorId ? vendors.find((v) => v.id === initialVendorId) : undefined
@@ -362,9 +373,9 @@ export function VendorMenuBooking({
     <div className="space-y-3">
       {step === 'browse' && (
         <div className="space-y-3">
-          {/* The same two-service strip as the ride start screen, with
-              Food Express lit here — tapping TODA is the way back. */}
-          <ServiceTabs active="food" tone="light" />
+          {/* The same service strip as the ride start screen, with this
+              screen's own tab lit — tapping another jumps straight there. */}
+          <ServiceTabs active={isGoods ? 'padeliver' : 'food'} tone="light" />
 
           {/* The order they stepped back from is still running — one line
               on where it is, and the way back to its card. */}
@@ -387,12 +398,16 @@ export function VendorMenuBooking({
             </button>
           )}
 
-          {/* The Food Express "storefront" — same idea as a vendor's own
-              cover banner (see VendorHeaderCard), just introducing the whole
-              service instead of one vendor. Gradient + stripe texture is
-              deliberately the same visual language, not a different look
-              bolted onto the same flow. */}
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-rose-600 p-4 text-white shadow-sm">
+          {/* The Food Order/PaDeliver "storefront" — same idea as a vendor's
+              own cover banner (see VendorHeaderCard), just introducing the
+              whole service instead of one vendor. Gradient + stripe texture
+              is deliberately the same visual language, not a different look
+              bolted onto the same flow — only the copy tells the two apart. */}
+          <div
+            className={`relative overflow-hidden rounded-2xl p-4 text-white shadow-sm ${
+              isGoods ? 'bg-gradient-to-br from-sky-600 via-blue-600 to-indigo-700' : 'bg-gradient-to-br from-amber-500 via-orange-500 to-rose-600'
+            }`}
+          >
             <div
               aria-hidden
               className="pointer-events-none absolute inset-0 opacity-10"
@@ -400,16 +415,20 @@ export function VendorMenuBooking({
                 backgroundImage: 'repeating-linear-gradient(-45deg, white 0, white 2px, transparent 2px, transparent 14px)',
               }}
             />
-            <p className="relative text-lg font-extrabold leading-tight">🍽️ SafeRide Food Express</p>
+            <p className="relative text-lg font-extrabold leading-tight">
+              {isGoods ? '📦 SafeRide PaDeliver — Store' : '🍽️ SafeRide Food Order'}
+            </p>
             <p className="relative mt-0.5 text-xs text-white/90">
-              Order straight from a partner vendor's own priced menu — cooked fresh, delivered by your driver.
+              {isGoods
+                ? "Order straight from a partner store's own priced catalog — groceries, hardware, whatever they sell — delivered by your driver."
+                : "Order straight from a partner vendor's own priced menu — cooked fresh, delivered by your driver."}
             </p>
           </div>
 
           <input
             value={vendorSearch}
             onChange={(e) => setVendorSearch(e.target.value)}
-            placeholder="Search a store or a food (e.g. inasal, lugaw)"
+            placeholder={isGoods ? 'Search a store or an item' : 'Search a store or a food (e.g. inasal, lugaw)'}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
 

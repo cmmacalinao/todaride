@@ -182,6 +182,10 @@ export function PassengerPage() {
   // tile opens that and this flag explains the substitution rather than
   // pretending a resto menu exists.
   const [foodHinted, setFoodHinted] = useState(false)
+  // Which vendor catalog the Food/PaDeliver tile opened — Food Order browses
+  // resto_food vendors, PaDeliver's Store browses other_commodity ones (see
+  // VendorMenuBooking's catalogTypes). Only meaningful while foodHinted.
+  const [catalogKind, setCatalogKind] = useState<'food' | 'goods'>('food')
   // Favourite-driver search box. Once a TODA has more than a handful of
   // members a dropdown of every approved driver is unusable on a phone —
   // typing a name or a plate is how a passenger actually knows their driver.
@@ -409,15 +413,34 @@ export function PassengerPage() {
         scrollTop()
         break
       case 'food':
-        // Same entry point as tapping the Food tile inside this page (see
-        // chooseErrand) — used by RiderStartPage's SafeRide Food Express tab
-        // so a passenger can jump straight into the Registered Vendor menu
-        // flow (VendorMenuBooking) without landing on Ride/Pabili first.
-        // Gated on the vendor-partners switch, not Pabili: Food Express is
-        // its own tab on RiderStartPage and must not vanish because Super
-        // Admin turned errands off (it only borrows the Pabili flow underneath).
+        // Same entry point as tapping the Food Order tile inside this page
+        // (see chooseErrand) — used by RiderStartPage's SafeRide Food Order
+        // tab so a passenger can jump straight into the Registered Vendor
+        // menu flow (VendorMenuBooking, resto_food catalog) without landing
+        // on Ride/Pabili first. Gated on the vendor-partners switch, not
+        // Pabili: Food Order is its own tile on RiderStartPage and must not
+        // vanish because Super Admin turned errands off (it only borrows the
+        // Pabili flow underneath).
         if (!vendorsEnabled) break
-        chooseErrand('pabili', { food: true })
+        chooseErrand('pabili', { food: true, catalog: 'food' })
+        scrollTop()
+        break
+      case 'goods_store':
+        // PaDeliver's "Store" — same VendorMenuBooking flow as Food Order,
+        // scoped to other_commodity vendors instead of resto_food.
+        if (!vendorsEnabled) break
+        chooseErrand('pabili', { food: true, catalog: 'goods' })
+        scrollTop()
+        break
+      case 'goods_delivery':
+        // PaDeliver's "Book a Delivery" — the plain freeform Pabili flow
+        // (type what you need, a driver buys/delivers it), promoted here as
+        // its own tile rather than hidden behind the Super Admin-gated
+        // NavDrawer entry (pabiliEnabled only controls that drawer item —
+        // the underlying REQUEST_RIDE/pabiliItems handling always works, see
+        // RideContext.tsx). foodHinted stays false so this renders the raw
+        // item-list form instead of the vendor menu.
+        chooseErrand('pabili', { food: false })
         scrollTop()
         break
       case 'current':
@@ -623,11 +646,12 @@ export function PassengerPage() {
     setDropoffPickerSeed({ ...prevPickupSeed, key: prevDropoffSeed.key + 1 })
   }
 
-  function chooseErrand(next: ServiceType, opts?: { food?: boolean }) {
+  function chooseErrand(next: ServiceType, opts?: { food?: boolean; catalog?: 'food' | 'goods' }) {
     setPageTab('book')
     setHomeMode('buy')
     setServiceType(next)
     setFoodHinted(!!opts?.food)
+    setCatalogKind(opts?.catalog ?? 'food')
     // The item list still starts folded; the From/Where-to block does not,
     // because its map is how someone says where the errand goes and a map
     // that has to be unfolded first is a map you have to know about.
@@ -2489,6 +2513,7 @@ export function PassengerPage() {
               defaultContactPhone={isGuestBooking ? null : passenger.phone}
               initialVendorId={searchParams.get('vendor')}
               initialPostId={searchParams.get('post')}
+              catalogTypes={catalogKind === 'goods' ? ['other_commodity'] : ['resto_food']}
             />
           ) : (
           <>

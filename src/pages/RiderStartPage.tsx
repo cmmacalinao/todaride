@@ -18,10 +18,13 @@ export function RiderStartPage() {
   const { terminalQrFeeWaived, commissionPerRide, vendorsEnabled } = useRides()
   const pilotBranding = usePilotBranding()
   // Only the Food & Vendor partners switch matters here. This used to also
-  // require Pabili, since the vendor menu is reached through the Pabili
-  // flow underneath — but Food Express is its own tab to a passenger, and
-  // Super Admin turning errands off silently removed it from this screen.
-  const foodExpressAvailable = vendorsEnabled
+  // require Pabili, since both Food Order and PaDeliver's Store are reached
+  // through the Pabili flow underneath — but they're their own tiles to a
+  // passenger, and Super Admin turning errands off silently removed them
+  // from this screen. PaDeliver's "Book a Delivery" is unaffected — it's the
+  // plain Pabili form itself, not a vendor catalog, so it stays available
+  // even with vendorsEnabled off.
+  const vendorCatalogsAvailable = vendorsEnabled
   return (
     // Same pattern as the launch and role-chooser screens before it — dark
     // navy, the diagonal weave — so a passenger doesn't land somewhere that
@@ -54,53 +57,59 @@ export function RiderStartPage() {
         {/* SafeRide is more than one service — this strip is where a
             passenger switches between them. TODA (tricycle rides, this
             page) is the only one with anything to show below it, so it
-            renders as the current tab rather than a real button; Food
-            Express jumps straight into the Registered Vendor menu flow
-            (see PassengerPage.tsx's 'food' section case) — hidden
-            entirely while Super Admin has vendors switched off, same as
-            every other Food/Vendor entry point in the app. */}
-        {foodExpressAvailable && <ServiceTabs active="toda" tone="dark" />}
+            renders as the current tab rather than a real button; Food Order
+            and PaDeliver's Store jump straight into the Registered Vendor
+            menu flow (see PassengerPage.tsx's 'food'/'goods_store' section
+            cases) — hidden entirely while Super Admin has vendors switched
+            off, same as every other vendor-catalog entry point in the app. */}
+        {vendorCatalogsAvailable && <ServiceTabs active="toda" tone="dark" />}
 
         <div>
-          <h1 className="text-lg font-bold text-white">How are you riding today?</h1>
+          <h1 className="text-lg font-bold text-white">3 ways to get what you need</h1>
           <p className="text-xs text-white/50">Pick one — you can always switch.</p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => navigate('/book')}
-          className="flex w-full items-center gap-3 rounded-xl border-2 border-gold-400 bg-white/5 p-4 text-left shadow-sm transition hover:bg-white/10"
-        >
-          {/* A gold backdrop, same as the tricycle's map-marker treatment
-              (see mapMarkerHtml.ts) — the icon is drawn navy-on-gold for
-              contrast against a map, and this tile's own background is dark
-              navy too, so without one it all but disappears into it. */}
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-400 p-1.5">
-            <TricycleIcon className="h-full w-full" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-base font-bold text-gold-400">BOOK A RIDE</span>
-            <span className="block text-xs text-white/60">
-              Set where you are and where you are going. We find you the nearest driver.
+        {/* Book a Ride, with Track Your Trip folded in underneath as this
+            service's own safety feature — the two used to be separate
+            cards, but tracking is something you do WHILE booked on a ride,
+            not a competing way to get one, so it now reads as part of the
+            same tile instead of a rival tile beside it. */}
+        <div className="overflow-hidden rounded-xl border-2 border-gold-400 bg-white/5 shadow-sm">
+          <button
+            type="button"
+            onClick={() => navigate('/book')}
+            className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-white/10"
+          >
+            {/* A gold backdrop, same as the tricycle's map-marker treatment
+                (see mapMarkerHtml.ts) — the icon is drawn navy-on-gold for
+                contrast against a map, and this tile's own background is
+                dark navy too, so without one it all but disappears into it. */}
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-400 p-1.5">
+              <TricycleIcon className="h-full w-full" />
             </span>
-          </span>
-          <span aria-hidden className="text-xl text-white/40">›</span>
-        </button>
+            <span className="min-w-0 flex-1">
+              <span className="block text-base font-bold text-gold-400">BOOK A RIDE</span>
+              <span className="block text-xs text-white/60">
+                Set where you are and where you are going. We find you the nearest driver.
+              </span>
+            </span>
+            <span aria-hidden className="text-xl text-white/40">›</span>
+          </button>
 
-        {/* Straight to the tracking screen, rather than unfolding a QR
-            explainer here. That panel asked the passenger to point a camera
-            at a sticker, or type a plate, before anything happened — while
-            the screen it now opens does the same job without being asked:
-            it lists the tricycles beside them, takes a typed TRC, and
-            records the trip by itself once the tricycle pulls out. */}
-        {/* One card: the tile to tap, and beneath it what the choice gives
-            you. The explainer used to be a second, louder card of its own
-            and read as an advert sitting next to the option it described. */}
-        <div className="overflow-hidden rounded-xl border border-white/20 bg-white/5 shadow-sm">
+          {/* Straight to the tracking screen, rather than unfolding a QR
+              explainer here. That panel asked the passenger to point a
+              camera at a sticker, or type a plate, before anything
+              happened — while the screen it now opens does the same job
+              without being asked: it lists the tricycles beside them,
+              takes a typed TRC, and records the trip by itself once the
+              tricycle pulls out. */}
+          <div className="border-t border-white/10 px-4 pt-3">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-white/40">🛡️ Safety feature</p>
+          </div>
           <button
             type="button"
             onClick={() => navigate('/book/terminal')}
-            className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-white/10"
+            className="flex w-full items-center gap-3 p-4 pt-2 text-left transition hover:bg-white/10"
           >
             {/* Same gold disc as Book a Ride's tricycle, with a map pin —
                 tracking is "where is my tricycle right now". */}
@@ -119,6 +128,75 @@ export function RiderStartPage() {
             <span aria-hidden className="text-xl text-white/30">›</span>
           </button>
           <ScanSafeRideBanner feeFree={terminalRideIsFree(terminalQrFeeWaived, commissionPerRide)} variant="attached" />
+        </div>
+
+        {/* Food Order — prepared food from a partner resto's own priced
+            menu (VendorMenuBooking, resto_food catalog). Same shape as Book
+            a Ride's tile: an icon disc, a title, a one-line explainer. */}
+        {vendorCatalogsAvailable && (
+          <button
+            type="button"
+            onClick={() => navigate('/book', { state: { section: 'food' } })}
+            className="flex w-full items-center gap-3 rounded-xl border border-white/20 bg-white/5 p-4 text-left shadow-sm transition hover:bg-white/10"
+          >
+            <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-400 text-xl leading-none">
+              🍽️
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-base font-bold text-gold-400">FOOD ORDER</span>
+              <span className="block text-xs text-white/60">
+                Order cooked meals straight from a partner resto's own menu — delivered by your driver.
+              </span>
+            </span>
+            <span aria-hidden className="text-xl text-white/40">›</span>
+          </button>
+        )}
+
+        {/* PaDeliver — goods, not people or meals: a marketplace Store
+            (priced other_commodity catalog, same VendorMenuBooking flow
+            Food Order uses) for the store-to-door case, and Book a Delivery
+            (the plain Pabili form) for "I already have the item/errand,
+            just bring it" — see PassengerPage's 'goods_store'/
+            'goods_delivery' section cases. Book a Delivery doesn't depend
+            on any registered vendor, so it's offered even when Store isn't. */}
+        <div className="overflow-hidden rounded-xl border border-white/20 bg-white/5 shadow-sm">
+          <div className="flex items-center gap-2 border-b border-white/10 p-4 pb-3">
+            <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-400 text-xl leading-none">
+              📦
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-base font-bold text-gold-400">PADELIVER</span>
+              <span className="block text-xs text-white/60">Goods — from a store's shelf, or straight from you.</span>
+            </span>
+          </div>
+          {vendorCatalogsAvailable && (
+            <button
+              type="button"
+              onClick={() => navigate('/book', { state: { section: 'goods_store' } })}
+              className={`flex w-full items-center gap-3 p-4 py-3 text-left transition hover:bg-white/10 ${
+                vendorCatalogsAvailable ? 'border-b border-white/10' : ''
+              }`}
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold text-white">🏬 Store</span>
+                <span className="block text-xs text-white/60">Browse a partner store's own priced catalog and check out.</span>
+              </span>
+              <span aria-hidden className="text-xl text-white/30">›</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => navigate('/book', { state: { section: 'goods_delivery' } })}
+            className="flex w-full items-center gap-3 p-4 py-3 text-left transition hover:bg-white/10"
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-white">🛺 Book a Delivery</span>
+              <span className="block text-xs text-white/60">
+                Tell us what to get and where — your driver buys or picks it up and brings it to you.
+              </span>
+            </span>
+            <span aria-hidden className="text-xl text-white/30">›</span>
+          </button>
         </div>
       </div>
     </div>

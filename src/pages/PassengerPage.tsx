@@ -195,6 +195,12 @@ export function PassengerPage() {
   // fields. Only one at a time: the card stays short, and it mirrors how the
   // map picker already scopes itself to one end.
   const [openEnd, setOpenEnd] = useState<'pickup' | 'dropoff' | null>(null)
+  // The barangay dropdown + detailed-address field (BarangayAddressPicker)
+  // within whichever end is open — typing an address is the slow path next
+  // to the landmark search, quick chips, and map tap that sit above it, so
+  // it stays out of the way until this is tapped instead of opening with
+  // everything else.
+  const [addressFormOpen, setAddressFormOpen] = useState<'pickup' | 'dropoff' | null>(null)
   // How open the booking sheet is.
   //
   // Driven by the address form rather than left to the reader: opening
@@ -571,6 +577,12 @@ export function PassengerPage() {
       )
     }
     setOpenEnd(opening ? target : null)
+    // Starts collapsed again every time an end opens (or closes) rather than
+    // remembering it was left open — the fast paths above it (search, chips,
+    // map tap) are the ones worth landing on first. The Address form chip
+    // sets this back to `target` itself right after, when that is how the
+    // end got opened in the first place (see quickPlaceChips).
+    setAddressFormOpen(null)
   }
 
   // The city above From/Where to drives both ends: changing it reseeds each
@@ -788,11 +800,13 @@ export function PassengerPage() {
   function handlePickupLandmark(place: SelectedPlace) {
     handlePinPickup(createCustomLocation(place.name, place.gps), null)
     setOpenEnd(null)
+    setAddressFormOpen(null)
   }
 
   function handleDropoffLandmark(place: SelectedPlace) {
     handlePinDropoff(createCustomLocation(place.name, place.gps), null)
     setOpenEnd(null)
+    setAddressFormOpen(null)
   }
 
   const myRides = rides.filter((r) => r.passengerId === passenger.id)
@@ -1387,6 +1401,30 @@ export function PassengerPage() {
             </button>
           )
         })}
+        {/* The barangay dropdown and detailed-address field below only show
+            once this is tapped — see addressFormOpen. Right of Work rather
+            than its own row so it reads as one more way to say where you
+            are, not a separate step everyone has to look at first. */}
+        <button
+          type="button"
+          onClick={() => {
+            // Quick destinations (this row) show on the dropoff side even
+            // before that end is open — tapping Address form there has to
+            // open the end too, not just a form nothing underneath is
+            // showing yet. Already-open just toggles the form itself.
+            if (openEnd !== target) openAddressPicker(target)
+            setAddressFormOpen((v) => (v === target ? null : target))
+          }}
+          aria-expanded={addressFormOpen === target}
+          title="Type a barangay and address instead"
+          className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+            addressFormOpen === target
+              ? 'border-brand-600 bg-brand-600 text-white'
+              : 'border-slate-300 bg-white text-slate-500 hover:bg-slate-50'
+          }`}
+        >
+          📝 Address form
+        </button>
       </div>
     )
   }
@@ -1943,6 +1981,7 @@ export function PassengerPage() {
                 onClick={() => {
                   setMapTarget('pickup')
                   setOpenEnd(null)
+                  setAddressFormOpen(null)
                 }}
                 aria-label="Set the pickup by tapping the map"
                 className="flex w-28 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-pickup-accent/40 bg-white px-1 text-[10px] font-bold leading-tight text-pickup-accent transition hover:bg-pickup-accent/10"
@@ -1957,6 +1996,10 @@ export function PassengerPage() {
               {cityRow}
               <DestinationSearch city={cityScope} near={pickupGps ?? pickup.gps ?? null} onSelect={handlePickupLandmark} />
               {!isErrand && quickPlaceChips('pickup')}
+              {/* Gated on the Address form chip above — except on an errand,
+                  where that chip (and the rest of the quick-places row) is
+                  not shown at all, so the form is this pickup's only way in. */}
+              {(isErrand || addressFormOpen === 'pickup') && (
               <BarangayAddressPicker
                 key={`from-${pickupPickerSeed.key}`}
                 label=""
@@ -1966,7 +2009,10 @@ export function PassengerPage() {
                 defaultBarangay={pickupPickerSeed.barangay}
                 defaultAddressDetail={pickupPickerSeed.addressDetail}
                 onResolve={handlePickupResolve}
-                onConfirm={() => setOpenEnd(null)}
+                onConfirm={() => {
+                  setOpenEnd(null)
+                  setAddressFormOpen(null)
+                }}
                 // Anything with real coordinates behind it counts, not just
                 // the GPS button: a spot tapped on the map, a saved place, or
                 // a fix taken earlier in this session. The exact point is
@@ -1974,6 +2020,7 @@ export function PassengerPage() {
                 // landmark was being asked to answer.
                 pinned={pickupGps !== null || !!pickup.gps}
               />
+              )}
               {/* Only when the reader has nowhere else to learn it. The Live
                   location row already reports "blocked" with a How-to-fix
                   beside it, so on the booking sheet this was the same news a
@@ -2075,6 +2122,7 @@ export function PassengerPage() {
               onClick={() => {
                 setMapTarget('dropoff')
                 setOpenEnd(null)
+                setAddressFormOpen(null)
               }}
               aria-label="Set the destination by tapping the map"
               className="flex w-28 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-dest-accent/40 bg-white px-1 text-[10px] font-bold leading-tight text-dest-accent transition hover:bg-dest-accent/10"
@@ -2098,6 +2146,7 @@ export function PassengerPage() {
                     City row and address form here are the fallback for
                     whatever that search doesn't cover. */}
                 {cityRow}
+                {addressFormOpen === 'dropoff' && (
                 <BarangayAddressPicker
                   key={`to-${dropoffPickerSeed.key}`}
                   label=""
@@ -2107,8 +2156,12 @@ export function PassengerPage() {
                   defaultBarangay={dropoffPickerSeed.barangay}
                   defaultAddressDetail={dropoffPickerSeed.addressDetail}
                   onResolve={handleDropoffResolve}
-                  onConfirm={() => setOpenEnd(null)}
+                  onConfirm={() => {
+                    setOpenEnd(null)
+                    setAddressFormOpen(null)
+                  }}
                 />
+                )}
                 {isErrand && gpsStatus === 'error' && gpsError && (
                   <p className="text-[11px] text-amber-700">{gpsError}</p>
                 )}

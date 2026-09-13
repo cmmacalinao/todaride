@@ -1381,7 +1381,7 @@ export function PassengerPage() {
     // as a mix of "use this place" and "remember this place", which are
     // opposite actions sitting in identical pills.
     return (
-      <div className="-mx-1 flex flex-nowrap items-center gap-1 overflow-x-auto px-1 pb-0.5">
+      <div className="-mx-1 mt-2 flex flex-nowrap items-center gap-1 overflow-x-auto px-1 pb-0.5">
         <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold text-slate-500">{heading}</span>
         {SAVED_LOCATION_LABELS.filter((label) => label !== 'Favorite').map((label) => {
           const saved = savedLocations.find((sl) => sl.label === label)

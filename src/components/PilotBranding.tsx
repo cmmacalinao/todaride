@@ -24,7 +24,13 @@ export function PilotBranding({ name, compact }: { name: string; compact?: boole
           }`}
         >
           {prefix}
-          <span className={`rounded-lg bg-gold-400 text-navy-900 ${compact ? 'px-1.5 py-px' : 'px-2 py-0.5'}`}>
+          {/* A relative nudge, not padding — the badge's padding is already
+              symmetric, but this font's glyphs sit slightly high within
+              their own line box, which read as the badge itself sitting a
+              touch high next to the plain text beside it. */}
+          <span
+            className={`relative top-px rounded-lg bg-gold-400 text-navy-900 ${compact ? 'px-1.5 py-px' : 'px-2 py-0.5'}`}
+          >
             {org}
           </span>
         </p>

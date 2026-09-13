@@ -248,6 +248,12 @@ interface RideState {
   todaOrganizations: TodaOrganization[]
   terminals: Terminal[]
   landmarks: Landmark[]
+  // A tombstone for landmarks, same idea as removedPharmacyIds: a seed
+  // landmark deleted from the admin screen is absent from `landmarks`, but
+  // absence alone is indistinguishable from "not yet backfilled" to
+  // withHealedLandmarks — without this list, a deliberate delete looks
+  // identical to a late-added seed and gets re-healed back in on reload.
+  deletedLandmarkIds: string[]
   boundaries: MapBoundary[]
   clsuFleetQueued: boolean
   duesRecords: DuesRecord[]
@@ -1484,6 +1490,7 @@ interface StoredState {
   todaOrganizations?: TodaOrganization[]
   terminals?: Terminal[]
   landmarks?: Landmark[]
+  deletedLandmarkIds?: string[]
   boundaries?: MapBoundary[]
   // One-time marker: the seeded CLSU fleet has been placed in its terminal
   // queues on this install. Without it the backfill would re-queue drivers
@@ -1671,8 +1678,13 @@ function fromStored(parsed: StoredState): RideState {
     // Same backfill reasoning as terminals — an older stored session predates
     // landmarks entirely, and an empty search result for every query is a
     // worse first impression than the seed set showing up underneath
-    // whatever a TODA admin has since added.
-    landmarks: withHealedLandmarks(parsed.landmarks),
+    // whatever a TODA admin has since added. But a seed landmark an admin
+    // has since deleted must not come back just because it's now "missing" —
+    // same tombstone rule as removedPharmacyIds, filtered back out here.
+    landmarks: withHealedLandmarks(parsed.landmarks).filter(
+      (l) => !(parsed.deletedLandmarkIds ?? []).includes(l.id),
+    ),
+    deletedLandmarkIds: parsed.deletedLandmarkIds ?? [],
     clsuFleetQueued: true,
     boundaries: ((): MapBoundary[] => {
       const stored = parsed.boundaries ?? []
@@ -2021,6 +2033,7 @@ function loadInitialState(): RideState {
     todaOrganizations: MOCK_TODA_ORGANIZATIONS,
     terminals: MOCK_TERMINALS,
     landmarks: MOCK_LANDMARKS,
+    deletedLandmarkIds: [],
     boundaries: MOCK_BOUNDARIES,
     clsuFleetQueued: true,
     duesRecords: [],
@@ -2856,7 +2869,15 @@ function reducer(state: RideState, action: RideAction): RideState {
       return { ...state, landmarks: [...state.landmarks, { ...action.landmark, id }] }
     }
     case 'REMOVE_LANDMARK':
-      return { ...state, landmarks: state.landmarks.filter((l) => l.id !== action.landmarkId) }
+      return {
+        ...state,
+        landmarks: state.landmarks.filter((l) => l.id !== action.landmarkId),
+        // Only a seed-originated id needs tombstoning — a landmark an admin
+        // added themselves was never going to be re-healed in anyway.
+        deletedLandmarkIds: MOCK_LANDMARKS.some((l) => l.id === action.landmarkId)
+          ? [...new Set([...state.deletedLandmarkIds, action.landmarkId])]
+          : state.deletedLandmarkIds,
+      }
     // A seeded landmark's pin dragged to where it actually belongs — same
     // move as SET_TERMINAL_GPS, for the same reason.
     case 'SET_LANDMARK_GPS':
@@ -3449,6 +3470,13 @@ function reducer(state: RideState, action: RideAction): RideState {
           ...new Set([...(state.removedPharmacyIds ?? []), ...(action.state.removedPharmacyIds ?? [])]),
         ]
         const removedSet = new Set(removedPharmacyIds)
+        // Same tombstone rule for landmarks: a delete made on one device
+        // must not be resurrected by a copy from another device that still
+        // carries the seed landmark it deleted.
+        const deletedLandmarkIds = [
+          ...new Set([...(state.deletedLandmarkIds ?? []), ...(action.state.deletedLandmarkIds ?? [])]),
+        ]
+        const deletedLandmarkSet = new Set(deletedLandmarkIds)
         return {
           ...action.state,
           rides: mergeIncomingRides(state.rides, action.state.rides),
@@ -3456,6 +3484,8 @@ function reducer(state: RideState, action: RideAction): RideState {
           parents: mergeById(state.parents, action.state.parents),
           pharmacies: mergeVendorPosts(state.pharmacies, action.state.pharmacies).filter((p) => !removedSet.has(p.id)),
           removedPharmacyIds,
+          landmarks: mergeById(state.landmarks, action.state.landmarks).filter((l) => !deletedLandmarkSet.has(l.id)),
+          deletedLandmarkIds,
         }
       }
     case 'REMOVE_PHARMACY':
@@ -6940,6 +6970,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           todaOrganizations: state.todaOrganizations,
           terminals: state.terminals,
           landmarks: state.landmarks,
+          deletedLandmarkIds: state.deletedLandmarkIds,
           boundaries: state.boundaries,
           clsuFleetQueued: state.clsuFleetQueued,
           duesRecords: state.duesRecords,

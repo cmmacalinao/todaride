@@ -1155,9 +1155,16 @@ export interface Ride {
   // delivers it to `dropoff`, reusing the same dispatch/tracking/completion
   // flow as a regular ride. "buy_medicine" additionally carries the
   // passenger's uploaded prescription/ID so the driver can show them at the
-  // pharmacy counter.
+  // pharmacy counter. "padala" is different from both: nothing is bought —
+  // the sender already has the package at `pickup`, and the driver is only
+  // ever a courier for it (see packageNote, not pabiliItems).
   serviceType: ServiceType
   pabiliItems: string | null
+  // "padala" only — what's in the package and/or who it's for, freeform.
+  // Kept as its own field rather than overloading pabiliItems: that field's
+  // readers (the driver's per-item "bought" checklist, the 🛒 receipt line)
+  // all assume a shopping list, which a package being carried is not.
+  packageNote: string | null
   // Goes entirely to the driver on completion — see Payment.tip.
   pabiliTip: number
   // Admin's Pabili/Buy Medicine service charge, snapshotted at request time
@@ -1255,7 +1262,7 @@ export interface Ride {
   cancelledAt: string | null
 }
 
-export type ServiceType = 'ride' | 'pabili' | 'buy_medicine'
+export type ServiceType = 'ride' | 'pabili' | 'buy_medicine' | 'padala'
 
 // Why a driver called off a ride they had already accepted.
 export type RideCancellationReason =

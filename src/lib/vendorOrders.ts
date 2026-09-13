@@ -40,5 +40,6 @@ export function rideServiceTag(ride: Pick<Ride, 'serviceType' | 'pickup'>): { ic
   if (isVendorDeliveryRide(ride)) return { icon: '🍽️', label: 'Food Express' }
   if (ride.serviceType === 'pabili') return { icon: '🛍️', label: 'Errand' }
   if (ride.serviceType === 'buy_medicine') return { icon: '💊', label: 'Medicine' }
+  if (ride.serviceType === 'padala') return { icon: '📦', label: 'Padala' }
   return null
 }

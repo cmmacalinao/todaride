@@ -437,6 +437,7 @@ type RideAction =
       passengerCount: number
       serviceType: ServiceType
       pabiliItems: string | null
+      packageNote: string | null
       tip: number
       bookedByParentId: string | null
       specialPickupRequested: boolean
@@ -2223,6 +2224,7 @@ function buildMedsDeliveryRide(
     // never the prescription paperwork a pharmacy order carries.
     serviceType: pharmacy.businessType === 'resto_food' || pharmacy.businessType === 'other_commodity' ? 'pabili' : 'buy_medicine',
     pabiliItems: itemsSummary,
+    packageNote: null,
     pabiliTip: overrides?.tip ?? 0,
     pabiliServiceFee: order.serviceFee,
     prescriptionDataUrls: order.prescriptionDataUrls,
@@ -2510,6 +2512,7 @@ function reducer(state: RideState, action: RideAction): RideState {
         ratedAt: null,
         serviceType: action.serviceType,
         pabiliItems: action.serviceType !== 'ride' ? action.pabiliItems : null,
+        packageNote: action.serviceType === 'padala' ? action.packageNote : null,
         pabiliTip: action.serviceType !== 'ride' ? action.tip : 0,
         pabiliServiceFee,
         prescriptionDataUrls: action.serviceType === 'buy_medicine' ? action.prescriptionDataUrls : [],
@@ -2653,6 +2656,7 @@ function reducer(state: RideState, action: RideAction): RideState {
           ratedAt: null,
           serviceType: 'ride',
           pabiliItems: null,
+          packageNote: null,
           pabiliTip: 0,
           pabiliServiceFee: 0,
           prescriptionDataUrls: [],
@@ -5920,6 +5924,7 @@ interface RideContextValue extends RideState {
     passengerCount: number
     serviceType?: ServiceType
     pabiliItems?: string | null
+    packageNote?: string | null
     tip?: number
     bookedByParentId?: string | null
     specialPickupRequested?: boolean
@@ -7091,6 +7096,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
         type: 'REQUEST_RIDE',
         serviceType: 'ride',
         pabiliItems: null,
+        packageNote: null,
         tip: 0,
         bookedByParentId: null,
         passengerPhone: null,

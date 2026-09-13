@@ -15,7 +15,7 @@ import { usePilotBranding } from '../lib/usePilotBranding'
 // the terminal path discoverable at all.
 export function RiderStartPage() {
   const navigate = useNavigate()
-  const { terminalQrFeeWaived, commissionPerRide, vendorsEnabled } = useRides()
+  const { vendorsEnabled } = useRides()
   const pilotBranding = usePilotBranding()
   // Only the Food & Vendor partners switch matters here. This used to also
   // require Pabili, since both Food Order and PaDeliver's Store are reached
@@ -54,81 +54,53 @@ export function RiderStartPage() {
           <PilotBranding name={pilotBranding.name} />
         )}
 
-        {/* SafeRide is more than one service — this strip is where a
-            passenger switches between them. TODA (tricycle rides, this
-            page) is the only one with anything to show below it, so it
-            renders as the current tab rather than a real button; Food Order
-            and PaDeliver's Store jump straight into the Registered Vendor
-            menu flow (see PassengerPage.tsx's 'food'/'goods_store' section
-            cases) — hidden entirely while Super Admin has vendors switched
-            off, same as every other vendor-catalog entry point in the app. */}
-        {vendorCatalogsAvailable && <ServiceTabs active="toda" tone="dark" />}
+        {/* This strip is where a passenger switches between the three
+            services — pinned under the app header instead of scrolling away
+            with the page, since it's meant to stay reachable no matter how
+            far down this list (or the vendor list on Food Order/PaDeliver's
+            Store) someone has scrolled. TODA (tricycle rides, this page) is
+            the only one with anything to show below it, so it renders as the
+            current tab rather than a real button; Food Order and PaDeliver's
+            Store jump straight into the Registered Vendor menu flow (see
+            PassengerPage.tsx's 'food'/'goods_store' section cases) — hidden
+            entirely while Super Admin has vendors switched off, same as
+            every other vendor-catalog entry point in the app. */}
+        {vendorCatalogsAvailable && (
+          <div className="sticky top-[50px] z-10 -mx-4 bg-[#0a1529]/95 px-4 py-2 backdrop-blur-sm">
+            <ServiceTabs active="toda" tone="dark" />
+          </div>
+        )}
 
         <div>
           <h1 className="text-lg font-bold text-white">3 ways to get what you need</h1>
           <p className="text-xs text-white/50">Pick one — you can always switch.</p>
         </div>
 
-        {/* Book a Ride, with Track Your Trip folded in underneath as this
-            service's own safety feature — the two used to be separate
-            cards, but tracking is something you do WHILE booked on a ride,
-            not a competing way to get one, so it now reads as part of the
-            same tile instead of a rival tile beside it. */}
-        <div className="overflow-hidden rounded-xl border-2 border-gold-400 bg-white/5 shadow-sm">
-          <button
-            type="button"
-            onClick={() => navigate('/book')}
-            className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-white/10"
-          >
-            {/* A gold backdrop, same as the tricycle's map-marker treatment
-                (see mapMarkerHtml.ts) — the icon is drawn navy-on-gold for
-                contrast against a map, and this tile's own background is
-                dark navy too, so without one it all but disappears into it. */}
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-400 p-1.5">
-              <TricycleIcon className="h-full w-full" />
+        {/* Book a Ride. Track Your Trip/Safety Feature used to be folded in
+            right here, but that put it in front of someone who hasn't
+            booked anything yet — it now lives inside the booking page
+            itself (see TrackYourTripCard, rendered from PassengerPage),
+            where it's actually relevant. */}
+        <button
+          type="button"
+          onClick={() => navigate('/book')}
+          className="flex w-full items-center gap-3 rounded-xl border-2 border-gold-400 bg-white/5 p-4 text-left shadow-sm transition hover:bg-white/10"
+        >
+          {/* A gold backdrop, same as the tricycle's map-marker treatment
+              (see mapMarkerHtml.ts) — the icon is drawn navy-on-gold for
+              contrast against a map, and this tile's own background is
+              dark navy too, so without one it all but disappears into it. */}
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-400 p-1.5">
+            <TricycleIcon className="h-full w-full" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-base font-bold text-gold-400">BOOK A RIDE</span>
+            <span className="block text-xs text-white/60">
+              Set where you are and where you are going. We find you the nearest driver.
             </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-base font-bold text-gold-400">BOOK A RIDE</span>
-              <span className="block text-xs text-white/60">
-                Set where you are and where you are going. We find you the nearest driver.
-              </span>
-            </span>
-            <span aria-hidden className="text-xl text-white/40">›</span>
-          </button>
-
-          {/* Straight to the tracking screen, rather than unfolding a QR
-              explainer here. That panel asked the passenger to point a
-              camera at a sticker, or type a plate, before anything
-              happened — while the screen it now opens does the same job
-              without being asked: it lists the tricycles beside them,
-              takes a typed TRC, and records the trip by itself once the
-              tricycle pulls out. */}
-          <div className="border-t border-white/10 px-4 pt-3">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-white/40">🛡️ Safety feature</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate('/book/terminal')}
-            className="flex w-full items-center gap-3 p-4 pt-2 text-left transition hover:bg-white/10"
-          >
-            {/* Same gold disc as Book a Ride's tricycle, with a map pin —
-                tracking is "where is my tricycle right now". */}
-            <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-400 text-xl leading-none">
-              📍
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-base font-bold text-gold-400">TRACK YOUR TRIP</span>
-              <span className="block text-sm font-bold text-white">
-                for your <span className="font-extrabold italic text-gold-400">SAFE</span> ride
-              </span>
-              <span className="block text-xs text-white/60">
-                Already at the terminal, already in a tricycle? I-track ang biyahe mo.
-              </span>
-            </span>
-            <span aria-hidden className="text-xl text-white/30">›</span>
-          </button>
-          <ScanSafeRideBanner feeFree={terminalRideIsFree(terminalQrFeeWaived, commissionPerRide)} variant="attached" />
-        </div>
+          </span>
+          <span aria-hidden className="text-xl text-white/40">›</span>
+        </button>
 
         {/* Food Order — prepared food from a partner resto's own priced
             menu (VendorMenuBooking, resto_food catalog). Same shape as Book
@@ -192,13 +164,56 @@ export function RiderStartPage() {
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-bold text-white">🛺 Book a Delivery</span>
               <span className="block text-xs text-white/60">
-                Tell us what to get and where — your driver buys or picks it up and brings it to you.
+                Already have the package? Tell us where to pick it up and where it's going — your driver just
+                carries it, nothing to buy.
               </span>
             </span>
             <span aria-hidden className="text-xl text-white/30">›</span>
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// Book a Ride's own safety feature, rendered from inside the booking page
+// (PassengerPage) rather than on this chooser — tracking is something you do
+// once you're actually trying to get a ride, not a reason to pick one, so it
+// belongs in front of someone who has already tapped Book a Ride.
+export function TrackYourTripCard() {
+  const navigate = useNavigate()
+  const { terminalQrFeeWaived, commissionPerRide } = useRides()
+  return (
+    <div className="overflow-hidden rounded-xl border-2 border-gold-400 bg-navy-900 shadow-sm">
+      <div className="px-4 pt-3">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-white/40">🛡️ Safety feature</p>
+      </div>
+      {/* Straight to the tracking screen, rather than unfolding a QR
+          explainer here. That panel asked the passenger to point a camera
+          at a sticker, or type a plate, before anything happened — while
+          the screen it now opens does the same job without being asked: it
+          lists the tricycles beside them, takes a typed TRC, and records
+          the trip by itself once the tricycle pulls out. */}
+      <button
+        type="button"
+        onClick={() => navigate('/book/terminal')}
+        className="flex w-full items-center gap-3 p-4 pt-2 text-left transition hover:bg-white/5"
+      >
+        <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-400 text-xl leading-none">
+          📍
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-base font-bold text-gold-400">TRACK YOUR TRIP</span>
+          <span className="block text-sm font-bold text-white">
+            for your <span className="font-extrabold italic text-gold-400">SAFE</span> ride
+          </span>
+          <span className="block text-xs text-white/60">
+            Already at the terminal, already in a tricycle? I-track ang biyahe mo.
+          </span>
+        </span>
+        <span aria-hidden className="text-xl text-white/30">›</span>
+      </button>
+      <ScanSafeRideBanner feeFree={terminalRideIsFree(terminalQrFeeWaived, commissionPerRide)} variant="attached" />
     </div>
   )
 }

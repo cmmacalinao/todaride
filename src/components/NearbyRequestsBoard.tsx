@@ -8,6 +8,7 @@ import { rideServiceTag } from '../lib/vendorOrders'
 const SERVICE_ICON: Record<string, string> = {
   pabili: '🛍️',
   buy_medicine: '💊',
+  padala: '📦',
   ride: '🛵',
 }
 
@@ -162,6 +163,9 @@ export function NearbyRequestsBoard({ requests, onAccept, onDecline, busyNote = 
           )}
           {(ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine') && ride.pabiliItems && (
             <p className="mt-1.5 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-600">🛒 {ride.pabiliItems}</p>
+          )}
+          {ride.serviceType === 'padala' && ride.packageNote && (
+            <p className="mt-1.5 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-600">📦 {ride.packageNote}</p>
           )}
           {ride.passengerCount > 1 && (
             <p className="mt-1 text-[11px] font-medium text-slate-500">👥 {ride.passengerCount} passengers</p>

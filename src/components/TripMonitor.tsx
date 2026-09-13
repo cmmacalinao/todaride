@@ -861,6 +861,9 @@ export function TripMonitor({
       {(ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine') && ride.pabiliItems && (
         <p className="rounded-lg bg-white p-2 text-xs text-slate-600">🛒 {ride.pabiliItems}</p>
       )}
+      {ride.serviceType === 'padala' && ride.packageNote && (
+        <p className="rounded-lg bg-white p-2 text-xs text-slate-600">📦 {ride.packageNote}</p>
+      )}
       {ride.serviceType === 'buy_medicine' &&
         (ride.prescriptionDataUrls.length > 0 || ride.seniorIdDataUrl || ride.otherDocDataUrl) && (
           <div className="space-y-1 rounded-lg bg-white p-2">

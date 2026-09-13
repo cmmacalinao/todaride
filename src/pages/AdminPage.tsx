@@ -1906,6 +1906,9 @@ export function AdminPage() {
                 {(r.serviceType === 'pabili' || r.serviceType === 'buy_medicine') && r.pabiliItems && (
                   <p className="mt-1 rounded-lg bg-slate-50 p-2 text-slate-600">🛒 {r.pabiliItems}</p>
                 )}
+                {r.serviceType === 'padala' && r.packageNote && (
+                  <p className="mt-1 rounded-lg bg-slate-50 p-2 text-slate-600">📦 {r.packageNote}</p>
+                )}
                 <p className="mt-1.5 font-medium text-slate-600">
                   {openToAll
                     ? '✓ Open to all TODAs'

@@ -15,10 +15,6 @@ export function ServiceTabs({ active, tone = 'dark' }: { active: 'toda' | 'food'
 
   const shell = tone === 'dark' ? 'border-white/15 bg-white/5' : 'border-slate-200 bg-slate-100'
   const idle = tone === 'dark' ? 'text-white/80 hover:bg-white/10' : 'text-slate-700 hover:bg-white'
-  // "SafeRide" is the quiet part — small, plain weight, muted — so the
-  // service name is what the eye lands on.
-  const brandActive = 'text-navy-900/60'
-  const brandIdle = tone === 'dark' ? 'text-white/50' : 'text-slate-400'
   const tab = (key: 'toda' | 'food' | 'padeliver', label: string, to: () => void) => {
     const isActive = key === active
     return (
@@ -30,9 +26,6 @@ export function ServiceTabs({ active, tone = 'dark' }: { active: 'toda' | 'food'
           isActive ? 'bg-gold-400 text-navy-900 shadow-sm' : idle
         }`}
       >
-        <span className={`mr-0.5 text-[11px] font-medium normal-case tracking-normal ${isActive ? brandActive : brandIdle}`}>
-          SafeRide
-        </span>{' '}
         {label}
       </button>
     )
@@ -40,7 +33,7 @@ export function ServiceTabs({ active, tone = 'dark' }: { active: 'toda' | 'food'
 
   return (
     <div className={`flex overflow-hidden rounded-full border p-0.5 ${shell}`}>
-      {tab('toda', 'TODA', () => navigate('/book/start'))}
+      {tab('toda', 'Book a Ride', () => navigate('/book/start'))}
       {tab('food', 'Food Order', () => navigate('/book', { state: { section: 'food' } }))}
       {tab('padeliver', 'PaDeliver', () => navigate('/book', { state: { section: 'goods_store' } }))}
     </div>

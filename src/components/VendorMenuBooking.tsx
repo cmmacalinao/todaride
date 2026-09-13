@@ -374,8 +374,12 @@ export function VendorMenuBooking({
       {step === 'browse' && (
         <div className="space-y-3">
           {/* The same service strip as the ride start screen, with this
-              screen's own tab lit — tapping another jumps straight there. */}
-          <ServiceTabs active={isGoods ? 'padeliver' : 'food'} tone="light" />
+              screen's own tab lit — tapping another jumps straight there.
+              Pinned under the app header (see RiderStartPage's matching
+              wrapper) rather than scrolling away with the vendor list. */}
+          <div className="sticky top-[50px] z-10 bg-white/95 py-2 backdrop-blur-sm">
+            <ServiceTabs active={isGoods ? 'padeliver' : 'food'} tone="light" />
+          </div>
 
           {/* The order they stepped back from is still running — one line
               on where it is, and the way back to its card. */}

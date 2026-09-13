@@ -1230,6 +1230,9 @@ export function DriverPage() {
                       {(r.serviceType === 'pabili' || r.serviceType === 'buy_medicine') && r.pabiliItems && (
                         <p className="mt-1 rounded-lg bg-slate-50 p-2 text-xs text-slate-600">🛒 {r.pabiliItems}</p>
                       )}
+                      {r.serviceType === 'padala' && r.packageNote && (
+                        <p className="mt-1 rounded-lg bg-slate-50 p-2 text-xs text-slate-600">📦 {r.packageNote}</p>
+                      )}
                       {r.passengerCount > 1 && (
                         <p className="mt-0.5 text-[11px] font-medium text-slate-500">👥 {r.passengerCount} passengers</p>
                       )}
@@ -1966,6 +1969,9 @@ function ActiveTripCard({
       )}
       {(ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine') && ride.pabiliItems && (
         <p className="rounded-lg bg-white p-2 text-xs text-slate-600">🛒 {ride.pabiliItems}</p>
+      )}
+      {ride.serviceType === 'padala' && ride.packageNote && (
+        <p className="rounded-lg bg-white p-2 text-xs text-slate-600">📦 {ride.packageNote}</p>
       )}
       {ride.serviceType === 'buy_medicine' &&
         (ride.prescriptionDataUrls.length > 0 || ride.seniorIdDataUrl || ride.otherDocDataUrl) && (

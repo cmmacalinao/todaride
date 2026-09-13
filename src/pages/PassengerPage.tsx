@@ -1,6 +1,7 @@
 import { formatAddressLine } from '../lib/addressFormat'
 import { formatTripRoute } from '../lib/addressFormat'
 import { rideServiceTag } from '../lib/vendorOrders'
+import { TrackYourTripCard } from './RiderStartPage'
 import { showInMiddle, showInMiddleWhenSettled } from '../lib/showInMiddle'
 import { NearbyDriversPicker, buildNearbyDrivers } from '../components/NearbyDriversPicker'
 import { RidePaymentForm } from '../components/RidePaymentForm'
@@ -239,6 +240,10 @@ export function PassengerPage() {
   // table rows) after a successful submit — it owns its own row state and
   // has no other way to know pabiliItems was reset out from under it.
   const [pabiliItemsResetKey, setPabiliItemsResetKey] = useState(0)
+  // Padala only — what's in the package and/or who it's for. Plain text,
+  // no item/cost table: nobody is buying anything, so there is nothing to
+  // itemize (see isPadala).
+  const [packageNote, setPackageNote] = useState('')
   // The specific store/establishment to buy from, typed freeform (e.g. "7-Eleven",
   // "SM Grocery", "Aling Nena's Store") — overrides the resolved pickup point's
   // generic label (a public-market proxy or a dropped pin) only at request time
@@ -433,14 +438,11 @@ export function PassengerPage() {
         scrollTop()
         break
       case 'goods_delivery':
-        // PaDeliver's "Book a Delivery" — the plain freeform Pabili flow
-        // (type what you need, a driver buys/delivers it), promoted here as
-        // its own tile rather than hidden behind the Super Admin-gated
-        // NavDrawer entry (pabiliEnabled only controls that drawer item —
-        // the underlying REQUEST_RIDE/pabiliItems handling always works, see
-        // RideContext.tsx). foodHinted stays false so this renders the raw
-        // item-list form instead of the vendor menu.
-        chooseErrand('pabili', { food: false })
+        // PaDeliver's "Book a Delivery" — a courier request for a package
+        // the sender (a store or a buyer) already has: no buying involved,
+        // just pickup -> dropoff. Its own serviceType ('padala'), not Pabili
+        // with different copy — see isPadala.
+        chooseErrand('padala')
         scrollTop()
         break
       case 'current':
@@ -514,6 +516,14 @@ export function PassengerPage() {
 
   const isPabili = serviceType === 'pabili'
   const isBuyMedicine = serviceType === 'buy_medicine'
+  // Padala: PaDeliver's "Book a Delivery" — a courier request for a package
+  // the sender already has, not an errand where the driver buys anything.
+  // Genuinely its own serviceType (not Pabili with different copy) because
+  // Pabili's pabiliItems/bought-checklist machinery (PabiliItemsInput, the
+  // 🛒 receipt line, DriverPage's per-item "mark as bought" list) all assume
+  // a shopping list, which a package being carried is not — see
+  // Ride.packageNote.
+  const isPadala = serviceType === 'padala'
   // The Food tile (see chooseErrand) sets foodHinted and otherwise falls
   // back to plain freeform Pabili — but with a partner vendor's own priced
   // menu available (see VendorMenuBooking), that fallback only applies
@@ -523,8 +533,9 @@ export function PassengerPage() {
   // Buy Medicine has its own self-contained flow (MedsBooking) with a
   // completely different shape (cart, pharmacy confirmation) — none of the
   // shared Ride/Pabili JSX below (address forms, fare breakdown, submit
-  // button) ever renders for it, so isErrand only needs to track Pabili.
-  const isErrand = isPabili
+  // button) ever renders for it, so isErrand only needs to track Pabili and
+  // Padala — the two services that reuse this shared form.
+  const isErrand = isPabili || isPadala
   const plannedRoute = useRoute(pickup.gps ?? null, dropoff.gps ?? null)
 
   // The From/Where-to boxes are summaries, not editors: tapping one opens the
@@ -1115,7 +1126,8 @@ export function PassengerPage() {
       pickupGps,
       passengerCount,
       serviceType,
-      pabiliItems: isErrand ? pabiliItems.trim() : null,
+      pabiliItems: isPabili ? pabiliItems.trim() : null,
+      packageNote: isPadala ? packageNote.trim() || null : null,
       tip: isErrand ? tip : 0,
       specialPickupRequested: specialPickupRequested && pickupGps !== null,
       specialTrip,
@@ -1127,6 +1139,7 @@ export function PassengerPage() {
     setPassengerCount(1)
     setPabiliItems('')
     setPabiliItemsResetKey((k) => k + 1)
+    setPackageNote('')
     setStoreName('')
     setTipInput('')
     setSpecialPickupRequested(false)
@@ -1666,9 +1679,13 @@ export function PassengerPage() {
                     ? isGuestBooking
                       ? `Request Pabili for ${guestRider.otherName.trim() || 'them'}`
                       : 'Request Pabili'
-                    : isGuestBooking
-                      ? `Book a tricycle for ${guestRider.otherName.trim() || 'them'}`
-                      : 'Book a tricycle'}
+                    : isPadala
+                      ? isGuestBooking
+                        ? `Request Delivery for ${guestRider.otherName.trim() || 'them'}`
+                        : 'Request Delivery'
+                      : isGuestBooking
+                        ? `Book a tricycle for ${guestRider.otherName.trim() || 'them'}`
+                        : 'Book a tricycle'}
                 </span>
               </button>
               {/* Said, not asked.
@@ -2410,6 +2427,47 @@ export function PassengerPage() {
               Order medicine from a nearby participating pharmacy — your driver picks it up and delivers it to you.
             </p>
           )}
+          {isPadala && (
+            <p className="text-xs text-slate-500">
+              Already have the package? Tell us what it is and where it's going — your driver is just the courier,
+              nothing to buy.
+            </p>
+          )}
+
+          {/* Padala has no "Create order" gate the way Pabili does — there is
+              nothing to price or itemize, so the address form below is
+              already open (see chooseErrand). This note is the only thing
+              particular to Padala: what's in the package, for the driver's
+              own sake. */}
+          {isPadala && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-500">What are you sending? (optional)</label>
+              <textarea
+                value={packageNote}
+                onChange={(e) => setPackageNote(e.target.value)}
+                placeholder="e.g. 1 box of pasalubong, for Ate Rosa"
+                rows={2}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-[11px] text-slate-400">
+                Helps your driver know what they're carrying and who it's for.
+              </p>
+            </div>
+          )}
+          {isPadala && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-500">Pickup location name (optional)</label>
+              <input
+                value={storeName}
+                onChange={(e) => setStoreName(e.target.value)}
+                placeholder="e.g. Aling Nena's Store, 7-Eleven, or your own name"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-[11px] text-slate-400">
+                Shows on the driver's ride card so they know whose package they're picking up.
+              </p>
+            </div>
+          )}
 
           {/* Buy Medicine has no "who is this for?" step — a pharmacy order
               is always the logged-in customer's, and the two fulfilment tabs
@@ -2668,7 +2726,7 @@ export function PassengerPage() {
             )}
             {isErrand && (
               <div className="flex items-center justify-between text-xs text-slate-500">
-                <span>Pabili service fee</span>
+                <span>{isPadala ? 'Delivery service fee' : 'Pabili service fee'}</span>
                 <span>₱{serviceFee}</span>
               </div>
             )}
@@ -2692,6 +2750,12 @@ export function PassengerPage() {
           )}
           </>
           )}
+          {/* Book a Ride's own safety feature — see TrackYourTripCard. Only
+              for a plain ride being booked right now: an errand/Padala/Meds
+              order has nothing to track yet, and once a ride is already
+              underway ActiveRideCard above is that tracking, so offering a
+              second way into it here would be redundant. */}
+          {serviceType === 'ride' && !tripUnderway && <TrackYourTripCard />}
             </>
         </section>
       )}
@@ -2727,6 +2791,9 @@ export function PassengerPage() {
                 </div>
                 {(r.serviceType === 'pabili' || r.serviceType === 'buy_medicine') && r.pabiliItems && (
                   <p className="mt-1 rounded-lg bg-slate-50 p-2 text-xs text-slate-600">🛒 {r.pabiliItems}</p>
+                )}
+                {r.serviceType === 'padala' && r.packageNote && (
+                  <p className="mt-1 rounded-lg bg-slate-50 p-2 text-xs text-slate-600">📦 {r.packageNote}</p>
                 )}
                 {r.payment && <ReceiptCard payment={r.payment} />}
                 <div className="mt-2 flex flex-wrap items-start gap-1.5">

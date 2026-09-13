@@ -69,7 +69,7 @@ export function RoleChooserPage() {
       ? [
           {
             icon: '🏪',
-            label: vendorsEnabled ? 'Food Vendors' : 'Pharmacy',
+            label: vendorsEnabled ? 'Food Merchants' : 'Pharmacy',
             blurb: vendorsEnabled
               ? 'Partner with us — sell from your resto or store through TODA SafeRide'
               : 'Partner with us — sell from your pharmacy through TODA SafeRide',

@@ -1785,7 +1785,10 @@ export function PassengerPage() {
                 <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
                   <button
                     type="button"
-                    onClick={() => guestRider.setBookingFor('self')}
+                    onClick={() => {
+                      if (groupRideOpen) setGroupRideOpen(false)
+                      guestRider.setBookingFor('self')
+                    }}
                     className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
                       !groupRideOpen && guestRider.bookingFor === 'self'
                         ? 'bg-brand-600 text-white shadow-sm'
@@ -1796,7 +1799,10 @@ export function PassengerPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => guestRider.setBookingFor('other')}
+                    onClick={() => {
+                      if (groupRideOpen) setGroupRideOpen(false)
+                      guestRider.setBookingFor('other')
+                    }}
                     className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
                       !groupRideOpen && guestRider.bookingFor === 'other'
                         ? 'bg-brand-600 text-white shadow-sm'
@@ -2109,14 +2115,7 @@ export function PassengerPage() {
   if (groupRideOpen) {
     return (
       <div className="mx-auto flex min-h-[calc(100vh-70px)] max-w-lg flex-col space-y-2 px-4 pb-[72px] pt-1">
-        <button
-          type="button"
-          onClick={() => setGroupRideOpen(false)}
-          className="flex items-center gap-1.5 self-start rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-        >
-          <span aria-hidden className="text-sm leading-none">‹</span>
-          Bumalik sa booking
-        </button>
+        <ServiceTabs active="toda" tone="light" />
         {/* Rider one is a rider. Their pickup is where the whole group
             boards and their destination is their own — and with this card
             left behind on the booking form, neither could be changed from

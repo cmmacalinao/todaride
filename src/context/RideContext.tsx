@@ -808,6 +808,8 @@ type RideAction =
   | { type: 'REMOVE_TERMINAL'; terminalId: string }
   | { type: 'SET_TERMINAL_GPS'; terminalId: string; gps: GeoCoords }
   | { type: 'SET_TERMINAL_ACTIVE'; terminalId: string; isActive: boolean }
+  | { type: 'ADD_LANDMARK'; landmark: Landmark }
+  | { type: 'REMOVE_LANDMARK'; landmarkId: string }
   | { type: 'SET_TODA_RADIUS_KM'; km: number }
   | { type: 'SET_OUT_OF_AREA_PER_KM'; amount: number }
   | { type: 'DRIVER_PROPOSE_ACCEPT'; rideId: string; driverId: string; originGps: GeoCoords | null }
@@ -2844,6 +2846,15 @@ function reducer(state: RideState, action: RideAction): RideState {
     }
     case 'REMOVE_TERMINAL':
       return { ...state, terminals: state.terminals.filter((t) => t.id !== action.terminalId) }
+    // A landmark a TODA admin has pinned — same uniqueness rule as a
+    // terminal, for the same reason.
+    case 'ADD_LANDMARK': {
+      const id = action.landmark.id.trim()
+      if (!id || state.landmarks.some((l) => l.id.toLowerCase() === id.toLowerCase())) return state
+      return { ...state, landmarks: [...state.landmarks, { ...action.landmark, id }] }
+    }
+    case 'REMOVE_LANDMARK':
+      return { ...state, landmarks: state.landmarks.filter((l) => l.id !== action.landmarkId) }
     // Where the gate actually is, as placed on a map by someone who knows.
     case 'SET_TERMINAL_GPS':
       return {
@@ -6248,6 +6259,8 @@ interface RideContextValue extends RideState {
   setPabiliFixedFare: (amount: number) => void
   addTerminal: (terminal: Terminal) => void
   removeTerminal: (terminalId: string) => void
+  addLandmark: (landmark: Landmark) => void
+  removeLandmark: (landmarkId: string) => void
   setTerminalGps: (terminalId: string, gps: GeoCoords) => void
   setTerminalActive: (terminalId: string, isActive: boolean) => void
   setTodaRadiusKm: (km: number) => void
@@ -7380,6 +7393,8 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setPabiliFixedFare: (amount) => dispatch({ type: 'SET_PABILI_FIXED_FARE', amount }),
     addTerminal: (terminal) => dispatch({ type: 'ADD_TERMINAL', terminal }),
     removeTerminal: (terminalId) => dispatch({ type: 'REMOVE_TERMINAL', terminalId }),
+    addLandmark: (landmark) => dispatch({ type: 'ADD_LANDMARK', landmark }),
+    removeLandmark: (landmarkId) => dispatch({ type: 'REMOVE_LANDMARK', landmarkId }),
     setTerminalGps: (terminalId, gps) => dispatch({ type: 'SET_TERMINAL_GPS', terminalId, gps }),
     setTerminalActive: (terminalId, isActive) => dispatch({ type: 'SET_TERMINAL_ACTIVE', terminalId, isActive }),
     setTodaRadiusKm: (km) => dispatch({ type: 'SET_TODA_RADIUS_KM', km }),

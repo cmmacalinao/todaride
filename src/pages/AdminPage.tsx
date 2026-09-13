@@ -26,6 +26,7 @@ import { getDispatchWindow } from '../lib/tracking'
 import { matchesNameQuery } from '../lib/fuzzyName'
 import { RealLiveMap } from '../components/RealLiveMap'
 import { TerminalQuickPanel } from '../components/TerminalQuickPanel'
+import { LandmarkQuickPanel } from '../components/LandmarkQuickPanel'
 import { TodaBoundariesPanel } from '../components/TodaBoundariesPanel'
 import { BarangayAddressPicker } from '../components/BarangayAddressPicker'
 import { resolvePhAddress, type PhAddressTags } from '../lib/customLocation'
@@ -740,6 +741,18 @@ export function AdminPage() {
             onDelete={deleteBoundary}
             onClose={() => navigate('/admin?tab=terminals')}
           />
+        </section>
+      )}
+
+      {adminTab === 'landmarks' && (
+        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-slate-700">📍 Landmarks</h2>
+          <p className="mb-2 mt-0.5 text-xs text-slate-500">
+            What a passenger's destination search matches against (see DestinationSearch) — a market, school, church
+            or any other named place worth searching for, per city. Nueva Ecija addressing runs on landmarks, not
+            street names, so aliases matter more than the formal name.
+          </p>
+          <LandmarkQuickPanel onClose={() => navigate('/admin?tab=landmarks')} />
         </section>
       )}
 

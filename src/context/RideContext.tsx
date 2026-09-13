@@ -811,6 +811,7 @@ type RideAction =
   | { type: 'ADD_LANDMARK'; landmark: Landmark }
   | { type: 'REMOVE_LANDMARK'; landmarkId: string }
   | { type: 'SET_LANDMARK_GPS'; landmarkId: string; gps: GeoCoords }
+  | { type: 'UPDATE_LANDMARK'; landmarkId: string; landmark: Omit<Landmark, 'id'> }
   | { type: 'SET_TODA_RADIUS_KM'; km: number }
   | { type: 'SET_OUT_OF_AREA_PER_KM'; amount: number }
   | { type: 'DRIVER_PROPOSE_ACCEPT'; rideId: string; driverId: string; originGps: GeoCoords | null }
@@ -2862,6 +2863,16 @@ function reducer(state: RideState, action: RideAction): RideState {
       return {
         ...state,
         landmarks: state.landmarks.map((l) => (l.id === action.landmarkId ? { ...l, gps: action.gps } : l)),
+      }
+    // Name/category/aliases/gps edited together from the admin panel's Save
+    // — id stays fixed so nothing that already points at this landmark
+    // (a search result cache, a past ride's destination) breaks.
+    case 'UPDATE_LANDMARK':
+      return {
+        ...state,
+        landmarks: state.landmarks.map((l) =>
+          l.id === action.landmarkId ? { ...action.landmark, id: l.id } : l,
+        ),
       }
     // Where the gate actually is, as placed on a map by someone who knows.
     case 'SET_TERMINAL_GPS':
@@ -6270,6 +6281,7 @@ interface RideContextValue extends RideState {
   addLandmark: (landmark: Landmark) => void
   removeLandmark: (landmarkId: string) => void
   setLandmarkGps: (landmarkId: string, gps: GeoCoords) => void
+  updateLandmark: (landmarkId: string, landmark: Omit<Landmark, 'id'>) => void
   setTerminalGps: (terminalId: string, gps: GeoCoords) => void
   setTerminalActive: (terminalId: string, isActive: boolean) => void
   setTodaRadiusKm: (km: number) => void
@@ -7405,6 +7417,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     addLandmark: (landmark) => dispatch({ type: 'ADD_LANDMARK', landmark }),
     removeLandmark: (landmarkId) => dispatch({ type: 'REMOVE_LANDMARK', landmarkId }),
     setLandmarkGps: (landmarkId, gps) => dispatch({ type: 'SET_LANDMARK_GPS', landmarkId, gps }),
+    updateLandmark: (landmarkId, landmark) => dispatch({ type: 'UPDATE_LANDMARK', landmarkId, landmark }),
     setTerminalGps: (terminalId, gps) => dispatch({ type: 'SET_TERMINAL_GPS', terminalId, gps }),
     setTerminalActive: (terminalId, isActive) => dispatch({ type: 'SET_TERMINAL_ACTIVE', terminalId, isActive }),
     setTodaRadiusKm: (km) => dispatch({ type: 'SET_TODA_RADIUS_KM', km }),

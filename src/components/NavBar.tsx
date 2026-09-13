@@ -103,6 +103,13 @@ export function NavBar() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [activePanel, setActivePanel] = useState<AccountPanelKind | null>(null)
   const [activeSection, setActiveSection] = useState<DrawerSection>('home')
+  // Also kept up here for the same reason — useHeaderHeight used to sit next
+  // to its own usage below the early return, calling it conditionally. Any
+  // navigation that flips NavBar between an early-return branch and the
+  // full-nav branch without unmounting it would throw "Rendered fewer/more
+  // hooks than expected" on that render.
+  const isSimulatorPage = location.pathname === '/admin/simulator'
+  const headerHeight = useHeaderHeight(headerRef, [isSimulatorPage])
   // The /book header badge must reflect whoever actually authenticated, not
   // whichever mock identity currentPassengerId/currentParentId happen to
   // still hold from a previous session — otherwise a parent login can show
@@ -517,8 +524,6 @@ export function NavBar() {
 
   // Compact chrome for the two-pane simulator only: everything that is
   // normally stacked collapses onto one row, halving the header.
-  const isSimulatorPage = location.pathname === '/admin/simulator'
-  const headerHeight = useHeaderHeight(headerRef, [isSimulatorPage])
 
   // How tall the frozen block actually is, measured and republished as a CSS
   // variable. Two things need it and neither can know it in advance: the

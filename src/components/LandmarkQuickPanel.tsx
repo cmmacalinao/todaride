@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { getCurrentGeoPosition } from '../lib/geo'
 import { RealLiveMap, type MapPoint } from './RealLiveMap'
@@ -46,6 +46,16 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
       : null
 
   const cityLandmarks = landmarks.filter((l) => l.city === city)
+
+  // Snapshot of which pins the map frames itself on, taken once per city
+  // rather than recomputed every render — RealLiveMap re-fits whenever the
+  // *set* of framed ids changes, so leaving this reactive to `landmarks`
+  // meant placing a pending pin, adding a landmark, or deleting one all
+  // yanked the view out from under whatever the admin was just looking at.
+  // Frozen here, the map still frames the whole city the moment you switch
+  // to it, but stays put through everything you do inside that city after.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const framedLandmarkIds = useMemo(() => cityLandmarks.map((l) => l.id), [city])
 
   const mapPoints: MapPoint[] = [
     ...cityLandmarks
@@ -200,6 +210,7 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
         <RealLiveMap
           points={mapPoints}
           onMapClick={setFromGps}
+          fitPointIds={framedLandmarkIds}
           draggableIds={[...cityLandmarks.map((l) => l.id), ...(pending ? ['new-landmark'] : [])]}
           onPointDragEnd={(id, gps) => {
             if (id === 'new-landmark') {

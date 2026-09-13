@@ -2408,15 +2408,6 @@ export const MOCK_LANDMARKS: Landmark[] = [
     todaOrgId: null,
   },
   {
-    id: 'landmark-4',
-    name: 'Petron Abar 2nd',
-    aliases: ['gasolina', 'gas station', 'petron', 'gasolinahan'],
-    category: 'gas_station',
-    city: 'San Jose City',
-    gps: { lat: 15.807, lng: 121.001 },
-    todaOrgId: null,
-  },
-  {
     id: 'landmark-5',
     name: 'San Jose City Hall',
     aliases: ['city hall', 'munisipyo', 'bayan'],

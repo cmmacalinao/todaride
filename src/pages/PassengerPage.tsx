@@ -2239,7 +2239,7 @@ export function PassengerPage() {
             type="button"
             onClick={() => vendorMenuRef.current?.openCart()}
             title={`View cart — ${vendorCart.count} item${vendorCart.count === 1 ? '' : 's'}, ₱${vendorCart.total}`}
-            className="relative flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border border-transparent bg-slate-100 py-1.5 transition hover:bg-slate-200"
+            className="relative flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border border-amber-200 bg-amber-50 py-1.5 transition hover:bg-amber-100"
           >
             <span className="text-[15px] leading-none">🛒</span>
             <span className="truncate text-[10px] font-semibold text-slate-700">

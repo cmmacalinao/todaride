@@ -100,6 +100,47 @@ export interface Terminal {
   isActive: boolean
 }
 
+export type LandmarkCategory =
+  | 'market'
+  | 'school'
+  | 'church'
+  | 'gas_station'
+  | 'hospital'
+  | 'government'
+  | 'transport'
+  | 'mall'
+  | 'other'
+
+export const LANDMARK_CATEGORY_ICONS: Record<LandmarkCategory, string> = {
+  market: '🛒',
+  school: '🏫',
+  church: '⛪',
+  gas_station: '⛽',
+  hospital: '🏥',
+  government: '🏛️',
+  transport: '🚏',
+  mall: '🏬',
+  other: '📍',
+}
+
+// A named place a passenger can search for instead of picking a barangay —
+// Nueva Ecija addressing is landmark-based ("palengke", "NEUST gate"), not
+// street-based, so a real destination search has to match on what people
+// actually call a place, not just its formal name. Seeded by mock data for
+// now (see MOCK_LANDMARKS); todaOrgId narrows a landmark to the TODA that
+// added it, null for ones every TODA in the pilot shares.
+export interface Landmark {
+  id: string
+  name: string
+  // What else this place is called — "NEUST", "unibersidad" and the full
+  // university name might all name the same landmark. Matched the same way
+  // the name itself is (see lib/landmarkSearch.ts).
+  aliases: string[]
+  category: LandmarkCategory
+  gps: GeoCoords
+  todaOrgId: string | null
+}
+
 export interface TodaOrganization {
   id: string
   name: string

@@ -15,6 +15,7 @@ import type {
   EquityAllocation,
   ExpenseCategory,
   GeoCoords,
+  Landmark,
   MapBoundary,
   IncomePromotionSettings,
   Franchise,
@@ -2181,6 +2182,80 @@ export const UTS_ORG_ID = 'toda-nato-uts'
 // file. A pin someone walked to the gate to place is worth more than one
 // typed here, and this is what keeps it out of a single browser’s storage.
 export const MOCK_TERMINALS: Terminal[] = terminalSeed as Terminal[]
+
+// Named places a passenger can search for as a destination instead of
+// picking a barangay — Nueva Ecija addressing runs on landmarks ("palengke",
+// "sa may simbahan"), not street names. Reuses coordinates and addresses
+// already seeded elsewhere in this file (the vendors, CLSU/UTS) so a
+// landmark search result and an existing booking address agree, rather than
+// inventing a second set of Nueva Ecija coordinates. See lib/landmarkSearch.ts
+// for how a typed query gets matched against these.
+export const MOCK_LANDMARKS: Landmark[] = [
+  {
+    id: 'landmark-1',
+    name: 'San Jose City Public Market',
+    aliases: ['palengke', 'pamilihan', 'san jose market', 'public market'],
+    category: 'market',
+    gps: { lat: 15.7996, lng: 120.9861 },
+    todaOrgId: null,
+  },
+  {
+    id: 'landmark-2',
+    name: 'Central Luzon State University',
+    aliases: ['clsu', 'unibersidad', 'university', 'clsu main gate'],
+    category: 'school',
+    gps: { lat: 15.7312, lng: 120.9298 },
+    todaOrgId: null,
+  },
+  {
+    id: 'landmark-3',
+    name: 'San Jose City Cathedral',
+    aliases: ['simbahan', 'church', 'san jose cathedral', 'parokya'],
+    category: 'church',
+    gps: { lat: 15.795, lng: 120.985 },
+    todaOrgId: null,
+  },
+  {
+    id: 'landmark-4',
+    name: 'Petron Abar 2nd',
+    aliases: ['gasolina', 'gas station', 'petron', 'gasolinahan'],
+    category: 'gas_station',
+    gps: { lat: 15.807, lng: 121.001 },
+    todaOrgId: null,
+  },
+  {
+    id: 'landmark-5',
+    name: 'San Jose City Hall',
+    aliases: ['city hall', 'munisipyo', 'bayan'],
+    category: 'government',
+    gps: { lat: 15.79, lng: 120.98 },
+    todaOrgId: null,
+  },
+  {
+    id: 'landmark-6',
+    name: 'Genesis San Jose City Terminal',
+    aliases: ['terminal', 'bus terminal', 'byahe', 'genesis terminal'],
+    category: 'transport',
+    gps: { lat: 15.802, lng: 120.995 },
+    todaOrgId: null,
+  },
+  {
+    id: 'landmark-7',
+    name: 'Malasin Covered Court',
+    aliases: ['covered court', 'basketball court', 'malasin court'],
+    category: 'other',
+    gps: { lat: 15.806, lng: 120.999 },
+    todaOrgId: null,
+  },
+  {
+    id: 'landmark-8',
+    name: 'CLSU Gate 2, Science City of Muñoz',
+    aliases: ['clsu gate 2', 'munoz gate', 'gate 2'],
+    category: 'school',
+    gps: { lat: 15.7325, lng: 120.9312 },
+    todaOrgId: null,
+  },
+]
 
 // The CLSU campus as OpenStreetMap has it (way 794431227, ODbL), thinned
 // from 170 vertices to the 61 that keep the outline within about 8 m of the

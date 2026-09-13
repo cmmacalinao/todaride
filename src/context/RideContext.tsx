@@ -6,6 +6,7 @@ import type { RecoveryKind } from '../lib/unifiedLogin'
 import type { RidePhoto } from '../types'
 import type {
   PabiliFareMode,
+  Landmark,
   MapBoundary,
   Terminal,
   RideCancellationReason,
@@ -153,6 +154,7 @@ import {
   MOCK_PHARMACIES,
   MOCK_BOUNDARIES,
   MOCK_TERMINALS,
+  MOCK_LANDMARKS,
   MOCK_TODA_ORGANIZATIONS,
   SAAS_PLAN_FEES,
   estimateFare,
@@ -245,6 +247,7 @@ interface RideState {
   specialPickupEscalationMs: number
   todaOrganizations: TodaOrganization[]
   terminals: Terminal[]
+  landmarks: Landmark[]
   boundaries: MapBoundary[]
   clsuFleetQueued: boolean
   duesRecords: DuesRecord[]
@@ -1476,6 +1479,7 @@ interface StoredState {
   specialPickupEscalationMs?: number
   todaOrganizations?: TodaOrganization[]
   terminals?: Terminal[]
+  landmarks?: Landmark[]
   boundaries?: MapBoundary[]
   // One-time marker: the seeded CLSU fleet has been placed in its terminal
   // queues on this install. Without it the backfill would re-queue drivers
@@ -1660,6 +1664,11 @@ function fromStored(parsed: StoredState): RideState {
     // Seeded terminals are backfilled for anyone whose stored state predates
     // them — an empty terminal list is never what the operator meant.
     terminals: parsed.terminals?.length ? parsed.terminals : MOCK_TERMINALS,
+    // Same backfill reasoning as terminals — an older stored session predates
+    // landmarks entirely, and an empty search result for every query is a
+    // worse first impression than the seed set showing up underneath
+    // whatever a TODA admin has since added.
+    landmarks: parsed.landmarks?.length ? parsed.landmarks : MOCK_LANDMARKS,
     clsuFleetQueued: true,
     boundaries: ((): MapBoundary[] => {
       const stored = parsed.boundaries ?? []
@@ -1991,6 +2000,7 @@ function loadInitialState(): RideState {
     specialPickupEscalationMs: DEFAULT_SPECIAL_PICKUP_ESCALATION_MS,
     todaOrganizations: MOCK_TODA_ORGANIZATIONS,
     terminals: MOCK_TERMINALS,
+    landmarks: MOCK_LANDMARKS,
     boundaries: MOCK_BOUNDARIES,
     clsuFleetQueued: true,
     duesRecords: [],
@@ -6879,6 +6889,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           specialPickupEscalationMs: state.specialPickupEscalationMs,
           todaOrganizations: state.todaOrganizations,
           terminals: state.terminals,
+          landmarks: state.landmarks,
           boundaries: state.boundaries,
           clsuFleetQueued: state.clsuFleetQueued,
           duesRecords: state.duesRecords,

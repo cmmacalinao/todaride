@@ -58,9 +58,11 @@ import { makeGuestPassengerId, useGuestRider } from '../components/GuestRiderFie
 import { PassengerRewardsCard } from '../components/PassengerRewardsCard'
 import { GroupRideInlinePanel, type GroupRiderEntry } from '../components/GroupRideInlinePanel'
 import { ContactSheet } from '../components/ContactSheet'
+import { DestinationSearch } from '../components/DestinationSearch'
 import type {
   DriverReportReason,
   GeoCoords,
+  Landmark,
   MockLocation,
   PaymentMethod,
   Pharmacy,
@@ -777,6 +779,18 @@ export function PassengerPage() {
     const location = await resolvePhAddress(address)
     setCustomLocations((prev) => [...prev, location])
     setDropoffId(location.id)
+  }
+
+  // A landmark already carries a real coordinate (see mock/data.ts), so
+  // there is no geocoding round trip here — straight into the same pin
+  // handler a map tap uses, just without a reverse-geocoded guess to reseed
+  // the address form with.
+  function handlePickupLandmark(landmark: Landmark) {
+    handlePinPickup(createCustomLocation(landmark.name, landmark.gps), null)
+  }
+
+  function handleDropoffLandmark(landmark: Landmark) {
+    handlePinDropoff(createCustomLocation(landmark.name, landmark.gps), null)
   }
 
   const myRides = rides.filter((r) => r.passengerId === passenger.id)
@@ -1938,6 +1952,7 @@ export function PassengerPage() {
             </div>
             {openEnd === 'pickup' && (
               <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
+              <DestinationSearch near={pickupGps ?? pickup.gps ?? null} onSelect={handlePickupLandmark} />
               {!isErrand && quickPlaceChips('pickup')}
               {cityRow}
               <BarangayAddressPicker
@@ -2050,6 +2065,7 @@ export function PassengerPage() {
                     the ordinary case, and they had to type it every time
                     while the pickup — the end the app can often guess by
                     itself — was the one with the shortcuts. */}
+                <DestinationSearch near={pickupGps ?? pickup.gps ?? null} onSelect={handleDropoffLandmark} />
                 {quickPlaceChips('dropoff')}
                 {cityRow}
                 <BarangayAddressPicker

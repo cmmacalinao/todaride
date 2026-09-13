@@ -3,6 +3,7 @@ import { formatTripRoute } from '../lib/addressFormat'
 import { rideServiceTag } from '../lib/vendorOrders'
 import { TrackYourTripCard } from './RiderStartPage'
 import { ServiceTabs } from '../components/ServiceTabs'
+import { PaDeliverSubTabs } from '../components/PaDeliverSubTabs'
 import { showInMiddle, showInMiddleWhenSettled } from '../lib/showInMiddle'
 import { NearbyDriversPicker, buildNearbyDrivers } from '../components/NearbyDriversPicker'
 import { RidePaymentForm } from '../components/RidePaymentForm'
@@ -2164,6 +2165,12 @@ export function PassengerPage() {
           active={showVendorMenu ? (catalogKind === 'goods' ? 'padeliver' : 'food') : isPadala ? 'padeliver' : 'toda'}
           tone="light"
         />
+      )}
+      {/* PaDeliver's own two doors, one line under the main strip — only
+          while PaDeliver itself is the selected tab there, so it reads as
+          PaDeliver opening up rather than a fourth, unrelated tab. */}
+      {pageTab === 'book' && ((showVendorMenu && catalogKind === 'goods') || isPadala) && (
+        <PaDeliverSubTabs active={isPadala ? 'delivery' : 'store'} />
       )}
       <AnnouncementFeed viewer="passengers" />
       {isAdminOpsView && (

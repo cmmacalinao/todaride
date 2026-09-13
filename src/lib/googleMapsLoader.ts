@@ -133,10 +133,41 @@ declare global {
         Polyline: new (opts: GooglePolylineOptions) => GooglePolyline
         LatLngBounds: new () => GoogleLatLngBounds
         SymbolPath: { CIRCLE: number }
+        places: {
+          AutocompleteService: new () => {
+            getPlacePredictions: (
+              request: {
+                input: string
+                sessionToken?: GooglePlacesSessionToken
+                componentRestrictions?: { country: string }
+              },
+              callback: (
+                predictions: Array<{ description: string; place_id: string }> | null,
+                status: string,
+              ) => void,
+            ) => void
+          }
+          AutocompleteSessionToken: new () => GooglePlacesSessionToken
+          PlacesService: new (attrContainer: HTMLDivElement) => {
+            getDetails: (
+              request: { placeId: string; sessionToken?: GooglePlacesSessionToken; fields: string[] },
+              callback: (
+                result: { geometry?: { location: { lat: () => number; lng: () => number } } } | null,
+                status: string,
+              ) => void,
+            ) => void
+          }
+          PlacesServiceStatus: { OK: string }
+        }
       }
     }
   }
 }
+
+// Opaque — this app never reads a session token's own fields, only passes
+// the same instance from a prediction request through to the Details call
+// that ends it (see lib/geocode.ts's searchGooglePlaces/resolveGooglePlaceGps).
+export type GooglePlacesSessionToken = object
 
 let loadPromise: Promise<void> | null = null
 
@@ -155,7 +186,9 @@ export function loadGoogleMaps(): Promise<void> | null {
 
   loadPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script')
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&loading=async&v=weekly`
+    // libraries=places: DestinationSearch's live fallback (see lib/geocode.ts)
+    // needs AutocompleteService/PlacesService, which don't load by default.
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&loading=async&v=weekly&libraries=places`
     script.async = true
     script.onload = () => {
       if (window.google?.maps) resolve()

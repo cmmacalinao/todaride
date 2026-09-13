@@ -1,4 +1,4 @@
-import { loadGoogleMaps } from './googleMapsLoader'
+import { googleMapsApiKey, loadGoogleMaps, type GooglePlacesSessionToken } from './googleMapsLoader'
 import type { GeoCoords } from '../types'
 
 export interface GeocodeResult {
@@ -87,27 +87,99 @@ export async function reverseGeocode(gps: GeoCoords): Promise<string | null> {
 
 export interface PlaceSuggestion {
   label: string
-  gps: GeoCoords
+  // Nominatim results carry the coordinate up front. Google's Autocomplete
+  // predictions deliberately don't — resolving one costs a separate Place
+  // Details call, so it only happens for the one result the rider actually
+  // picks (see resolveGooglePlaceGps), not for every row shown.
+  gps: GeoCoords | null
+  placeId?: string
 }
 
-// The fallback DestinationSearch reaches for once the local landmark list
-// (see lib/landmarkSearch.ts) comes up empty — a live, multi-result lookup
-// against Nominatim's search endpoint, scoped to the city/province already
-// picked so "palengke" -like typos aside, a real but unseeded place (a
-// specific sari-sari store, a newer subdivision) still resolves to
-// something. Never called per-keystroke: Nominatim's usage policy caps free
-// use at ~1 request/second, so the caller is responsible for debouncing to a
-// real pause in typing, not just a short one. Returns [] rather than
-// throwing on any failure (offline, timeout, no results) — an empty list and
-// a real miss look identical to the search box either way.
-export async function searchNearbyPlaces(
+// One Autocomplete session covers every keystroke of a single search plus
+// the Place Details call that follows picking a result — Google bills (or
+// doesn't; Autocomplete predictions paired with a completed session are
+// free) per session, not per request, but only while every request in it
+// shares this same token. Reset once a session ends (a Details call fires,
+// or the reader clears the box) so the next search starts its own.
+let sessionToken: GooglePlacesSessionToken | null = null
+// AutocompleteService needs no map; PlacesService.getDetails does need a
+// container, though nothing here ever attaches it to the page — Google's
+// API just requires an element to construct the service against.
+let placesAttrDiv: HTMLDivElement | null = null
+
+function endSession() {
+  sessionToken = null
+}
+
+async function loadGooglePlaces(): Promise<boolean> {
+  if (!googleMapsApiKey()) return false
+  const loading = loadGoogleMaps()
+  if (!loading) return false
+  try {
+    await loading
+  } catch {
+    return false
+  }
+  return !!window.google?.maps?.places
+}
+
+// Google's business-listing coverage in rural PH areas is far ahead of
+// OSM's free data (a named bank branch or fast-food chain is often just
+// missing from OSM entirely) — tried first when a key is configured, with
+// Nominatim as the always-available fallback. Resolves null (never throws
+// or returns []) on any failure so searchNearbyPlaces's own fallback runs;
+// an empty array would instead be read as "Google searched and found
+// nothing," which isn't what a loading failure means.
+async function searchGooglePlaces(
   query: string,
   scope: { city?: string; province?: string },
-  limit = 5,
+): Promise<PlaceSuggestion[] | null> {
+  const ready = await loadGooglePlaces()
+  if (!ready) return null
+  if (!sessionToken) sessionToken = new window.google!.maps.places.AutocompleteSessionToken()
+  const scoped = [query, scope.city, scope.province ?? 'Nueva Ecija', 'Philippines'].filter(Boolean).join(', ')
+  return new Promise((resolve) => {
+    const service = new window.google!.maps.places.AutocompleteService()
+    service.getPlacePredictions(
+      { input: scoped, sessionToken: sessionToken!, componentRestrictions: { country: 'ph' } },
+      (predictions, status) => {
+        if (status !== window.google!.maps.places.PlacesServiceStatus.OK || !predictions) {
+          resolve(null)
+          return
+        }
+        resolve(predictions.map((p) => ({ label: p.description, gps: null, placeId: p.place_id })))
+      },
+    )
+  })
+}
+
+// The other half of a Google result: called only once, when the rider taps
+// a suggestion with no gps of its own yet. Ends the Autocomplete session
+// this placeId's prediction came from either way (success or failure) —
+// Google's session billing is per completed round trip, not per attempt.
+export async function resolveGooglePlaceGps(placeId: string): Promise<GeoCoords | null> {
+  if (!window.google?.maps?.places) return null
+  if (!placesAttrDiv) placesAttrDiv = document.createElement('div')
+  const usedToken = sessionToken ?? undefined
+  endSession()
+  return new Promise((resolve) => {
+    const service = new window.google!.maps.places.PlacesService(placesAttrDiv!)
+    service.getDetails({ placeId, sessionToken: usedToken, fields: ['geometry'] }, (result, status) => {
+      if (status === window.google!.maps.places.PlacesServiceStatus.OK && result?.geometry) {
+        resolve({ lat: result.geometry.location.lat(), lng: result.geometry.location.lng() })
+      } else {
+        resolve(null)
+      }
+    })
+  })
+}
+
+async function searchNominatimPlaces(
+  query: string,
+  scope: { city?: string; province?: string },
+  limit: number,
 ): Promise<PlaceSuggestion[]> {
-  const q = query.trim()
-  if (!q) return []
-  const scoped = [q, scope.city, scope.province ?? 'Nueva Ecija', 'Philippines'].filter(Boolean).join(', ')
+  const scoped = [query, scope.city, scope.province ?? 'Nueva Ecija', 'Philippines'].filter(Boolean).join(', ')
   const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=0&limit=${limit}&countrycodes=ph&q=${encodeURIComponent(scoped)}`
   try {
     const controller = new AbortController()
@@ -120,6 +192,29 @@ export async function searchNearbyPlaces(
   } catch {
     return []
   }
+}
+
+// The fallback DestinationSearch reaches for once the local landmark list
+// (see lib/landmarkSearch.ts) comes up empty — Google Places first (see
+// searchGooglePlaces) when VITE_GOOGLE_MAPS_API_KEY is configured, else
+// straight to a multi-result Nominatim search, scoped to the city/province
+// already picked so "palengke"-like typos aside, a real but unseeded place
+// (a specific bank branch, a newer subdivision) still resolves to
+// something. Never called per-keystroke: Nominatim's usage policy caps free
+// use at ~1 request/second, so the caller is responsible for debouncing to a
+// real pause in typing, not just a short one. Returns [] rather than
+// throwing on any failure (offline, timeout, no results) — an empty list and
+// a real miss look identical to the search box either way.
+export async function searchNearbyPlaces(
+  query: string,
+  scope: { city?: string; province?: string },
+  limit = 5,
+): Promise<PlaceSuggestion[]> {
+  const q = query.trim()
+  if (!q) return []
+  const google = await searchGooglePlaces(q, scope)
+  if (google) return google.slice(0, limit)
+  return searchNominatimPlaces(q, scope, limit)
 }
 
 // Free, keyless geocoding via OpenStreetMap's Nominatim search API — turns a

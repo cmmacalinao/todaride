@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { searchLandmarks } from '../lib/landmarkSearch'
-import { searchNearbyPlaces, type PlaceSuggestion } from '../lib/geocode'
+import { searchNearbyPlaces, resolveGooglePlaceGps, type PlaceSuggestion } from '../lib/geocode'
 import { LANDMARK_CATEGORY_ICONS } from '../types'
 import type { GeoCoords } from '../types'
 
@@ -66,6 +66,11 @@ export function DestinationSearch({
 
   const [liveResults, setLiveResults] = useState<PlaceSuggestion[]>([])
   const [liveStatus, setLiveStatus] = useState<'idle' | 'loading' | 'done'>('idle')
+  // Set only while a tapped Google prediction's own Place Details call is in
+  // flight — Google's Autocomplete rows carry no gps of their own (see
+  // PlaceSuggestion in lib/geocode.ts), so picking one needs this second,
+  // one-off round trip before onSelect can fire.
+  const [resolvingPlaceId, setResolvingPlaceId] = useState<string | null>(null)
   // Guards against a slow, stale request landing after a faster, newer one —
   // or after the reader has cleared the box entirely.
   const requestIdRef = useRef(0)
@@ -97,6 +102,21 @@ export function DestinationSearch({
     setQuery('')
     setLiveResults([])
     setLiveStatus('idle')
+  }
+
+  // A Nominatim row already carries its gps; a Google row doesn't (its
+  // coordinate costs a separate billed Details call, so that call only
+  // happens for the one row actually tapped — see resolveGooglePlaceGps).
+  async function pickLive(place: PlaceSuggestion) {
+    if (place.gps) {
+      pick({ name: place.label, gps: place.gps })
+      return
+    }
+    if (!place.placeId) return
+    setResolvingPlaceId(place.placeId)
+    const gps = await resolveGooglePlaceGps(place.placeId)
+    setResolvingPlaceId(null)
+    if (gps) pick({ name: place.label, gps })
   }
 
   return (
@@ -136,22 +156,30 @@ export function DestinationSearch({
           <div className="mt-1 space-y-0.5 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
             {liveResults.map((place, i) => (
               <button
-                key={`${place.gps.lat},${place.gps.lng},${i}`}
+                key={place.placeId ?? `${place.gps?.lat},${place.gps?.lng},${i}`}
                 type="button"
-                onClick={() => pick({ name: place.label, gps: place.gps })}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-slate-50"
+                disabled={resolvingPlaceId === place.placeId && !!place.placeId}
+                onClick={() => void pickLive(place)}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-slate-50 disabled:opacity-50"
               >
                 <span aria-hidden className="text-base leading-none">
-                  🌐
+                  {place.placeId && resolvingPlaceId === place.placeId ? '⏳' : '🌐'}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">{place.label}</span>
               </button>
             ))}
             {/* Required by OSM's ODbL licence wherever a search result drawn
-                from it is shown — see lib/geocode.ts's searchNearbyPlaces. */}
-            <p className="border-t border-slate-100 px-2 pt-1 text-[10px] text-slate-400">
-              Results © OpenStreetMap contributors
-            </p>
+                from it is shown — see lib/geocode.ts's searchNearbyPlaces.
+                Google-sourced rows (placeId set) carry no gps of their own
+                yet and need their own attribution, which the Maps JS SDK
+                itself already supplies (its own logo/ToS link render
+                wherever a Places-backed control is shown) — nothing extra
+                to print here for that case. */}
+            {liveResults[0]?.placeId == null && (
+              <p className="border-t border-slate-100 px-2 pt-1 text-[10px] text-slate-400">
+                Results © OpenStreetMap contributors
+              </p>
+            )}
           </div>
         ) : (
           <p className="mt-1 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-400">

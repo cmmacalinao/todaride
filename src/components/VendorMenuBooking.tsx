@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { DEFAULT_MEDS_DELIVERY_FEE, DEFAULT_MEDS_SERVICE_FEE, PAYMENT_METHODS } from '../mock/data'
 import { DocumentUploadField } from './DocumentUploadField'
@@ -74,35 +74,54 @@ const ACTIVE_STATUSES = new Set(['pending_confirmation', 'quoted', 'confirmed', 
 // PHARMACY_PROCESS_MEDS_ORDER, TripMonitor below) — self-contained here the
 // same way MedsBooking is, for the same reason: this order has a genuinely
 // different shape (a cart, a vendor, a menu) than a Ride/Pabili booking.
-export function VendorMenuBooking({
-  customerId,
-  customerName,
-  defaultProvince,
-  defaultCity,
-  defaultBarangay,
-  defaultAddressDetail,
-  defaultContactPhone,
-  initialVendorId,
-  initialPostId,
-  catalogTypes,
-}: {
-  customerId: string
-  customerName: string
-  defaultProvince: string
-  defaultCity: string
-  defaultBarangay: string
-  defaultAddressDetail: string
-  defaultContactPhone?: string | null
-  // A shared vendor link (/book?vendor=<id>) opens straight on that store's
-  // menu with the cart ready, instead of on the vendor list.
-  initialVendorId?: string | null
-  // With initialVendorId: open that store's Feed on this post (a shared link).
-  initialPostId?: string | null
-  // Which vendors this screen browses — 'resto_food' for Food Order,
-  // 'other_commodity' for PaDeliver's Store (see RiderStartPage/PassengerPage's
-  // catalogKind). Defaults to both, same as before this split existed.
-  catalogTypes?: BusinessType[]
-}) {
+// Lets a caller outside this component (the app-wide footer, see
+// PassengerPage) jump straight to checkout without lifting the whole
+// cart/step state up — the footer only ever needs "is there a cart" and
+// "take me to it", never the cart's own contents.
+export interface VendorMenuBookingHandle {
+  openCart: () => void
+}
+
+export const VendorMenuBooking = forwardRef<
+  VendorMenuBookingHandle,
+  {
+    customerId: string
+    customerName: string
+    defaultProvince: string
+    defaultCity: string
+    defaultBarangay: string
+    defaultAddressDetail: string
+    defaultContactPhone?: string | null
+    // A shared vendor link (/book?vendor=<id>) opens straight on that store's
+    // menu with the cart ready, instead of on the vendor list.
+    initialVendorId?: string | null
+    // With initialVendorId: open that store's Feed on this post (a shared link).
+    initialPostId?: string | null
+    // Which vendors this screen browses — 'resto_food' for Food Order,
+    // 'other_commodity' for PaDeliver's Store (see RiderStartPage/PassengerPage's
+    // catalogKind). Defaults to both, same as before this split existed.
+    catalogTypes?: BusinessType[]
+    // Told on every cart change so the app-wide footer (see PassengerPage)
+    // can show a View Cart tile without holding the cart itself — null once
+    // the cart is empty or its store's menu isn't the screen showing.
+    onCartChange?: (info: { count: number; total: number } | null) => void
+  }
+>(function VendorMenuBooking(
+  {
+    customerId,
+    customerName,
+    defaultProvince,
+    defaultCity,
+    defaultBarangay,
+    defaultAddressDetail,
+    defaultContactPhone,
+    initialVendorId,
+    initialPostId,
+    catalogTypes,
+    onCartChange,
+  },
+  ref,
+) {
   const { rides, pharmacies, medicineProducts, medsOrders, createMedsOrder, cancelMedsOrder, ratePharmacy, quoteVendorDeliveryFare } =
     useRides()
   const businessTypes = catalogTypes ?? VENDOR_BUSINESS_TYPES
@@ -246,6 +265,33 @@ export function VendorMenuBooking({
     window.scrollTo({ top: 0 })
     document.getElementById('root')?.scrollTo({ top: 0 })
   }
+
+  const cartItemCount = cartLines.reduce((sum, l) => sum + l.qty, 0)
+
+  // The app-wide footer's View Cart tile (see PassengerPage) has no route
+  // of its own to land on — it jumps into whichever cart is already open
+  // here, the same place Checkout does.
+  useImperativeHandle(ref, () => ({
+    openCart: () => {
+      if (selectedVendor && cartItemCount > 0) goTo('checkout')
+    },
+  }))
+
+  // Reported on every change rather than once, since the footer has no
+  // other way to know the cart went from one store's to empty, or from
+  // empty to another store's — it never reads this component's state
+  // directly.
+  useEffect(() => {
+    onCartChange?.(cartItemCount > 0 ? { count: cartItemCount, total: subtotal } : null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartItemCount, subtotal])
+
+  // Leaves nothing behind in the footer once this screen itself is left
+  // (switching to Book a Ride/Food Order, or away from the app entirely).
+  useEffect(() => {
+    return () => onCartChange?.(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function openVendor(vendorId: string) {
     setSelectedVendorId(vendorId)
@@ -751,7 +797,7 @@ export function VendorMenuBooking({
       )}
     </div>
   )
-}
+})
 
 function ActiveVendorOrderCard({
   order,

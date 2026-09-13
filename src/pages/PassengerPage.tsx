@@ -51,7 +51,7 @@ import { LocationMapPicker } from '../components/LocationMapPicker'
 import type { SheetSnap } from '../components/BottomSheet'
 import type { MapPoint } from '../components/RealLiveMap'
 import { MedsBooking } from '../components/MedsBooking'
-import { VendorMenuBooking } from '../components/VendorMenuBooking'
+import { VendorMenuBooking, type VendorMenuBookingHandle } from '../components/VendorMenuBooking'
 import { EmergencyHotlines } from '../components/EmergencyHotlines'
 import { PabiliItemsInput } from '../components/PabiliItemsInput'
 import { makeGuestPassengerId, useGuestRider } from '../components/GuestRiderFields'
@@ -330,6 +330,12 @@ export function PassengerPage() {
   // it — so it also stays this component and takes the map with it.
   const groupRideOpen = location.pathname === '/book/group'
   const setGroupRideOpen = (open: boolean) => navigate(open ? '/book/group' : '/book')
+
+  // A Food Order/PaDeliver cart, mirrored up from VendorMenuBooking (see
+  // VendorMenuBookingHandle) purely so the app-wide footer below can show a
+  // View Cart tile without that screen's own cart ever living here.
+  const vendorMenuRef = useRef<VendorMenuBookingHandle>(null)
+  const [vendorCart, setVendorCart] = useState<{ count: number; total: number } | null>(null)
 
   // Lets the landing page's "💊 Buy a Medicine" button link straight into
   // the Medicine flow (/book?service=buy_medicine) instead of dropping the
@@ -2224,6 +2230,29 @@ export function PassengerPage() {
             the ServiceTabs strip at the top of the booking page (see above)
             does the same switching, visibly, on every service screen
             instead of only from this footer. */}
+        {/* A Food Order/PaDeliver cart follows the passenger into this
+            footer the same way Drivers Near You does — present on every
+            screen so an add doesn't strand its own View Cart back on a menu
+            already scrolled past. See VendorMenuBookingHandle. */}
+        {vendorCart && (
+          <button
+            type="button"
+            onClick={() => vendorMenuRef.current?.openCart()}
+            title={`View cart — ${vendorCart.count} item${vendorCart.count === 1 ? '' : 's'}, ₱${vendorCart.total}`}
+            className="relative flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border border-transparent bg-slate-100 py-1.5 transition hover:bg-slate-200"
+          >
+            <span className="text-[15px] leading-none">🛒</span>
+            <span className="truncate text-[10px] font-semibold text-slate-700">
+              View Cart · ₱{vendorCart.total}
+            </span>
+            <span
+              aria-hidden
+              className="absolute right-1.5 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[9px] font-bold text-white"
+            >
+              {vendorCart.count}
+            </span>
+          </button>
+        )}
         {/* Choosing who drives you comes once you
             know what you are booking. The dot marks a driver already picked
             for this booking. */}
@@ -2515,6 +2544,8 @@ export function PassengerPage() {
             />
           ) : showVendorMenu ? (
             <VendorMenuBooking
+              ref={vendorMenuRef}
+              onCartChange={setVendorCart}
               customerId={isGuestBooking ? guestCustomerId : passenger.id}
               customerName={isGuestBooking ? guestRider.otherName.trim() || 'them' : passenger.name}
               // The customer's own registered address is the starting

@@ -1249,7 +1249,12 @@ export function VendorStorefront({
           the tap landed. */}
       {interactive && cartCount > 0 && (
         <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 p-3">
-          <div className="flex items-center gap-2 text-sm text-slate-700">
+          <button
+            type="button"
+            onClick={onCheckout}
+            disabled={!onCheckout}
+            className="flex items-center gap-2 text-left text-sm text-slate-700 disabled:cursor-default"
+          >
             <span className="text-lg">🛒</span>
             <div>
               <p className="font-semibold">Added to cart</p>
@@ -1257,7 +1262,7 @@ export function VendorStorefront({
                 {cartCount} item{cartCount === 1 ? '' : 's'} · ₱{cartTotal}
               </p>
             </div>
-          </div>
+          </button>
           {onCheckout && (
             <button
               type="button"
@@ -1388,7 +1393,12 @@ export function VendorStorefront({
 
       {interactive && cartCount > 0 && (
         <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 p-3">
-          <div className="flex items-center gap-2 text-sm text-slate-700">
+          <button
+            type="button"
+            onClick={onCheckout}
+            disabled={!onCheckout}
+            className="flex items-center gap-2 text-left text-sm text-slate-700 disabled:cursor-default"
+          >
             <span className="text-lg">🛒</span>
             <div>
               <p className="font-semibold">View Cart</p>
@@ -1396,7 +1406,7 @@ export function VendorStorefront({
                 {cartCount} item{cartCount === 1 ? '' : 's'} · ₱{cartTotal}
               </p>
             </div>
-          </div>
+          </button>
           {onCheckout && (
             <button
               type="button"

@@ -3668,6 +3668,32 @@ export const MOCK_PHARMACIES: Pharmacy[] = [
     coverPhotoDataUrl: '/store-profiles/food_8.webp',
     coverPhotoPosition: { x: 78, y: 50, scale: 1.15 },
   },
+  // PaDeliver's Store seed — an 'other_commodity' vendor, so the screen has
+  // something to browse instead of always reading "No registered vendors
+  // yet". No coverPhotoDataUrl (no seeded goods-store photo the way the
+  // food vendors have /store-profiles/food_*.webp) — falls back to the
+  // generic themed gradient + businessType emoji, same as any real store
+  // that hasn't uploaded a cover yet.
+  {
+    id: 'vendor-6',
+    name: "Nanay Rosing's Sari-Sari Store",
+    businessType: 'other_commodity',
+    adminPin: '1236',
+    contactPhone: '0917-600-2006',
+    province: 'Nueva Ecija',
+    city: 'San Jose City',
+    barangay: 'Malasin',
+    addressDetail: 'Beside the barangay basketball court, Malasin',
+    coords: { x: 60, y: 62 },
+    locationGps: { lat: 15.804, lng: 120.997 },
+    isOpen: true,
+    verificationStatus: 'approved',
+    gcashAccount: { accountName: 'Nanay Rosing Store', accountNumber: '0917-600-2006', qrDataUrl: null },
+    mayaAccount: null,
+    tagline: 'Sari-sari needs, para sa buong pamilya',
+    themeColor: 'blue',
+    logoDataUrl: seedVendorLogo('NR', '#2563eb'),
+  },
 ]
 
 // A handful of products per pharmacy spanning all three MedicineCategory
@@ -3759,6 +3785,16 @@ export const MOCK_VENDOR_MENU_ITEMS: MedicineProduct[] = [
   { id: 'menu-v5-6', pharmacyId: 'vendor-5', name: 'Buko Pandan', genericName: null, category: 'otc', price: 45, inStock: true, menuCategory: 'Dessert', photoDataUrl: '/food-photos/184-buko-pandan.jpg', description: 'Young coconut and pandan jelly in sweet cream.' },
   { id: 'menu-v5-7', pharmacyId: 'vendor-5', name: 'Mais con Yelo', genericName: null, category: 'otc', price: 40, inStock: true, menuCategory: 'Dessert', photoDataUrl: '/food-photos/192-mais-con-yelo.jpg', description: 'Sweet corn, milk and shaved ice.' },
   { id: 'menu-v5-8', pharmacyId: 'vendor-5', name: 'Pancit Bihon (party tray slice)', genericName: null, category: 'otc', price: 60, inStock: true, menuCategory: 'Noodles', photoDataUrl: '/food-photos/101-pancit-bihon.jpg', description: 'Stir-fried rice noodles with vegetables and chicken.' },
+
+  // Nanay Rosing's Sari-Sari Store (vendor-6) — PaDeliver's Store seed.
+  { id: 'menu-v6-1', pharmacyId: 'vendor-6', name: 'Rice (1kg)', genericName: null, category: 'otc', price: 58, inStock: true, menuCategory: 'Groceries', description: 'Well-milled rice, sold by the kilo.' },
+  { id: 'menu-v6-2', pharmacyId: 'vendor-6', name: 'Cooking Oil (1L)', genericName: null, category: 'otc', price: 95, inStock: true, menuCategory: 'Groceries', description: 'Palm cooking oil, 1 liter pouch.' },
+  { id: 'menu-v6-3', pharmacyId: 'vendor-6', name: 'Eggs (tray of 30)', genericName: null, category: 'otc', price: 210, inStock: true, menuCategory: 'Groceries', description: 'Fresh medium eggs, by the tray.' },
+  { id: 'menu-v6-4', pharmacyId: 'vendor-6', name: 'Instant Noodles (pack)', genericName: null, category: 'otc', price: 15, inStock: true, menuCategory: 'Groceries', description: 'Beef or chicken flavor, sold per pack.' },
+  { id: 'menu-v6-5', pharmacyId: 'vendor-6', name: 'Laundry Detergent (1kg)', genericName: null, category: 'otc', price: 85, inStock: true, menuCategory: 'Household', description: 'Powder detergent, floral scent.' },
+  { id: 'menu-v6-6', pharmacyId: 'vendor-6', name: 'Dishwashing Liquid (500ml)', genericName: null, category: 'otc', price: 65, inStock: true, menuCategory: 'Household', description: 'Concentrated, lemon scent.' },
+  { id: 'menu-v6-7', pharmacyId: 'vendor-6', name: 'LPG Refill (11kg)', genericName: null, category: 'otc', price: 950, inStock: true, menuCategory: 'Household', description: 'Tank exchange — bring your own empty cylinder.', badge: 'best_seller' },
+  { id: 'menu-v6-8', pharmacyId: 'vendor-6', name: 'Bottled Water (6x500ml)', genericName: null, category: 'otc', price: 45, inStock: true, menuCategory: 'Groceries', description: 'Purified drinking water, pack of 6.' },
 ]
 
 // Flat delivery + service fee for a MEDS order — same "flat, not

@@ -1,58 +1,22 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { getCurrentGeoPosition } from '../lib/geo'
 import type { GeoCoords } from '../types'
 
-// Location, refreshable from the map itself, with the browser's own answer
-// showing beside it.
-//
-// The app cannot choose "Allow on every visit" for anybody. That radio lives
-// in the browser's permission dialog and no page may touch it — which is the
-// whole reason this row exists rather than a line of code. What the app can
-// do is ask at a moment the person is expecting to be asked, say which option
-// keeps them from being asked again, and afterwards report what the browser
-// actually recorded, so "it keeps asking me" stops being a mystery.
-//
-// A refresh rather than an on/off switch: tracking is meant to be on, and the
-// thing people actually need is a way to wake it when the dot has gone stale
-// or the prompt was dismissed. A switch would add a second way for location
-// to be off, and the app already has enough of those.
-//
-// The Permissions API reports granted/denied/prompt without triggering
-// anything. Safari on older iOS does not implement it for geolocation, so the
-// state is allowed to be unknown and the row simply offers the button.
-type PermissionState = 'granted' | 'denied' | 'prompt' | 'unknown'
-
+// Location, refreshable from the map itself — kept plain: a name, a refresh
+// button, and (only once a refresh actually fails) a line saying why.
+// Permission-state detail (allowed/blocked wording, an expandable
+// how-to-fix note) used to live here too, but that's the browser's own
+// permission prompt's conversation to have, not a line on every booking
+// screen for the many people whose location already just works.
 export function LocationPermissionRow({
   onLocated,
   // Rendered just before Refresh, so a caller can share this row rather than
   // spend another line of a phone screen on one button.
   trailing,
 }: { onLocated?: (coords: GeoCoords) => void; trailing?: ReactNode }) {
-  const [permission, setPermission] = useState<PermissionState>('unknown')
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState<string | null>(null)
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
-  // The how-to-fix note, folded away by default.
-  const [howToFixOpen, setHowToFixOpen] = useState(false)
-
-  useEffect(() => {
-    let status: PermissionStatus | null = null
-    const update = () => setPermission((status?.state as PermissionState) ?? 'unknown')
-    void (async () => {
-      try {
-        if (!navigator.permissions?.query) return
-        status = await navigator.permissions.query({ name: 'geolocation' as PermissionName })
-        update()
-        // Granting or revoking mid-session should show without a reload —
-        // somebody fixing this in browser settings is looking at this row
-        // while they do it.
-        status.addEventListener('change', update)
-      } catch {
-        // Older Safari refuses the query outright. Unknown is honest.
-      }
-    })()
-    return () => status?.removeEventListener('change', update)
-  }, [])
 
   async function refresh() {
     setBusy(true)
@@ -69,11 +33,6 @@ export function LocationPermissionRow({
   }
 
   return (
-    // Everything on one line, and the line is 375px wide on the phones this
-    // is for. It was overflowing: the status wrapped onto a second line, the
-    // Fix pill landed on top of it and Refresh ran off the right edge. So the
-    // status truncates rather than wraps, the icons are a size down, and the
-    // two buttons say the shortest true thing rather than the fullest.
     <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
       <div className="flex items-center gap-1.5">
         <span aria-hidden className="shrink-0 text-xs leading-none">
@@ -81,32 +40,12 @@ export function LocationPermissionRow({
         </span>
         <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-slate-700">
           Location
-          {permission === 'granted' && <span className="ml-1 font-normal text-emerald-700">· allowed</span>}
-          {/* No "· blocked" here. The red Fix pill immediately to the right
-              exists only when it is blocked, so the word said it twice — and
-              on a 375px row the second telling is the half that gets cut to
-              "· bl…", which says nothing at all. */}
           {refreshedAt && (
             <span className="ml-1 font-normal text-slate-400">
               · {refreshedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
         </span>
-        {/* Right against "blocked", the word it answers — not out at the far
-            edge of the row, where it reads as a third unrelated control
-            sitting beside Refresh. The label is short because it shares a
-            phone-width row; the full sentence is in the note it opens. */}
-        {permission === 'denied' && (
-          <button
-            type="button"
-            onClick={() => setHowToFixOpen((v) => !v)}
-            aria-expanded={howToFixOpen}
-            aria-label="How to turn location back on"
-            className="shrink-0 rounded-lg border border-rose-300 bg-rose-50 px-1.5 py-1 text-[10px] font-bold text-rose-700 transition hover:bg-rose-100"
-          >
-            {howToFixOpen ? '▼' : '▶'} Fix
-          </button>
-        )}
         {trailing}
         <button
           type="button"
@@ -123,33 +62,7 @@ export function LocationPermissionRow({
         </button>
       </div>
 
-      {/* Said before the dialog appears, not after it has been dismissed. The
-          two options look equally reasonable in the moment, and only one of
-          them stops the question coming back every single visit. */}
-      {permission === 'prompt' && (
-        <p className="mt-1 text-[11px] leading-snug text-slate-500">
-          When your browser asks, choose <span className="font-semibold">Allow on every visit</span>. If you
-          choose <span className="font-semibold">Allow this time</span> it will ask again every time you open
-          the app.
-        </p>
-      )}
-
-      {/* Folded away until asked for.
-          The fix is four lines of instructions about browser settings, and it
-          was sitting open in red above the map on every screen for anyone
-          whose phone has location off — shouting at the many to help the few
-          who are going to act on it. The state still shows in the row above
-          ("· blocked"); this is only the how. */}
-      {permission === 'denied' && howToFixOpen && (
-        <p className="mt-1 text-[11px] leading-snug text-rose-700">
-          Location is blocked in this browser, so it will not ask again however many times you press
-          Refresh. Tap the padlock 🔒 in the address bar → Location → Allow, then reload the page.
-        </p>
-      )}
-
-      {failed && permission !== 'denied' && (
-        <p className="mt-1 text-[11px] leading-snug text-amber-700">{failed}</p>
-      )}
+      {failed && <p className="mt-1 text-[11px] leading-snug text-amber-700">{failed}</p>}
     </div>
   )
 }

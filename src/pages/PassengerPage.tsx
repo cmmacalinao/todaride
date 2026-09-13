@@ -738,13 +738,15 @@ export function PassengerPage() {
   const fareStandardRatePortion = oneWayFare - fareExtraKmFeePortionOneWay
   const fareExtraKmDisplay = fareBreakdown.extraKm
 
-  // "Pickup"/"Destination" for a ride; "Buy near to"/"Deliver to" for an
-  // errand — same map picker, same underlying pickup/dropoff state, just
-  // different words for what each pin means.
+  // "Pickup"/"Destination" for a ride; "Buy near to"/"Deliver to" for
+  // Pabili (the driver buys at that point); "Pick up to"/"Deliver to" for
+  // Padala (nothing bought, just carried) — same map picker, same
+  // underlying pickup/dropoff state, just different words for what each pin
+  // means.
   // FROM, not Pickup. The box answers where the trip starts, and on a
   // recorded ride the app fills it in itself with the same word, so the two
   // paths read alike.
-  const pickupLabel = isErrand ? 'Buy near to' : 'PICKUP'
+  const pickupLabel = isPadala ? 'Pick up to' : isPabili ? 'Buy near to' : 'PICKUP'
   const dropoffLabel = isErrand ? 'Deliver to' : 'Destination'
   // The single question the rest of the form asks: is there a destination yet?
   const hasDestination = isErrand || dropoffChosen
@@ -1983,12 +1985,6 @@ export function PassengerPage() {
                   decides which way they lean. See theme.css. */}
               <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-dest-dot" />
               <span className="min-w-0 flex-1">
-                {/* No "DESTINATION" eyebrow when it is the only row: the
-                    screen is asking one question, and labelling it costs a
-                    line of a strip that wants to be thin. */}
-                {!destinationOnly && (
-                  <span className="block text-[9px] font-semibold uppercase tracking-wide text-dest-subtext/70">{dropoffLabel}</span>
-                )}
                 <span
                   className={`block truncate text-sm ${
                     hasDestination ? 'font-semibold text-dest-text' : 'font-normal text-dest-subtext/70'

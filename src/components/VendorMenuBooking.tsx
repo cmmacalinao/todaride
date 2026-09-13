@@ -499,7 +499,7 @@ export function VendorMenuBooking({
           {vendors.length > 0 && (
             <div>
               <p className="mb-1.5 flex items-center gap-1 text-sm font-bold text-slate-700">
-                📣 {isGoods ? 'Merchant/Store Partners' : 'Food Merchant Partners'}
+                📣 {isGoods ? 'Merchant/Store Partners' : 'Merchant/Food Partners'}
               </p>
               {shownVendors.some((v) => (v.posts?.length ?? 0) > 0) ? (
                 <VendorNewsfeed

@@ -154,7 +154,7 @@ export function RiderStartPage() {
           {vendorCatalogsAvailable && (
             <div className="flex items-start gap-3 py-3 pl-14 pr-4">
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold text-white">🏬 Partner Stores</span>
+                <span className="block text-sm font-bold text-white">🏬 Store Partners</span>
                 <span className="block text-xs text-white/60">Browse a partner store's own priced catalog and check out.</span>
               </span>
             </div>

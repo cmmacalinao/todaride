@@ -33,7 +33,7 @@ export function ServiceTabs({ active, tone = 'dark' }: { active: 'toda' | 'food'
 
   return (
     <div className={`flex overflow-hidden rounded-full border p-0.5 ${shell}`}>
-      {tab('toda', 'Book a Ride', () => navigate('/book/start'))}
+      {tab('toda', 'Book a Ride', () => navigate('/book', { state: { section: 'ride' } }))}
       {tab('food', 'Food Order', () => navigate('/book', { state: { section: 'food' } }))}
       {tab('padeliver', 'PaDeliver', () => navigate('/book', { state: { section: 'goods_store' } }))}
     </div>

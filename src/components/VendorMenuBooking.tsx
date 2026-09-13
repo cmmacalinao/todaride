@@ -8,7 +8,6 @@ import { BarangayAddressPicker } from './BarangayAddressPicker'
 import { DeliveryMapPicker } from './DeliveryMapPicker'
 import { StoreRatingSheet } from './StoreRatingSheet'
 import { OrderStatusStrip, orderStageDetail } from './OrderStatusStrip'
-import { ServiceTabs } from './ServiceTabs'
 import { OrderChat } from './OrderChat'
 import { TripMonitor } from './TripMonitor'
 import { VendorListRow, VendorStorefront } from './VendorStorefront'
@@ -373,13 +372,8 @@ export function VendorMenuBooking({
     <div className="space-y-3">
       {step === 'browse' && (
         <div className="space-y-3">
-          {/* The same service strip as the ride start screen, with this
-              screen's own tab lit — tapping another jumps straight there.
-              Pinned under the app header (see RiderStartPage's matching
-              wrapper) rather than scrolling away with the vendor list. */}
-          <div className="sticky top-[50px] z-10 bg-white/95 py-2 backdrop-blur-sm">
-            <ServiceTabs active={isGoods ? 'padeliver' : 'food'} tone="light" />
-          </div>
+          {/* The service strip now renders once, above this whole
+              screen's bordered card, from PassengerPage — see there. */}
 
           {/* The order they stepped back from is still running — one line
               on where it is, and the way back to its card. */}

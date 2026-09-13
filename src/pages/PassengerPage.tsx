@@ -1374,11 +1374,12 @@ export function PassengerPage() {
   // with it there too, so they are swapped out while Terminal is open: that
   // flow submits through its own "Record my Trip" button and is always a
   // single rider, neither of which apply here.
-  // Map-first on the ordinary booking form. Group Ride keeps the stacked
-  // layout: it lists every rider's destination under the map, which is a
-  // list to read rather than a single answer to give, and a sheet over the
-  // map would cover it.
-  const mapFirstBooking = !groupRideOpen
+  // The booking form used to float as a draggable sheet over a full-bleed
+  // map — moved back to a normal in-flow section above the map instead
+  // (same stacked layout Group Ride already used): the sheet covered the
+  // page header's own icons/controls, and re-fit the map to a fresh zoom
+  // every time the sheet's height changed underneath it.
+  const mapFirstBooking = false
 
   // With the FROM/Destination tabs gone from the booking screen, a tap on the
   // map has to mean the destination — it is the only pin the screen asks for.
@@ -1608,9 +1609,6 @@ export function PassengerPage() {
         // row goes back to "not set yet" and the marker disappears.
         onClearPickup={() => setPickupChosen(false)}
         onClearDropoff={() => setDropoffChosen(false)}
-        // Group Ride rides in the Live-location row rather than taking a line
-        // of its own on a sheet that has few to spare.
-        permissionRowAction={mapFirstBooking && !isErrand ? () => groupRideButton : undefined}
         terminals={terminals}
         extraPoints={groupRideOpen ? groupMapPoints : undefined}
         showGpsFor={isErrand ? 'dropoff' : 'pickup'}
@@ -1760,23 +1758,6 @@ export function PassengerPage() {
     </div>
   )
 
-  // Group Ride, defined once so it can sit in either place: beside the FROM
-  // row when that row is showing, and on its own line when it is not.
-  const groupRideButton = (
-    <button
-      type="button"
-      onClick={openGroupRide}
-      aria-expanded={groupRideOpen}
-      // Sized to its own words rather than a fixed w-28. It shares a 375px
-      // row with the location status and two other controls, and 112px of it
-      // was more than the row had to give.
-      className="flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-1.5 py-1 shadow-sm transition hover:bg-slate-50"
-    >
-      <span aria-hidden className="shrink-0 text-[11px] leading-none">👥</span>
-      <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-700">Group ride</span>
-    </button>
-  )
-
   const addressCard = (showStrip: boolean, destinationOnly = false) => (
         <section
           ref={addressSectionRef}
@@ -1793,6 +1774,11 @@ export function PassengerPage() {
                 and their name has to go on the ride somewhere. */}
             {!isErrand && (
               <div className="mb-1.5">
+                {/* Group Ride joins this row as a third segment instead of
+                    sitting on its own line further down — it's a peer
+                    choice, not an afterthought: "who is this booking for"
+                    plus "is it one destination or several" is one decision
+                    about the trip, made in one place. */}
                 <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
                   <button
                     type="button"
@@ -1815,6 +1801,15 @@ export function PassengerPage() {
                     }`}
                   >
                     Book for someone
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openGroupRide}
+                    aria-expanded={groupRideOpen}
+                    className="flex flex-1 items-center justify-center gap-1 rounded-md py-1.5 text-[11px] font-semibold text-slate-500 transition hover:bg-slate-200"
+                  >
+                    <span aria-hidden className="text-[11px] leading-none">👥</span>
+                    Group ride
                   </button>
                 </div>
                 {guestRider.bookingFor === 'other' && (
@@ -2087,13 +2082,8 @@ export function PassengerPage() {
                   a second way to start a trip, sitting under the form for the
                   first one — and the chooser this screen is reached through
                   already offers it, as the whole other half of that screen.
-                  Group Ride keeps its place: it changes the booking being
-                  made here rather than replacing it. */}
-              {/* On the booking screen it rides in the Live-location row instead
-                  — see permissionRowAction. Everywhere else it keeps a line. */}
-              {!isErrand && !mapFirstBooking && (
-                <div className="mt-2 flex justify-end">{groupRideButton}</div>
-              )}
+                  Group Ride moved up into the Book for myself/someone row
+                  instead of keeping its own line here — see addressCard. */}
               </>
             )}
             {!destinationOnly && (
@@ -2162,14 +2152,18 @@ export function PassengerPage() {
     // mt-auto pushes it to the bottom and flex-1 lets it grow, so on a tall
     // phone it fills the gap instead of leaving dead space under the form.
     <div className="mx-auto flex min-h-[calc(100vh-70px)] max-w-lg flex-col space-y-2 px-4 pb-[72px] pt-1">
-      {/* Same service strip Food Order/PaDeliver's Store show, now on the
-          Ride/Padala booking form too — one consistent way to switch
-          services everywhere, instead of only the bottom footer's TODA
-          Ride/Food Express tiles (removed — see the footer below). Not
-          shown for Buy Medicine or the vendor-menu flow: those are
-          self-contained screens with nothing here to switch away from. */}
-      {pageTab === 'book' && !isBuyMedicine && !showVendorMenu && (
-        <ServiceTabs active={isPadala ? 'padeliver' : 'toda'} tone="light" />
+      {/* One consistent place to switch services, above every self-contained
+          booking screen (Ride/Padala, Food Order, PaDeliver's Store) instead
+          of nested inside each one's own bordered card (that's what
+          VendorMenuBooking used to do) or scattered across the bottom
+          footer's old TODA Ride/Food Express tiles (removed — see the
+          footer below). Not shown for Buy Medicine — self-contained with
+          nothing here to switch away from. */}
+      {pageTab === 'book' && !isBuyMedicine && (
+        <ServiceTabs
+          active={showVendorMenu ? (catalogKind === 'goods' ? 'padeliver' : 'food') : isPadala ? 'padeliver' : 'toda'}
+          tone="light"
+        />
       )}
       <AnnouncementFeed viewer="passengers" />
       {isAdminOpsView && (

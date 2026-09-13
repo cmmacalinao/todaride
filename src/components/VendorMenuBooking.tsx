@@ -622,21 +622,21 @@ export const VendorMenuBooking = forwardRef<
             <div className="mb-2 flex gap-1 rounded-lg bg-slate-100 p-1">
               <button
                 type="button"
-                onClick={() => setDeliveryInputMode('form')}
-                className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
-                  deliveryInputMode === 'form' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'
-                }`}
-              >
-                📍 Address Form
-              </button>
-              <button
-                type="button"
                 onClick={() => setDeliveryInputMode('map')}
                 className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
                   deliveryInputMode === 'map' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'
                 }`}
               >
                 🗺️ Set Delivery Address to Map
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeliveryInputMode('form')}
+                className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
+                  deliveryInputMode === 'form' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                📍 Address Form
               </button>
             </div>
             {deliveryInputMode === 'map' && selectedVendor && (

@@ -4,7 +4,6 @@ import { terminalRideIsFree } from '../lib/terminalFee'
 import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
 import { PilotBranding } from '../components/PilotBranding'
 import { TricycleIcon } from '../components/TricycleIcon'
-import { ServiceTabs } from '../components/ServiceTabs'
 import { usePilotBranding } from '../lib/usePilotBranding'
 
 // The screen a passenger lands on after signing in. Two ways to get a ride,
@@ -54,22 +53,10 @@ export function RiderStartPage() {
           <PilotBranding name={pilotBranding.name} />
         )}
 
-        {/* This strip is where a passenger switches between the three
-            services — pinned under the app header instead of scrolling away
-            with the page, since it's meant to stay reachable no matter how
-            far down this list (or the vendor list on Food Order/PaDeliver's
-            Store) someone has scrolled. TODA (tricycle rides, this page) is
-            the only one with anything to show below it, so it renders as the
-            current tab rather than a real button; Food Order and PaDeliver's
-            Store jump straight into the Registered Vendor menu flow (see
-            PassengerPage.tsx's 'food'/'goods_store' section cases) — hidden
-            entirely while Super Admin has vendors switched off, same as
-            every other vendor-catalog entry point in the app. */}
-        {vendorCatalogsAvailable && (
-          <div className="sticky top-[50px] z-10 -mx-4 bg-[#0a1529]/95 px-4 py-2 backdrop-blur-sm">
-            <ServiceTabs active="toda" tone="dark" />
-          </div>
-        )}
+        {/* No ServiceTabs strip here — this screen's own three tiles below
+            already are the "switch service" UI. The pill is for the Food
+            Order/PaDeliver Store screens, which have no equivalent tile
+            list of their own once you're inside them. */}
 
         <div>
           <h1 className="text-lg font-bold text-white">3 ways to get what you need</h1>

@@ -2,6 +2,7 @@ import { formatAddressLine } from '../lib/addressFormat'
 import { formatTripRoute } from '../lib/addressFormat'
 import { rideServiceTag } from '../lib/vendorOrders'
 import { TrackYourTripCard } from './RiderStartPage'
+import { ServiceTabs } from '../components/ServiceTabs'
 import { showInMiddle, showInMiddleWhenSettled } from '../lib/showInMiddle'
 import { NearbyDriversPicker, buildNearbyDrivers } from '../components/NearbyDriversPicker'
 import { RidePaymentForm } from '../components/RidePaymentForm'
@@ -173,10 +174,6 @@ export function PassengerPage() {
     const target = blocker ?? serviceTabsRef.current
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
-  // Top-level choice on the home screen: am I riding, or am I asking a driver
-  // to buy something and bring it to me. Ride goes straight to the booking
-  // form; "Buy for me" first asks what kind of errand via the tile row.
-  const [homeMode, setHomeMode] = useState<'ride' | 'buy'>('ride')
   // Food has no catalog of its own yet — resto/vendor partners can register
   // and manage products, but nothing customer-facing orders from them. The
   // working path today is Pabili (the driver buys it for you), so the Food
@@ -659,7 +656,6 @@ export function PassengerPage() {
 
   function chooseErrand(next: ServiceType, opts?: { food?: boolean; catalog?: 'food' | 'goods' }) {
     setPageTab('book')
-    setHomeMode('buy')
     setServiceType(next)
     setFoodHinted(!!opts?.food)
     setCatalogKind(opts?.catalog ?? 'food')
@@ -2166,6 +2162,15 @@ export function PassengerPage() {
     // mt-auto pushes it to the bottom and flex-1 lets it grow, so on a tall
     // phone it fills the gap instead of leaving dead space under the form.
     <div className="mx-auto flex min-h-[calc(100vh-70px)] max-w-lg flex-col space-y-2 px-4 pb-[72px] pt-1">
+      {/* Same service strip Food Order/PaDeliver's Store show, now on the
+          Ride/Padala booking form too — one consistent way to switch
+          services everywhere, instead of only the bottom footer's TODA
+          Ride/Food Express tiles (removed — see the footer below). Not
+          shown for Buy Medicine or the vendor-menu flow: those are
+          self-contained screens with nothing here to switch away from. */}
+      {pageTab === 'book' && !isBuyMedicine && !showVendorMenu && (
+        <ServiceTabs active={isPadala ? 'padeliver' : 'toda'} tone="light" />
+      )}
       <AnnouncementFeed viewer="passengers" />
       {isAdminOpsView && (
         <section>
@@ -2217,57 +2222,11 @@ export function PassengerPage() {
         className="mx-auto flex max-w-lg items-stretch gap-1 scroll-mt-2"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        <button
-          type="button"
-          onClick={() => {
-            setPageTab('book')
-            setHomeMode('ride')
-            setServiceType('ride')
-            setFoodHinted(false)
-          }}
-          className={`flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border py-1.5 transition ${
-            homeMode === 'ride' && pageTab === 'book'
-              ? 'border-gold-500 bg-gold-400 shadow-md'
-              : 'border-transparent bg-slate-100 hover:bg-slate-200'
-          }`}
-        >
-          <span className="text-[15px] leading-none">🛵</span>
-          <span className="truncate text-[10px] font-semibold text-slate-700">TODA Ride</span>
-        </button>
-        {/* Food Express sits right beside TODA Ride. The Pabili and
-            Medicine errands are no longer offered from this footer — Food
-            Express is the one partner service a passenger orders through;
-            the errand flows underneath it stay for that. */}
-        {[
-          // Food is its own partner service (resto/store vendors). It rides
-          // on the Pabili flow underneath, but that's plumbing — Super Admin
-          // switching errands off must not take Food Express with it, so
-          // only the vendor-partners switch gates it.
-          ...(vendorsEnabled
-            ? [
-                {
-                  key: 'food',
-                  icon: '🍽️',
-                  label: 'Food Express',
-                  on: homeMode === 'buy' && isPabili && foodHinted && pageTab === 'book',
-                  onClick: () => chooseErrand('pabili', { food: true }),
-                },
-              ]
-            : []),
-        ].map((m) => (
-          <button
-            key={m.key}
-            type="button"
-            onClick={m.onClick}
-            className={`flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border py-1.5 transition ${
-              m.on ? 'border-gold-500 bg-gold-400 shadow-md' : 'border-transparent bg-slate-100 hover:bg-slate-200'
-            }`}
-          >
-            <span className="text-[15px] leading-none">{m.icon}</span>
-            <span className="truncate text-[10px] font-semibold text-slate-700">{m.label}</span>
-          </button>
-        ))}
-        {/* After the two services: choosing who drives you comes once you
+        {/* TODA Ride and Food Express used to open here — removed now that
+            the ServiceTabs strip at the top of the booking page (see above)
+            does the same switching, visibly, on every service screen
+            instead of only from this footer. */}
+        {/* Choosing who drives you comes once you
             know what you are booking. The dot marks a driver already picked
             for this booking. */}
         <button

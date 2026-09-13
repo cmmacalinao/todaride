@@ -1857,7 +1857,7 @@ const STORAGE_BACKUP_KEY = `${STORAGE_KEY}.unreadable`
 // hotlines are. Only these: vendor-1 and vendor-2 are deliberately left out,
 // since the pilot's own registered stores replaced them. Trade-off, as with
 // the hotlines: deleting one of these from the live data does not stick.
-const LATE_SEED_VENDOR_IDS = new Set(['vendor-3', 'vendor-4', 'vendor-5'])
+const LATE_SEED_VENDOR_IDS = new Set(['vendor-3', 'vendor-4', 'vendor-5', 'vendor-6', 'vendor-7', 'vendor-8'])
 
 function withLateSeedVendors(stored: Pharmacy[] | undefined): Pharmacy[] {
   if (!stored) return MOCK_PHARMACIES

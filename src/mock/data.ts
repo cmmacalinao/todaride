@@ -3694,6 +3694,46 @@ export const MOCK_PHARMACIES: Pharmacy[] = [
     themeColor: 'blue',
     logoDataUrl: seedVendorLogo('NR', '#2563eb'),
   },
+  {
+    id: 'vendor-7',
+    name: 'Mang Tomas Hardware & Construction Supply',
+    businessType: 'other_commodity',
+    adminPin: '1237',
+    contactPhone: '0917-600-2007',
+    province: 'Nueva Ecija',
+    city: 'San Jose City',
+    barangay: 'Abar 2nd',
+    addressDetail: 'Along the highway, across the gasoline station, Abar 2nd',
+    coords: { x: 66, y: 60 },
+    locationGps: { lat: 15.807, lng: 121.001 },
+    isOpen: true,
+    verificationStatus: 'approved',
+    gcashAccount: { accountName: 'Mang Tomas Hardware', accountNumber: '0917-600-2007', qrDataUrl: null },
+    mayaAccount: null,
+    tagline: 'Tools and materials, para sa bahay at negosyo',
+    themeColor: 'orange',
+    logoDataUrl: seedVendorLogo('MT', '#c2410c'),
+  },
+  {
+    id: 'vendor-8',
+    name: "Criselda's School & Office Supplies",
+    businessType: 'other_commodity',
+    adminPin: '1238',
+    contactPhone: '0917-600-2008',
+    province: 'Nueva Ecija',
+    city: 'San Jose City',
+    barangay: 'Crisanto Sanchez Poblacion',
+    addressDetail: 'Beside the elementary school gate, Crisanto Sanchez Poblacion',
+    coords: { x: 58, y: 58 },
+    locationGps: { lat: 15.796, lng: 120.99 },
+    isOpen: true,
+    verificationStatus: 'approved',
+    gcashAccount: { accountName: "Criselda's Supplies", accountNumber: '0917-600-2008', qrDataUrl: null },
+    mayaAccount: null,
+    tagline: 'Para sa eskwela at opisina',
+    themeColor: 'purple',
+    logoDataUrl: seedVendorLogo('CS', '#7e22ce'),
+  },
 ]
 
 // A handful of products per pharmacy spanning all three MedicineCategory
@@ -3795,6 +3835,25 @@ export const MOCK_VENDOR_MENU_ITEMS: MedicineProduct[] = [
   { id: 'menu-v6-6', pharmacyId: 'vendor-6', name: 'Dishwashing Liquid (500ml)', genericName: null, category: 'otc', price: 65, inStock: true, menuCategory: 'Household', description: 'Concentrated, lemon scent.' },
   { id: 'menu-v6-7', pharmacyId: 'vendor-6', name: 'LPG Refill (11kg)', genericName: null, category: 'otc', price: 950, inStock: true, menuCategory: 'Household', description: 'Tank exchange — bring your own empty cylinder.', badge: 'best_seller' },
   { id: 'menu-v6-8', pharmacyId: 'vendor-6', name: 'Bottled Water (6x500ml)', genericName: null, category: 'otc', price: 45, inStock: true, menuCategory: 'Groceries', description: 'Purified drinking water, pack of 6.' },
+
+  // Mang Tomas Hardware & Construction Supply (vendor-7) — PaDeliver's Store seed.
+  { id: 'menu-v7-1', pharmacyId: 'vendor-7', name: 'Cement (1 bag, 40kg)', genericName: null, category: 'otc', price: 260, inStock: true, menuCategory: 'Construction', description: 'Portland cement, 40kg bag.' },
+  { id: 'menu-v7-2', pharmacyId: 'vendor-7', name: 'Hollow Blocks (piece)', genericName: null, category: 'otc', price: 12, inStock: true, menuCategory: 'Construction', description: '4-inch CHB, sold per piece.' },
+  { id: 'menu-v7-3', pharmacyId: 'vendor-7', name: 'GI Nails (1kg)', genericName: null, category: 'otc', price: 75, inStock: true, menuCategory: 'Tools & Hardware', description: 'Assorted sizes, common wire nails.' },
+  { id: 'menu-v7-4', pharmacyId: 'vendor-7', name: 'Claw Hammer', genericName: null, category: 'otc', price: 180, inStock: true, menuCategory: 'Tools & Hardware', description: '16oz steel head, rubber grip.' },
+  { id: 'menu-v7-5', pharmacyId: 'vendor-7', name: 'PVC Pipe (10ft, 1/2")', genericName: null, category: 'otc', price: 95, inStock: true, menuCategory: 'Plumbing', description: 'Standard blue PVC water pipe.' },
+  { id: 'menu-v7-6', pharmacyId: 'vendor-7', name: 'Latex Paint (1L, white)', genericName: null, category: 'otc', price: 210, inStock: true, menuCategory: 'Paint', description: 'Interior flat latex paint.', badge: 'best_seller' },
+  { id: 'menu-v7-7', pharmacyId: 'vendor-7', name: 'Extension Cord (5m)', genericName: null, category: 'otc', price: 165, inStock: true, menuCategory: 'Electrical', description: '3-outlet heavy-duty extension.' },
+  { id: 'menu-v7-8', pharmacyId: 'vendor-7', name: 'Garden Hose (10m)', genericName: null, category: 'otc', price: 320, inStock: true, menuCategory: 'Garden', description: 'Flexible rubber hose with nozzle.' },
+
+  // Criselda's School & Office Supplies (vendor-8) — PaDeliver's Store seed.
+  { id: 'menu-v8-1', pharmacyId: 'vendor-8', name: 'Bond Paper (1 ream, short)', genericName: null, category: 'otc', price: 190, inStock: true, menuCategory: 'Paper & Printing', description: 'Sub 20, 500 sheets.', badge: 'best_seller' },
+  { id: 'menu-v8-2', pharmacyId: 'vendor-8', name: 'Ballpen (box of 12)', genericName: null, category: 'otc', price: 65, inStock: true, menuCategory: 'Writing', description: 'Black ink, medium tip.' },
+  { id: 'menu-v8-3', pharmacyId: 'vendor-8', name: 'Spiral Notebook (80 leaves)', genericName: null, category: 'otc', price: 35, inStock: true, menuCategory: 'School Supplies', description: 'One subject, assorted colors.' },
+  { id: 'menu-v8-4', pharmacyId: 'vendor-8', name: 'Scientific Calculator', genericName: null, category: 'otc', price: 450, inStock: true, menuCategory: 'School Supplies', description: 'Basic scientific functions, exam-ready.' },
+  { id: 'menu-v8-5', pharmacyId: 'vendor-8', name: 'Manila Paper (10 pcs)', genericName: null, category: 'otc', price: 50, inStock: true, menuCategory: 'Paper & Printing', description: 'For projects and visual aids.' },
+  { id: 'menu-v8-6', pharmacyId: 'vendor-8', name: 'Bond Paper Folder (10 pcs)', genericName: null, category: 'otc', price: 60, inStock: true, menuCategory: 'Office Supplies', description: 'Long size, assorted colors.' },
+  { id: 'menu-v8-7', pharmacyId: 'vendor-8', name: 'Stapler with Staples', genericName: null, category: 'otc', price: 120, inStock: true, menuCategory: 'Office Supplies', description: 'No. 35 stapler, includes one box of staple wire.' },
 ]
 
 // Flat delivery + service fee for a MEDS order — same "flat, not

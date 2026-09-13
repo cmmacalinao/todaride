@@ -173,11 +173,11 @@ export default defineConfig({
     __BUILD_CODE__: JSON.stringify(readGradleVersion().code),
   },
   server: {
-    port: 5192,
+    port: 5193,
     strictPort: true,
     // Lets the app be reached through a quick tunnel — Cloudflare's
-    // (`npx cloudflared tunnel --url http://localhost:5192`) or localtunnel's
-    // (`npx localtunnel --port 5192`) — for sharing a trial link with people
+    // (`npx cloudflared tunnel --url http://localhost:5193`) or localtunnel's
+    // (`npx localtunnel --port 5193`) — for sharing a trial link with people
     // off this machine. Vite otherwise rejects any request whose Host header
     // it doesn't recognize (DNS-rebinding guard).
     allowedHosts: ['.trycloudflare.com', '.loca.lt'],
@@ -205,6 +205,14 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
+      // Default cap is 2 MiB — the main bundle now carries the full
+      // province-wide landmark seed (MOCK_LANDMARKS) baked in as JS data and
+      // has grown past that on its own. Raised rather than split out: the
+      // service worker precaching it is what lets the app still boot with a
+      // spotty signal, which is the whole point for a tricycle rider.
+      workbox: {
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+      },
       manifest: {
         // What appears under the icon once it is on a home screen, so it is
         // the name the app is actually known by rather than the internal one.

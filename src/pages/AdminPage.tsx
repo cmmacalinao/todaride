@@ -27,6 +27,7 @@ import { matchesNameQuery } from '../lib/fuzzyName'
 import { RealLiveMap } from '../components/RealLiveMap'
 import { TerminalQuickPanel } from '../components/TerminalQuickPanel'
 import { LandmarkQuickPanel } from '../components/LandmarkQuickPanel'
+import { AdminMerchantMenuTool } from '../components/AdminMerchantMenuTool'
 import { TodaBoundariesPanel } from '../components/TodaBoundariesPanel'
 import { BarangayAddressPicker } from '../components/BarangayAddressPicker'
 import { resolvePhAddress, type PhAddressTags } from '../lib/customLocation'
@@ -755,6 +756,8 @@ export function AdminPage() {
           <LandmarkQuickPanel onClose={() => navigate('/admin?tab=landmarks')} />
         </section>
       )}
+
+      {adminTab === 'merchants' && <AdminMerchantMenuTool />}
 
       {adminTab === 'terminals' && (
       <>

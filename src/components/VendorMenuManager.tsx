@@ -11,7 +11,6 @@ import {
   menuCategorySortRank,
   type FoodCatalogItem,
 } from '../lib/foodCatalog'
-import { MenuBoardCropper, type ExtractedCrop } from './MenuBoardCropper'
 import { VendorHeaderCard, VendorMenuItemCard, resolveVendorAccent } from './VendorStorefront'
 import { VendorLocationPicker } from './VendorLocationPicker'
 import { MENU_ITEM_BADGES, type MedicineProduct, type MenuItemBadge, type Pharmacy } from '../types'
@@ -457,7 +456,6 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
               <SpreadsheetTool pharmacy={pharmacy} products={products} defaultCategory={categories[0] ?? null} onAdd={handleAdd} />
               <PasteMenuTextTool defaultCategory={categories[0] ?? null} onAdd={handleAdd} />
               <BulkPhotoMatchTool products={products} />
-              <MenuBoardCropTool defaultCategory={categories[0] ?? null} onAdd={handleAdd} />
             </div>
           )}
         </div>
@@ -526,7 +524,7 @@ function ServingsField({
   )
 }
 
-interface MenuItemFields {
+export interface MenuItemFields {
   name: string
   price: number
   menuCategory: string | null
@@ -1108,7 +1106,7 @@ interface MenuFileRow extends ParsedSpreadsheetRow {
 // typing every dish into the app, and download it as a backup or to hand to
 // someone else. "Download menu" doubles as a template: with an empty menu it
 // still comes back with the right header row to fill in and re-upload.
-function SpreadsheetTool({
+export function SpreadsheetTool({
   pharmacy,
   products,
   defaultCategory,
@@ -1485,83 +1483,3 @@ function BulkPhotoMatchTool({ products }: { products: MedicineProduct[] }) {
   )
 }
 
-// Cut several dish photos out of one photo of the whole menu board, then
-// add each crop as a new menu item (name + price typed per crop — there's
-// no filename to match a name from here, unlike the bulk-upload tool above).
-function MenuBoardCropTool({
-  defaultCategory,
-  onAdd,
-}: {
-  defaultCategory: string | null
-  onAdd: (fields: MenuItemFields) => void
-}) {
-  const [crops, setCrops] = useState<(ExtractedCrop & { name: string; price: string; menuCategory: string })[]>([])
-
-  function handleExtracted(extracted: ExtractedCrop[]) {
-    setCrops((prev) => [...prev, ...extracted.map((c) => ({ ...c, name: '', price: '', menuCategory: defaultCategory ?? '' }))])
-  }
-
-  function updateCrop(id: string, fields: Partial<{ name: string; price: string; menuCategory: string }>) {
-    setCrops((prev) => prev.map((c) => (c.id === id ? { ...c, ...fields } : c)))
-  }
-
-  function addCrop(crop: { id: string; dataUrl: string; name: string; price: string; menuCategory: string }) {
-    const priceNum = Number(crop.price)
-    if (!crop.name.trim() || !Number.isFinite(priceNum) || priceNum <= 0) return
-    onAdd({
-      name: crop.name.trim(),
-      price: priceNum,
-      menuCategory: crop.menuCategory.trim() || null,
-      photoDataUrl: crop.dataUrl,
-      description: null,
-      badge: null,
-    })
-    setCrops((prev) => prev.filter((c) => c.id !== crop.id))
-  }
-
-  return (
-    <div className="rounded-lg border border-slate-200 p-2.5">
-      <p className="mb-1.5 text-xs font-medium text-slate-600">✂️ One menu-board photo → several dish photos</p>
-      <MenuBoardCropper onExtracted={handleExtracted} />
-      {crops.length > 0 && (
-        <div className="mt-2 space-y-1.5">
-          {crops.map((crop) => (
-            <div key={crop.id} className="flex items-center gap-2 rounded-md border border-slate-200 bg-white p-1.5">
-              <img src={crop.dataUrl} alt="Cropped dish" className="h-11 w-11 shrink-0 rounded-md object-cover" />
-              <div className="min-w-0 flex-1 space-y-1">
-                <input
-                  value={crop.name}
-                  onChange={(e) => updateCrop(crop.id, { name: e.target.value })}
-                  placeholder="Item name"
-                  className="w-full rounded-md border border-slate-200 px-1.5 py-1 text-[11px]"
-                />
-                <div className="flex gap-1">
-                  <input
-                    value={crop.menuCategory}
-                    onChange={(e) => updateCrop(crop.id, { menuCategory: e.target.value })}
-                    placeholder="Category"
-                    className="min-w-0 flex-1 rounded-md border border-slate-200 px-1.5 py-1 text-[11px]"
-                  />
-                  <input
-                    type="number"
-                    value={crop.price}
-                    onChange={(e) => updateCrop(crop.id, { price: e.target.value })}
-                    placeholder="₱"
-                    className="w-16 rounded-md border border-slate-200 px-1.5 py-1 text-right text-[11px]"
-                  />
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => addCrop(crop)}
-                className="shrink-0 self-start rounded-md border border-brand-300 px-2 py-1 text-[11px] font-medium text-brand-700 hover:bg-brand-50"
-              >
-                Add
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}

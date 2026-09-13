@@ -7,6 +7,7 @@ export type AdminTab =
   | 'addterminal'
   | 'boundaries'
   | 'landmarks'
+  | 'merchants'
   | 'partners'
   | 'drivers'
   | 'rides'
@@ -22,6 +23,7 @@ export const ADMIN_TABS: { id: AdminTab; icon: string; label: string }[] = [
   { id: 'addterminal', icon: '➕', label: 'Add Terminal' },
   { id: 'boundaries', icon: '🗺️', label: 'TODA Boundaries' },
   { id: 'landmarks', icon: '📍', label: 'Landmarks' },
+  { id: 'merchants', icon: '🏪', label: 'Merchants' },
   { id: 'partners', icon: '🏢', label: 'Partners' },
   { id: 'drivers', icon: '🧑‍✈️', label: 'Drivers' },
   { id: 'rides', icon: '🗺️', label: 'Rides & Safety' },

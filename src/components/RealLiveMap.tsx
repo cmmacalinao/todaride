@@ -641,10 +641,6 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
   // deliberately — before scrolling past it, say — rather than it vanishing
   // the moment panning stopped needing a first tap.
   const [unlocked, setUnlocked] = useState(alwaysInteractive)
-  // Counts the times the map has gone back under glass. Feeding it into the
-  // framing signal is what makes re-locking resume automatic framing after a
-  // reader has panned away.
-  const [relocks, setRelocks] = useState(0)
 
   // In an effect rather than in the button's onClick, so a caller is told
   // however the state changed.
@@ -671,10 +667,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
   // which read as the palm icon simply not doing anything.
   useEffect(() => {
     if (!unlocked || alwaysInteractive) return
-    const relock = () => {
-      setUnlocked(false)
-      setRelocks((n) => n + 1)
-    }
+    const relock = () => setUnlocked(false)
     document.addEventListener('scroll', relock, { capture: true, passive: true })
     return () => document.removeEventListener('scroll', relock, { capture: true })
   }, [unlocked, alwaysInteractive])
@@ -713,11 +706,6 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
   // on screen.
   const noLockNeeded = !!fill && !fullscreen
   const locked = frozen || (!unlocked && !noLockNeeded)
-  // Re-locking the map is the reader saying they are done with it, so the
-  // frame comes back to the app: FitBounds treats a changed signal as
-  // permission to fit again, which is what clears the "reader has taken
-  // over" flag their first pan set.
-  const framingSignal = `${refitSignal ?? ''}|${relocks}`
   const body = (
     // relative z-0 makes this its own stacking context. Leaflet gives its
     // panes z-index 400 and its controls up to 1000, which beat the fixed
@@ -797,10 +785,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
         <PanLock
           unlocked={unlocked}
           onToggle={() =>
-            setUnlocked((v) => {
-              if (v) setRelocks((n) => n + 1)
-              return !v
-            })
+            setUnlocked((v) => !v)
           }
         />
       )}
@@ -848,7 +833,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
               routeVariant={routeVariant}
               onMapClick={onMapClick}
               onPointClick={onPointClick}
-              refitSignal={framingSignal}
+              refitSignal={refitSignal}
               fitPointIds={fitPointIds}
               followAll={followAll}
               centerOn={centerOn}
@@ -864,11 +849,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
                 interactive && !noLockNeeded
                   ? {
                       unlocked,
-                      onToggle: () =>
-                        setUnlocked((v) => {
-                          if (v) setRelocks((n) => n + 1)
-                          return !v
-                        }),
+                      onToggle: () => setUnlocked((v) => !v),
                     }
                   : undefined
               }
@@ -884,7 +865,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
           routeVariant={routeVariant}
           onMapClick={onMapClick}
           onPointClick={onPointClick}
-          refitSignal={framingSignal}
+          refitSignal={refitSignal}
           fitPointIds={fitPointIds}
           followAll={followAll}
           frozen={locked}
@@ -903,7 +884,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
           routeVariant={routeVariant}
           onMapClick={onMapClick}
           onPointClick={onPointClick}
-          refitSignal={framingSignal}
+          refitSignal={refitSignal}
           fitPointIds={fitPointIds}
           followAll={followAll}
           centerOn={centerOn}
@@ -913,11 +894,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
             interactive
               ? {
                   unlocked,
-                  onToggle: () =>
-                    setUnlocked((v) => {
-                      if (v) setRelocks((n) => n + 1)
-                      return !v
-                    }),
+                  onToggle: () => setUnlocked((v) => !v),
                 }
               : undefined
           }

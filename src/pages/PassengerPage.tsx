@@ -1355,7 +1355,7 @@ export function PassengerPage() {
 
   // The saved-place row. Rendered against whichever end of the trip means
   // "where I am": the pickup on a ride, the delivery address on an errand.
-  function quickPlaceChips(target: 'pickup' | 'dropoff') {
+  function quickPlaceChips(target: 'pickup' | 'dropoff', heading = 'Save as:') {
     const applyPlace = target === 'pickup' ? handlePickupQuickPick : handleDropoffQuickPick
     const current = target === 'pickup' ? pickup : dropoff
     const fieldName = target === 'pickup' ? pickupLabel : dropoffLabel
@@ -1366,7 +1366,7 @@ export function PassengerPage() {
     // opposite actions sitting in identical pills.
     return (
       <div className="-mx-1 flex flex-nowrap items-center gap-1 overflow-x-auto px-1 pb-0.5">
-        <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold text-slate-500">Save as:</span>
+        <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold text-slate-500">{heading}</span>
         {SAVED_LOCATION_LABELS.filter((label) => label !== 'Favorite').map((label) => {
           const saved = savedLocations.find((sl) => sl.label === label)
           return (
@@ -1952,9 +1952,9 @@ export function PassengerPage() {
             </div>
             {openEnd === 'pickup' && (
               <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
-              <DestinationSearch near={pickupGps ?? pickup.gps ?? null} onSelect={handlePickupLandmark} />
-              {!isErrand && quickPlaceChips('pickup')}
               {cityRow}
+              <DestinationSearch city={cityScope} near={pickupGps ?? pickup.gps ?? null} onSelect={handlePickupLandmark} />
+              {!isErrand && quickPlaceChips('pickup')}
               <BarangayAddressPicker
                 key={`from-${pickupPickerSeed.key}`}
                 label=""
@@ -2058,16 +2058,18 @@ export function PassengerPage() {
               Set on Map
             </button>
             </div>
+            {/* A saved Home/School/Work is a destination as much as a place
+                to remember — pulled out from inside the (collapsed by
+                default) address panel so picking one doesn't first require
+                opening it. Still saves a new one from here too when nothing
+                is saved yet under a label; the row does both jobs either
+                way, only the heading below says which this is. Shown on an
+                errand too, not only a ride — see the comment this replaced. */}
+            {quickPlaceChips('dropoff', 'Quick destinations:')}
             {openEnd === 'dropoff' && (
               <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
-                {/* Saved places on the destination too, not only on an
-                    errand. A passenger going home, to school or to work is
-                    the ordinary case, and they had to type it every time
-                    while the pickup — the end the app can often guess by
-                    itself — was the one with the shortcuts. */}
-                <DestinationSearch near={pickupGps ?? pickup.gps ?? null} onSelect={handleDropoffLandmark} />
-                {quickPlaceChips('dropoff')}
                 {cityRow}
+                <DestinationSearch city={cityScope} near={pickupGps ?? pickup.gps ?? null} onSelect={handleDropoffLandmark} />
                 <BarangayAddressPicker
                   key={`to-${dropoffPickerSeed.key}`}
                   label=""

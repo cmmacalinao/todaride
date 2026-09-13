@@ -1668,7 +1668,7 @@ function fromStored(parsed: StoredState): RideState {
     // landmarks entirely, and an empty search result for every query is a
     // worse first impression than the seed set showing up underneath
     // whatever a TODA admin has since added.
-    landmarks: parsed.landmarks?.length ? parsed.landmarks : MOCK_LANDMARKS,
+    landmarks: withHealedLandmarks(parsed.landmarks),
     clsuFleetQueued: true,
     boundaries: ((): MapBoundary[] => {
       const stored = parsed.boundaries ?? []
@@ -1872,6 +1872,22 @@ const STORAGE_BACKUP_KEY = `${STORAGE_KEY}.unreadable`
 // since the pilot's own registered stores replaced them. Trade-off, as with
 // the hotlines: deleting one of these from the live data does not stick.
 const LATE_SEED_VENDOR_IDS = new Set(['vendor-3', 'vendor-4', 'vendor-5', 'vendor-6', 'vendor-7', 'vendor-8'])
+
+// Landmarks are entirely seed-controlled for now (no admin add/edit screen
+// yet), so unlike vendors this backfills every field, not just the ones a
+// person might have customized — a stored landmark missing `city` (from
+// before that field existed) is healed from the current seed by id, and any
+// seed landmark added since is merged in the same way late-seed vendors are.
+function withHealedLandmarks(stored: Landmark[] | undefined): Landmark[] {
+  if (!stored?.length) return MOCK_LANDMARKS
+  const seen = new Set(stored.map((l) => l.id))
+  const missing = MOCK_LANDMARKS.filter((l) => !seen.has(l.id))
+  const healed = stored.map((l) => {
+    const seed = MOCK_LANDMARKS.find((s) => s.id === l.id)
+    return seed ? { ...seed, ...l, city: l.city ?? seed.city } : l
+  })
+  return missing.length > 0 ? [...healed, ...missing] : healed
+}
 
 function withLateSeedVendors(stored: Pharmacy[] | undefined): Pharmacy[] {
   if (!stored) return MOCK_PHARMACIES

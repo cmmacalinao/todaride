@@ -137,6 +137,11 @@ export interface Landmark {
   // the name itself is (see lib/landmarkSearch.ts).
   aliases: string[]
   category: LandmarkCategory
+  // Matched against the City selector already above the search box (see
+  // PassengerPage) so a search only ever shows landmarks in the city
+  // already chosen, rather than one from three towns over outranking it on
+  // text alone.
+  city: string
   gps: GeoCoords
   todaOrgId: string | null
 }

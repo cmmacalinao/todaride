@@ -15,10 +15,16 @@ function formatDistance(meters: number): string {
 // lib/landmarkSearch.ts), so there is no loading state and no debounce to
 // wire up.
 export function DestinationSearch({
+  city,
   near,
   onSelect,
   placeholder = 'Search a landmark — palengke, simbahan, CLSU…',
 }: {
+  // Scopes results to the city already chosen above this box (see the City
+  // row in PassengerPage) — a search is "palengke in this city", not a
+  // province-wide lookup, so a same-named landmark three towns over never
+  // outranks the one actually in the picked city. Unfiltered when blank.
+  city?: string
   // The rider's current position, for ranking equally-good text matches by
   // which one is actually closer. Optional: a passenger with GPS blocked
   // still gets results, just ranked by text alone.
@@ -28,7 +34,8 @@ export function DestinationSearch({
 }) {
   const { landmarks } = useRides()
   const [query, setQuery] = useState('')
-  const matches = searchLandmarks(query, landmarks, near ?? null)
+  const scoped = city ? landmarks.filter((l) => l.city === city) : landmarks
+  const matches = searchLandmarks(query, scoped, near ?? null)
 
   return (
     <div>
@@ -63,7 +70,8 @@ export function DestinationSearch({
           </div>
         ) : (
           <p className="mt-1 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-400">
-            No landmark matches "{query.trim()}" — try the address form below, or pin it on the map.
+            No landmark matches "{query.trim()}"{city ? ` in ${city}` : ''} — try the address form below, or pin it
+            on the map.
           </p>
         ))}
     </div>

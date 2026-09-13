@@ -57,7 +57,7 @@ export function AndroidAppBanner() {
             <div className="mt-2 rounded-lg bg-white/70 px-3 py-2 text-[11px] leading-relaxed text-slate-600">
               <p>
                 Android blocks apps that do not come from the Play Store, so it will ask before
-                installing. TODA SafeRide is not on the Play Store yet — this is the pilot.
+                installing. TODA Ride Mobility is not on the Play Store yet — this is the pilot.
               </p>
               <p className="mt-1.5">
                 <span className="font-semibold">1.</span> Kapag lumabas ang{' '}
@@ -91,7 +91,7 @@ export function AndroidAppBanner() {
                   new key cannot upgrade an install signed with the old one,
                   and Android's message for that says nothing useful. */}
               <p className="mt-1.5">
-                <span className="font-semibold">May luma nang TODA SafeRide sa phone?</span> I-uninstall muna
+                <span className="font-semibold">May luma nang TODA Ride Mobility sa phone?</span> I-uninstall muna
                 ito bago i-install ang bago — kung hindi, sasabihin ng phone na{' '}
                 <span className="font-semibold">&ldquo;App not installed&rdquo;</span>. Isang beses lang ito.
               </p>

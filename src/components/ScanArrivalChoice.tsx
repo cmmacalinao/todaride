@@ -88,7 +88,7 @@ export function ScanArrivalChoice() {
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 p-3 sm:items-center">
       <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl">
-        <h2 className="text-base font-bold text-navy-900">Get TODA SafeRide</h2>
+        <h2 className="text-base font-bold text-navy-900">Get TODA Ride Mobility</h2>
 
         {platform === 'android' ? (
           <>

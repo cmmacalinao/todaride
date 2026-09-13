@@ -49,7 +49,7 @@ export class AppErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: ErrorInfo) {
     // Left in deliberately. This is the only trace of a crash that reaches
     // anybody, and a pilot tester cannot open a console.
-    console.error('TODA SafeRide crashed:', error, info.componentStack)
+    console.error('TODA Ride Mobility crashed:', error, info.componentStack)
 
     if (!isChunkLoadFailure(error)) return
     // Once per session. A reload loop is worse than the white screen it is

@@ -385,7 +385,7 @@ export function AccountPanels({
       <Shell title="Privacy & Safety" onClose={onClose}>
         <div className="space-y-2.5 text-xs text-slate-600">
           <p>
-            TODA SafeRide collects your GPS location, trip history, and contact info only to arrange and track your
+            TODA Ride Mobility collects your GPS location, trip history, and contact info only to arrange and track your
             rides — your exact live location is shared with a driver only while a trip is active, and only if you
             choose to share it.
           </p>

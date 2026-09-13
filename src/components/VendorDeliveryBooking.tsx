@@ -92,7 +92,7 @@ export function VendorDeliveryBooking({ vendor, onClose }: { vendor: Pharmacy; o
   return (
     <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-700">🛺 Book a TODA SafeRide delivery</h2>
+        <h2 className="text-sm font-semibold text-slate-700">🛺 Book a TODA Ride Mobility delivery</h2>
         <button type="button" onClick={onClose} className="text-xs font-medium text-slate-500 hover:text-slate-700">
           ✕ Close
         </button>

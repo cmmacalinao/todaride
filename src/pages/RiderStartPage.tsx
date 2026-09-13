@@ -260,7 +260,7 @@ export function ScanSafeRideBanner({ feeFree, variant = 'card' }: { feeFree: boo
         </div>
       </div>
       <p className="bg-gold-400 px-4 py-1.5 text-center text-[11px] font-bold text-navy-900">
-        TODA SafeRide — Safe Rides for You and Your Family
+        TODA Ride Mobility — Safe Rides for You and Your Family
       </p>
     </section>
   )

@@ -70,7 +70,7 @@ export function SosConcernNotice({
           </div>
           <div className="space-y-1.5">{emergencies.map((a) => row(a, 'danger'))}</div>
           <p className="mt-2 text-[11px] text-danger-800">
-            TODA SafeRide support and the TODA office have been alerted. Call emergency services if you are in
+            TODA Ride Mobility support and the TODA office have been alerted. Call emergency services if you are in
             immediate danger.
           </p>
         </section>

@@ -61,7 +61,7 @@ export function RidePaymentForm({
     const result = await createMayaCheckout({
       rideId,
       total,
-      description: `TODA SafeRide fare — ${driverName}`,
+      description: `TODA Ride Mobility fare — ${driverName}`,
     })
     setPaying(false)
     if (result.ok && result.data?.redirectUrl) {

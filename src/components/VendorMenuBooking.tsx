@@ -414,7 +414,7 @@ export function VendorMenuBooking({
               }}
             />
             <p className="relative text-lg font-extrabold leading-tight">
-              {isGoods ? '📦 SafeRide PaDeliver — Store' : '🍽️ SafeRide Food Order'}
+              {isGoods ? '📦 PaDeliver — from Partner Store' : '🍽️ Food Order'}
             </p>
             <p className="relative mt-0.5 text-xs text-white/90">
               {isGoods

@@ -322,7 +322,7 @@ export const CLSU_GPS: GeoCoords = { lat: 15.73299, lng: 120.931426 }
 // in /public rather than as a data URL — a base64 copy of a real banner in
 // the seed would bloat every stored state blob for no reason.
 export const MOCK_BANNER_ADS: (import('../types').BannerAd | null)[] = [
-  { id: 'ad-seed-1', imageUrl: '/ads/toda-saferide-banner.webp', caption: 'TODA SafeRide — Safe Rides for You and Your Family' },
+  { id: 'ad-seed-1', imageUrl: '/ads/toda-saferide-banner.webp', caption: 'TODA Ride Mobility — Safe Rides for You and Your Family' },
   null,
   null,
   null,
@@ -2156,7 +2156,7 @@ export const COMPLIANCE_CHECKLIST: ComplianceChecklistItem[] = [
 // collects on. Seeded here and editable by the App Admin at runtime, because
 // a wrong number here is a pilot's first support ticket.
 export const PLATFORM_GCASH_ACCOUNT: PaymentAccountDetails = {
-  accountName: 'TODA SafeRide Platform',
+  accountName: 'TODA Ride Mobility Platform',
   accountNumber: '0917-800-2020',
   qrDataUrl: null,
 }

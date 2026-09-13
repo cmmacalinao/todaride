@@ -94,7 +94,7 @@ export function renderRecovery() {
   `
   const wrap = el('div', undefined, 'wrap')
   wrap.appendChild(style)
-  wrap.appendChild(el('h1', '🛟 TODA SafeRide — data recovery'))
+  wrap.appendChild(el('h1', '🛟 TODA Ride Mobility — data recovery'))
   wrap.appendChild(
     el('p', 'This reads the copy of the app data saved on this phone and lets you send it back to the server. The app itself is not started on this screen, so nothing here can overwrite that copy.', 'note'),
   )

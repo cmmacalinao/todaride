@@ -38,7 +38,7 @@ export function QrCodeCreator() {
   const { url, caption } = useMemo(() => {
     switch (target) {
       case 'signup':
-        return { url: `${base}/welcome`, caption: 'Create your TODA SafeRide account' }
+        return { url: `${base}/welcome`, caption: 'Create your TODA Ride Mobility account' }
       case 'driver': {
         const d = bookable.find((x) => x.id === driverId)
         return d
@@ -53,9 +53,9 @@ export function QrCodeCreator() {
           : { url: '', caption: '' }
       }
       case 'custom':
-        return { url: custom.trim(), caption: 'TODA SafeRide' }
+        return { url: custom.trim(), caption: 'TODA Ride Mobility' }
       default:
-        return { url: base, caption: 'TODA SafeRide — Safe Rides for You and Your Family' }
+        return { url: base, caption: 'TODA Ride Mobility — Safe Rides for You and Your Family' }
     }
   }, [target, base, driverId, terminalId, custom, bookable, activeTerminals, todaOrganizations])
 

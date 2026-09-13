@@ -54,7 +54,7 @@ export function TerminalScanPage() {
           to="/book"
           className="mt-4 inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
         >
-          Open TODA SafeRide
+          Open TODA Ride Mobility
         </Link>
       </div>
     )
@@ -69,7 +69,7 @@ export function TerminalScanPage() {
         <p className="mt-0.5 text-sm font-semibold text-slate-700">
           {driver.name} · {driver.plateNumber}
         </p>
-        <p className="text-xs text-slate-600">{terminal?.name ?? org?.name ?? 'TODA SafeRide'}</p>
+        <p className="text-xs text-slate-600">{terminal?.name ?? org?.name ?? 'TODA Ride Mobility'}</p>
         {/* The reason a passenger at the terminal would bother scanning at
             all, said before anything is asked of them. */}
         {feeFree && (

@@ -69,7 +69,7 @@ export function orderStageDetail(order: MedsOrder, ride: Ride | undefined, viewe
           : `${order.paidOnline ? `Paid online via ${order.paymentMethod}` : 'Cash on delivery'} — being prepared, rider not booked yet`
     case 'rider_booked':
       return ride?.status === 'requested' || !driver
-        ? 'Finding a TODA SafeRide rider…'
+        ? 'Finding a TODA Ride Mobility rider…'
         : ride.legProgress >= 1
           ? `${driver} is at the store picking it up`
           : `${driver} is heading to the store`

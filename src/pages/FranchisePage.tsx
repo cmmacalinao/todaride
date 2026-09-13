@@ -106,7 +106,7 @@ export function FranchisePage({ franchiseId: franchiseIdProp }: { franchiseId?: 
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="mb-1 text-sm font-semibold text-slate-700">My Franchise (Level 3)</h2>
         <p className="mb-3 text-xs text-slate-500">
-          TODASafeRide's Level 3 Franchise plan — set by the App Admin on approval.
+          TODA Ride Mobility's Level 3 Franchise plan — set by the App Admin on approval.
         </p>
         <div className="space-y-1.5 rounded-lg bg-slate-50 p-3 text-xs">
           <div className="flex items-center justify-between">

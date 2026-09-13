@@ -358,7 +358,7 @@ export function AdminTodaProfilePage() {
           value={org.perBookingFee > 0 ? `₱${org.perBookingFee} per completed ride` : 'None'}
         />
         <Row label="Estimated this month" value={`₱${estimatedMonthlyTodaFee(org, drivers, rides)}`} />
-        <Row label="Reports to" value={operator ? operator.name : 'TODASafeRide HQ (direct)'} />
+        <Row label="Reports to" value={operator ? operator.name : 'TODA Ride Mobility HQ (direct)'} />
       </Panel>
     </div>
   )

@@ -74,7 +74,7 @@ export function SaasFeeCard({
     <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
       <p className="mt-0.5 text-[11px] text-slate-500">
-        What {payerName} owes TODASafeRide this month. A separate billing relationship from the per-ride
+        What {payerName} owes TODA Ride Mobility this month. A separate billing relationship from the per-ride
         commission — it is not taken out of anyone's fare.
       </p>
       <div className="mt-2 space-y-1 text-xs">

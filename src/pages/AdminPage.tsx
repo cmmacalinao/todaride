@@ -598,13 +598,13 @@ export function AdminPage() {
 
   function handleSetOperatorFranchise(operatorId: string, operatorName: string, franchiseId: string | null) {
     setOperatorFranchise(operatorId, franchiseId)
-    const franchiseName = franchiseId ? franchises.find((f) => f.id === franchiseId)?.name ?? franchiseId : 'TODASafeRide HQ (direct)'
+    const franchiseName = franchiseId ? franchises.find((f) => f.id === franchiseId)?.name ?? franchiseId : 'TODA Ride Mobility HQ (direct)'
     logAdmin('Reassigned Operator franchise', `"${operatorName}" now reports to ${franchiseName}.`)
   }
 
   function handleSetTodaOperator(orgId: string, orgName: string, operatorId: string | null) {
     setTodaOperator(orgId, operatorId)
-    const operatorName = operatorId ? operators.find((o) => o.id === operatorId)?.name ?? operatorId : 'TODASafeRide HQ (direct)'
+    const operatorName = operatorId ? operators.find((o) => o.id === operatorId)?.name ?? operatorId : 'TODA Ride Mobility HQ (direct)'
     logActivity({
       actorRole: 'admin',
       actorName: 'Admin',
@@ -1424,7 +1424,7 @@ export function AdminPage() {
               <h3 className="mb-1 text-xs font-semibold text-slate-700">Operators — assign to Franchise</h3>
               <p className="mb-2 text-[11px] text-slate-500">
                 Which territory each approved Operator reports to. Unaffiliated Operators report directly to
-                TODASafeRide HQ.
+                TODA Ride Mobility HQ.
               </p>
               <div className="max-h-[300px] space-y-2 overflow-y-auto pr-1">
                 {operators
@@ -1437,7 +1437,7 @@ export function AdminPage() {
                         onChange={(e) => handleSetOperatorFranchise(operator.id, operator.name, e.target.value || null)}
                         className="rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
                       >
-                        <option value="">TODASafeRide HQ (direct)</option>
+                        <option value="">TODA Ride Mobility HQ (direct)</option>
                         {franchises
                           .filter((f) => f.verificationStatus === 'approved')
                           .map((f) => (
@@ -1525,7 +1525,7 @@ export function AdminPage() {
                     onChange={(e) => handleSetTodaOperator(org.id, org.name, e.target.value || null)}
                     className="ml-auto rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
                   >
-                    <option value="">TODASafeRide HQ (direct)</option>
+                    <option value="">TODA Ride Mobility HQ (direct)</option>
                     {operators
                       .filter((o) => o.verificationStatus === 'approved')
                       .map((o) => (

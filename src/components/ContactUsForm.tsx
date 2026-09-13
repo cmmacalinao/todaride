@@ -53,7 +53,7 @@ export function ContactUsForm({ onDone }: { onDone?: () => void }) {
       `From: ${name.trim()}`,
       email.trim() ? `Email: ${email.trim()}` : null,
       phone.trim() ? `Phone: ${phone.trim()}` : null,
-      `Sent from TODA SafeRide · ${new Date().toLocaleString()}`,
+      `Sent from TODA Ride Mobility · ${new Date().toLocaleString()}`,
     ]
       .filter(Boolean)
       .join('\n')
@@ -93,7 +93,7 @@ export function ContactUsForm({ onDone }: { onDone?: () => void }) {
   return (
     <div className="space-y-3">
       <p className="text-xs text-slate-500">
-        Send the TODA SafeRide support team a message and they will get back to you at{' '}
+        Send the TODA Ride Mobility support team a message and they will get back to you at{' '}
         <span className="font-medium text-slate-700">{APP_SUPPORT_EMAIL}</span>.
       </p>
 

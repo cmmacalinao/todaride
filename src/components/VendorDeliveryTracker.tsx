@@ -20,7 +20,7 @@ export const ACTIVE_RIDE_STATUSES = new Set<Ride['status']>(['requested', 'accep
 export function deliveryPhaseLabel(ride: Ride): string {
   switch (ride.status) {
     case 'requested':
-      return 'Finding a TODA SafeRide driver…'
+      return 'Finding a TODA Ride Mobility driver…'
     case 'accepted':
       return `${ride.driverName ?? 'Driver'} accepted — heading to you for pickup`
     case 'driver_arriving':

@@ -90,7 +90,7 @@ export function VendorRiderInvite({ vendor }: { vendor: Pharmacy }) {
         <div>
           <p className="text-xs font-semibold text-slate-700">🛺 Register a rider</p>
           <p className="text-[11px] text-slate-500">
-            Not on TODA SafeRide yet? Put in their name, phone and plate, then send them the link — they finish
+            Not on TODA Ride Mobility yet? Put in their name, phone and plate, then send them the link — they finish
             sign-up and set their own PIN, and they're added to your trusted riders.
           </p>
         </div>
@@ -191,7 +191,7 @@ export function VendorRiderInvite({ vendor }: { vendor: Pharmacy }) {
 
       <div className="mt-2 border-t border-slate-200 pt-2">
         <p className="mb-1 text-[11px] text-slate-500">Rider already registered? Send them the driver login page:</p>
-        {linkButtons('TODA SafeRide driver login', loginLink)}
+        {linkButtons('TODA Ride Mobility driver login', loginLink)}
         {showQr === loginLink && (
           <div className="mt-2 flex justify-center rounded-lg bg-white p-2">
             <QRCodeSVG value={loginLink} size={144} level="M" marginSize={2} />

@@ -71,8 +71,8 @@ export function RoleChooserPage() {
             icon: '🏪',
             label: vendorsEnabled ? 'Food Merchants' : 'Pharmacy',
             blurb: vendorsEnabled
-              ? 'Partner with us — sell from your resto or store through TODA SafeRide'
-              : 'Partner with us — sell from your pharmacy through TODA SafeRide',
+              ? 'Partner with us — sell from your resto or store through TODA Ride Mobility'
+              : 'Partner with us — sell from your pharmacy through TODA Ride Mobility',
             loginTo: vendorsEnabled ? '/vendor?role=vendor&auth=login' : '/pharmacy?role=pharmacy&auth=login',
             signupTo: vendorsEnabled ? '/vendor?role=vendor&auth=signup' : '/pharmacy?role=pharmacy&auth=signup',
             business: true,

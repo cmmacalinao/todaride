@@ -164,7 +164,7 @@ export function SuperAdminPage() {
             <div>
               <h2 className="text-sm font-semibold text-slate-700">Platform commission</h2>
               <p className="mt-0.5 text-[11px] text-slate-500">
-                What TODA SafeRide takes from each completed trip. Charged on the base fare only — never on a tip,
+                What TODA Ride Mobility takes from each completed trip. Charged on the base fare only — never on a tip,
                 and never more than the fare itself. Changing it applies to trips completed from now on; trips
                 already recorded keep the rate they were charged at.
               </p>

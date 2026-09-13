@@ -27,7 +27,7 @@ export function PaDeliverSubTabs({ active }: { active: 'store' | 'delivery' }) {
   return (
     <div className="flex overflow-hidden rounded-full border border-slate-200 bg-slate-100 p-0.5">
       {tab('delivery', '🛺 Book a Delivery', 'goods_delivery')}
-      {tab('store', '🏬 Store', 'goods_store')}
+      {tab('store', '🏬 Partner Stores', 'goods_store')}
     </div>
   )
 }

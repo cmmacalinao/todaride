@@ -53,7 +53,7 @@ export function SupportInbox() {
               <div className="mt-2 flex gap-1.5">
                 {m.email && (
                   <a
-                    href={`mailto:${m.email}?subject=${encodeURIComponent('Re: your TODA SafeRide message')}`}
+                    href={`mailto:${m.email}?subject=${encodeURIComponent('Re: your TODA Ride Mobility message')}`}
                     className="flex-1 rounded-lg border border-slate-300 py-1.5 text-center text-[11px] font-medium text-slate-600 hover:bg-slate-50"
                   >
                     Reply by email

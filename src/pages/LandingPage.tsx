@@ -120,7 +120,7 @@ export function LandingPage() {
           too, this is the only thing separating the two halves. */}
       <section className="border-t border-slate-200 bg-white px-5 py-10">
         <h2 className="mb-5 text-center text-lg font-bold tracking-tight text-navy-900">
-          Why Choose TODA SafeRide?
+          Why Choose TODA Ride Mobility?
         </h2>
 
         <div className="grid grid-cols-2 gap-2.5">

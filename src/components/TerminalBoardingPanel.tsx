@@ -303,7 +303,7 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
         const driverId = code.data.match(/\/scan\/([^/?#]+)/)?.[1]
         const driver = driverId ? drivers.find((d) => d.id === decodeURIComponent(driverId)) : undefined
         if (!driver) {
-          setQrError("That QR code isn't a TODA SafeRide tricycle sticker — type the TRC No. below instead.")
+          setQrError("That QR code isn't a TODA Ride Mobility tricycle sticker — type the TRC No. below instead.")
           return
         }
         if (driver.verificationStatus !== 'approved' || driver.accessStatus !== 'active' || busyIds.has(driver.id)) {
@@ -544,7 +544,7 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
                 Walang nahanap na TRC {trcInput.trim()}.
               </p>
               <p className="mt-0.5 text-[10px] leading-snug text-amber-800">
-                Hindi rehistrado sa TODA SafeRide. Mare-record pa rin ang plaka at kung nasaan ka — pero walang
+                Hindi rehistrado sa TODA Ride Mobility. Mare-record pa rin ang plaka at kung nasaan ka — pero walang
                 pangalan ng driver, at hindi ito kusang magsisimula.
               </p>
               <button

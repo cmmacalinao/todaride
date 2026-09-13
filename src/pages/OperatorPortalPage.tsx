@@ -136,8 +136,8 @@ export function OperatorPortalPage({ operatorId: operatorIdProp }: { operatorId?
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="mb-1 text-sm font-semibold text-slate-700">My Subscription (Level 2)</h2>
         <p className="mb-3 text-xs text-slate-500">
-          TODASafeRide's Level 2 "Authorized Operator" plan — a separate billing relationship with TODASafeRide HQ,
-          set by the App Admin on approval.
+          TODA Ride Mobility's Level 2 "Authorized Operator" plan — a separate billing relationship with TODA Ride
+          Mobility HQ, set by the App Admin on approval.
         </p>
         <div className="space-y-1.5 rounded-lg bg-slate-50 p-3 text-xs">
           <div className="flex items-center justify-between">
@@ -154,7 +154,7 @@ export function OperatorPortalPage({ operatorId: operatorIdProp }: { operatorId?
           </div>
           <div className="flex items-center justify-between">
             <span className="text-slate-500">Reports to</span>
-            <span className="font-medium text-slate-700">{franchise ? franchise.name : 'TODASafeRide HQ (direct)'}</span>
+            <span className="font-medium text-slate-700">{franchise ? franchise.name : 'TODA Ride Mobility HQ (direct)'}</span>
           </div>
           <div className="flex items-center justify-between border-t border-slate-200 pt-1.5">
             <span className="font-medium text-slate-600">Estimated this month</span>

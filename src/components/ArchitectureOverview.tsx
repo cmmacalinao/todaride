@@ -65,7 +65,7 @@ export function ArchitectureOverview() {
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-sm font-bold text-navy-900">How TODA SafeRide is put together</h2>
+        <h2 className="text-sm font-bold text-navy-900">How TODA Ride Mobility is put together</h2>
         <p className="mt-1 max-w-prose text-xs leading-relaxed text-slate-600">
           A React app where the phone, not the server, decides what a ride costs and who gets it. That
           single fact explains most of the system's strengths and every one of its limits.

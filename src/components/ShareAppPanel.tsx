@@ -75,7 +75,7 @@ export function ShareAppPanel({ onClose }: { onClose: () => void }) {
   async function shareLink() {
     try {
       await navigator.share({
-        title: 'TODA SafeRide',
+        title: 'TODA Ride Mobility',
         text: 'Book a tricycle, or record the one you are already in.',
         url,
       })
@@ -89,7 +89,7 @@ export function ShareAppPanel({ onClose }: { onClose: () => void }) {
       <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h2 className="text-base font-bold text-navy-900">Get TODA SafeRide</h2>
+            <h2 className="text-base font-bold text-navy-900">Get TODA Ride Mobility</h2>
             <p className="mt-0.5 text-xs text-slate-500">
               Point a phone camera at the code. It clears out any old copy and opens the app.
             </p>

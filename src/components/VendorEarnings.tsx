@@ -102,7 +102,7 @@ export function VendorEarnings({ vendor, orders, rides }: { vendor: Pharmacy; or
       </div>
       <p className="text-[11px] text-slate-400">
         Sales is the food/goods amount of every delivered order; the ₱{perOrderFee} per-order platform fee is what you owe
-        TODASafeRide (billed monthly below). Delivery and service fees go to the driver and platform through the
+        TODA Ride Mobility (billed monthly below). Delivery and service fees go to the driver and platform through the
         customer, not through you.
       </p>
 

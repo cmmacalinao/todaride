@@ -556,7 +556,7 @@ function SubscriptionSection({
     <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <h2 className="mb-1 text-sm font-semibold text-slate-700">My Subscription</h2>
       <p className="mb-3 text-xs text-slate-500">
-        TODASafeRide's Level 1 "SaaS Partner" plan — a separate billing relationship with TODASafeRide HQ, not part of
+        TODA Ride Mobility's Level 1 "SaaS Partner" plan — a separate billing relationship with TODA Ride Mobility HQ, not part of
         your members' per-ride commission above.
       </p>
       <div className="space-y-1.5 rounded-lg bg-slate-50 p-3 text-xs">
@@ -574,7 +574,7 @@ function SubscriptionSection({
         </div>
         <div className="flex items-center justify-between">
           <span className="text-slate-500">Reports to</span>
-          <span className="font-medium text-slate-700">{operator ? operator.name : 'TODASafeRide HQ (direct)'}</span>
+          <span className="font-medium text-slate-700">{operator ? operator.name : 'TODA Ride Mobility HQ (direct)'}</span>
         </div>
         <div className="flex items-center justify-between border-t border-slate-200 pt-1.5">
           <span className="font-medium text-slate-600">Estimated this month</span>

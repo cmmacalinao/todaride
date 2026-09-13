@@ -557,7 +557,7 @@ function TermsModal({ onClose }: { onClose: () => void }) {
         <h2 className="text-sm font-bold text-navy-900">Terms and Conditions</h2>
         <div className="mt-3 space-y-2.5 text-[11px] leading-relaxed text-slate-600">
           <p>
-            <span className="font-semibold text-slate-700">This is a prototype.</span> TODA SafeRide is being
+            <span className="font-semibold text-slate-700">This is a prototype.</span> TODA Ride Mobility is being
             demonstrated with simulated data. Rides, payments, orders and alerts shown here are not real, and no
             money changes hands.
           </p>

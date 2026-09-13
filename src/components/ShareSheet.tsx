@@ -12,12 +12,12 @@ import { useState } from 'react'
 export function ShareSheet({ title, url, onClose }: { title: string; url: string; onClose: () => void }) {
   const [copied, setCopied] = useState(false)
   const encodedUrl = encodeURIComponent(url)
-  const encodedText = encodeURIComponent(`${title} — order on TODA SafeRide: ${url}`)
+  const encodedText = encodeURIComponent(`${title} — order on TODA Ride Mobility: ${url}`)
   // lib.dom types navigator.share as always present; browsers disagree, so
   // this has to be a runtime check rather than a type-level one.
   const canNativeShare = typeof navigator.share === 'function'
 
-  const caption = `${title} — order on TODA SafeRide: ${url}`
+  const caption = `${title} — order on TODA Ride Mobility: ${url}`
 
   // TikTok has no "share a link" endpoint — a post there is a video with a
   // caption — so the closest thing to a direct hand-off is the caption

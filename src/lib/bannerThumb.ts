@@ -242,7 +242,7 @@ export async function renderBannerThumbnail(pharmacy: Pharmacy): Promise<string 
   // The service line, small, bottom-left of the text column.
   ctx.font = '600 26px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
   ctx.fillStyle = 'rgba(255,255,255,0.85)'
-  ctx.fillText(`${accent.icon} ${accent.label} · TODA SafeRide Food Express`, textX, H / 2 + 104)
+  ctx.fillText(`${accent.icon} ${accent.label} · TODA Ride Mobility Food Express`, textX, H / 2 + 104)
 
   return canvas.toDataURL('image/jpeg', 0.72)
 }

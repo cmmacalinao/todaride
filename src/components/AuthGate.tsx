@@ -984,8 +984,8 @@ function OperatorRegisterForm({
     <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <h2 className="text-sm font-semibold text-slate-700">Apply as an Authorized Operator</h2>
       <p className="text-xs text-slate-500">
-        For established TODA cooperatives and organizations ready to manage multiple TODAs under TODASafeRide's
-        Level-2 Authorized Operator program.
+        For established TODA cooperatives and organizations ready to manage multiple TODAs under TODA Ride
+        Mobility's Level-2 Authorized Operator program.
       </p>
 
       {inviteFranchise && (
@@ -1219,7 +1219,7 @@ function FranchiseRegisterForm({ onSubmitted }: { onSubmitted: () => void }) {
       <h2 className="text-sm font-semibold text-slate-700">Apply for a Franchise territory</h2>
       <p className="text-xs text-slate-500">
         For transportation entrepreneurs, TODA cooperatives, and business investors ready to build and operate a
-        TODASafeRide territory.
+        TODA Ride Mobility territory.
       </p>
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-500">Franchise name</label>

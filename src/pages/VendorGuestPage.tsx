@@ -30,7 +30,7 @@ export function VendorGuestPage() {
           onClick={() => navigate('/')}
           className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
         >
-          Open TODA SafeRide
+          Open TODA Ride Mobility
         </button>
       </div>
     )
@@ -64,7 +64,7 @@ export function VendorGuestPage() {
                 🛵 Order from {pharmacy.name} — register or log in
               </button>
               <p className="mt-1.5 text-center text-[11px] text-slate-500">
-                Free account, takes a minute. Cooked fresh and delivered by a TODA SafeRide rider — you approve the final
+                Free account, takes a minute. Cooked fresh and delivered by a TODA Ride Mobility rider — you approve the final
                 bill before anything is prepared.
               </p>
             </>

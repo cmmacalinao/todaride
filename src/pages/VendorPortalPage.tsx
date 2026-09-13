@@ -552,7 +552,7 @@ export function VendorPortalPage() {
               className="flex w-full items-center justify-between rounded-xl border border-brand-200 bg-brand-50 p-4 text-left shadow-sm transition hover:bg-brand-100"
             >
               <span>
-                <span className="block text-sm font-semibold text-brand-800">🛺 Book a TODA SafeRide delivery</span>
+                <span className="block text-sm font-semibold text-brand-800">🛺 Book a TODA Ride Mobility delivery</span>
                 <span className="block text-[11px] text-brand-700/80">Send a driver for a phone or walk-in order</span>
               </span>
               <span aria-hidden className="shrink-0 text-brand-400">
@@ -798,7 +798,7 @@ function ReadyOrderCard({
             onClick={() => onProcess(preferredDriverId)}
             className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
           >
-            🛺 Book TODA SafeRide rider now
+            🛺 Book TODA Ride Mobility rider now
           </button>
         </div>
       )}

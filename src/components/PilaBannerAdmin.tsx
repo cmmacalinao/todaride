@@ -22,7 +22,7 @@ export function PilaBannerAdmin() {
 
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
         <p className="mb-1 text-[11px] font-semibold text-slate-600">
-          Currently showing {pilaBannerDataUrl ? '— your uploaded artwork' : '— the built-in TODA SafeRide banner'}
+          Currently showing {pilaBannerDataUrl ? '— your uploaded artwork' : '— the built-in TODA Ride Mobility banner'}
         </p>
         <img src={inUse} alt="Sakay sa Terminal banner" className="w-full rounded-lg border border-slate-200" />
       </div>

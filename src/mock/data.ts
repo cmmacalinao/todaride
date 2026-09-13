@@ -16,6 +16,7 @@ import type {
   ExpenseCategory,
   GeoCoords,
   Landmark,
+  LandmarkCategory,
   MapBoundary,
   IncomePromotionSettings,
   Franchise,
@@ -499,6 +500,50 @@ export function getClsuPlaceGps(place: string): GeoCoords {
   const jitterLng = (((hash >>> 10) % 1000) / 1000 - 0.5) * 0.006
   return { lat: CLSU_GPS.lat + jitterLat, lng: CLSU_GPS.lng + jitterLng }
 }
+
+// Generated from CLSU_LOCATION_GROUPS rather than typed out a second time —
+// every campus place becomes its own searchable Landmark (see
+// lib/landmarkSearch.ts), reachable by typing "library" or "food park"
+// directly instead of only through the barangay address-picker's CLSU
+// dropdown. Main Gate/Second Gate/Gates are skipped: landmark-2 and
+// landmark-8 below already cover the campus's two gates under clearer,
+// hand-written names, so generating a third/fourth copy of the same point
+// would just be duplicate search results.
+const CLSU_LANDMARK_SKIP = new Set(['Main Gate', 'Second Gate', 'Gates'])
+
+const CLSU_GROUP_CATEGORY: Record<string, LandmarkCategory> = {
+  'Academic Buildings': 'school',
+  'Student Facilities': 'school',
+  'Food & Commercial': 'market',
+  'Parks & Recreation': 'other',
+  'University Administration': 'government',
+  Research: 'school',
+  Agriculture: 'school',
+  'Specialized CLSU Centers': 'school',
+  Other: 'other',
+}
+
+function clsuLandmarkId(place: string): string {
+  return `landmark-clsu-${place
+    .toLowerCase()
+    .replace(/[()]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-+|-+$)/g, '')}`
+}
+
+const CLSU_CAMPUS_LANDMARKS: Landmark[] = CLSU_LOCATION_GROUPS.flatMap((group) =>
+  group.places
+    .filter((place) => !CLSU_LANDMARK_SKIP.has(place))
+    .map((place) => ({
+      id: clsuLandmarkId(place),
+      name: `${place}, CLSU`,
+      aliases: [place.toLowerCase()],
+      category: place === 'Infirmary' ? 'hospital' : CLSU_GROUP_CATEGORY[group.group],
+      city: DEFAULT_BOOKING_CITY,
+      gps: getClsuPlaceGps(place),
+      todaOrgId: null,
+    })),
+)
 
 // All 89 official barangays of Cabanatuan City, Nueva Ecija — cross-checked
 // against PhilAtlas (philatlas.com/luzon/r03/nueva-ecija/cabanatuan.html) and
@@ -2329,6 +2374,7 @@ export const MOCK_LANDMARKS: Landmark[] = [
     gps: { lat: 15.5401, lng: 121.0795 },
     todaOrgId: null,
   },
+  ...CLSU_CAMPUS_LANDMARKS,
 ]
 
 // The CLSU campus as OpenStreetMap has it (way 794431227, ODbL), thinned

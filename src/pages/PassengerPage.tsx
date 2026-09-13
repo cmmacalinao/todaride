@@ -34,6 +34,7 @@ import {
 import { getCurrentGeoPosition } from '../lib/geo'
 import { isInAppBrowser, openInBrowserHint } from '../lib/inAppBrowser'
 import { isWithinRetentionDays } from '../lib/tracking'
+import { SAVED_LOCATION_ICONS, SAVED_LOCATION_LABELS, savedLocationButtonLabel } from '../lib/savedLocations'
 import {
   createCustomLocation,
   resolvePhAddress,
@@ -71,20 +72,6 @@ import type {
 } from '../types'
 
 const MAX_RIDE_PASSENGERS = 4
-const SAVED_LOCATION_LABELS: SavedLocationLabel[] = ['Home', 'School', 'Work', 'Favorite']
-
-const SAVED_LOCATION_ICONS: Record<SavedLocationLabel, string> = {
-  Home: '🏠',
-  School: '🏫',
-  Work: '💼',
-  Favorite: '⭐',
-}
-// Home/School/Work are single-slot (saving one replaces the old one), so
-// their button just names the slot. Favorite accumulates instead — the "+"
-// makes clear that tapping it adds another rather than replacing anything.
-function savedLocationButtonLabel(label: SavedLocationLabel): string {
-  return label === 'Favorite' ? `+ ${SAVED_LOCATION_ICONS[label]} ${label}` : `${SAVED_LOCATION_ICONS[label]} ${label}`
-}
 
 export function PassengerPage() {
   const {

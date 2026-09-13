@@ -451,7 +451,7 @@ export function VendorMenuBooking({
               narrows this same list to a name/place/dish match. */}
           {shownVendors.length > 0 && (
             <div>
-              <p className="mb-1.5 flex items-center gap-1 text-sm font-bold text-slate-700">🌟 Vendors</p>
+              <p className="mb-1.5 flex items-center gap-1 text-sm font-bold text-slate-700">🌟 Stores</p>
               {/* One line per store — see VendorListRow. Open stores first,
                   then by name, so the ones a customer can actually order
                   from are at the top. */}

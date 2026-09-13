@@ -1368,7 +1368,7 @@ export function VendorStorefront({
                       onClick={() => onQtyChange!(item.id, 1)}
                       className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold text-white ${accent.solid} ${accent.solidHover}`}
                     >
-                      + Add
+                      🛒 Add
                     </button>
                   )
                 ) : (

@@ -335,7 +335,7 @@ function TodaOrgRegisterForm({
         <div className="rounded-lg border border-brand-200 bg-brand-50 p-3 text-xs text-brand-800">
           <p className="font-medium">Joining {inviteOperator.name}</p>
           <p className="mt-0.5">
-            Registering through this link automatically links your TODA under {inviteOperator.name} (TaaS Level 2)
+            Registering through this link automatically links your TODA under {inviteOperator.name} (Level 2)
             once the App Admin approves it — no separate assignment step needed.
           </p>
         </div>

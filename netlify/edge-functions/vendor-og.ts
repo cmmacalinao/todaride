@@ -202,7 +202,7 @@ export default async function handler(request: Request, context: Context) {
     `<title>${escapeHtml(title)}</title>`,
     `<meta name="description" content="${escapeHtml(description)}" />`,
     `<meta property="og:type" content="${ogType}" />`,
-    `<meta property="og:site_name" content="TODA SafeRide" />`,
+    `<meta property="og:site_name" content="TODA Ride Mobility" />`,
     `<meta property="og:title" content="${escapeHtml(title)}" />`,
     `<meta property="og:description" content="${escapeHtml(description)}" />`,
     `<meta property="og:url" content="${escapeHtml(pageUrl)}" />`,

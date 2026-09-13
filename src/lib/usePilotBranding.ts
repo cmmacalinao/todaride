@@ -67,5 +67,5 @@ export function usePilotBranding(): PilotBrandingResult {
   if (recognizedDriverOrgName) return { name: recognizedDriverOrgName, specific: true, showNearYouTag: false }
   if (nearbyOrgName) return { name: nearbyOrgName, specific: true, showNearYouTag: true }
   if (pilotTodaName) return { name: pilotTodaName, specific: true, showNearYouTag: true }
-  return { name: 'TODA', specific: false, showNearYouTag: false }
+  return { name: 'TODA Ride Mobility', specific: false, showNearYouTag: false }
 }

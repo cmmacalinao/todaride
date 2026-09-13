@@ -202,7 +202,7 @@ export function LegacyAuthGate() {
           >
             <img
             src="/logo.webp"
-            alt="TODA SafeRide"
+            alt="TODA Ride Mobility"
             className={isBusinessRole ? 'h-28 w-auto object-contain' : 'h-16 w-auto object-contain'}
           />
           </button>
@@ -874,7 +874,7 @@ function OperatorAuth() {
       ) : (
         <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
           <p className="text-xs text-slate-500">
-            TaaS Level 2 — for TODA cooperatives and organizations authorized to manage other TODAs. No account yet?
+            Level 2 — for TODA cooperatives and organizations authorized to manage other TODAs. No account yet?
             Switch to Sign up.
           </p>
           <div>
@@ -992,8 +992,8 @@ function OperatorRegisterForm({
         <div className="rounded-lg border border-brand-200 bg-brand-50 p-3 text-xs text-brand-800">
           <p className="font-medium">Joining {inviteFranchise.name}</p>
           <p className="mt-0.5">
-            Registering through this link automatically links your Operator under {inviteFranchise.name} (TaaS
-            Level 3) once the App Admin approves it — no separate assignment step needed.
+            Registering through this link automatically links your Operator under {inviteFranchise.name} (Level 3)
+            once the App Admin approves it — no separate assignment step needed.
           </p>
         </div>
       )}
@@ -1117,7 +1117,7 @@ function FranchiseAuth() {
       ) : (
         <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
           <p className="text-xs text-slate-500">
-            TaaS Level 3 — the right to operate a TODASafeRide business within an approved territory. No account yet?
+            Level 3 — the right to operate a TODA Ride Mobility business within an approved territory. No account yet?
             Switch to Sign up.
           </p>
           <div>

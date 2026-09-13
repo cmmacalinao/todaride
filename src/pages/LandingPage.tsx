@@ -92,6 +92,9 @@ export function LandingPage() {
               <PilotBranding name={pilotBranding.name} />
             </div>
           )}
+          <p className="mt-2 text-center text-xs font-medium italic text-white/70">
+            Keeping Your Family Moving Safely
+          </p>
 
           {/* One user name and password for everyone — the form works out
               whether you're a rider, parent, driver, TODA officer, partner or

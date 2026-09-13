@@ -748,7 +748,7 @@ export function MedsBooking({
       {askForPriceShortcut}
 
       <p className="rounded-lg bg-amber-50 p-2.5 text-[11px] text-amber-800">
-        TODARIDE MEDS is a medicine delivery service and does not provide medical diagnosis or treatment advice. For
+        MOBILITY MEDS is a medicine delivery service and does not provide medical diagnosis or treatment advice. For
         medical emergencies, contact appropriate emergency medical services or go to the nearest emergency facility.
       </p>
     </div>

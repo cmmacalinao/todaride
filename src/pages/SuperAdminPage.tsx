@@ -91,7 +91,7 @@ export function SuperAdminPage() {
         <div className="min-w-0">
           <h1 className="text-sm font-semibold text-slate-700">Super Admin</h1>
           <p className="mt-1 text-xs text-slate-500">
-            Extra-gated areas beyond day-to-day Admin operations, plus read-only oversight of any Level-1/2/3 TaaS
+            Extra-gated areas beyond day-to-day Admin operations, plus read-only oversight of any Level-1/2/3
             partner's own dashboard.
           </p>
         </div>

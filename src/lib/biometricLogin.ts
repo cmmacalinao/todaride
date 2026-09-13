@@ -84,7 +84,7 @@ export async function enrollBiometric(
     const credential = (await navigator.credentials.create({
       publicKey: {
         challenge: randomChallenge(),
-        rp: { name: 'TODA SafeRide' },
+        rp: { name: 'TODA Ride Mobility' },
         user: {
           id: encodeUtf8(`${account.role}:${account.id}`),
           name: label,

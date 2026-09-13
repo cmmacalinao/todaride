@@ -659,9 +659,9 @@ export function AdminPage() {
       <AdminInsights />
 
       <section>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">TaaS partners</h2>
+        <h2 className="mb-2 text-sm font-semibold text-slate-700">Subscription partners</h2>
         <p className="mb-3 text-xs text-slate-500">
-          SaaS Partner → Authorized Operator → Franchise, per the TODASafeRide-as-a-Service roadmap. Estimated MRR
+          SaaS Partner → Authorized Operator → Franchise, per the TODA Ride Mobility Level 1/2/3 partner plan. Estimated MRR
           excludes per-booking usage fees and one-time activation/franchise fees.
         </p>
         <div className="grid grid-cols-2 gap-3">
@@ -1120,7 +1120,7 @@ export function AdminPage() {
       {adminTab === 'partners' && (
       <>
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-1 text-sm font-semibold text-slate-700">TaaS Applications</h2>
+        <h2 className="mb-1 text-sm font-semibold text-slate-700">Partner Applications</h2>
         <p className="mb-3 text-xs text-slate-500">
           Share a direct application link with a prospective Operator or Franchisee — it opens straight to the
           sign-up form instead of the login form. Once approved, the same account logs in from that org's own

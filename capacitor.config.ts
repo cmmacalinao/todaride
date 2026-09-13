@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.todasaferide.app',
-  appName: 'TodaSafeRide',
+  appName: 'TODA Ride Mobility',
   webDir: 'dist'
 };
 

@@ -74,7 +74,7 @@ export class AppErrorBoundary extends Component<Props, State> {
 
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-white px-6 text-center">
-        <img src="/logo.webp" alt="TODA SafeRide" className="w-36 max-w-[60vw]" />
+        <img src="/logo.webp" alt="TODA Ride Mobility" className="w-36 max-w-[60vw]" />
         {this.state.reloading ? (
           <p className="text-sm text-slate-600">Kinukuha ang pinakabagong bersyon…</p>
         ) : (

@@ -16,7 +16,7 @@ import { THEME_OPTIONS, useTheme } from '../context/ThemeContext'
 // Its menu is deliberately short: everything a logged-out visitor can
 // legitimately reach. Emergency numbers are in there on purpose — needing them
 // is not a reason to have an account.
-export function PublicHeader({ title = 'TODA SafeRide' }: { title?: string }) {
+export function PublicHeader({ title = 'TODA Ride Mobility' }: { title?: string }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { medsEnabled, vendorsEnabled, operators } = useRides()
@@ -93,8 +93,8 @@ export function PublicHeader({ title = 'TODA SafeRide' }: { title?: string }) {
             </button>
           </div>
           {!onLanding && (
-            <Link to="/" aria-label="TODA SafeRide home">
-              <img src="/logo.webp" alt="TODA SafeRide" className="h-11 w-auto shrink-0 object-contain" />
+            <Link to="/" aria-label="TODA Ride Mobility home">
+              <img src="/logo.webp" alt="TODA Ride Mobility" className="h-11 w-auto shrink-0 object-contain" />
             </Link>
           )}
           <span className="min-w-0 truncate text-sm font-semibold text-gold-400">{title}</span>
@@ -124,7 +124,7 @@ export function PublicHeader({ title = 'TODA SafeRide' }: { title?: string }) {
           />
           <div className="fixed inset-y-0 left-0 z-[70] w-72 max-w-[85%] overflow-y-auto bg-white shadow-xl">
             <div className="flex items-center justify-between bg-brand-600 px-4 py-3">
-              <span className="text-sm font-semibold text-gold-400">TODA SafeRide</span>
+              <span className="text-sm font-semibold text-gold-400">TODA Ride Mobility</span>
               <button
                 type="button"
                 onClick={() => setMenuOpen(false)}

@@ -208,10 +208,10 @@ export default defineConfig({
       manifest: {
         // What appears under the icon once it is on a home screen, so it is
         // the name the app is actually known by rather than the internal one.
-        name: 'TODA SafeRide',
-        short_name: 'SafeRide',
+        name: 'TODA Ride Mobility',
+        short_name: 'Ride Mobility',
         description:
-          'Safe Ride, Safe Arrival — on-demand tricycle booking with student safety tracking (TaaS/SaaS model — each TODA, Operator, and Franchise subscribes as its own licensed partner)',
+          'Keeping Your Family Moving Safely — on-demand tricycle booking with student safety tracking (each TODA, Operator, and Franchise subscribes as its own licensed partner)',
         theme_color: '#1e3a8a',
         background_color: '#ffffff',
         display: 'standalone',

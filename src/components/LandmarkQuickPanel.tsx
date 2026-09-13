@@ -21,12 +21,13 @@ const LANDMARK_CATEGORY_LABELS: Record<LandmarkCategory, string> = {
 const NUEVA_ECIJA_CITIES = Object.keys(PH_ADDRESS_TREE['Nueva Ecija'] ?? {})
 
 // A TODA admin's own way to grow the landmark search beyond the seeded set
-// (see mock/data.ts) — same tap-the-map placement TerminalQuickPanel uses,
-// simplified: no drag-to-move or right-click menu, since a landmark search
-// result cares about name/aliases/category far more than nudging a pin a
-// few metres.
+// (see mock/data.ts) — same tap-the-map placement TerminalQuickPanel uses.
+// Existing pins are draggable too (see draggableIds below): a landmark
+// dropped a street off, or a seeded one whose real-world position turns out
+// slightly wrong, gets nudged into place directly rather than deleted and
+// re-added under a new id.
 export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
-  const { landmarks, addLandmark, removeLandmark } = useRides()
+  const { landmarks, addLandmark, removeLandmark, setLandmarkGps } = useRides()
   const [name, setName] = useState('')
   const [aliasesText, setAliasesText] = useState('')
   const [category, setCategory] = useState<LandmarkCategory>('other')
@@ -36,6 +37,7 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState('')
   const [locating, setLocating] = useState(false)
   const [justAdded, setJustAdded] = useState('')
+  const [justMoved, setJustMoved] = useState('')
   const [confirmingRemoveId, setConfirmingRemoveId] = useState<string | null>(null)
 
   const pending =
@@ -103,6 +105,7 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
       todaOrgId: null,
     })
     setJustAdded(name.trim())
+    setJustMoved('')
     setName('')
     setAliasesText('')
     setLat('')
@@ -132,7 +135,10 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
         </select>
         <select
           value={city}
-          onChange={(e) => setCity(e.target.value)}
+          onChange={(e) => {
+            setCity(e.target.value)
+            setJustMoved('')
+          }}
           className="max-w-[12rem] rounded-lg border border-slate-300 px-2 py-1 text-[11px]"
         >
           {NUEVA_ECIJA_CITIES.map((c) => (
@@ -188,10 +194,26 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
       </div>
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         <p className="border-b border-slate-100 px-2 py-1 text-[11px] text-slate-500">
-          {pending ? '📍 Tap again to move it' : '📍 Tap the map where the landmark stands'} · showing {city}'s
-          landmarks only
+          {pending ? '📍 Tap again to move it, or drag the green pin' : '📍 Tap the map where the landmark stands'}
+          {cityLandmarks.length > 0 && ' · drag a pin to nudge it'} · showing {city}'s landmarks only
         </p>
-        <RealLiveMap points={mapPoints} onMapClick={setFromGps} />
+        <RealLiveMap
+          points={mapPoints}
+          onMapClick={setFromGps}
+          draggableIds={[...cityLandmarks.map((l) => l.id), ...(pending ? ['new-landmark'] : [])]}
+          onPointDragEnd={(id, gps) => {
+            if (id === 'new-landmark') {
+              setFromGps(gps)
+              return
+            }
+            // Dropping the pin is the save — dispatch fires immediately, the
+            // same way a drag already saves a terminal's position, so there
+            // is nothing further for the admin to click.
+            setLandmarkGps(id, gps)
+            setJustMoved(cityLandmarks.find((l) => l.id === id)?.name ?? '')
+            setJustAdded('')
+          }}
+        />
       </div>
 
       {cityLandmarks.length > 0 && (
@@ -255,6 +277,8 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
         <p className="text-[11px] font-medium text-brand-700">
           ✓ Added {justAdded} — searchable in {city} right away. Add another, or Close when you are done.
         </p>
+      ) : justMoved ? (
+        <p className="text-[11px] font-medium text-brand-700">✓ Saved {justMoved}'s new position.</p>
       ) : (
         <p className="text-[11px] text-slate-500">
           {landmarks.length} landmark{landmarks.length === 1 ? '' : 's'} total · {cityLandmarks.length} in {city}

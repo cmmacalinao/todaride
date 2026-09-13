@@ -73,6 +73,9 @@ export function LandingPage() {
               the screen rather than sitting on a patch cut out of it. The
               ring is what still separates it from the stripe texture behind
               it. */}
+          <div className="rounded-2xl border-2 border-white/25 p-3">
+            <img src="/logo.png" alt="TODA Ride Mobility" className="h-20 w-auto object-contain" />
+          </div>
           {/* The partnership artwork, in place of the old logo card. Seeded
               with the Rotary banner, its navy field cut away so it sits on the
               cover gradient itself; replaceable or removable by the Operator

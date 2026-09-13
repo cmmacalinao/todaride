@@ -220,6 +220,7 @@ function FitBounds({
   fitPointIds,
   followAll,
   centerOn,
+  unlocked,
 }: {
   points: MapPoint[]
   refitSignal?: string
@@ -228,6 +229,12 @@ function FitBounds({
   // Where the person holding the phone is. Given, the map re-centres on it
   // whenever the zoom changes.
   centerOn?: GeoCoords | null
+  // The palm icon (see PanLockControl) — tapped specifically to take the
+  // view somewhere the auto-frame wasn't putting it. Treated the same as an
+  // actual drag from the moment it's tapped, not only once a drag follows
+  // it: without this, unlocking and then just zooming (no pan yet) still
+  // got recentred once, which read as the unlock button not working.
+  unlocked?: boolean
 }) {
   const map = useMap()
   const userMovedRef = useRef(false)
@@ -264,6 +271,23 @@ function FitBounds({
     userMovedRef.current = false
     userPannedRef.current = false
   }, [refitSignal])
+
+  // Tapping the palm icon is asking for the same thing a drag asks for —
+  // the view is the reader's from here — so it counts immediately, before
+  // any actual pan or zoom follows it. Skips the initial mount the same way
+  // the refitSignal effect above does: the map starts locked everywhere this
+  // matters, so there is nothing to record yet.
+  const firstUnlockRef = useRef(true)
+  useEffect(() => {
+    if (firstUnlockRef.current) {
+      firstUnlockRef.current = false
+      return
+    }
+    if (unlocked) {
+      userMovedRef.current = true
+      userPannedRef.current = true
+    }
+  }, [unlocked])
 
   // Falls back to every point when the named ones are not on the map (yet) —
   // an empty frame is worse than a wide one.
@@ -482,7 +506,14 @@ function OsmLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, on
       ))}
       <FreezeView frozen={frozen} />
       {panLock && <PanLockControl unlocked={panLock.unlocked} onToggle={panLock.onToggle} />}
-      <FitBounds points={points} refitSignal={refitSignal} fitPointIds={fitPointIds} followAll={followAll} centerOn={centerOn} />
+      <FitBounds
+        points={points}
+        refitSignal={refitSignal}
+        fitPointIds={fitPointIds}
+        followAll={followAll}
+        centerOn={centerOn}
+        unlocked={panLock?.unlocked}
+      />
     </MapContainer>
   )
 }

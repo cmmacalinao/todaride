@@ -419,7 +419,7 @@ export function NavBar() {
                   ? 'Driver'
                   : isPharmacyApp
                     ? isVendorApp
-                      ? '🍽️ Food/Vendor Portal'
+                      ? '🍽️ Food Merchant Portal'
                       : '🏪 Pharmacy/Store Portal'
                     : isOperatorApp
                       ? '🏢 Operator Portal'

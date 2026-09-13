@@ -19,6 +19,9 @@ export function DestinationSearch({
   near,
   onSelect,
   placeholder = 'Search a landmark — palengke, simbahan, CLSU…',
+  className,
+  inputClassName = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm',
+  autoFocus = false,
 }: {
   // Scopes results to the city already chosen above this box (see the City
   // row in PassengerPage) — a search is "palengke in this city", not a
@@ -31,6 +34,12 @@ export function DestinationSearch({
   near?: GeoCoords | null
   onSelect: (landmark: Landmark) => void
   placeholder?: string
+  // Lets a caller embed this as the destination bar itself (see
+  // PassengerPage's Where to) rather than the plain boxed field this
+  // defaults to.
+  className?: string
+  inputClassName?: string
+  autoFocus?: boolean
 }) {
   const { landmarks } = useRides()
   const [query, setQuery] = useState('')
@@ -38,12 +47,13 @@ export function DestinationSearch({
   const matches = searchLandmarks(query, scoped, near ?? null)
 
   return (
-    <div>
+    <div className={className}>
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        autoFocus={autoFocus}
+        className={inputClassName}
       />
       {query.trim() &&
         (matches.length > 0 ? (

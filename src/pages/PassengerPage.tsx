@@ -787,10 +787,12 @@ export function PassengerPage() {
   // the address form with.
   function handlePickupLandmark(landmark: Landmark) {
     handlePinPickup(createCustomLocation(landmark.name, landmark.gps), null)
+    setOpenEnd(null)
   }
 
   function handleDropoffLandmark(landmark: Landmark) {
     handlePinDropoff(createCustomLocation(landmark.name, landmark.gps), null)
+    setOpenEnd(null)
   }
 
   const myRides = rides.filter((r) => r.passengerId === passenger.id)
@@ -1998,6 +2000,28 @@ export function PassengerPage() {
                 is most of the time: booking for yourself never shows the
                 row above this one. */}
             <div className={guestRider.bookingFor === 'other' ? 'mt-2 flex items-stretch gap-1.5' : 'mt-1.5 flex items-stretch gap-1.5'}>
+            {openEnd === 'dropoff' ? (
+              // Tapping Where to used to only expand a panel below with its
+              // own separate search box a scroll away — typing directly into
+              // the bar itself, the way Grab/Google Maps do, saves that step
+              // and is where a passenger already expects to type.
+              <div
+                className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg bg-dest-fill px-3 py-1.5 shadow-sm ${
+                  destinationOnly ? '' : 'pr-14'
+                }`}
+              >
+                <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-dest-dot" />
+                <DestinationSearch
+                  city={cityScope}
+                  near={pickupGps ?? pickup.gps ?? null}
+                  onSelect={handleDropoffLandmark}
+                  autoFocus
+                  placeholder={isErrand ? 'Where should it go?' : 'Where to?'}
+                  className="min-w-0 flex-1"
+                  inputClassName="w-full min-w-0 bg-transparent text-sm font-semibold text-dest-text placeholder:font-normal placeholder:text-dest-subtext/70 focus:outline-none"
+                />
+              </div>
+            ) : (
             <button
               type="button"
               onClick={() => openAddressPicker('dropoff')}
@@ -2039,6 +2063,7 @@ export function PassengerPage() {
                 </span>
               </span>
             </button>
+            )}
             {/* Tapping the map has always set the pin and nothing on the form
                 said so, leaving the address dropdowns reading as the only way
                 in — and typing a barangay and a street is far more work than
@@ -2068,8 +2093,11 @@ export function PassengerPage() {
             {quickPlaceChips('dropoff', 'Quick destinations:')}
             {openEnd === 'dropoff' && (
               <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
+                {/* The landmark search itself now lives in the Where to bar
+                    above (see the embedded DestinationSearch branch) — the
+                    City row and address form here are the fallback for
+                    whatever that search doesn't cover. */}
                 {cityRow}
-                <DestinationSearch city={cityScope} near={pickupGps ?? pickup.gps ?? null} onSelect={handleDropoffLandmark} />
                 <BarangayAddressPicker
                   key={`to-${dropoffPickerSeed.key}`}
                   label=""

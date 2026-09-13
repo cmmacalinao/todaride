@@ -107,6 +107,13 @@ export interface RealLiveMapProps {
   // rather than print the same two addresses twice. Defaults to showing it:
   // everywhere else it is the only thing naming what the dots mean.
   hideLegend?: boolean
+  // Swaps the legend from "one row per point" to a fixed, short key instead
+  // — for a caller whose points are all the same kind of thing (every one of
+  // LandmarkQuickPanel's 300+ pins just means "a landmark"), listing each by
+  // name is not a key, it is the whole list again. A trip map's two or three
+  // genuinely different points still want the default one-row-each legend,
+  // so this is opt-in rather than a behaviour change for every caller.
+  legendOverride?: { color: string; label: string }[]
   // A shortcut to the "Sakay sa Terminal" trip-recording screen, offered
   // right on the map a passenger is already looking at while booking one.
   // A callback rather than a route this component navigates to itself: it
@@ -119,6 +126,13 @@ export interface RealLiveMapProps {
   // in the form around it (VendorLocationPicker's "Pin my GPS location").
   // A node rather than a callback so the caller owns its label and busy state.
   toolbarAction?: ReactNode
+  // A caller-supplied control floated over the map itself, just right of the
+  // library's own +/- zoom buttons (top-left) — for something worth reaching
+  // without leaving full screen (LandmarkQuickPanel's city switcher). Shown
+  // only while full screen: in the normal view the same control already has
+  // room in the form above the map, and stacking both would just duplicate
+  // it right next to zoom buttons that are harder to reach on a small map.
+  cityPicker?: ReactNode
   // Starts unlocked rather than skipping the lock: drag and the zoom buttons
   // work from the first render, but the palm icon stays on screen so it can
   // still be locked back down deliberately. Set on the two trip-tracking
@@ -152,6 +166,18 @@ export interface RealLiveMapProps {
   // nobody is going back to; the tricycle and the destination are the pair
   // that matters. Defaults to framing everything.
   fitPointIds?: string[]
+  // Overrides how close a *single*-point fit (fitPointIds naming exactly one
+  // marker, or a lone point on the map) zooms in — the map's own default
+  // (15) is tuned for glancing at a pickup/destination pair, looser than an
+  // admin actually wants when confirming one exact pin's placement.
+  singlePointZoom?: number
+  // Skips exactly the refit that would otherwise fire the moment this
+  // renders true — e.g. deleting the one point fitPointIds was framing, which
+  // would otherwise resolve to no match and fall back to fitting every point
+  // on the map, snapping a close-up view back out to the whole city. Meant
+  // as a one-render pulse (the caller flips it back off right after), not a
+  // standing "never refit" switch.
+  holdFit?: boolean
   // Holds the frame still: no panning, no zooming, no stray drag. Used while
   // a trip is underway, when the map is something you glance at to see where
   // you are — not something to go exploring in, and certainly not something
@@ -218,6 +244,8 @@ function FitBounds({
   points,
   refitSignal,
   fitPointIds,
+  singlePointZoom,
+  holdFit,
   followAll,
   centerOn,
   unlocked,
@@ -225,6 +253,14 @@ function FitBounds({
   points: MapPoint[]
   refitSignal?: string
   fitPointIds?: string[]
+  // Overrides how close a *single*-point fit (fitPointIds naming exactly one
+  // marker, or a lone point on the map) zooms in — the map's own default
+  // (15) is tuned for glancing at a pickup/destination pair, looser than an
+  // admin actually wants when confirming one exact pin's placement.
+  singlePointZoom?: number
+  // See RealLiveMapProps.holdFit — skips exactly the one refit that would
+  // otherwise fire this render.
+  holdFit?: boolean
   followAll?: boolean
   // Where the person holding the phone is. Given, the map re-centres on it
   // whenever the zoom changes.
@@ -336,9 +372,10 @@ function FitBounds({
   useEffect(() => {
     if (framed.length === 0) return
     if (userMovedRef.current) return
+    if (holdFit) return
     programmaticRef.current = true
     if (framed.length === 1) {
-      map.setView([framed[0].gps.lat, framed[0].gps.lng], 15)
+      map.setView([framed[0].gps.lat, framed[0].gps.lng], singlePointZoom ?? 15)
       return
     }
     const bounds = L.latLngBounds(framed.map((p) => [p.gps.lat, p.gps.lng] as [number, number]))
@@ -446,7 +483,7 @@ function ClickHandler({ onMapClick }: { onMapClick: (gps: GeoCoords) => void }) 
 
 // The free, keyless renderer — OpenStreetMap tiles via Leaflet. Used
 // whenever no Google Maps API key is configured (see RealLiveMap below).
-function OsmLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen, draggableIds, onPointDragEnd, height = '320px', panLock }: RealLiveMapProps & { panLock?: { unlocked: boolean; onToggle: () => void } }) {
+function OsmLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, followAll, centerOn, frozen, draggableIds, onPointDragEnd, height = '320px', panLock }: RealLiveMapProps & { panLock?: { unlocked: boolean; onToggle: () => void } }) {
   const center: [number, number] = [points[0].gps.lat, points[0].gps.lng]
 
   return (
@@ -510,6 +547,8 @@ function OsmLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, on
         points={points}
         refitSignal={refitSignal}
         fitPointIds={fitPointIds}
+        singlePointZoom={singlePointZoom}
+        holdFit={holdFit}
         followAll={followAll}
         centerOn={centerOn}
         unlocked={panLock?.unlocked}
@@ -620,7 +659,7 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, alwaysInteractive = false, height, nav, onScanQr, toolbarAction }: RealLiveMapProps) {
+export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker }: RealLiveMapProps) {
   // If the Google script fails to load (bad key, network block, CSP), fall
   // back to the OSM/Leaflet canvas instead of showing an empty map.
   const [googleFailed, setGoogleFailed] = useState(false)
@@ -745,7 +784,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
           wants the whole phone. The names are off by default because on a
           small map the pills cover the roads they are labelling; tapping
           shows them. */}
-      <div className="flex items-center gap-1 border-b border-slate-200 bg-white px-2 py-1">
+      <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 bg-white px-2 py-1 text-[11px]">
         <button
           type="button"
           onClick={() => setFullscreen((v) => !v)}
@@ -753,7 +792,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
         >
           {fullscreen ? '✕ Close' : '⛶ Full screen'}
         </button>
-        {!hideLegend && legendPoints.length > 0 && (
+        {!hideLegend && (legendOverride ? legendOverride.length > 0 : legendPoints.length > 0) && (
           <button
             type="button"
             onClick={() => setShowLabels((v) => !v)}
@@ -798,14 +837,21 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
           the key answered "what colour is this" while the map was asking
           "what is that little blue tricycle", and the reader had to translate
           between the two. */}
-      {showLabels && !hideLegend && legendPoints.length > 0 && (
+      {showLabels && !hideLegend && (legendOverride ? legendOverride.length > 0 : legendPoints.length > 0) && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-500">
-          {legendPoints.map((p) => (
-            <span key={p.id} className="flex items-center gap-1.5 truncate">
-              <MarkerArt point={p} />
-              {p.label}
-            </span>
-          ))}
+          {legendOverride
+            ? legendOverride.map((entry) => (
+                <span key={entry.label} className="flex items-center gap-1.5 truncate">
+                  <MarkerArt point={{ id: entry.label, gps: { lat: 0, lng: 0 }, color: entry.color, label: entry.label }} />
+                  {entry.label}
+                </span>
+              ))
+            : legendPoints.map((p) => (
+                <span key={p.id} className="flex items-center gap-1.5 truncate">
+                  <MarkerArt point={p} />
+                  {p.label}
+                </span>
+              ))}
         </div>
       )}
       {/* The map and anything drawn over it. Relative so the overlays below
@@ -835,6 +881,8 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
               onPointClick={onPointClick}
               refitSignal={refitSignal}
               fitPointIds={fitPointIds}
+              singlePointZoom={singlePointZoom}
+              holdFit={holdFit}
               followAll={followAll}
               centerOn={centerOn}
               frozen={locked}
@@ -886,6 +934,8 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
           onPointClick={onPointClick}
           refitSignal={refitSignal}
           fitPointIds={fitPointIds}
+          singlePointZoom={singlePointZoom}
+          holdFit={holdFit}
           followAll={followAll}
           centerOn={centerOn}
           frozen={locked}
@@ -901,6 +951,11 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
           draggableIds={draggableIds}
           onPointDragEnd={onPointDragEnd}
         />
+      )}
+      {/* Right of the +/- zoom buttons the map library draws at its own
+          top-left (~2.5rem wide) — full screen only, see cityPicker above. */}
+      {fullscreen && cityPicker && (
+        <div className="pointer-events-auto absolute left-14 top-2.5 z-[70]">{cityPicker}</div>
       )}
       {/* Clear of the zoom buttons, which sit at the map's own top-left and
           are drawn by the map library above this. 3.25rem was measured

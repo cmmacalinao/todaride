@@ -1,10 +1,10 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { getCurrentGeoPosition } from '../lib/geo'
 import { RealLiveMap, type MapPoint } from './RealLiveMap'
 import { PH_ADDRESS_TREE } from '../mock/data'
 import { LANDMARK_CATEGORY_ICONS } from '../types'
-import type { Landmark, LandmarkCategory } from '../types'
+import type { GeoCoords, Landmark, LandmarkCategory } from '../types'
 
 const LANDMARK_CATEGORY_LABELS: Record<LandmarkCategory, string> = {
   market: 'Market',
@@ -19,6 +19,127 @@ const LANDMARK_CATEGORY_LABELS: Record<LandmarkCategory, string> = {
 }
 
 const NUEVA_ECIJA_CITIES = Object.keys(PH_ADDRESS_TREE['Nueva Ecija'] ?? {})
+
+// The map's own toolbar row, next to Legend — a pared-down Rename/Save
+// changes/Delete for whichever landmark is currently *selected* (single
+// click; see selectLandmark), reachable without scrolling down to the form
+// below the map. Rename opens a small inline text field right in this row
+// rather than a native window.prompt() — Capacitor's WebView (this app
+// ships through it) blocks prompt/alert/confirm outright on most Android
+// builds, so a rename button built on prompt() silently does nothing there.
+// Save changes only does anything once a drag has staged a new position
+// (see stagedGps — dragging the *selected* pin always stages rather than
+// autosaving, so this button is the one place that commits it).
+//
+// key={landmark.id} at the call site remounts this fresh whenever the
+// selected landmark changes, which is what resets the rename draft below
+// instead of a manual effect.
+function LandmarkQuickActions({
+  landmark,
+  stagedGps,
+  confirmingDelete,
+  onRename,
+  onSaveChanges,
+  onDeleteRequest,
+  onDeleteConfirm,
+  onDeleteCancel,
+}: {
+  landmark: Landmark | null
+  stagedGps: GeoCoords | null
+  confirmingDelete: boolean
+  onRename: (l: Landmark, newName: string) => void
+  onSaveChanges: (l: Landmark) => void
+  onDeleteRequest: (l: Landmark) => void
+  onDeleteConfirm: (l: Landmark) => void
+  onDeleteCancel: () => void
+}) {
+  const [renameDraft, setRenameDraft] = useState<string | null>(null)
+  if (!landmark) return null
+  if (confirmingDelete) {
+    return (
+      <span className="flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
+        Delete {landmark.name}?
+        <button
+          type="button"
+          onClick={() => onDeleteConfirm(landmark)}
+          className="rounded bg-amber-600 px-1.5 font-semibold text-white hover:bg-amber-700"
+        >
+          Yes
+        </button>
+        <button type="button" onClick={onDeleteCancel} className="font-medium text-slate-600 hover:text-slate-800">
+          No
+        </button>
+      </span>
+    )
+  }
+  if (renameDraft !== null) {
+    return (
+      <span className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-1.5 py-1">
+        <input
+          autoFocus
+          value={renameDraft}
+          onChange={(e) => setRenameDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && renameDraft.trim()) {
+              onRename(landmark, renameDraft.trim())
+              setRenameDraft(null)
+            } else if (e.key === 'Escape') {
+              setRenameDraft(null)
+            }
+          }}
+          className="w-36 rounded border border-slate-300 px-1.5 py-0.5 text-[11px]"
+        />
+        <button
+          type="button"
+          disabled={!renameDraft.trim()}
+          onClick={() => {
+            onRename(landmark, renameDraft.trim())
+            setRenameDraft(null)
+          }}
+          className="rounded bg-brand-600 px-1.5 py-0.5 text-[11px] font-semibold text-white disabled:opacity-40"
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={() => setRenameDraft(null)}
+          className="text-[11px] font-medium text-slate-500 hover:text-slate-700"
+        >
+          ✕
+        </button>
+      </span>
+    )
+  }
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => setRenameDraft(landmark.name)}
+        title={`Rename ${landmark.name}`}
+        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+      >
+        ✏️ Rename
+      </button>
+      <button
+        type="button"
+        disabled={!stagedGps}
+        onClick={() => onSaveChanges(landmark)}
+        title={stagedGps ? `Save ${landmark.name}'s dragged position` : 'Drag the selected pin to enable'}
+        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+      >
+        💾 Save changes
+      </button>
+      <button
+        type="button"
+        onClick={() => onDeleteRequest(landmark)}
+        title={`Delete ${landmark.name}`}
+        className="rounded-md border border-rose-300 bg-white px-2 py-1 text-[11px] font-semibold text-rose-600 transition hover:bg-rose-50"
+      >
+        🗑️ Delete
+      </button>
+    </div>
+  )
+}
 
 // A TODA admin's own way to grow the landmark search beyond the seeded set
 // (see mock/data.ts) — same tap-the-map placement TerminalQuickPanel uses.
@@ -50,9 +171,24 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
   // separate from editingId so browsing the list doesn't discard whatever
   // the admin is mid-typing in an unrelated Add.
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Full screen gets its own quick-action row (Rename/Save changes/Delete —
+  // see toolbarAction below), since the whole form above is out of view
+  // there. isFullscreen tracks RealLiveMap's own fullscreen toggle so that
+  // row only shows up where the rest of the form is genuinely unreachable —
+  // the same three actions already live in the form for the normal view.
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  // A pin dragged while selected (not editing) doesn't autosave the way an
+  // ordinary drag does elsewhere — there's no Save changes button visible
+  // right at the pin to already imply that, so the drop is held here until
+  // the toolbar's own Save changes commits it.
+  const [stagedDragGps, setStagedDragGps] = useState<GeoCoords | null>(null)
   const [listFilterText, setListFilterText] = useState('')
   const [listFilterCategory, setListFilterCategory] = useState<LandmarkCategory | 'all'>('all')
   const [listSort, setListSort] = useState<'name-asc' | 'name-desc' | 'category'>('name-asc')
+  // Full screen hides the filterable list below the map entirely, so it
+  // gets its own small find-by-name box in the toolbar instead (see
+  // mapSearchMatches and the toolbarAction JSX below).
+  const [mapSearchText, setMapSearchText] = useState('')
   const mapWrapRef = useRef<HTMLDivElement>(null)
   // Tracks the last click's target + time so a second click on the *same*
   // pin/chip within the window reads as a double click — plain onClick/
@@ -62,6 +198,20 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
   // of relying on native dblclick.
   const lastClickRef = useRef<{ id: string; time: number } | null>(null)
   const pendingSelectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Deleting the selected/edited landmark clears selectedId/editingId, which
+  // would otherwise fall back to framing every landmark in the city again —
+  // a jarring zoom-out right when the admin just meant to remove one pin.
+  // Set true by every delete confirm just before that clear, this holds the
+  // map on whatever frame was already on screen for the one render that
+  // follows, then resets itself (see the effect near the bottom of the
+  // component) so a later, deliberate deselection still reverts normally.
+  const suppressRefitOnClearRef = useRef(false)
+  // Consumes the flag above exactly once, right after the render that used
+  // it as the holdFit prop — so a later, deliberate deselection (Cancel
+  // edit, clicking elsewhere) still re-frames the whole city as normal.
+  useEffect(() => {
+    suppressRefitOnClearRef.current = false
+  })
 
   const pending =
     Number.isFinite(Number(lat)) && Number.isFinite(Number(lng)) && lat.trim() !== '' && lng.trim() !== ''
@@ -93,6 +243,21 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
           : a.name.localeCompare(b.name),
     )
 
+  // Full screen has no room for the filterable chip list below the map, so
+  // typing here is the only way to find one of a city's (100+) landmarks
+  // without leaving full screen. Capped at 8 so the dropdown never outgrows
+  // the screen it is floating over.
+  const normalizedMapSearch = mapSearchText.trim().toLowerCase()
+  const mapSearchMatches = normalizedMapSearch
+    ? cityLandmarks
+        .filter(
+          (l) =>
+            l.name.toLowerCase().includes(normalizedMapSearch) ||
+            l.aliases.some((a) => a.toLowerCase().includes(normalizedMapSearch)),
+        )
+        .slice(0, 8)
+    : []
+
   // Snapshot of which pins the map frames itself on, taken once per city
   // rather than recomputed every render — RealLiveMap re-fits whenever the
   // *set* of framed ids changes, so leaving this reactive to `landmarks`
@@ -115,13 +280,20 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
       .filter((l) => l.gps)
       .map((l) => {
         const isEditing = l.id === editingId
+        const isSelected = l.id === selectedId
         // The pin being edited IS the pending position while it's being
         // dragged or typed — a second, separate "new landmark" marker
         // hovering next to the real one would just be confusing for an
         // edit, unlike adding, where there's no existing pin to reuse yet.
-        const gps = isEditing && pending ? pending : l.gps
-        const color = isEditing ? '#0f766e' : l.id === selectedId ? '#2563eb' : '#7c3aed'
-        return { id: l.id, gps, color, label: l.name }
+        // The selected pin's own staged drag (full screen only) works the
+        // same way.
+        const gps = isEditing && pending ? pending : isSelected && stagedDragGps ? stagedDragGps : l.gps
+        const color = isEditing ? '#0f766e' : isSelected ? '#2563eb' : '#7c3aed'
+        // Category alongside the name — the dot's colour is the same purple
+        // for every landmark (unlike a trip map's tricycle/pickup/dropoff
+        // colour coding), so the key needs the category spelled out to mean
+        // anything at this scale (300+ entries in San Jose City alone).
+        return { id: l.id, gps, color, label: `${l.name} · ${LANDMARK_CATEGORY_LABELS[l.category]}` }
       }),
     ...(pending && !editingId
       ? [{ id: 'new-landmark', gps: pending, color: '#0f766e', label: name.trim() || 'New landmark' }]
@@ -155,13 +327,19 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
     mapWrapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  function selectLandmark(l: Landmark) {
+  // Only a click from the list scrolls the map into view — a click on the
+  // map's own pin means the admin is already looking at the map, and
+  // scrolling anywhere from there was the reported bug (it moved the page
+  // toward the list, the opposite of the point of tapping a pin).
+  function selectLandmark(l: Landmark, source: 'list' | 'map') {
     setSelectedId(l.id)
-    scrollToMap()
+    setStagedDragGps(null)
+    if (source === 'list') scrollToMap()
   }
 
-  function startEdit(l: Landmark) {
+  function startEdit(l: Landmark, source: 'list' | 'map') {
     setSelectedId(null)
+    setStagedDragGps(null)
     setEditingId(l.id)
     setName(l.name)
     setAliasesText(l.aliases.join(', '))
@@ -172,7 +350,8 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
     setJustAdded('')
     setJustMoved('')
     setJustEdited('')
-    scrollToMap()
+    setConfirmingRemoveId(null)
+    if (source === 'list') scrollToMap()
   }
 
   function cancelEdit() {
@@ -183,6 +362,22 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
     setLat('')
     setLng('')
     setError('')
+    setConfirmingRemoveId(null)
+  }
+
+  // Shared by the form's own city <select> and the floating one full screen
+  // offers next to the zoom buttons (see cityPicker below) — switching city
+  // clears everything scoped to the one being left behind.
+  function changeCity(next: string) {
+    setCity(next)
+    setJustMoved('')
+    setJustEdited('')
+    setListFilterText('')
+    setListFilterCategory('all')
+    setMapSearchText('')
+    setSelectedId(null)
+    setStagedDragGps(null)
+    cancelEdit()
   }
 
   // Shared by both the list's chip buttons and the map's own pins (see
@@ -190,19 +385,19 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
   // second click on the *same* landmark within the window promotes that to
   // an edit, the same distinction a real double click makes.
   const DOUBLE_CLICK_WINDOW_MS = 350
-  function handleLandmarkInteract(l: Landmark) {
+  function handleLandmarkInteract(l: Landmark, source: 'list' | 'map') {
     const now = Date.now()
     const last = lastClickRef.current
     if (last && last.id === l.id && now - last.time < DOUBLE_CLICK_WINDOW_MS) {
       if (pendingSelectTimerRef.current) clearTimeout(pendingSelectTimerRef.current)
       lastClickRef.current = null
-      startEdit(l)
+      startEdit(l, source)
       return
     }
     lastClickRef.current = { id: l.id, time: now }
     if (pendingSelectTimerRef.current) clearTimeout(pendingSelectTimerRef.current)
     pendingSelectTimerRef.current = setTimeout(() => {
-      selectLandmark(l)
+      selectLandmark(l, source)
       lastClickRef.current = null
     }, DOUBLE_CLICK_WINDOW_MS)
   }
@@ -283,15 +478,7 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
         </select>
         <select
           value={city}
-          onChange={(e) => {
-            setCity(e.target.value)
-            setJustMoved('')
-            setJustEdited('')
-            setListFilterText('')
-            setListFilterCategory('all')
-            setSelectedId(null)
-            cancelEdit()
-          }}
+          onChange={(e) => changeCity(e.target.value)}
           className="max-w-[12rem] rounded-lg border border-slate-300 px-2 py-1 text-[11px]"
         >
           {NUEVA_ECIJA_CITIES.map((c) => (
@@ -337,6 +524,22 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
         >
           {editingId ? 'Save changes' : 'Add'}
         </button>
+        {pending && !editingId && (
+          <button
+            type="button"
+            onClick={() => {
+              setName('')
+              setAliasesText('')
+              setLat('')
+              setLng('')
+              setError('')
+            }}
+            title="Discard the pending new landmark's pin"
+            className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+          >
+            ✕ Clear new landmark
+          </button>
+        )}
         {editingId && (
           <button
             type="button"
@@ -346,6 +549,42 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
             Cancel edit
           </button>
         )}
+        {editingId &&
+          (confirmingRemoveId === editingId ? (
+            <span className="flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
+              Delete {name || 'this landmark'}?
+              <button
+                type="button"
+                onClick={() => {
+                  suppressRefitOnClearRef.current = true
+                  const id = editingId
+                  removeLandmark(id)
+                  setConfirmingRemoveId(null)
+                  cancelEdit()
+                  if (id === selectedId) setSelectedId(null)
+                }}
+                className="rounded-md bg-amber-600 px-1.5 font-semibold text-white hover:bg-amber-700"
+              >
+                Yes
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingRemoveId(null)}
+                className="font-medium text-slate-600 hover:text-slate-800"
+              >
+                No
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmingRemoveId(editingId)}
+              title={`Delete ${name}`}
+              className="rounded-lg border border-rose-300 bg-white px-2 py-1 text-[11px] font-medium text-rose-600 hover:bg-rose-50"
+            >
+              Delete
+            </button>
+          ))}
         <button
           type="button"
           onClick={onClose}
@@ -355,25 +594,134 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
         </button>
       </div>
       <div ref={mapWrapRef} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <p className="border-b border-slate-100 px-2 py-1 text-[11px] text-slate-500">
-          {editingId
-            ? '📍 Editing — drag the green pin or edit the fields above, then Save changes'
-            : pending
-              ? '📍 Tap again to move it, or drag the green pin'
-              : '📍 Tap the map where the landmark stands'}
-          {cityLandmarks.length > 0 &&
-            !editingId &&
-            (pending ? ' · drag a pin to nudge it' : ' · click a pin to locate it, double-click to edit')}{' '}
-          · showing {city}'s landmarks only
-        </p>
+        {!editingId && (
+          <p className="border-b border-slate-100 px-2 py-1 text-[11px] text-slate-500">
+            {pending ? '📍 Tap again to move it, or drag the green pin' : '📍 Tap the map where the landmark stands'}
+            {cityLandmarks.length > 0 &&
+              (pending ? ' · drag a pin to nudge it' : ' · click a pin to locate it, double-click to edit')}{' '}
+            · showing {city}'s landmarks only
+          </p>
+        )}
         <RealLiveMap
           points={mapPoints}
           onMapClick={setFromGps}
+          legendOverride={[
+            { color: '#7c3aed', label: 'Landmark' },
+            { color: '#2563eb', label: 'Selected' },
+            { color: '#0f766e', label: 'Editing / new' },
+          ]}
+          cityPicker={
+            <select
+              value={city}
+              onChange={(e) => changeCity(e.target.value)}
+              title="Switch city"
+              className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-sm"
+            >
+              {NUEVA_ECIJA_CITIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          }
           onPointClick={(id) => {
+            if (id === 'new-landmark') {
+              // Tapping the pending pin itself discards it — the same
+              // outcome as the Clear new landmark button, reachable without
+              // scrolling back up to the form.
+              setName('')
+              setAliasesText('')
+              setLat('')
+              setLng('')
+              setError('')
+              return
+            }
             const l = cityLandmarks.find((x) => x.id === id)
-            if (l) handleLandmarkInteract(l)
+            if (l) handleLandmarkInteract(l, 'map')
           }}
+          onFullscreenChange={(fs) => {
+            setIsFullscreen(fs)
+            if (!fs) setStagedDragGps(null)
+          }}
+          toolbarAction={
+            isFullscreen || selectedId ? (
+              <>
+                {selectedId && (
+                  <LandmarkQuickActions
+                    key={selectedId}
+                    landmark={cityLandmarks.find((l) => l.id === selectedId) ?? null}
+                    stagedGps={stagedDragGps}
+                    confirmingDelete={confirmingRemoveId === selectedId}
+                    onRename={(l, nextName) => {
+                      updateLandmark(l.id, {
+                        name: nextName,
+                        aliases: l.aliases,
+                        category: l.category,
+                        city: l.city,
+                        gps: stagedDragGps ?? l.gps,
+                        todaOrgId: l.todaOrgId,
+                      })
+                      setStagedDragGps(null)
+                      setJustEdited(nextName)
+                      setJustAdded('')
+                      setJustMoved('')
+                    }}
+                    onSaveChanges={(l) => {
+                      if (!stagedDragGps) return
+                      setLandmarkGps(l.id, stagedDragGps)
+                      setStagedDragGps(null)
+                      setJustMoved(l.name)
+                      setJustAdded('')
+                      setJustEdited('')
+                    }}
+                    onDeleteRequest={(l) => setConfirmingRemoveId(l.id)}
+                    onDeleteConfirm={(l) => {
+                      suppressRefitOnClearRef.current = true
+                      removeLandmark(l.id)
+                      setConfirmingRemoveId(null)
+                      setSelectedId(null)
+                      setStagedDragGps(null)
+                    }}
+                    onDeleteCancel={() => setConfirmingRemoveId(null)}
+                  />
+                )}
+                {isFullscreen && (
+                  <div className="relative z-[80]">
+                    <input
+                      value={mapSearchText}
+                      onChange={(e) => setMapSearchText(e.target.value)}
+                      placeholder="🔍 Find a landmark"
+                      className="w-28 rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-600 placeholder:font-normal sm:w-40"
+                    />
+                    {normalizedMapSearch && (
+                      <div className="absolute right-0 top-full mt-1 max-h-56 w-56 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
+                        {mapSearchMatches.length === 0 ? (
+                          <p className="px-2 py-1.5 text-[11px] text-slate-400">No matches.</p>
+                        ) : (
+                          mapSearchMatches.map((l) => (
+                            <button
+                              key={l.id}
+                              type="button"
+                              onClick={() => {
+                                selectLandmark(l, 'map')
+                                setMapSearchText('')
+                              }}
+                              className="block w-full truncate px-2 py-1.5 text-left text-[11px] text-slate-600 hover:bg-brand-50"
+                            >
+                              {LANDMARK_CATEGORY_ICONS[l.category]} {l.name}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : undefined
+          }
           fitPointIds={activeFitPointIds}
+          holdFit={suppressRefitOnClearRef.current}
+          singlePointZoom={18}
           draggableIds={[...cityLandmarks.map((l) => l.id), ...(pending && !editingId ? ['new-landmark'] : [])]}
           onPointDragEnd={(id, gps) => {
             if (id === 'new-landmark' || id === editingId) {
@@ -383,10 +731,17 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
               setFromGps(gps)
               return
             }
+            if (id === selectedId) {
+              // The selected pin's own Save changes lives right in the
+              // toolbar (see toolbarAction) — staged there rather than
+              // autosaved so a drag can be undone by just not pressing it.
+              setStagedDragGps(gps)
+              return
+            }
             // Any other pin's drag is a standalone move, not part of an
-            // edit in progress — dropping it is the save, dispatch fires
-            // immediately, the same way a drag already saves a terminal's
-            // position.
+            // edit or a selection in progress — dropping it is the save,
+            // dispatch fires immediately, the same way a drag already saves
+            // a terminal's position.
             setLandmarkGps(id, gps)
             setJustMoved(cityLandmarks.find((l) => l.id === id)?.name ?? '')
             setJustAdded('')
@@ -455,6 +810,7 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
                 <button
                   type="button"
                   onClick={() => {
+                    suppressRefitOnClearRef.current = true
                     removeLandmark(l.id)
                     setConfirmingRemoveId(null)
                     if (l.id === editingId) cancelEdit()
@@ -485,7 +841,7 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
               >
                 <button
                   type="button"
-                  onClick={() => handleLandmarkInteract(l)}
+                  onClick={() => handleLandmarkInteract(l, 'list')}
                   title="Click to locate on the map, double-click to edit its name, category, aliases, or position"
                   className="hover:text-brand-700"
                 >

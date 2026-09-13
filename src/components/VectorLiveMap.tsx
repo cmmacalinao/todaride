@@ -129,6 +129,8 @@ export function VectorLiveMap({
   areas,
   refitSignal,
   fitPointIds,
+  singlePointZoom,
+  holdFit,
   followAll,
   centerOn,
   frozen,
@@ -478,7 +480,7 @@ export function VectorLiveMap({
     const map = mapRef.current
     if (!map || target.length === 0) return
     if (target.length === 1) {
-      map.easeTo({ center: [target[0].gps.lng, target[0].gps.lat], zoom: SINGLE_POINT_ZOOM, duration: 400 })
+      map.easeTo({ center: [target[0].gps.lng, target[0].gps.lat], zoom: singlePointZoom ?? SINGLE_POINT_ZOOM, duration: 400 })
       return
     }
     const bounds = new maplibregl.LngLatBounds()
@@ -495,6 +497,7 @@ export function VectorLiveMap({
       fitOverriddenRef.current = false
     }
     if (fitOverriddenRef.current) return
+    if (holdFit) return
     refitBounds()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, fitKey, refitSignal, !!nav])

@@ -501,26 +501,46 @@ export function getClsuPlaceGps(place: string): GeoCoords {
   return { lat: CLSU_GPS.lat + jitterLat, lng: CLSU_GPS.lng + jitterLng }
 }
 
-// Generated from CLSU_LOCATION_GROUPS rather than typed out a second time —
-// every campus place becomes its own searchable Landmark (see
-// lib/landmarkSearch.ts), reachable by typing "library" or "food park"
-// directly instead of only through the barangay address-picker's CLSU
-// dropdown. Main Gate/Second Gate/Gates are skipped: landmark-2 and
-// landmark-8 below already cover the campus's two gates under clearer,
-// hand-written names, so generating a third/fourth copy of the same point
-// would just be duplicate search results.
-const CLSU_LANDMARK_SKIP = new Set(['Main Gate', 'Second Gate', 'Gates'])
-
-const CLSU_GROUP_CATEGORY: Record<string, LandmarkCategory> = {
-  'Academic Buildings': 'school',
-  'Student Facilities': 'school',
-  'Food & Commercial': 'market',
-  'Parks & Recreation': 'other',
-  'University Administration': 'government',
-  Research: 'school',
-  Agriculture: 'school',
-  'Specialized CLSU Centers': 'school',
-  Other: 'other',
+// One Landmark per CLSU_LOCATION_GROUPS place that a real OSM feature
+// actually backs — cross-checked against Overpass data for named
+// nodes/ways on campus (query: everything with a `name` tag within ~1.2km
+// of CLSU_GPS). A hash-based jitter around CLSU_GPS used to fill in
+// whichever places OSM had no separate tag for, but a fabricated offset
+// implies a precision the app doesn't have — a rider searching "HR
+// Management Office" and landing on a made-up point a street away is worse
+// than that office simply not coming up in landmark search yet. Anywhere
+// OSM only tags the college/department generally (e.g. "Department of
+// Animal Science" for "Animal Science Facilities") that's used as the best
+// available real point; anywhere nothing on campus matches at all
+// (most of University Administration's individual offices, most of
+// Research's individual labs), the place is left out rather than guessed.
+// Main Gate/Second Gate/Gates are left out too: landmark-2 and landmark-8
+// below already cover the campus's two gates under clearer, hand-written
+// names.
+const CLSU_PLACE_REAL_GPS: Record<string, { gps: GeoCoords; category: LandmarkCategory }> = {
+  'Administration Building': { gps: { lat: 15.7313583, lng: 120.9302984 }, category: 'school' },
+  'College of Engineering': { gps: { lat: 15.7354326, lng: 120.9322581 }, category: 'school' },
+  'College of Education': { gps: { lat: 15.7379398, lng: 120.9375388 }, category: 'school' },
+  'College of Science': { gps: { lat: 15.7372798, lng: 120.9350991 }, category: 'school' },
+  CBAA: { gps: { lat: 15.7370428, lng: 120.9337395 }, category: 'school' },
+  Library: { gps: { lat: 15.7367026, lng: 120.9340624 }, category: 'school' },
+  'Umali Gym': { gps: { lat: 15.7318278, lng: 120.9308277 }, category: 'other' },
+  'Rizal Park': { gps: { lat: 15.7343966, lng: 120.9294651 }, category: 'other' },
+  'Lingap Kalikasan Park': { gps: { lat: 15.7425458, lng: 120.9344027 }, category: 'other' },
+  Oval: { gps: { lat: 15.7364904, lng: 120.9317515 }, category: 'other' },
+  'Public Affairs Office': { gps: { lat: 15.7312489, lng: 120.929252 }, category: 'government' },
+  'Office of Student Affairs': { gps: { lat: 15.7315033, lng: 120.927895 }, category: 'government' },
+  'Experimental Farms': { gps: { lat: 15.7375264, lng: 120.9277772 }, category: 'other' },
+  'College of Agriculture': { gps: { lat: 15.735851, lng: 120.9408756 }, category: 'school' },
+  'Animal Science Facilities': { gps: { lat: 15.740587, lng: 120.9310521 }, category: 'school' },
+  'Dairy Facilities': { gps: { lat: 15.7388929, lng: 120.9318645 }, category: 'market' },
+  'Irrigation Facilities': { gps: { lat: 15.7269059, lng: 120.9274869 }, category: 'other' },
+  PhilMech: { gps: { lat: 15.741101, lng: 120.9392823 }, category: 'school' },
+  PCC: { gps: { lat: 15.7401121, lng: 120.9329905 }, category: 'school' },
+  PhiSCAT: { gps: { lat: 15.7395755, lng: 120.941321 }, category: 'school' },
+  'Carabao Center (PCC)': { gps: { lat: 15.7428058, lng: 120.9355265 }, category: 'school' },
+  Infirmary: { gps: { lat: 15.7304401, lng: 120.9278993 }, category: 'hospital' },
+  'Post Office': { gps: { lat: 15.7336008, lng: 120.9291951 }, category: 'government' },
 }
 
 function clsuLandmarkId(place: string): string {
@@ -533,17 +553,141 @@ function clsuLandmarkId(place: string): string {
 
 const CLSU_CAMPUS_LANDMARKS: Landmark[] = CLSU_LOCATION_GROUPS.flatMap((group) =>
   group.places
-    .filter((place) => !CLSU_LANDMARK_SKIP.has(place))
+    .filter((place) => CLSU_PLACE_REAL_GPS[place])
     .map((place) => ({
       id: clsuLandmarkId(place),
       name: `${place}, CLSU`,
       aliases: [place.toLowerCase()],
-      category: place === 'Infirmary' ? 'hospital' : CLSU_GROUP_CATEGORY[group.group],
+      category: CLSU_PLACE_REAL_GPS[place].category,
       city: DEFAULT_BOOKING_CITY,
-      gps: getClsuPlaceGps(place),
+      gps: CLSU_PLACE_REAL_GPS[place].gps,
       todaOrgId: null,
     })),
 )
+
+// Real coordinates for every San Jose City / Science City of Muñoz barangay
+// OSM actually has a record of, resolved via Nominatim's structured search
+// (city=<barangay name>, state=Nueva Ecija — OSM tags each as its own place
+// node, but a freeform "<barangay>, San Jose City, Nueva Ecija" query misses
+// most of them; see the live search fallback in lib/geocode.ts for where
+// that same freeform approach is still the right call for arbitrary typed
+// text). Looked up once and pinned here rather than geocoded live, the same
+// reasoning as CLSU_GPS above: a landmark needs a fixed point, not a live
+// network call on every render. Two barangays (Cabisuculan, Curva — both in
+// Muñoz) aren't in this list at all: OSM has no record of either one under
+// any spelling tried, confirmed against Overpass too, and a guessed point
+// would be worse than the barangay simply not showing up in landmark search
+// yet (see barangayLandmarks' filter below).
+const SAN_JOSE_CITY_BARANGAY_GPS: Record<string, GeoCoords> = {
+  'A. Pascual': { lat: 15.6979411, lng: 120.9681228 },
+  'Abar 1st': { lat: 15.7891047, lng: 120.9816902 },
+  'Abar 2nd': { lat: 15.7820301, lng: 120.9696677 },
+  'Bagong Sikat': { lat: 15.7350168, lng: 121.0390535 },
+  Caanawan: { lat: 15.7709428, lng: 120.9637338 },
+  Calaocan: { lat: 15.7851405, lng: 120.9887273 },
+  Camanacsacan: { lat: 15.7670359, lng: 120.9800881 },
+  'Canuto Ramos Poblacion': { lat: 15.7899048, lng: 120.9924156 },
+  'Crisanto Sanchez Poblacion': { lat: 15.7880629, lng: 120.9936997 },
+  Culaylay: { lat: 15.783984, lng: 121.0261845 },
+  Dizol: { lat: 15.7355973, lng: 120.9873086 },
+  'Ferdinand E. Marcos Poblacion': { lat: 15.7935316, lng: 120.992775 },
+  Kaliwanagan: { lat: 15.8105908, lng: 121.0330488 },
+  'Kita-Kita': { lat: 15.8225829, lng: 121.0091579 },
+  Malasin: { lat: 15.8053704, lng: 121.0004139 },
+  Manicla: { lat: 15.8344558, lng: 121.0209408 },
+  Palestina: { lat: 15.7700742, lng: 121.018283 },
+  'Parang Mangga': { lat: 15.7378395, lng: 121.002742 },
+  Pinili: { lat: 15.7689916, lng: 121.0363888 },
+  Porais: { lat: 15.7556212, lng: 121.043458 },
+  'Rafael Rueda, Sr. Poblacion': { lat: 15.793125, lng: 120.990024 },
+  'Raymundo Eugenio Poblacion': { lat: 15.7892803, lng: 120.9915947 },
+  'San Agustin': { lat: 15.8018035, lng: 121.0133339 },
+  'San Juan': { lat: 15.7721134, lng: 121.0545426 },
+  'San Mauricio': { lat: 15.6879285, lng: 120.971261 },
+  'Santo Niño 1st': { lat: 15.7966799, lng: 120.9882796 },
+  'Santo Niño 2nd': { lat: 15.7972142, lng: 120.9744581 },
+  'Santo Niño 3rd': { lat: 15.8145726, lng: 120.9600413 },
+  'Santo Tomas': { lat: 15.7550687, lng: 120.951764 },
+  Sibut: { lat: 15.7887899, lng: 121.0006776 },
+  'Sinipit Bubon': { lat: 15.7448212, lng: 120.9724674 },
+  Tabulac: { lat: 15.7485995, lng: 121.0036111 },
+  Tayabo: { lat: 15.833017, lng: 121.032292 },
+  Tondod: { lat: 15.7182618, lng: 120.9699306 },
+  Tulat: { lat: 15.7585047, lng: 121.0079446 },
+  'Villa Floresca': { lat: 15.8487818, lng: 120.9853774 },
+  'Villa Joson': { lat: 15.7461207, lng: 121.0532879 },
+  'Villa Marina': { lat: 15.7954127, lng: 121.0308837 },
+}
+
+const SCIENCE_CITY_MUNOZ_BARANGAY_GPS: Record<string, GeoCoords> = {
+  'Bagong Sikat': { lat: 15.7378068, lng: 120.9230382 },
+  Balante: { lat: 15.732405, lng: 120.9099001 },
+  Bantug: { lat: 15.7207017, lng: 120.9201188 },
+  Bical: { lat: 15.7428928, lng: 120.9027508 },
+  Calabalabaan: { lat: 15.7021991, lng: 120.864442 },
+  Calisitan: { lat: 15.7311271, lng: 120.8519724 },
+  Catalanacan: { lat: 15.7133148, lng: 120.884859 },
+  Franza: { lat: 15.7536881, lng: 120.9049361 },
+  Gabaldon: { lat: 15.7259273, lng: 120.8774802 },
+  Labney: { lat: 15.6992607, lng: 120.8487886 },
+  Licaong: { lat: 15.7504376, lng: 120.9416681 },
+  Linglingay: { lat: 15.7659363, lng: 120.8909771 },
+  Magtanggol: { lat: 15.7535457, lng: 120.9303533 },
+  Maligaya: { lat: 15.6736227, lng: 120.889785 },
+  Mangandingay: { lat: 15.7914715, lng: 120.8821526 },
+  Mapangpang: { lat: 15.792164, lng: 120.899909 },
+  Maragol: { lat: 15.70494, lng: 120.9507743 },
+  Matingkis: { lat: 15.7028575, lng: 120.8810261 },
+  Naglabrahan: { lat: 15.6787244, lng: 120.8395345 },
+  Palusapis: { lat: 15.6835535, lng: 120.8618 },
+  Pandalla: { lat: 15.7189408, lng: 120.8560735 },
+  'Poblacion East': { lat: 15.7127183, lng: 120.9056555 },
+  'Poblacion North': { lat: 15.7210373, lng: 120.9035056 },
+  'Poblacion South': { lat: 15.7183677, lng: 120.9057319 },
+  'Poblacion West': { lat: 15.7093567, lng: 120.9020412 },
+  'Rang-ayan': { lat: 15.7436636, lng: 120.8822036 },
+  Rizal: { lat: 15.7642017, lng: 120.9077825 },
+  'San Andres': { lat: 15.7754559, lng: 120.9289867 },
+  'San Antonio': { lat: 15.6867199, lng: 120.8562834 },
+  'San Felipe': { lat: 15.7741932, lng: 120.8981338 },
+  'Sapang Cawayan': { lat: 15.7076828, lng: 120.9381585 },
+  'Villa Cuizon': { lat: 15.7259221, lng: 120.9425553 },
+  'Villa Isla': { lat: 15.7714395, lng: 120.8694147 },
+  'Villa Nati': { lat: 15.6933578, lng: 120.9386265 },
+  'Villa Santos': { lat: 15.7372837, lng: 120.8713088 },
+}
+
+function barangayLandmarkId(city: string, barangay: string): string {
+  const citySlug = city === 'San Jose City' ? 'sjc' : 'munoz'
+  return `landmark-brgy-${citySlug}-${barangay
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-+|-+$)/g, '')}`
+}
+
+// Only barangays Nominatim actually resolved (see the two GPS maps above)
+// become a Landmark — Cabisuculan and Curva (both in Muñoz) aren't in OSM
+// under any spelling tried (confirmed against Overpass too, not just
+// Nominatim's index), so rather than invent a point for them they're simply
+// not searchable yet, same call as the CLSU places above with no real match.
+function barangayLandmarks(city: string, barangays: string[], gpsByName: Record<string, GeoCoords>): Landmark[] {
+  return barangays
+    .filter((b) => b !== 'CLSU' && gpsByName[b]) // CLSU is already its own landmark — see landmark-2 above
+    .map((barangay) => ({
+      id: barangayLandmarkId(city, barangay),
+      name: `${barangay}, ${city}`,
+      aliases: [barangay.toLowerCase(), `barangay ${barangay.toLowerCase()}`, `brgy ${barangay.toLowerCase()}`],
+      category: 'other' as const,
+      city,
+      gps: gpsByName[barangay],
+      todaOrgId: null,
+    }))
+}
+
+const BARANGAY_LANDMARKS: Landmark[] = [
+  ...barangayLandmarks('San Jose City', SAN_JOSE_CITY_BARANGAYS, SAN_JOSE_CITY_BARANGAY_GPS),
+  ...barangayLandmarks('Science City of Muñoz', SCIENCE_CITY_MUNOZ_BARANGAYS, SCIENCE_CITY_MUNOZ_BARANGAY_GPS),
+]
 
 // All 89 official barangays of Cabanatuan City, Nueva Ecija — cross-checked
 // against PhilAtlas (philatlas.com/luzon/r03/nueva-ecija/cabanatuan.html) and
@@ -2375,6 +2519,7 @@ export const MOCK_LANDMARKS: Landmark[] = [
     todaOrgId: null,
   },
   ...CLSU_CAMPUS_LANDMARKS,
+  ...BARANGAY_LANDMARKS,
 ]
 
 // The CLSU campus as OpenStreetMap has it (way 794431227, ODbL), thinned

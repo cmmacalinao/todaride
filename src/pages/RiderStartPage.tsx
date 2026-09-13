@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { terminalRideIsFree } from '../lib/terminalFee'
 import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
@@ -45,6 +45,15 @@ export function RiderStartPage() {
         }}
       />
       <div className="relative mx-auto max-w-lg space-y-3">
+        {/* Same "‹ Go back" the role chooser uses, to the same place —
+            RiderStartPage is reached by picking Passenger there and signing
+            in, so that's the step back from here. */}
+        <Link
+          to="/welcome"
+          className="inline-block rounded-lg border border-white/25 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10"
+        >
+          ‹ Go back
+        </Link>
         {/* Same resolution as the launch and role-chooser screens before
             this one — see usePilotBranding. */}
         {pilotBranding.specific ? (

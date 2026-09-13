@@ -1,4 +1,3 @@
-import { LocationPermissionRow } from './LocationPermissionRow'
 import { BottomSheet, type SheetSnap } from './BottomSheet'
 import { useWatchPosition } from '../lib/liveTracking'
 import { useRides } from '../context/RideContext'
@@ -60,10 +59,6 @@ export function LocationMapPicker({
   // not the reader's to change.
   onClearPickup,
   onClearDropoff,
-  // Shares the Live-location row rather than taking a line of its own.
-  // A function so the caller can build it after this component's props are
-  // read — it is defined further down the page than the map is.
-  permissionRowAction,
   showGpsFor,
   terminals = [],
   extraPoints = [],
@@ -79,7 +74,6 @@ export function LocationMapPicker({
   sheetPeekFraction?: number
   onClearPickup?: () => void
   onClearDropoff?: () => void
-  permissionRowAction?: () => ReactNode
   pickup: MockLocation
   dropoff: MockLocation
   target: 'pickup' | 'dropoff'
@@ -425,9 +419,11 @@ export function LocationMapPicker({
       {/* Map-first shows this over the map instead, under the address
           summary — see overlayTop above. */}
       {!mapFirst && sheetNote}
-      {/* Above the GPS button, because it governs it: this wakes location and
-          reports what the browser decided; that one fills an address with it. */}
-      <LocationPermissionRow trailing={permissionRowAction?.()} />
+      {/* The standing "Location"/refresh row that used to sit here is gone —
+          the GPS button right below already does the one thing that
+          mattered (fill this end with a live fix), so a second, separate
+          "refresh my location" control above it was answering a question
+          nobody was asking twice. */}
       {sheetExtras}
       {!mapFirst && showGpsFor === target && (
         <button

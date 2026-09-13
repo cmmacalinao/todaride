@@ -1787,7 +1787,7 @@ export function PassengerPage() {
                     type="button"
                     onClick={() => guestRider.setBookingFor('self')}
                     className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
-                      guestRider.bookingFor === 'self'
+                      !groupRideOpen && guestRider.bookingFor === 'self'
                         ? 'bg-brand-600 text-white shadow-sm'
                         : 'text-slate-500 hover:bg-slate-200'
                     }`}
@@ -1798,7 +1798,7 @@ export function PassengerPage() {
                     type="button"
                     onClick={() => guestRider.setBookingFor('other')}
                     className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
-                      guestRider.bookingFor === 'other'
+                      !groupRideOpen && guestRider.bookingFor === 'other'
                         ? 'bg-brand-600 text-white shadow-sm'
                         : 'text-slate-500 hover:bg-slate-200'
                     }`}

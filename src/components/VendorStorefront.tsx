@@ -1270,7 +1270,7 @@ export function VendorStorefront({
           below) is then out of view at the exact moment it would confirm
           the tap landed. */}
       {interactive && cartCount > 0 && (
-        <div className="flex items-center justify-between gap-3 border-t border-amber-200 bg-amber-50 p-3">
+        <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 p-3">
           <button
             type="button"
             onClick={onCheckout}
@@ -1413,7 +1413,7 @@ export function VendorStorefront({
       </div>
 
       {interactive && cartCount > 0 && (
-        <div className="flex items-center justify-between gap-3 border-t border-amber-200 bg-amber-50 p-3">
+        <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 p-3">
           <button
             type="button"
             onClick={onCheckout}

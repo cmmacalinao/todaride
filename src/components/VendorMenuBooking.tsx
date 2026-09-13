@@ -610,7 +610,7 @@ export const VendorMenuBooking = forwardRef<
             </p>
           </div>
 
-          <div className="space-y-1 rounded-lg border border-slate-200 bg-white p-2.5 text-xs">
+          <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs">
             {cartLines.map((l) => (
               <div key={l.product.id} className="flex items-center justify-between">
                 <span className="text-slate-600">

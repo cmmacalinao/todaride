@@ -195,7 +195,6 @@ export function VendorFeedList({
   accent,
   viewer,
   focusPostId,
-  onAdd,
   onOpenMenu,
   onRemove,
 }: {
@@ -208,11 +207,9 @@ export function VendorFeedList({
   // Who is reading — see PostViewer. The vendor on their own portal
   // passes themselves, so the store can answer comments as itself.
   viewer?: PostViewer | null
-  // A customer who can order: the featured dish gets an Add button.
-  onAdd?: (productId: string) => void
-  // A customer tapping the post itself — the photo, or the featured dish —
-  // is taken to the menu to order (the dish, when there is one, goes into
-  // the cart on the way). See VendorStorefront.
+  // A customer tapping the post's photo is taken to the menu to order —
+  // ordering itself (search, add, change quantity) always happens there,
+  // not from a second, duplicate control on the post. See VendorStorefront.
   onOpenMenu?: (productId: string | null) => void
   // The vendor on their own portal: each post gets a Delete.
   onRemove?: (postId: string) => void
@@ -278,40 +275,7 @@ export function VendorFeedList({
               ) : (
                 <img src={post.photoDataUrl} alt="" className="mt-2 block h-auto w-full" loading="lazy" />
               ))}
-            {featured && (
-              <div
-                role={onOpenMenu ? 'button' : undefined}
-                tabIndex={onOpenMenu ? 0 : undefined}
-                onClick={onOpenMenu ? () => onOpenMenu(featured.id) : undefined}
-                onKeyDown={onOpenMenu ? (e) => e.key === 'Enter' && onOpenMenu(featured.id) : undefined}
-                title={onOpenMenu ? 'Open the menu to order' : undefined}
-                className={`m-3 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2 ${
-                  onOpenMenu ? 'cursor-pointer hover:border-slate-300 hover:bg-slate-100' : ''
-                }`}
-              >
-                {featured.photoDataUrl && (
-                  <img src={featured.photoDataUrl} alt={featured.name} className="h-14 w-14 shrink-0 rounded-md object-cover" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-800">{featured.name}</p>
-                  <p className={`text-sm font-bold ${accent.softText}`}>₱{featured.price}</p>
-                  {featured.description && <p className="truncate text-[11px] text-slate-500">{featured.description}</p>}
-                </div>
-                {onAdd && featured.inStock && featured.visible !== false && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onAdd(featured.id)
-                    }}
-                    className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-white ${accent.solid} ${accent.solidHover}`}
-                  >
-                    🛒 Add
-                  </button>
-                )}
-              </div>
-            )}
-            {!featured && !post.photoDataUrl && <div className="pb-2" />}
+            {!post.photoDataUrl && <div className="pb-2" />}
             <PostActions pharmacy={pharmacy} post={post} viewer={viewer} />
           </article>
         )
@@ -392,7 +356,7 @@ function VendorFeedCard({
         onClick={() => onOpenVendor(vendor.id)}
         className={`relative flex w-full items-center gap-2.5 overflow-hidden bg-gradient-to-br px-3 py-2 text-left ${accent.gradient}`}
       >
-        <VendorBannerArt />
+        <VendorBannerArt kind={vendor.businessType === 'other_commodity' ? 'goods' : 'food'} />
         <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
           {vendor.logoDataUrl ? (
             <img src={vendor.logoDataUrl} alt="" className="h-full w-full object-contain" />

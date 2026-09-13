@@ -601,7 +601,9 @@ export const VendorMenuBooking = forwardRef<
             >
               ‹ Menu
             </button>
-            <p className="text-sm font-semibold text-slate-800">Checkout</p>
+            <p className="min-w-0 truncate text-sm font-semibold text-slate-800">
+              Checkout <span className="font-normal text-slate-500">· {selectedVendor.name}</span>
+            </p>
           </div>
 
           <div className="space-y-1 rounded-lg border border-slate-200 bg-white p-2.5 text-xs">

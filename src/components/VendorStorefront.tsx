@@ -241,7 +241,7 @@ function categoryIcon(category: string): string {
 // header narrower than that frame it is the empty right-hand side that gets
 // cropped — the hat and forks are always whole, and the ribbons always reach
 // both edges. A centred crop was cutting the hat off the top.
-export function VendorBannerArt() {
+export function VendorBannerArt({ kind = 'food' }: { kind?: 'food' | 'goods' }) {
   const ink = 'rgba(120, 20, 0, 0.22)'
   return (
     <svg
@@ -262,33 +262,58 @@ export function VendorBannerArt() {
         d="M-20 136 C 100 110, 200 152, 330 130 S 520 96, 620 118 L 620 128 C 520 108, 430 144, 330 142 S 100 126, -20 148 Z"
         fill="rgba(255,255,255,0.16)"
       />
-      {/* Left fork, tilted. */}
-      <g transform="translate(44 62) rotate(-14) scale(0.8)" fill={ink}>
-        <rect x="-3" y="-30" width="6" height="34" rx="3" />
-        <rect x="6" y="-32" width="6" height="36" rx="3" />
-        <rect x="15" y="-30" width="6" height="34" rx="3" />
-        <rect x="-3" y="0" width="24" height="14" rx="5" />
-        <rect x="6" y="10" width="7" height="60" rx="3.5" />
-      </g>
-      {/* Splash — two drops and a dot. */}
-      <g transform="translate(6 10) scale(0.85)" fill={ink}>
-        <path d="M62 48 c 6 -12, 14 -10, 12 2 c -1 8, -6 12, -10 14 c -2 -4, -4 -10, -2 -16 z" />
-        <path d="M80 66 c -1 -10, 8 -14, 12 -6 c 2 5, -2 12, -8 16 c -3 -3, -4 -6, -4 -10 z" />
-        <circle cx="54" cy="84" r="3.5" />
-      </g>
-      {/* Chef's hat, outlined. */}
-      <g transform="translate(122 46) rotate(-18) scale(0.85)" fill="none" stroke={ink} strokeWidth="5" strokeLinejoin="round">
-        <path d="M-16 10 a 10 10 0 1 1 8 -16 a 12 12 0 1 1 20 4 a 9 9 0 1 1 4 14 v 6 h -36 z" />
-        <path d="M-20 22 h 40 v 8 h -40 z" />
-      </g>
-      {/* Right fork, tilted the other way. */}
-      <g transform="translate(196 44) rotate(22) scale(0.8)" fill={ink}>
-        <rect x="-3" y="-30" width="6" height="34" rx="3" />
-        <rect x="6" y="-32" width="6" height="36" rx="3" />
-        <rect x="15" y="-30" width="6" height="34" rx="3" />
-        <rect x="-3" y="0" width="24" height="14" rx="5" />
-        <rect x="6" y="10" width="7" height="60" rx="3.5" />
-      </g>
+      {kind === 'goods' ? (
+        <>
+          {/* A parcel box, corner flaps and tape line — the same left-third
+              placement the food icons use, for a store selling goods rather
+              than something cooked. */}
+          <g transform="translate(50 70) rotate(-6) scale(0.95)" fill="none" stroke={ink} strokeWidth="6" strokeLinejoin="round">
+            <rect x="-32" y="-24" width="64" height="52" rx="4" />
+            <path d="M-32 -6 h 64" />
+            <path d="M0 -24 v 52" />
+            <path d="M-32 -24 l 16 18 M32 -24 l -16 18" />
+          </g>
+          {/* A shopping bag, handles and all. */}
+          <g transform="translate(150 58) rotate(8) scale(0.9)" fill="none" stroke={ink} strokeWidth="6" strokeLinejoin="round">
+            <path d="M-24 -6 h 48 l 6 46 a 4 4 0 0 1 -4 4 h -52 a 4 4 0 0 1 -4 -4 z" />
+            <path d="M-13 -6 v -8 a 13 13 0 0 1 26 0 v 8" />
+          </g>
+          {/* A small sparkle, standing in for the splash. */}
+          <g transform="translate(30 22) scale(0.85)" fill={ink}>
+            <path d="M60 40 l 4 10 10 4 -10 4 -4 10 -4 -10 -10 -4 10 -4 z" />
+          </g>
+        </>
+      ) : (
+        <>
+          {/* Left fork, tilted. */}
+          <g transform="translate(44 62) rotate(-14) scale(0.8)" fill={ink}>
+            <rect x="-3" y="-30" width="6" height="34" rx="3" />
+            <rect x="6" y="-32" width="6" height="36" rx="3" />
+            <rect x="15" y="-30" width="6" height="34" rx="3" />
+            <rect x="-3" y="0" width="24" height="14" rx="5" />
+            <rect x="6" y="10" width="7" height="60" rx="3.5" />
+          </g>
+          {/* Splash — two drops and a dot. */}
+          <g transform="translate(6 10) scale(0.85)" fill={ink}>
+            <path d="M62 48 c 6 -12, 14 -10, 12 2 c -1 8, -6 12, -10 14 c -2 -4, -4 -10, -2 -16 z" />
+            <path d="M80 66 c -1 -10, 8 -14, 12 -6 c 2 5, -2 12, -8 16 c -3 -3, -4 -6, -4 -10 z" />
+            <circle cx="54" cy="84" r="3.5" />
+          </g>
+          {/* Chef's hat, outlined. */}
+          <g transform="translate(122 46) rotate(-18) scale(0.85)" fill="none" stroke={ink} strokeWidth="5" strokeLinejoin="round">
+            <path d="M-16 10 a 10 10 0 1 1 8 -16 a 12 12 0 1 1 20 4 a 9 9 0 1 1 4 14 v 6 h -36 z" />
+            <path d="M-20 22 h 40 v 8 h -40 z" />
+          </g>
+          {/* Right fork, tilted the other way. */}
+          <g transform="translate(196 44) rotate(22) scale(0.8)" fill={ink}>
+            <rect x="-3" y="-30" width="6" height="34" rx="3" />
+            <rect x="6" y="-32" width="6" height="36" rx="3" />
+            <rect x="15" y="-30" width="6" height="34" rx="3" />
+            <rect x="-3" y="0" width="24" height="14" rx="5" />
+            <rect x="6" y="10" width="7" height="60" rx="3.5" />
+          </g>
+        </>
+      )}
     </svg>
   )
 }
@@ -534,7 +559,7 @@ export function VendorHeaderCard({
           // the name/tagline area stays clean. Capped at ~55% of the width
           // so a landscape shot can't crowd the text; object-cover trims
           // the excess.
-          <VendorBannerArt />
+          <VendorBannerArt kind={pharmacy.businessType === 'other_commodity' ? 'goods' : 'food'} />
         )}
         {pharmacy.coverPhotoDataUrl && (
           <>
@@ -988,7 +1013,7 @@ export function VendorListRow({
       {pharmacy.bannerBackgroundDataUrl ? (
         <img src={pharmacy.bannerBackgroundDataUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
       ) : (
-        <VendorBannerArt />
+        <VendorBannerArt kind={pharmacy.businessType === 'other_commodity' ? 'goods' : 'food'} />
       )}
       {pharmacy.coverPhotoDataUrl && (
         <span aria-hidden className="absolute inset-0 overflow-hidden">
@@ -1068,7 +1093,7 @@ export function VendorFeatureCard({
         {pharmacy.bannerBackgroundDataUrl ? (
           <img src={pharmacy.bannerBackgroundDataUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
-          <VendorBannerArt />
+          <VendorBannerArt kind={pharmacy.businessType === 'other_commodity' ? 'goods' : 'food'} />
         )}
         {pharmacy.coverPhotoDataUrl && (
           <div aria-hidden className="absolute inset-0 overflow-hidden">
@@ -1172,13 +1197,10 @@ export function VendorStorefront({
     ? (pharmacy.posts ?? []).find((p) => p.id === focusPostId) ?? null
     : (pharmacy.posts ?? [])[0] ?? null
 
-  // A tap on the shared post's photo or featured dish is "I want that": put
-  // the dish (if the post named one) in the cart and scroll to the menu.
-  function openMenuFromPost(productId: string | null) {
-    if (productId && interactive) {
-      const item = items.find((i) => i.id === productId)
-      if (item && item.inStock && item.visible !== false) onQtyChange!(productId, (cart![productId] ?? 0) + 1)
-    }
+  // A tap on the shared post's photo scrolls straight to the menu — ordering
+  // itself (search, add, change quantity) happens only there, never as a
+  // side effect of opening the page.
+  function openMenuFromPost() {
     menuRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
   }
   const menuRef = useRef<HTMLDivElement>(null)
@@ -1284,8 +1306,7 @@ export function VendorStorefront({
             pharmacy={{ ...pharmacy, posts: [shownPost] }}
             items={items}
             accent={accent}
-            onAdd={interactive ? (productId) => onQtyChange!(productId, (cart![productId] ?? 0) + 1) : undefined}
-            onOpenMenu={openMenuFromPost}
+            onOpenMenu={interactive ? openMenuFromPost : undefined}
             viewer={viewer}
             focusPostId={focusPostId}
           />

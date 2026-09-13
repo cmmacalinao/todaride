@@ -5,7 +5,6 @@ import { DocumentUploadField } from './DocumentUploadField'
 import { createCustomLocation, resolvePhAddress, reverseGeocodeToPhAddress, type PhAddressTags } from '../lib/customLocation'
 import { getCurrentGeoPosition } from '../lib/geo'
 import { BarangayAddressPicker } from './BarangayAddressPicker'
-import { DeliveryMapPicker } from './DeliveryMapPicker'
 import { StoreRatingSheet } from './StoreRatingSheet'
 import { OrderStatusStrip, orderStageDetail } from './OrderStatusStrip'
 import { OrderChat } from './OrderChat'
@@ -310,19 +309,6 @@ export const VendorMenuBooking = forwardRef<
     const location = await resolvePhAddress(address)
     setDeliveryAddress(location)
     setDeliveryPinned(false)
-  }
-
-  // From the map — a tap, a drag, or the GPS button. The location is the
-  // exact point; the guess (when the pin landed somewhere in our address
-  // tree) re-seeds the dropdowns beneath so both say the same thing.
-  function handleMapPin(location: MockLocation, guess: PhAddressTags | null) {
-    addressTouchedRef.current = true
-    setDeliveryAddress(location)
-    setDeliveryPinned(true)
-    if (guess) {
-      setAddressSeed(guess)
-      setAddressSeedKey((k) => k + 1)
-    }
   }
 
   const canPlaceOrder = cartLines.length > 0 && !!deliveryAddress && !!contactPhone.trim() && !!selectedVendor
@@ -642,13 +628,6 @@ export const VendorMenuBooking = forwardRef<
 
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500">Deliver to</label>
-            {/* Map first — the same live map the ride booking pins on, with
-                the vendor's store shown so the customer sees where the food
-                is coming from. The address form below is the other way in:
-                picking a barangay there moves the pin, pinning here fills
-                the form. */}
-            <DeliveryMapPicker vendor={selectedVendor} deliveryAddress={deliveryAddress} onChange={handleMapPin} />
-            <p className="my-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400">or pick an address</p>
             <BarangayAddressPicker
               key={addressSeedKey}
               label="Delivery address"

@@ -21,25 +21,39 @@ const LANDMARK_CATEGORY_LABELS: Record<LandmarkCategory, string> = {
 
 const NUEVA_ECIJA_CITIES = Object.keys(PH_ADDRESS_TREE['Nueva Ecija'] ?? {})
 
-// The map's own toolbar row, next to Legend — a pared-down Rename/Save
-// changes/Delete for whichever landmark is currently *selected* (single
-// click; see selectLandmark), reachable without scrolling down to the form
-// below the map. Rename opens a small inline text field right in this row
-// rather than a native window.prompt() — Capacitor's WebView (this app
-// ships through it) blocks prompt/alert/confirm outright on most Android
-// builds, so a rename button built on prompt() silently does nothing there.
-// A drag only stages the pin's new spot (see stagedMove in the panel); 💾
-// beside Rename lights up gold until it is tapped, and ↩️ beside Delete
-// either drops that unsaved move or, once saved, puts the pin back.
+// The map's own toolbar row, next to Legend — one line of controls for
+// whatever the admin is working on, reachable without scrolling down to the
+// form below the map (which is out of reach entirely in full screen). The
+// row is always on screen; a control is greyed out until it applies, so
+// nothing ever moves around as the selection changes.
 //
-// key={landmark.id} at the call site remounts this fresh whenever the
-// selected landmark changes, which is what resets the rename draft below
+// The first button is one button for two jobs: "➕ Add name" while a new pin
+// is pending (tapped on the map or typed as coordinates), "✏️ Rename" once
+// an existing landmark is selected. Both open a small inline text field
+// right in this row rather than a native window.prompt() — Capacitor's
+// WebView (this app ships through it) blocks prompt/alert/confirm outright
+// on most Android builds, so a button built on prompt() silently does
+// nothing there.
+//
+// A drag only stages the pin's new spot (see stagedMove in the panel); 💾
+// lights up gold until it is tapped. ↩️ beside Delete is the one way back:
+// it discards a pending new pin, drops an unsaved drag, or — once saved —
+// puts the pin back where it was.
+//
+// The key at the call site remounts this fresh whenever the pending pin or
+// the selected landmark changes, which is what resets the draft below
 // instead of a manual effect.
 function LandmarkQuickActions({
   landmark,
+  pendingNew,
+  newName,
+  newCategory,
   stagedGps,
   undoMove,
   confirmingDelete,
+  onAddNew,
+  onDiscardNew,
+  onNewCategoryChange,
   onRename,
   onCategoryChange,
   onSaveMove,
@@ -49,12 +63,21 @@ function LandmarkQuickActions({
   onDeleteCancel,
 }: {
   landmark: Landmark | null
-  // Where this pin was dropped and not yet saved — turns 💾 gold.
+  // A new pin is waiting to be named — the first button reads Add name.
+  pendingNew: boolean
+  // The form's name/category fields, shared with the new pin so whichever
+  // place the admin types in wins.
+  newName: string
+  newCategory: LandmarkCategory
+  // Where the selected pin was dropped and not yet saved — turns 💾 gold.
   stagedGps: GeoCoords | null
   // The last SAVED move that can still be put back (any landmark, not only
-  // the selected one). With neither this nor a staged drag, ↩️ is greyed.
+  // the selected one).
   undoMove: { id: string; name: string } | null
   confirmingDelete: boolean
+  onAddNew: (name: string) => void
+  onDiscardNew: () => void
+  onNewCategoryChange: (category: LandmarkCategory) => void
   onRename: (l: Landmark, newName: string) => void
   onCategoryChange: (l: Landmark, category: LandmarkCategory) => void
   onSaveMove: (l: Landmark) => void
@@ -63,8 +86,8 @@ function LandmarkQuickActions({
   onDeleteConfirm: (l: Landmark) => void
   onDeleteCancel: () => void
 }) {
-  const [renameDraft, setRenameDraft] = useState<string | null>(null)
-  if (landmark && confirmingDelete) {
+  const [draft, setDraft] = useState<string | null>(null)
+  if (landmark && !pendingNew && confirmingDelete) {
     return (
       <span className="flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
         Delete {landmark.name}?
@@ -81,169 +104,36 @@ function LandmarkQuickActions({
       </span>
     )
   }
-  if (landmark && renameDraft !== null) {
-    return (
-      <span className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-1.5 py-1">
-        <input
-          autoFocus
-          value={renameDraft}
-          onChange={(e) => setRenameDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && renameDraft.trim()) {
-              onRename(landmark, renameDraft.trim())
-              setRenameDraft(null)
-            } else if (e.key === 'Escape') {
-              setRenameDraft(null)
-            }
-          }}
-          className="w-36 rounded border border-slate-300 px-1.5 py-0.5 text-[11px]"
-        />
-        <button
-          type="button"
-          disabled={!renameDraft.trim()}
-          onClick={() => {
-            onRename(landmark, renameDraft.trim())
-            setRenameDraft(null)
-          }}
-          className="rounded bg-brand-600 px-1.5 py-0.5 text-[11px] font-semibold text-white disabled:opacity-40"
-        >
-          Save
-        </button>
-        <button
-          type="button"
-          onClick={() => setRenameDraft(null)}
-          className="text-[11px] font-medium text-slate-500 hover:text-slate-700"
-        >
-          ✕
-        </button>
-      </span>
-    )
+  // The inline name box, for a new pin and for a rename alike.
+  const commitDraft = () => {
+    if (draft === null || !draft.trim()) return
+    if (pendingNew) onAddNew(draft.trim())
+    else if (landmark) onRename(landmark, draft.trim())
+    setDraft(null)
   }
-  // The row is always on screen above the map (the admin asked for every
-  // control to stay put); with no landmark selected it is simply greyed
-  // out, so the buttons never move around as the selection changes.
-  const none = !landmark
-  const disabledBtn = "rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
-  return (
-    <div className="flex items-center gap-1">
-      <button
-        type="button"
-        disabled={none}
-        onClick={() => landmark && setRenameDraft(landmark.name)}
-        title={landmark ? `Rename ${landmark.name}` : "Select a pin first"}
-        className={disabledBtn}
-      >
-        ✏️ Rename
-      </button>
-      {/* The form's own category picker, right here beside the pin. A
-          select is one deliberate tap already, so it applies on change —
-          no second Save to remember, unlike a drag that can happen by
-          accident. */}
-      <select
-        disabled={none}
-        value={landmark?.category ?? "other"}
-        onChange={(e) => landmark && onCategoryChange(landmark, e.target.value as LandmarkCategory)}
-        title={landmark ? `Category of ${landmark.name}` : "Select a pin first"}
-        aria-label={landmark ? `Category of ${landmark.name}` : "Category"}
-        className="rounded-md border border-slate-300 bg-white px-1.5 py-1 text-[11px] font-semibold text-slate-600 disabled:opacity-40"
-      >
-        {(Object.keys(LANDMARK_CATEGORY_LABELS) as LandmarkCategory[]).map((c) => (
-          <option key={c} value={c}>
-            {LANDMARK_CATEGORY_ICONS[c]} {LANDMARK_CATEGORY_LABELS[c]}
-          </option>
-        ))}
-      </select>
-      <button
-        type="button"
-        disabled={!landmark || !stagedGps}
-        onClick={() => landmark && onSaveMove(landmark)}
-        aria-label={landmark && stagedGps ? `Save ${landmark.name}'s new position` : 'Save position'}
-        title={landmark && stagedGps ? `Save ${landmark.name}'s new position` : 'Drag a pin first — then tap to save where it lands'}
-        className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition disabled:opacity-40 ${
-          stagedGps
-            ? 'border-gold-400 bg-gold-400 text-navy-900 shadow-sm hover:bg-gold-400/80'
-            : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
-        }`}
-      >
-        💾
-      </button>
-      <button
-        type="button"
-        disabled={none}
-        onClick={() => landmark && onDeleteRequest(landmark)}
-        title={landmark ? `Delete ${landmark.name}` : "Select a pin first"}
-        className="rounded-md border border-rose-300 bg-white px-2 py-1 text-[11px] font-semibold text-rose-600 transition hover:bg-rose-50 disabled:opacity-40"
-      >
-        🗑️ Delete
-      </button>
-      <button
-        type="button"
-        disabled={!stagedGps && !undoMove}
-        onClick={onUndoMove}
-        aria-label={stagedGps ? 'Discard the unsaved move' : undoMove ? `Undo moving ${undoMove.name}` : 'Undo last move'}
-        title={
-          stagedGps
-            ? 'Put the pin back — discard the unsaved move'
-            : undoMove
-              ? `Undo moving ${undoMove.name} — put it back where it was`
-              : 'Nothing to undo yet'
-        }
-        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
-      >
-        ↩️
-      </button>
-    </div>
-  )
-}
-
-// The pending pin's counterpart to LandmarkQuickActions: a freshly tapped
-// spot has no name yet, so its first action is "Add name", not Rename —
-// the inline box saves straight into the landmark list, so a new pin can be
-// named and added from the map row without scrolling back up to the form
-// (which is out of reach entirely in full screen). Keyed by the pin's
-// position from the caller so a re-tap elsewhere starts a fresh draft.
-function NewLandmarkQuickActions({
-  enabled,
-  initialName,
-  onAdd,
-  onDiscard,
-}: {
-  // False until the map has been tapped (or coordinates typed): the two
-  // buttons stay on screen, greyed, so the row never jumps.
-  enabled: boolean
-  initialName: string
-  onAdd: (name: string) => void
-  onDiscard: () => void
-}) {
-  const [draft, setDraft] = useState<string | null>(null)
-  if (enabled && draft !== null) {
+  if (draft !== null && (pendingNew || landmark)) {
     return (
-      <span className="flex items-center gap-1 rounded-md border border-teal-300 bg-white px-1.5 py-1">
+      <span
+        className={`flex items-center gap-1 rounded-md border bg-white px-1.5 py-1 ${pendingNew ? 'border-teal-300' : 'border-slate-300'}`}
+      >
         <input
           autoFocus
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Landmark name"
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && draft.trim()) {
-              onAdd(draft.trim())
-              setDraft(null)
-            } else if (e.key === 'Escape') {
-              setDraft(null)
-            }
+            if (e.key === 'Enter') commitDraft()
+            else if (e.key === 'Escape') setDraft(null)
           }}
           className="w-36 rounded border border-slate-300 px-1.5 py-0.5 text-[11px]"
         />
         <button
           type="button"
           disabled={!draft.trim()}
-          onClick={() => {
-            onAdd(draft.trim())
-            setDraft(null)
-          }}
-          className="rounded bg-teal-700 px-1.5 py-0.5 text-[11px] font-semibold text-white disabled:opacity-40"
+          onClick={commitDraft}
+          className={`rounded px-1.5 py-0.5 text-[11px] font-semibold text-white disabled:opacity-40 ${pendingNew ? 'bg-teal-700' : 'bg-brand-600'}`}
         >
-          Add
+          {pendingNew ? 'Add' : 'Save'}
         </button>
         <button
           type="button"
@@ -255,25 +145,89 @@ function NewLandmarkQuickActions({
       </span>
     )
   }
+  const nameIdle = !pendingNew && !landmark
+  const editIdle = pendingNew || !landmark
+  const plainBtn =
+    'rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40'
+  const canUndo = pendingNew || !!stagedGps || !!undoMove
+  const undoTitle = pendingNew
+    ? 'Discard the new pin'
+    : stagedGps
+      ? 'Put the pin back — discard the unsaved move'
+      : undoMove
+        ? `Undo moving ${undoMove.name} — put it back where it was`
+        : 'Nothing to undo yet'
   return (
     <div className="flex items-center gap-1">
       <button
         type="button"
-        disabled={!enabled}
-        onClick={() => setDraft(initialName)}
-        title={enabled ? "Name this new landmark and add it" : "Tap the map where the new landmark stands first"}
-        className="rounded-md border border-teal-300 bg-teal-50 px-2 py-1 text-[11px] font-semibold text-teal-800 transition hover:bg-teal-100 disabled:opacity-40"
+        disabled={nameIdle}
+        onClick={() => setDraft(pendingNew ? newName : (landmark?.name ?? ''))}
+        title={
+          pendingNew ? 'Name this new landmark and add it' : landmark ? `Rename ${landmark.name}` : 'Tap the map or select a pin first'
+        }
+        className={
+          pendingNew
+            ? 'rounded-md border border-teal-300 bg-teal-50 px-2 py-1 text-[11px] font-semibold text-teal-800 transition hover:bg-teal-100'
+            : plainBtn
+        }
       >
-        ➕ Add name
+        {pendingNew ? '➕ Add name' : '✏️ Rename'}
+      </button>
+      {/* The form's own category picker, right here beside the pin. For a
+          new pin it sets what Add name will file it under; for a selected
+          landmark a change applies at once — a select is one deliberate
+          tap already, unlike a drag that can happen by accident. */}
+      <select
+        disabled={nameIdle}
+        value={pendingNew ? newCategory : (landmark?.category ?? 'other')}
+        onChange={(e) => {
+          const next = e.target.value as LandmarkCategory
+          if (pendingNew) onNewCategoryChange(next)
+          else if (landmark) onCategoryChange(landmark, next)
+        }}
+        title={pendingNew ? 'Category of the new landmark' : landmark ? `Category of ${landmark.name}` : 'Tap the map or select a pin first'}
+        aria-label={pendingNew ? 'Category of the new landmark' : landmark ? `Category of ${landmark.name}` : 'Category'}
+        className="rounded-md border border-slate-300 bg-white px-1.5 py-1 text-[11px] font-semibold text-slate-600 disabled:opacity-40"
+      >
+        {(Object.keys(LANDMARK_CATEGORY_LABELS) as LandmarkCategory[]).map((c) => (
+          <option key={c} value={c}>
+            {LANDMARK_CATEGORY_ICONS[c]} {LANDMARK_CATEGORY_LABELS[c]}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        disabled={editIdle || !stagedGps}
+        onClick={() => landmark && onSaveMove(landmark)}
+        aria-label={landmark && stagedGps ? `Save ${landmark.name}'s new position` : 'Save position'}
+        title={landmark && stagedGps ? `Save ${landmark.name}'s new position` : 'Drag a pin first — then tap to save where it lands'}
+        className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition disabled:opacity-40 ${
+          !editIdle && stagedGps
+            ? 'border-gold-400 bg-gold-400 text-navy-900 shadow-sm hover:bg-gold-400/80'
+            : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+        }`}
+      >
+        💾
       </button>
       <button
         type="button"
-        disabled={!enabled}
-        onClick={onDiscard}
-        title="Discard the pending new landmark's pin"
-        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+        disabled={editIdle}
+        onClick={() => landmark && onDeleteRequest(landmark)}
+        title={!editIdle && landmark ? `Delete ${landmark.name}` : 'Select a pin first'}
+        className="rounded-md border border-rose-300 bg-white px-2 py-1 text-[11px] font-semibold text-rose-600 transition hover:bg-rose-50 disabled:opacity-40"
       >
-        ✕ Clear
+        🗑️ Delete
+      </button>
+      <button
+        type="button"
+        disabled={!canUndo}
+        onClick={pendingNew ? onDiscardNew : onUndoMove}
+        aria-label={undoTitle}
+        title={undoTitle}
+        className={plainBtn}
+      >
+        ↩️
       </button>
     </div>
   )
@@ -815,25 +769,24 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
                   resultsClassName="absolute left-0 top-full mt-1 w-64 max-h-56 overflow-y-auto"
                   inputClassName="w-full rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-600 placeholder:font-normal"
                 />
-                {/* Both rows at once when both apply: tapping the map to
-                    start a new pin does not deselect the landmark that was
-                    selected, so its Rename/Delete stay reachable. */}
-                <NewLandmarkQuickActions
-                    key={pending && !editingId ? `${pending.lat},${pending.lng}` : "none"}
-                    enabled={!!pending && !editingId}
-                    initialName={name}
-                    onAdd={(n) => handleSubmit(n)}
-                    onDiscard={() => {
+                {/* One row for whatever is in hand: a pending new pin takes
+                    the first button (Add name) and the category picker;
+                    otherwise they belong to the selected landmark. */}
+                <LandmarkQuickActions
+                    key={pending && !editingId ? `new:${pending.lat},${pending.lng}` : (selectedId ?? "none")}
+                    landmark={cityLandmarks.find((l) => l.id === selectedId) ?? null}
+                    pendingNew={!!pending && !editingId}
+                    newName={name}
+                    newCategory={category}
+                    onAddNew={(n) => handleSubmit(n)}
+                    onDiscardNew={() => {
                       setName('')
                       setAliasesText('')
                       setLat('')
                       setLng('')
                       setError('')
                     }}
-                  />
-                <LandmarkQuickActions
-                    key={selectedId ?? "none"}
-                    landmark={cityLandmarks.find((l) => l.id === selectedId) ?? null}
+                    onNewCategoryChange={setCategory}
                     stagedGps={stagedMove?.id === selectedId ? stagedMove.gps : null}
                     undoMove={lastMove}
                     confirmingDelete={confirmingRemoveId === selectedId}

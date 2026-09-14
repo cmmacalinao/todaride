@@ -2009,6 +2009,8 @@ export function PassengerPage() {
                 city={cityScope}
                 near={pickupGps ?? pickup.gps ?? null}
                 onSelect={handlePickupLandmark}
+                className="relative"
+                resultsClassName="absolute inset-x-0 top-full z-[80] mt-1 max-h-72 overflow-y-auto"
                 onOpenAddressForm={() => setAddressFormOpen('pickup')}
                 onPinOnMap={() => {
                   setMapTarget('pickup')
@@ -2072,7 +2074,7 @@ export function PassengerPage() {
                 they" first — first on its own the rest of the time, which
                 is most of the time: booking for yourself never shows the
                 row above this one. */}
-            <div className={guestRider.bookingFor === 'other' ? 'mt-2 flex items-stretch gap-1.5' : 'mt-1.5 flex items-stretch gap-1.5'}>
+            <div className={guestRider.bookingFor === 'other' ? 'relative mt-2 flex items-stretch gap-1.5' : 'relative mt-1.5 flex items-stretch gap-1.5'}>
             {openEnd === 'dropoff' ? (
               // Tapping Where to used to only expand a panel below with its
               // own separate search box a scroll away — typing directly into
@@ -2097,6 +2099,12 @@ export function PassengerPage() {
                   autoFocus
                   placeholder={isErrand ? 'Where should it go?' : 'Where to?'}
                   className="min-w-0 flex-1"
+                  // The matches float under the whole row rather than growing
+                  // the bar: inline, six streets stretched the red and yellow
+                  // boxes tall and narrow and every name was cut to "S…".
+                  // Anchored to the row (relative above), so the list spans
+                  // the bar and Set on Map together and names read in full.
+                  resultsClassName="absolute inset-x-0 top-full z-[80] mt-1 max-h-72 overflow-y-auto"
                   inputClassName="w-full min-w-0 bg-transparent text-sm font-semibold text-dest-text placeholder:font-normal placeholder:text-dest-subtext/70 focus:outline-none"
                 />
               </div>

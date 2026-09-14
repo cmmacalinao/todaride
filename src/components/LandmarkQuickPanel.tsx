@@ -142,6 +142,83 @@ function LandmarkQuickActions({
   )
 }
 
+// The pending pin's counterpart to LandmarkQuickActions: a freshly tapped
+// spot has no name yet, so its first action is "Add name", not Rename —
+// the inline box saves straight into the landmark list, so a new pin can be
+// named and added from the map row without scrolling back up to the form
+// (which is out of reach entirely in full screen). Keyed by the pin's
+// position from the caller so a re-tap elsewhere starts a fresh draft.
+function NewLandmarkQuickActions({
+  initialName,
+  onAdd,
+  onDiscard,
+}: {
+  initialName: string
+  onAdd: (name: string) => void
+  onDiscard: () => void
+}) {
+  const [draft, setDraft] = useState<string | null>(null)
+  if (draft !== null) {
+    return (
+      <span className="flex items-center gap-1 rounded-md border border-teal-300 bg-white px-1.5 py-1">
+        <input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Landmark name"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && draft.trim()) {
+              onAdd(draft.trim())
+              setDraft(null)
+            } else if (e.key === 'Escape') {
+              setDraft(null)
+            }
+          }}
+          className="w-36 rounded border border-slate-300 px-1.5 py-0.5 text-[11px]"
+        />
+        <button
+          type="button"
+          disabled={!draft.trim()}
+          onClick={() => {
+            onAdd(draft.trim())
+            setDraft(null)
+          }}
+          className="rounded bg-teal-700 px-1.5 py-0.5 text-[11px] font-semibold text-white disabled:opacity-40"
+        >
+          Add
+        </button>
+        <button
+          type="button"
+          onClick={() => setDraft(null)}
+          className="text-[11px] font-medium text-slate-500 hover:text-slate-700"
+        >
+          ✕
+        </button>
+      </span>
+    )
+  }
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => setDraft(initialName)}
+        title="Name this new landmark and add it"
+        className="rounded-md border border-teal-300 bg-teal-50 px-2 py-1 text-[11px] font-semibold text-teal-800 transition hover:bg-teal-100"
+      >
+        ➕ Add name
+      </button>
+      <button
+        type="button"
+        onClick={onDiscard}
+        title="Discard the pending new landmark's pin"
+        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+      >
+        ✕ Clear
+      </button>
+    </div>
+  )
+}
+
 // A TODA admin's own way to grow the landmark search beyond the seeded set
 // (see mock/data.ts) — same tap-the-map placement TerminalQuickPanel uses.
 // Existing pins are draggable too (see draggableIds below): a landmark
@@ -403,10 +480,14 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
     }, DOUBLE_CLICK_WINDOW_MS)
   }
 
-  function handleSubmit() {
+  // nameOverride: the map row's own Add name box (NewLandmarkQuickActions)
+  // hands its text straight in rather than round-tripping through the form's
+  // name state, which would not have updated yet within the same event.
+  function handleSubmit(nameOverride?: string) {
+    const nameText = (nameOverride ?? name).trim()
     const latNum = Number(lat)
     const lngNum = Number(lng)
-    if (!name.trim()) {
+    if (!nameText) {
       setError('Give the landmark a name.')
       return
     }
@@ -425,28 +506,28 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
     if (editingId) {
       const existing = landmarks.find((l) => l.id === editingId)
       updateLandmark(editingId, {
-        name: name.trim(),
+        name: nameText,
         aliases,
         category,
         city,
         gps: { lat: latNum, lng: lngNum },
         todaOrgId: existing?.todaOrgId ?? null,
       })
-      setJustEdited(name.trim())
+      setJustEdited(nameText)
       setJustAdded('')
       setJustMoved('')
       setEditingId(null)
     } else {
       addLandmark({
         id: `landmark-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        name: name.trim(),
+        name: nameText,
         aliases,
         category,
         city,
         gps: { lat: latNum, lng: lngNum },
         todaOrgId: null,
       })
-      setJustAdded(name.trim())
+      setJustAdded(nameText)
       setJustMoved('')
       setJustEdited('')
     }
@@ -520,7 +601,7 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
         </button>
         <button
           type="button"
-          onClick={handleSubmit}
+          onClick={() => handleSubmit()}
           className="rounded-lg bg-brand-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-brand-700"
         >
           {editingId ? 'Save changes' : 'Add'}
@@ -668,7 +749,20 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
                   resultsClassName="absolute left-0 top-full mt-1 w-64 max-h-56 overflow-y-auto"
                   inputClassName="w-full rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-600 placeholder:font-normal"
                 />
-                {selectedId && (
+                {pending && !editingId ? (
+                  <NewLandmarkQuickActions
+                    key={`${pending.lat},${pending.lng}`}
+                    initialName={name}
+                    onAdd={(n) => handleSubmit(n)}
+                    onDiscard={() => {
+                      setName('')
+                      setAliasesText('')
+                      setLat('')
+                      setLng('')
+                      setError('')
+                    }}
+                  />
+                ) : selectedId && (
                   <LandmarkQuickActions
                     key={selectedId}
                     landmark={cityLandmarks.find((l) => l.id === selectedId) ?? null}

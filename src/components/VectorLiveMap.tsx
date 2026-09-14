@@ -797,6 +797,15 @@ export function VectorLiveMap({
     })
   }, [ready, areaKey])
 
+  // Recenter heads the control column when it is showing, so the zoom
+  // buttons, the pan lock and the compass label all step down under it —
+  // one column, top to bottom, rather than a pill appearing mid-stack.
+  const showRecenter = everMoved && points.some((pt) => pt.id === 'pickup' || pt.id === 'dropoff' || pt.id === 'driver')
+  useEffect(() => {
+    const ctrl = mapRef.current?.getContainer().querySelector<HTMLElement>('.maplibregl-ctrl-top-left')
+    if (ctrl) ctrl.style.top = showRecenter ? '38px' : ''
+  }, [ready, showRecenter])
+
   return (
     <div className="relative" style={{ height }}>
       <div ref={holderRef} className="h-full w-full" />
@@ -810,7 +819,7 @@ export function VectorLiveMap({
           title={panLock.unlocked ? 'Map unlocked — scroll the page to lock it again' : 'Tap to move the map'}
           // Directly under MapLibre's +/- stack, same column, so the three
           // controls read as one group rather than two ideas in two corners.
-          className={`absolute left-[10px] top-[78px] z-10 flex h-[29px] w-[29px] items-center justify-center rounded border shadow-md transition ${
+          className={`absolute left-[10px] ${showRecenter ? 'top-[116px]' : 'top-[78px]'} z-10 flex h-[29px] w-[29px] items-center justify-center rounded border shadow-md transition ${
             panLock.unlocked
               ? 'border-brand-700 bg-brand-600 text-white'
               : 'border-slate-300 bg-white/95 text-slate-600 hover:bg-white'
@@ -828,7 +837,7 @@ export function VectorLiveMap({
       {/* Only while the camera is driving. On an ordinary north-up map this
           would be a piece of furniture explaining nothing. */}
       {nav && (
-        <div className="pointer-events-none absolute left-[48px] top-2 rounded-lg bg-white/92 px-2 py-1 text-[10px] font-semibold text-slate-700 shadow-sm">
+        <div className={`pointer-events-none absolute left-[48px] ${showRecenter ? 'top-[46px]' : 'top-2'} rounded-lg bg-white/92 px-2 py-1 text-[10px] font-semibold text-slate-700 shadow-sm`}>
           {camera.headingUp ? '🧭 Facing your direction' : '🧭 Waiting for direction…'}
         </div>
       )}
@@ -838,9 +847,10 @@ export function VectorLiveMap({
           camera, otherwise recentres on its own with nothing to press. Under
           the pan lock rather than at the bottom edge, which overlayBottom
           already owns and whose height changes with what a caller draws
-          there — and the same column the lock sits in reads as one group of
-          controls for the map itself, not two ideas in two corners. */}
-      {(everMoved && points.some((pt) => pt.id === 'pickup' || pt.id === 'dropoff' || pt.id === 'driver')) && (
+          there — and heading the same column the zoom and the lock sit in,
+          which step down under it (see showRecenter), so the map's own
+          controls read as one group, not two ideas in two corners. */}
+      {showRecenter && (
         <button
           type="button"
           onClick={() => {
@@ -855,9 +865,13 @@ export function VectorLiveMap({
             }
             setEverMoved(false)
           }}
-          className="absolute left-[10px] top-[115px] z-10 flex items-center gap-1 rounded-full border border-slate-300 bg-white/95 px-2.5 py-1.5 text-[11px] font-semibold text-brand-700 shadow-md hover:bg-white"
+          aria-label="Recenter"
+          title="Recenter — bring the trip back into view"
+          // Icon-only and the zoom column's width: a pill with a word beside
+          // it ran under the pickup/destination label at phone width.
+          className="absolute left-[10px] top-[10px] z-10 flex h-[29px] w-[29px] items-center justify-center rounded border border-slate-300 bg-white/95 text-[15px] leading-none shadow-md hover:bg-white"
         >
-          <span aria-hidden>🎯</span> Recenter
+          <span aria-hidden>🎯</span>
         </button>
       )}
 

@@ -2436,6 +2436,18 @@ export function PassengerPage() {
             <span className="truncate text-[10px] font-semibold text-slate-700">Contact</span>
           </button>
         )}
+        {/* The safety feature, one tap from every screen: the same Track
+            your trip that the yellow card on the booking form opens. Seated
+            right before SOS, since both are about the ride going wrong. */}
+        <button
+          type="button"
+          onClick={() => navigate('/book/terminal')}
+          title="Track your trip — I-track ang biyahe mo"
+          className="flex shrink-0 flex-col items-center gap-0 rounded-lg border border-transparent bg-slate-100 px-2 py-1.5 transition hover:bg-slate-200"
+        >
+          <span className="text-[15px] leading-none">📍</span>
+          <span className="whitespace-nowrap text-[10px] font-semibold text-slate-700">Track your trip</span>
+        </button>
         {[
           ...(rewardsEnabled ? [{ icon: '🎁', label: 'Rewards', tab: 'rewards' as const }] : []),
           { icon: '🆘', label: 'Emergency', tab: 'emergency' as const },
@@ -2450,7 +2462,11 @@ export function PassengerPage() {
             aria-label={item.label}
             title={item.label}
             aria-pressed={pageTab === item.tab}
-            className={`flex w-9 shrink-0 items-center justify-center rounded-lg border text-base transition ${
+            // SOS is the one tile that must be hit first time in a panic, so
+            // it is a size up from the rest of the row.
+            className={`flex shrink-0 items-center justify-center rounded-lg border transition ${
+              item.tab === 'emergency' ? 'w-12 text-2xl' : 'w-9 text-base'
+            } ${
               pageTab === item.tab
                 ? 'border-gold-500 bg-gold-400 shadow-md'
                 : 'border-transparent bg-slate-100 hover:bg-slate-200'

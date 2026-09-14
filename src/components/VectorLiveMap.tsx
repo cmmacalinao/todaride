@@ -121,6 +121,7 @@ function lineFeature(coords: GeoCoords[]): GeoJSON.Feature<GeoJSON.LineString> {
 export function VectorLiveMap({
   points,
   routeLine,
+  passedLine,
   hintLine,
   streetLines,
   routeIsReal,
@@ -636,7 +637,30 @@ export function VectorLiveMap({
       ? `${line.length}:${line[0].lat},${line[0].lng}:${line[line.length - 1].lat},${line[line.length - 1].lng}`
       : '0'
   const routeKey = shapeKey(routeLine)
+  const passedKey = shapeKey(passedLine)
   const hintKey = shapeKey(hintLine)
+
+  // The stretch already driven: a faint red trail, added before the route
+  // layer so the road still ahead always draws over it.
+  useEffect(() => {
+    whenStyled((map) => {
+      const data = lineFeature(passedLine && passedLine.length > 1 ? passedLine : [])
+      const src = map.getSource('route-done') as maplibregl.GeoJSONSource | undefined
+      if (src) {
+        src.setData(data)
+        return
+      }
+      map.addSource('route-done', { type: 'geojson', data })
+      map.addLayer({
+        id: 'route-done-line',
+        type: 'line',
+        source: 'route-done',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#dc2626', 'line-width': 3, 'line-opacity': 0.35 },
+      })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, passedKey])
 
   useEffect(() => {
     whenStyled((map) => {

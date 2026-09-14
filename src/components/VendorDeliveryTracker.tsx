@@ -180,6 +180,7 @@ export function VendorDeliveryTracker({ order, ride, vendor }: { order: MedsOrde
         <RealLiveMap
           points={points}
           routeLine={route?.points}
+          progressPointId="driver"
           routeIsReal={!!route}
           routeVariant={ride.status === 'ongoing' ? 'trip' : 'pickup'}
           followAll

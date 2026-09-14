@@ -7,6 +7,9 @@ import type { MapPoint } from './RealLiveMap'
 interface GoogleLiveMapProps {
   points: MapPoint[]
   routeLine?: GeoCoords[]
+  // The stretch of the route already driven — a faint red trail under the
+  // route. Same contract as the Vector/OSM engines (see RealLiveMap).
+  passedLine?: GeoCoords[]
   routeIsReal?: boolean
   routeVariant?: 'trip' | 'pickup'
   onMapClick?: (gps: GeoCoords) => void
@@ -42,11 +45,12 @@ interface GoogleLiveMapProps {
 // markers/polyline in place) rather than pulling in a React wrapper library
 // — matches the dependency-free pattern already used for the Google
 // geocoding/routing swap in geocode.ts/routing.ts.
-export function GoogleLiveMap({ points, routeLine, routeIsReal, routeVariant, onMapClick, onPointClick, draggableIds, onPointDragEnd, onFailed, refitSignal, followAll, fitPointIds, frozen, height = '220px' }: GoogleLiveMapProps) {
+export function GoogleLiveMap({ points, routeLine, passedLine, routeIsReal, routeVariant, onMapClick, onPointClick, draggableIds, onPointDragEnd, onFailed, refitSignal, followAll, fitPointIds, frozen, height = '220px' }: GoogleLiveMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<GoogleMap | null>(null)
   const markersRef = useRef<Map<string, GoogleMarker>>(new Map())
   const polylineRef = useRef<GooglePolyline | null>(null)
+  const passedRef = useRef<GooglePolyline | null>(null)
   const lastFitKeyRef = useRef<string>('')
   // Set once the reader pans or zooms; from then on the viewport is theirs
   // and the auto-fit below stops touching it.
@@ -206,6 +210,18 @@ export function GoogleLiveMap({ points, routeLine, routeIsReal, routeVariant, on
       }
     }
 
+    if (passedLine && passedLine.length > 1) {
+      const path = passedLine.map((c) => ({ lat: c.lat, lng: c.lng }))
+      if (passedRef.current) {
+        passedRef.current.setPath(path)
+      } else {
+        passedRef.current = new google.maps.Polyline({ path, map, strokeColor: '#dc2626', strokeOpacity: 0.35, strokeWeight: 3 })
+      }
+    } else if (passedRef.current) {
+      passedRef.current.setMap(null)
+      passedRef.current = null
+    }
+
     if (routeLine && routeLine.length > 1) {
       const path = routeLine.map((c) => ({ lat: c.lat, lng: c.lng }))
       const options = !routeIsReal
@@ -259,7 +275,7 @@ export function GoogleLiveMap({ points, routeLine, routeIsReal, routeVariant, on
         map.fitBounds(bounds, 30)
       }
     }
-  }, [points, routeLine, routeIsReal, routeVariant, status, refitSignal, followAll, fitPointIds, frozen, draggableKey])
+  }, [points, routeLine, passedLine, routeIsReal, routeVariant, status, refitSignal, followAll, fitPointIds, frozen, draggableKey])
 
   if (status === 'failed') return null
   return <div ref={containerRef} style={{ height, width: '100%', cursor: onMapClick ? 'crosshair' : undefined }} />

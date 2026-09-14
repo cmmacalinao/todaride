@@ -2046,6 +2046,7 @@ function ActiveTripCard({
           <RealLiveMap
             points={extraPoints && extraPoints.length > 0 ? [...mapPoints, ...extraPoints] : mapPoints}
             routeLine={routeLine}
+            progressPointId="driver"
             routeIsReal={!!route}
             hintLine={hintLine && hintLine.length > 1 ? hintLine : undefined}
             routeVariant={legRide?.status === 'driver_arriving' ? 'pickup' : 'trip'}

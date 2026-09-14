@@ -1269,6 +1269,7 @@ export function TripMonitor({
           <RealLiveMap
             points={mapPoints}
             routeLine={routeLine}
+            progressPointId="driver"
             routeIsReal={!!route}
             routeVariant={ride.status === 'driver_arriving' ? 'pickup' : 'trip'}
             refitSignal={framing.phase}

@@ -7,6 +7,7 @@ import { googleMapsApiKey } from '../lib/googleMapsLoader'
 import { GoogleLiveMap } from './GoogleLiveMap'
 import { markerBoxSize, markerHtml, type MarkerIcon } from './mapMarkerHtml'
 import { NavMapBoundary } from './NavMapBoundary'
+import { splitRouteAtProgress } from '../lib/routeProgress'
 import type { GeoCoords } from '../types'
 
 // Still split out of the main bundle, and still worth splitting even though
@@ -77,6 +78,13 @@ export interface RealLiveMapProps {
   // the line style so the two read differently (solid road path vs. dashed
   // "as the crow flies" placeholder).
   routeLine?: GeoCoords[]
+  // Which of `points` is the vehicle driving this route. When set (and the
+  // route is a real road path), the stretch already behind that marker is
+  // drawn as a faint red trail and only what is still ahead stays in the
+  // route colour — see splitRouteAtProgress.
+  progressPointId?: string
+  // Internal: the driven-so-far stretch, handed to the engines by RealLiveMap.
+  passedLine?: GeoCoords[]
   // A faint second line, for a connection worth hinting at rather than
   // drawing: on a shared ride it runs from the passenger already aboard to
   // the one waiting further up the road, so the driver can see the two are
@@ -501,7 +509,7 @@ function ClickHandler({ onMapClick }: { onMapClick: (gps: GeoCoords) => void }) 
 
 // The free, keyless renderer — OpenStreetMap tiles via Leaflet. Used
 // whenever no Google Maps API key is configured (see RealLiveMap below).
-function OsmLiveMap({ points, routeLine, hintLine, streetLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen, draggableIds, onPointDragEnd, height = '320px', panLock }: RealLiveMapProps & { panLock?: { unlocked: boolean; onToggle: () => void } }) {
+function OsmLiveMap({ points, routeLine, passedLine, hintLine, streetLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen, draggableIds, onPointDragEnd, height = '320px', panLock }: RealLiveMapProps & { panLock?: { unlocked: boolean; onToggle: () => void } }) {
   const center: [number, number] = [points[0].gps.lat, points[0].gps.lng]
 
   return (
@@ -541,6 +549,9 @@ function OsmLiveMap({ points, routeLine, hintLine, streetLines, routeIsReal, rou
           positions={hintLine.map((p) => [p.lat, p.lng])}
           pathOptions={{ color: '#0f2a6b', weight: 1.5, opacity: 0.45, dashArray: '3 5' }}
         />
+      )}
+      {passedLine && passedLine.length > 1 && (
+        <Polyline positions={passedLine.map((p) => [p.lat, p.lng])} pathOptions={{ color: '#dc2626', weight: 3, opacity: 0.35 }} />
       )}
       {routeLine && routeLine.length > 1 && (
         <Polyline positions={routeLine.map((p) => [p.lat, p.lng])} pathOptions={routeLineStyle(routeIsReal, routeVariant)} />
@@ -687,7 +698,16 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, hintLine, streetLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker }: RealLiveMapProps) {
+export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, progressPointId, hintLine, streetLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker }: RealLiveMapProps) {
+  // The driven-so-far / still-ahead split of the route, if there is a
+  // vehicle to measure it by. Only for a real road path: a dashed
+  // straight-line placeholder has no "behind" worth drawing.
+  const progressGps = progressPointId ? points.find((p) => p.id === progressPointId)?.gps : undefined
+  const routeSplit =
+    routeLine && routeLine.length > 1 && routeIsReal && progressGps ? splitRouteAtProgress(routeLine, progressGps) : null
+  const routeAhead = routeSplit ? routeSplit.remaining : routeLine
+  const routeBehind = routeSplit ? routeSplit.passed : undefined
+
   // If the Google script fails to load (bad key, network block, CSP), fall
   // back to the OSM/Leaflet canvas instead of showing an empty map.
   const [googleFailed, setGoogleFailed] = useState(false)
@@ -901,7 +921,8 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
             <VectorLiveMap
               points={displayPoints}
               areas={areas}
-              routeLine={routeLine}
+              routeLine={routeAhead}
+              passedLine={routeBehind}
               hintLine={hintLine}
               streetLines={streetLines}
               routeIsReal={routeIsReal}
@@ -938,7 +959,8 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
       ) : useGoogle ? (
         <GoogleLiveMap
           points={displayPoints}
-          routeLine={routeLine}
+          routeLine={routeAhead}
+          passedLine={routeBehind}
           routeIsReal={routeIsReal}
           routeVariant={routeVariant}
           onMapClick={onMapClick}
@@ -956,7 +978,8 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
         <OsmLiveMap
           points={displayPoints}
           areas={areas}
-          routeLine={routeLine}
+          routeLine={routeAhead}
+          passedLine={routeBehind}
           hintLine={hintLine}
           streetLines={streetLines}
           routeIsReal={routeIsReal}

@@ -122,6 +122,7 @@ export function VectorLiveMap({
   points,
   routeLine,
   hintLine,
+  streetLines,
   routeIsReal,
   routeVariant,
   onMapClick,
@@ -679,6 +680,39 @@ export function VectorLiveMap({
         })
     })
   }, [ready, hintKey])
+
+  // Keyed on shape, like the lines above — the caller rebuilds the array
+  // each render.
+  const streetKey = (streetLines ?? []).map((run) => (run.length ? `${run.length}:${run[0].lat},${run[0].lng}` : '0')).join('|')
+  useEffect(() => {
+    whenStyled((map) => {
+      const data: GeoJSON.Feature<GeoJSON.MultiLineString> = {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'MultiLineString',
+          coordinates: (streetLines ?? [])
+            .filter((run) => run.length > 1)
+            .map((run) => run.map((p) => [p.lng, p.lat] as [number, number])),
+        },
+      }
+      const src = map.getSource('street') as maplibregl.GeoJSONSource | undefined
+      if (src) {
+        src.setData(data)
+        return
+      }
+      map.addSource('street', { type: 'geojson', data })
+      // Thin and green: a guide to drag the pin along, not a route.
+      map.addLayer({
+        id: 'street-line',
+        type: 'line',
+        source: 'street',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#16a34a', 'line-width': 2.5, 'line-opacity': 0.9 },
+      })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, streetKey])
 
   const areaKey = (areas ?? []).map((a) => `${a.id}:${a.color}:${a.points.length}`).join('|')
   useEffect(() => {

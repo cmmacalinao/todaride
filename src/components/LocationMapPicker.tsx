@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom'
 import { RealLiveMap, type MapPoint } from './RealLiveMap'
 import { createCustomLocation, reverseGeocodeToPhAddress, type PhAddressTags } from '../lib/customLocation'
 import { getCurrentGeoPosition } from '../lib/geo'
+import { STREET_PIN_NOTE, streetLinesFor } from '../lib/streetPaths'
 import type { GeoCoords, MockLocation, Terminal } from '../types'
 
 // Lets the passenger drop a pin directly on the map instead of (or in
@@ -246,7 +247,7 @@ export function LocationMapPicker({
   // older than the window below, is from a driver who has since closed the
   // app or gone home — and a marker for a tricycle that is not there sends
   // somebody walking toward nothing. Better to show fewer and mean them.
-  const { drivers } = useRides()
+  const { drivers, landmarks } = useRides()
   const liveTricycles = drivers.filter((d) => {
     if (!d.online || !d.lastKnownGps || !d.lastKnownGpsAt) return false
     return Date.now() - new Date(d.lastKnownGpsAt).getTime() < LIVE_DRIVER_WINDOW_MS
@@ -479,15 +480,38 @@ export function LocationMapPicker({
   // centerOn: a pinch means "closer to me". Without it the map zooms about
   // whatever the frame happened to be centred on, and the person doing the
   // pinching slides off the edge.
+  // A street picked from the search draws its road in green — either end.
+  const pickupStreet = streetLinesFor(pickup, landmarks)
+  const dropoffStreet = streetLinesFor(dropoff, landmarks)
+  const streetLines = [...(pickupStreet ?? []), ...(dropoffStreet ?? [])]
+  // The one exception to "the map never moves on its own": picking a
+  // street is a request to see that street, so the view centres on that
+  // end at street zoom while its green line is showing. Dragging the pin
+  // renames the location (see streetLinesFor), the line goes, and the map
+  // is left alone again from there.
+  const streetEnd: "pickup" | "dropoff" | null = dropoffStreet ? "dropoff" : pickupStreet ? "pickup" : null
+  const streetNote =
+    streetLines.length > 0 ? (
+      <p className="mb-1 rounded-md border border-green-300 bg-green-50 px-2 py-1 text-[11px] font-medium text-green-800">
+        🛣️ {STREET_PIN_NOTE}
+      </p>
+    ) : null
+
   const map = (
+    <>
+    {streetNote}
     <RealLiveMap
       points={points}
+      streetLines={streetLines}
       onMapClick={(gps) => void placePin(gps)}
-      refitSignal={refitSignal}
+      refitSignal={streetEnd ? `${refitSignal}|street:${streetEnd}` : refitSignal}
       holdFit={holdNextFitRef.current}
       // Frame the pins once on open, then leave the view alone — the
-      // passenger moves the map, not the map the passenger.
-      fitOnce
+      // passenger moves the map, not the map the passenger. (Except a
+      // street pick — see streetEnd above.)
+      fitOnce={!streetEnd}
+      fitPointIds={streetEnd ? [streetEnd] : undefined}
+      singlePointZoom={streetEnd ? 16 : undefined}
       centerOn={myPosition}
       fill={mapFirst}
       onFullscreenChange={setMapFullscreen}
@@ -521,6 +545,7 @@ export function LocationMapPicker({
       draggableIds={[...(pickup.gps ? ['pickup'] : []), ...(hasDropoff && dropoff.gps ? ['dropoff'] : [])]}
       onPointDragEnd={(id, gps) => void placePin(gps, id === 'pickup' ? 'pickup' : 'dropoff')}
     />
+    </>
   )
 
   const sheet = (

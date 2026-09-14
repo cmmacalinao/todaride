@@ -82,6 +82,9 @@ export interface RealLiveMapProps {
   // the one waiting further up the road, so the driver can see the two are
   // on the same journey without it competing with the route they follow.
   hintLine?: GeoCoords[]
+  // A chosen street, drawn as thin green runs (one per OSM segment) so the
+  // passenger can set the pin along the right road — see lib/streetPaths.
+  streetLines?: GeoCoords[][]
   routeIsReal?: boolean
   // 'pickup' draws a thinner, differently-colored line for the "driver en
   // route to you" leg so it reads as distinct from the main trip route
@@ -498,7 +501,7 @@ function ClickHandler({ onMapClick }: { onMapClick: (gps: GeoCoords) => void }) 
 
 // The free, keyless renderer — OpenStreetMap tiles via Leaflet. Used
 // whenever no Google Maps API key is configured (see RealLiveMap below).
-function OsmLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen, draggableIds, onPointDragEnd, height = '320px', panLock }: RealLiveMapProps & { panLock?: { unlocked: boolean; onToggle: () => void } }) {
+function OsmLiveMap({ points, routeLine, hintLine, streetLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen, draggableIds, onPointDragEnd, height = '320px', panLock }: RealLiveMapProps & { panLock?: { unlocked: boolean; onToggle: () => void } }) {
   const center: [number, number] = [points[0].gps.lat, points[0].gps.lng]
 
   return (
@@ -524,6 +527,15 @@ function OsmLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, on
           </Polygon>
         ) : null,
       )}
+      {(streetLines ?? [])
+        .filter((run) => run.length > 1)
+        .map((run, i) => (
+          <Polyline
+            key={`street-${i}`}
+            positions={run.map((p) => [p.lat, p.lng])}
+            pathOptions={{ color: '#16a34a', weight: 2.5, opacity: 0.9 }}
+          />
+        ))}
       {hintLine && hintLine.length > 1 && (
         <Polyline
           positions={hintLine.map((p) => [p.lat, p.lng])}
@@ -675,7 +687,7 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker }: RealLiveMapProps) {
+export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, hintLine, streetLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker }: RealLiveMapProps) {
   // If the Google script fails to load (bad key, network block, CSP), fall
   // back to the OSM/Leaflet canvas instead of showing an empty map.
   const [googleFailed, setGoogleFailed] = useState(false)
@@ -891,6 +903,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
               areas={areas}
               routeLine={routeLine}
               hintLine={hintLine}
+              streetLines={streetLines}
               routeIsReal={routeIsReal}
               routeVariant={routeVariant}
               onMapClick={onMapClick}
@@ -945,6 +958,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
           areas={areas}
           routeLine={routeLine}
           hintLine={hintLine}
+          streetLines={streetLines}
           routeIsReal={routeIsReal}
           routeVariant={routeVariant}
           onMapClick={onMapClick}

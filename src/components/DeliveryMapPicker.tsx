@@ -4,6 +4,8 @@ import { DestinationSearch } from './DestinationSearch'
 import { formatAddressLine } from '../lib/addressFormat'
 import { createCustomLocation, reverseGeocodeToPhAddress, type PhAddressTags } from '../lib/customLocation'
 import { getCurrentGeoPosition } from '../lib/geo'
+import { STREET_PIN_NOTE, streetLinesFor } from '../lib/streetPaths'
+import { useRides } from '../context/RideContext'
 import type { GeoCoords, MockLocation, Pharmacy } from '../types'
 
 // Same fallback the vendor's own location picker and buildMedsDeliveryRide
@@ -39,6 +41,8 @@ export function DeliveryMapPicker({
   city?: string
 }) {
   const [status, setStatus] = useState<'idle' | 'locating' | 'error'>('idle')
+  const { landmarks } = useRides()
+  const streetLines = streetLinesFor(deliveryAddress, landmarks)
   const [error, setError] = useState('')
 
   async function placePin(gps: GeoCoords) {
@@ -87,8 +91,14 @@ export function DeliveryMapPicker({
           🏁 {deliveryAddress ? formatAddressLine(deliveryAddress.label) : 'Deliver to — tap the map to pin it'}
         </p>
       </div>
+      {streetLines && (
+        <p className="rounded-md border border-green-300 bg-green-50 px-2 py-1 text-[11px] font-medium text-green-800">
+          🛣️ {STREET_PIN_NOTE}
+        </p>
+      )}
       <RealLiveMap
         points={points}
+        streetLines={streetLines ?? undefined}
         onMapClick={(gps) => void placePin(gps)}
         draggableIds={deliveryAddress?.gps ? ['dropoff'] : []}
         onPointDragEnd={(_, gps) => void placePin(gps)}

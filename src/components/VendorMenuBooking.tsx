@@ -12,7 +12,8 @@ import { StoreRatingSheet } from './StoreRatingSheet'
 import { OrderStatusStrip, orderStageDetail } from './OrderStatusStrip'
 import { OrderChat } from './OrderChat'
 import { TripMonitor } from './TripMonitor'
-import { VendorListRow, VendorStorefront } from './VendorStorefront'
+import { VendorSearchRow, VendorStorefront } from './VendorStorefront'
+import { haversineDistanceMeters } from '../lib/geo'
 import { VendorNewsfeed } from './VendorFeed'
 import type { BusinessType, MedicineProduct, MedsOrder, MockLocation, PaymentMethod, Pharmacy } from '../types'
 
@@ -509,43 +510,33 @@ export const VendorMenuBooking = forwardRef<
               particular store. */}
           {query && shownVendors.length > 0 && (
             <div>
-              <p className="mb-1.5 flex items-center gap-1 text-sm font-bold text-slate-700">🌟 Stores</p>
-              {/* One line per store — see VendorListRow. Open stores first,
-                  then by name, so the ones a customer can actually order
-                  from are at the top. */}
+              {/* Search reads like search: one plain row per hit (see
+                  VendorSearchRow), the full name first, the feed below
+                  stepping aside while a query is typed so the same store is
+                  not listed twice. Open stores first, then by name, so the
+                  ones a customer can actually order from are at the top. */}
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                {shownVendors.length} {shownVendors.length === 1 ? 'store' : 'stores'} match "{vendorSearch.trim()}"
+              </p>
               <div className="space-y-1.5">
                 {[...shownVendors]
                   .sort((a, b) => Number(b.isOpen) - Number(a.isOpen) || a.name.localeCompare(b.name))
-                  .map((v) => {
-                    const dishes = matchingDishes(v.id)
-                    return (
-                      <div key={v.id}>
-                        <VendorListRow
-                          pharmacy={v}
-                          itemCount={medicineProducts.filter((p) => p.pharmacyId === v.id && p.visible !== false).length}
-                          onSelect={() => openVendor(v.id)}
-                        />
-                        {dishes.length > 0 && (
-                          <div className="mx-2 -mt-1 flex flex-wrap gap-1 rounded-b-lg border border-t-0 border-slate-200 bg-white px-2 pb-1.5 pt-2">
-                            {dishes.slice(0, 4).map((d) => (
-                              <button
-                                key={d.id}
-                                type="button"
-                                onClick={() => {
-                                  openVendor(v.id)
-                                  setCart({ [d.id]: 1 })
-                                }}
-                                className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 hover:bg-amber-100"
-                              >
-                                🍽️ {d.name} · ₱{d.price}
-                              </button>
-                            ))}
-                            {dishes.length > 4 && <span className="px-1 text-[11px] text-slate-400">+{dishes.length - 4} more</span>}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                  .map((v) => (
+                    <VendorSearchRow
+                      key={v.id}
+                      pharmacy={v}
+                      itemCount={medicineProducts.filter((p) => p.pharmacyId === v.id && p.visible !== false).length}
+                      distanceMeters={
+                        deliveryAddress?.gps && v.locationGps ? haversineDistanceMeters(deliveryAddress.gps, v.locationGps) : null
+                      }
+                      dishes={matchingDishes(v.id)}
+                      onSelect={() => openVendor(v.id)}
+                      onSelectDish={(productId) => {
+                        openVendor(v.id)
+                        setCart({ [productId]: 1 })
+                      }}
+                    />
+                  ))}
               </div>
             </div>
           )}
@@ -555,7 +546,7 @@ export const VendorMenuBooking = forwardRef<
               — see VendorNewsfeed. Tapping a post's photo or featured dish
               opens that store's page to order. The list of all stores is
               hidden; the search box above brings up matching stores. */}
-          {vendors.length > 0 && (
+          {vendors.length > 0 && !query && (
             <div>
               <p className="mb-1.5 flex items-center gap-1 text-sm font-bold text-slate-700">
                 📣 {isGoods ? 'Merchant/Store Partners' : 'Merchant/Food Partners'}

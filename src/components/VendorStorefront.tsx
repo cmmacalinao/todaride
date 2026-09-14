@@ -1066,6 +1066,83 @@ export function VendorListRow({
   )
 }
 
+// A search hit, as a plain row: the banner strip above is the shop window
+// for browsing, but in a results list it hid the one thing the customer
+// typed — the name was cut to "Aling Nena's Carind…" while the banner art
+// and chip took the room, and four hits filled a phone. Here the name
+// reads in full (wrapping to a second line if it must), with the open dot,
+// rating, menu size and distance in grey under it, and the matching dishes
+// — when a dish was what matched — as chips on a third line. The store's
+// own page, one tap away, still opens on its full banner.
+export function VendorSearchRow({
+  pharmacy,
+  itemCount,
+  distanceMeters,
+  dishes,
+  onSelect,
+  onSelectDish,
+}: {
+  pharmacy: Pharmacy
+  itemCount: number
+  distanceMeters?: number | null
+  dishes?: { id: string; name: string; price: number }[]
+  onSelect: () => void
+  onSelectDish?: (productId: string) => void
+}) {
+  const accent = resolveVendorAccent(pharmacy)
+  const { average, count } = storeRatingSummary(pharmacy)
+  const meta = [
+    pharmacy.isOpen ? 'Open' : 'Closed',
+    count > 0 ? `★ ${average.toFixed(1)}` : null,
+    `${itemCount} item${itemCount === 1 ? '' : 's'}`,
+    // Under 50m is not a distance, it is two placeholder pins on the same
+    // spot (a store that never pinned itself, a customer whose address is
+    // the seed default) — say nothing rather than "0.0 km".
+    distanceMeters != null && distanceMeters >= 50 ? `${(distanceMeters / 1000).toFixed(1)} km` : null,
+  ].filter(Boolean)
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
+      <button type="button" onClick={onSelect} className="flex w-full items-center gap-2.5 text-left">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50 text-lg">
+          {pharmacy.logoDataUrl ? (
+            <img src={pharmacy.logoDataUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <span aria-hidden>{accent.icon}</span>
+          )}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold leading-snug text-slate-800">{pharmacy.name}</span>
+          <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-500">
+            <span
+              aria-hidden
+              className={`h-2 w-2 shrink-0 rounded-full ${pharmacy.isOpen ? 'bg-emerald-500' : 'bg-slate-300'}`}
+            />
+            <span className="truncate">{meta.join(' · ')}</span>
+          </span>
+        </span>
+        <span aria-hidden className="shrink-0 text-slate-400">
+          ›
+        </span>
+      </button>
+      {dishes && dishes.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1 pl-[2.9rem]">
+          {dishes.slice(0, 4).map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              onClick={() => (onSelectDish ? onSelectDish(d.id) : onSelect())}
+              className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 hover:bg-amber-100"
+            >
+              🍽️ {d.name} · ₱{d.price}
+            </button>
+          ))}
+          {dishes.length > 4 && <span className="px-1 text-[11px] text-slate-400">+{dishes.length - 4} more</span>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // VendorMenuBooking.tsx's browse step) — a condensed version of
 // VendorHeaderCard's own banner/avatar treatment, so a vendor that has
 // customized their cover photo/logo/theme shows up looking like their own

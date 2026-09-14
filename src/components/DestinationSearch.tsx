@@ -40,6 +40,7 @@ export function DestinationSearch({
   onPinOnMap,
   resultsClassName = '',
   noMatchNote,
+  barangayOnly = false,
   placeholder = 'Search a landmark — palengke, simbahan, CLSU…',
   className,
   inputClassName = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm',
@@ -71,6 +72,11 @@ export function DestinationSearch({
   // plain instruction — for a box sitting on the map itself, where "pin it
   // on the map" is already the thing right underneath, not a link away.
   noMatchNote?: string
+  // Searches only the barangay pins (the seeded "<Barangay>, <City>"
+  // landmarks) and never falls through to the live OpenStreetMap lookup —
+  // every barangay is already seeded, and a stray shop or road coming back
+  // from a "barangay" box would just be confusing.
+  barangayOnly?: boolean
   placeholder?: string
   // Lets a caller embed this as the destination bar itself (see
   // PassengerPage's Where to) rather than the plain boxed field this
@@ -81,7 +87,8 @@ export function DestinationSearch({
 }) {
   const { landmarks } = useRides()
   const [query, setQuery] = useState('')
-  const scoped = city ? landmarks.filter((l) => l.city === city) : landmarks
+  const pool = barangayOnly ? landmarks.filter((l) => l.id.startsWith('landmark-brgy-')) : landmarks
+  const scoped = city ? pool.filter((l) => l.city === city) : pool
   const matches = searchLandmarks(query, scoped, near ?? null)
 
   const [liveResults, setLiveResults] = useState<PlaceSuggestion[]>([])
@@ -96,7 +103,7 @@ export function DestinationSearch({
   const requestIdRef = useRef(0)
 
   const trimmed = query.trim()
-  const shouldTryLive = matches.length === 0 && trimmed.length >= MIN_LIVE_QUERY_LENGTH
+  const shouldTryLive = !barangayOnly && matches.length === 0 && trimmed.length >= MIN_LIVE_QUERY_LENGTH
 
   useEffect(() => {
     if (!shouldTryLive) {
@@ -206,7 +213,7 @@ export function DestinationSearch({
           <p className="mt-1 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-400">
             {noMatchNote ? (
               <>
-                No landmark matches "{trimmed}"{city ? ` in ${city}` : ''}
+                No {barangayOnly ? 'barangay' : 'landmark'} matches "{trimmed}"{city ? ` in ${city}` : ''}
                 {shouldTryLive && liveStatus === 'done' ? ' and no nearby place found' : ''} — {noMatchNote}
               </>
             ) : (

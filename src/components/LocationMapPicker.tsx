@@ -63,6 +63,7 @@ export function LocationMapPicker({
   terminals = [],
   extraPoints = [],
   onScanQr,
+  toolbarAction,
 }: {
   mapFirst?: boolean
   sheetHeader?: () => ReactNode
@@ -112,6 +113,10 @@ export function LocationMapPicker({
   // Passed straight through to RealLiveMap's own button row — see there for
   // why this is a callback rather than a route.
   onScanQr?: () => void
+  // Passed straight through to RealLiveMap's button row too, seated right
+  // after Legend — the booking screen puts a landmark search box there so a
+  // destination can be found without scrolling back up to the Where to bar.
+  toolbarAction?: ReactNode
   // Rendered directly under the map, filling the row's width to the left
   // of underMapAction. The booking form's submit lives here so the action
   // sits with the map it is confirming, immediately after the pin the
@@ -439,14 +444,6 @@ export function LocationMapPicker({
          the two Set-on-Map buttons say which end they arm at the moment of
          arming it, so this repeated an answer already given - and the GPS
          button with it, which the pickup now takes from the phone anyway. */}
-      {!mapFirst && (
-        <p className="text-center text-[11px] text-slate-500">
-          Tap the map to Pin location -{' '}
-          <span className={target === 'pickup' ? 'font-semibold text-pickup-accent' : 'font-semibold text-dest-accent'}>
-            {target === 'pickup' ? pickupLabel : dropoffLabel}
-          </span>
-        </p>
-      )}
     </>
   )
 
@@ -466,6 +463,7 @@ export function LocationMapPicker({
       fill={mapFirst}
       onFullscreenChange={setMapFullscreen}
       onScanQr={onScanQr}
+      toolbarAction={toolbarAction}
       // Drawn over the map rather than beside it, so the two things a person
       // needs while looking at the map — where their pins are, and the way
       // out to the booking — are still there when the map fills the phone.

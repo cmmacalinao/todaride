@@ -1358,7 +1358,7 @@ export function PassengerPage() {
 
   // The saved-place row. Rendered against whichever end of the trip means
   // "where I am": the pickup on a ride, the delivery address on an errand.
-  function quickPlaceChips(target: 'pickup' | 'dropoff', heading = 'Save as:') {
+  function quickPlaceChips(target: 'pickup' | 'dropoff', heading = '') {
     const applyPlace = target === 'pickup' ? handlePickupQuickPick : handleDropoffQuickPick
     const current = target === 'pickup' ? pickup : dropoff
     const fieldName = target === 'pickup' ? pickupLabel : dropoffLabel
@@ -1369,7 +1369,7 @@ export function PassengerPage() {
     // opposite actions sitting in identical pills.
     return (
       <div className="-mx-1 mt-2 flex flex-nowrap items-center gap-1 overflow-x-auto px-1 pb-0.5">
-        <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold text-slate-500">{heading}</span>
+        {heading && <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold text-slate-500">{heading}</span>}
         {SAVED_LOCATION_LABELS.filter((label) => label !== 'Favorite').map((label) => {
           const saved = savedLocations.find((sl) => sl.label === label)
           return (
@@ -1641,10 +1641,29 @@ export function PassengerPage() {
         // the Terminal panel has borrowed this map — that screen has its own
         // layout and its own strip, and a sheet over it would be a second
         // panel arguing with the first.
-        // Only while there is no trip already underway to record — once one
-        // exists this same map is showing it, and the shortcut back to a
-        // screen for starting a trip would be offering to start a second one.
-        onScanQr={!tripUnderway && !isErrand ? () => navigate('/book/terminal') : undefined}
+        // A landmark search right on the map's own button row, after Legend
+        // — the same box the Where to bar embeds, so a destination can be
+        // found from down here without scrolling back up to that bar.
+        toolbarAction={
+          <DestinationSearch
+            city={cityScope}
+            near={pickupGps ?? pickup.gps ?? null}
+            onSelect={handleDropoffLandmark}
+            onOpenAddressForm={() => {
+              if (openEnd !== 'dropoff') openAddressPicker('dropoff')
+              setAddressFormOpen('dropoff')
+            }}
+            onPinOnMap={() => {
+              setMapTarget('dropoff')
+              setOpenEnd(null)
+              setAddressFormOpen(null)
+            }}
+            placeholder="🔍 Find a landmark"
+            className="relative z-[80] w-36 sm:w-44"
+            resultsClassName="absolute left-0 top-full mt-1 w-72 max-h-64 overflow-y-auto"
+            inputClassName="w-full rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-600 placeholder:font-normal"
+          />
+        }
         mapFirst={mapFirstBooking}
         sheetHeader={mapFirstBooking && !tripUnderway ? () => addressCard(true, true) : undefined}
         sheetSnap={mapFirstBooking ? bookingSheetSnap : undefined}
@@ -1782,18 +1801,22 @@ export function PassengerPage() {
   // which is two taps further down inside whichever end you opened. Answering
   // "which city" before being asked "which barangay" is the order the form
   // actually works in, so that is where it now lives.
-  const cityRow = (
+  // One per end rather than one shared element: the destination's copy now
+  // sits above the Where to bar permanently (not only while that panel is
+  // open), so it can be on screen at the same time as the pickup panel's
+  // own copy — each needs its own id and its own end's colour.
+  const cityRowFor = (end: 'pickup' | 'dropoff') => (
     <div className="flex items-center gap-2">
       <label
-        htmlFor="home-city"
+        htmlFor={`home-city-${end}`}
         className={`shrink-0 text-xs font-semibold uppercase tracking-wide ${
-          openEnd === 'dropoff' ? 'text-dest-accent' : 'text-pickup-accent'
+          end === 'dropoff' ? 'text-dest-accent' : 'text-pickup-accent'
         }`}
       >
         City
       </label>
       <select
-        id="home-city"
+        id={`home-city-${end}`}
         value={cityScope}
         onChange={(e) => handleHomeCityChange(e.target.value)}
         className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
@@ -1971,7 +1994,12 @@ export function PassengerPage() {
                   setAddressFormOpen(null)
                 }}
                 aria-label="Set the pickup by tapping the map"
-                className="flex w-28 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-pickup-accent/40 bg-white px-1 text-[10px] font-bold leading-tight text-pickup-accent transition hover:bg-pickup-accent/10"
+                aria-pressed={mapTarget === 'pickup'}
+                className={`flex w-28 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-1 text-[10px] font-bold leading-tight text-pickup-accent transition ${
+                  mapTarget === 'pickup'
+                    ? 'border-gold-400 bg-gold-400'
+                    : 'border-gold-400/60 bg-gold-400/20 hover:bg-gold-400/40'
+                }`}
               >
                 <span aria-hidden className="text-sm leading-none">📍</span>
                 Set on Map
@@ -1980,9 +2008,19 @@ export function PassengerPage() {
             </div>
             {openEnd === 'pickup' && (
               <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
-              {cityRow}
-              <DestinationSearch city={cityScope} near={pickupGps ?? pickup.gps ?? null} onSelect={handlePickupLandmark} />
-              {!isErrand && quickPlaceChips('pickup')}
+              {cityRowFor('pickup')}
+              <DestinationSearch
+                city={cityScope}
+                near={pickupGps ?? pickup.gps ?? null}
+                onSelect={handlePickupLandmark}
+                onOpenAddressForm={() => setAddressFormOpen('pickup')}
+                onPinOnMap={() => {
+                  setMapTarget('pickup')
+                  setOpenEnd(null)
+                  setAddressFormOpen(null)
+                }}
+              />
+              {!isErrand && quickPlaceChips('pickup', 'Save as:')}
               {/* Gated on the Address form chip above — except on an errand,
                   where that chip (and the rest of the quick-places row) is
                   not shown at all, so the form is this pickup's only way in. */}
@@ -2028,6 +2066,11 @@ export function PassengerPage() {
             )}
             </>
             )}
+            {/* Which city the search bar below and its landmarks are scoped
+                to — moved above the bar itself so the scope is set before
+                typing into it, instead of being buried in the panel that
+                only shows once the bar is already expanded. */}
+            <div className="mt-1.5">{cityRowFor('dropoff')}</div>
             {/* The destination row. Second when the pickup row is showing
                 beside it — booking for someone else answers "where are
                 they" first — first on its own the rest of the time, which
@@ -2049,6 +2092,12 @@ export function PassengerPage() {
                   city={cityScope}
                   near={pickupGps ?? pickup.gps ?? null}
                   onSelect={handleDropoffLandmark}
+                  onOpenAddressForm={() => setAddressFormOpen('dropoff')}
+                  onPinOnMap={() => {
+                    setMapTarget('dropoff')
+                    setOpenEnd(null)
+                    setAddressFormOpen(null)
+                  }}
                   autoFocus
                   placeholder={isErrand ? 'Where should it go?' : 'Where to?'}
                   className="min-w-0 flex-1"
@@ -2112,7 +2161,12 @@ export function PassengerPage() {
                 setAddressFormOpen(null)
               }}
               aria-label="Set the destination by tapping the map"
-              className="flex w-28 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-dest-accent/40 bg-white px-1 text-[10px] font-bold leading-tight text-dest-accent transition hover:bg-dest-accent/10"
+              aria-pressed={mapTarget === 'dropoff'}
+              className={`flex w-28 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-1 text-[10px] font-bold leading-tight text-dest-accent transition ${
+                mapTarget === 'dropoff'
+                  ? 'border-gold-400 bg-gold-400'
+                  : 'border-gold-400/60 bg-gold-400/20 hover:bg-gold-400/40'
+              }`}
             >
               <span aria-hidden className="text-sm leading-none">📍</span>
               Set on Map
@@ -2125,14 +2179,18 @@ export function PassengerPage() {
                 is saved yet under a label; the row does both jobs either
                 way, only the heading below says which this is. Shown on an
                 errand too, not only a ride — see the comment this replaced. */}
-            {quickPlaceChips('dropoff', 'Quick destinations:')}
-            {openEnd === 'dropoff' && (
-              <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
+            {quickPlaceChips('dropoff')}
+            {/* Only while there is something to put in it — the search lives
+                in the bar and the City row above it now, so with the address
+                form collapsed this panel used to render as an empty grey
+                strip under the chips. */}
+            {openEnd === 'dropoff' && (addressFormOpen === 'dropoff' || (isErrand && gpsStatus === 'error' && !!gpsError)) && (
+              <div className="mt-1 space-y-2 rounded-lg bg-slate-50/70 p-2">
                 {/* The landmark search itself now lives in the Where to bar
-                    above (see the embedded DestinationSearch branch) — the
-                    City row and address form here are the fallback for
-                    whatever that search doesn't cover. */}
-                {cityRow}
+                    above (see the embedded DestinationSearch branch), and
+                    the City row now sits above that same bar — this is just
+                    the address-form fallback for whatever the search and
+                    the map pin don't cover. */}
                 {addressFormOpen === 'dropoff' && (
                 <BarangayAddressPicker
                   key={`to-${dropoffPickerSeed.key}`}
@@ -2189,8 +2247,11 @@ export function PassengerPage() {
               onClick={swapEndpoints}
               aria-label="Swap From and Where to"
               title="Swap From and Where to"
+              // Offsets carry the City row that now sits above the address
+              // bars inside this same box — without them the button's
+              // centre drifted up onto the City select's edge.
               className={`absolute right-1.5 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-xs shadow-sm transition hover:bg-slate-50 ${
-                openEnd ? 'top-[1.25rem]' : 'top-1/2'
+                openEnd ? 'top-[3.75rem]' : 'top-[calc(50%+1.25rem)]'
               }`}
             >
               ⇅

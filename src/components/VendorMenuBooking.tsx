@@ -163,6 +163,9 @@ export const VendorMenuBooking = forwardRef<
   // landmark search, the quick chips, and the map itself — collapsed until
   // this is tapped, same as Book a Ride's own "Address form" chip.
   const [addressFormOpen, setAddressFormOpen] = useState(false)
+  // The delivery map is always on screen here (no form/map toggle), so a
+  // no-match "Set on Map" just brings it into view rather than arming it.
+  const deliveryMapRef = useRef<HTMLDivElement>(null)
   // What the Province/City/Barangay dropdowns under the map are seeded with.
   // A map pin (or GPS fix) reverse-geocodes to a guess at those three, and
   // the picker is remounted (via `key`) to show it — otherwise the form would
@@ -656,9 +659,10 @@ export const VendorMenuBooking = forwardRef<
               city={addressSeed.city || defaultCity}
               near={deliveryAddress?.gps ?? null}
               onSelect={handleAddressLandmark}
+              onOpenAddressForm={() => setAddressFormOpen(true)}
+              onPinOnMap={() => deliveryMapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
             />
             <div className="-mx-1 mt-2 flex flex-nowrap items-center gap-1 overflow-x-auto px-1 pb-0.5">
-              <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold text-slate-500">Quick destinations:</span>
               {SAVED_LOCATION_LABELS.filter((label) => label !== 'Favorite').map((label) => {
                 const saved = savedLocations.find((sl) => sl.label === label)
                 return (
@@ -694,7 +698,7 @@ export const VendorMenuBooking = forwardRef<
               </button>
             </div>
             {selectedVendor && (
-              <div className="mt-2 overflow-hidden rounded-lg border border-slate-200">
+              <div ref={deliveryMapRef} className="mt-2 overflow-hidden rounded-lg border border-slate-200">
                 <DeliveryMapPicker vendor={selectedVendor} deliveryAddress={deliveryAddress} onChange={handleMapPin} />
               </div>
             )}

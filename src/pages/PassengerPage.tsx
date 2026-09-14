@@ -1649,15 +1649,7 @@ export function PassengerPage() {
             city={cityScope}
             near={pickupGps ?? pickup.gps ?? null}
             onSelect={handleDropoffLandmark}
-            onOpenAddressForm={() => {
-              if (openEnd !== 'dropoff') openAddressPicker('dropoff')
-              setAddressFormOpen('dropoff')
-            }}
-            onPinOnMap={() => {
-              setMapTarget('dropoff')
-              setOpenEnd(null)
-              setAddressFormOpen(null)
-            }}
+            noMatchNote="Search for a barangay and move the pin (dot) to the desired location."
             placeholder="🔍 Find a landmark"
             className="relative z-[80] w-36 sm:w-44"
             resultsClassName="absolute left-0 top-full mt-1 w-72 max-h-64 overflow-y-auto"

@@ -39,6 +39,7 @@ export function DestinationSearch({
   onOpenAddressForm,
   onPinOnMap,
   resultsClassName = '',
+  noMatchNote,
   placeholder = 'Search a landmark — palengke, simbahan, CLSU…',
   className,
   inputClassName = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm',
@@ -66,6 +67,10 @@ export function DestinationSearch({
   // absolute-positioned class here so the list floats over the map instead
   // of growing the row and shoving the buttons beside it onto a new line.
   resultsClassName?: string
+  // Replaces the Fill Address Form / Set on Map links on a no-match with a
+  // plain instruction — for a box sitting on the map itself, where "pin it
+  // on the map" is already the thing right underneath, not a link away.
+  noMatchNote?: string
   placeholder?: string
   // Lets a caller embed this as the destination bar itself (see
   // PassengerPage's Where to) rather than the plain boxed field this
@@ -199,28 +204,37 @@ export function DestinationSearch({
           </div>
         ) : (
           <p className="mt-1 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-400">
-            No landmark matches "{trimmed}"{city ? ` in ${city}` : ''}
-            {shouldTryLive && liveStatus === 'done' ? ', and no nearby place found either' : ''} —{' '}
-            {onOpenAddressForm ? (
-              <button
-                type="button"
-                onClick={onOpenAddressForm}
-                className="font-semibold text-brand-600 underline hover:text-brand-700"
-              >
-                Fill Address Form
-              </button>
+            {noMatchNote ? (
+              <>
+                No landmark matches "{trimmed}"{city ? ` in ${city}` : ''}
+                {shouldTryLive && liveStatus === 'done' ? ' and no nearby place found' : ''} — {noMatchNote}
+              </>
             ) : (
-              'try the address form below'
+              <>
+                No landmark matches "{trimmed}"{city ? ` in ${city}` : ''}
+                {shouldTryLive && liveStatus === 'done' ? ', and no nearby place found either' : ''} —{' '}
+                {onOpenAddressForm ? (
+                  <button
+                    type="button"
+                    onClick={onOpenAddressForm}
+                    className="font-semibold text-brand-600 underline hover:text-brand-700"
+                  >
+                    Fill Address Form
+                  </button>
+                ) : (
+                  'try the address form below'
+                )}
+                , or{' '}
+                {onPinOnMap ? (
+                  <button type="button" onClick={onPinOnMap} className="font-semibold text-red-600 underline hover:text-red-700">
+                    Set on Map
+                  </button>
+                ) : (
+                  'pin it on the map'
+                )}
+                .
+              </>
             )}
-            , or{' '}
-            {onPinOnMap ? (
-              <button type="button" onClick={onPinOnMap} className="font-semibold text-red-600 underline hover:text-red-700">
-                Set on Map
-              </button>
-            ) : (
-              'pin it on the map'
-            )}
-            .
           </p>
         ))}
       </div>

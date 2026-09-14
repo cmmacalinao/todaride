@@ -64,8 +64,7 @@ function LandmarkQuickActions({
   onDeleteCancel: () => void
 }) {
   const [renameDraft, setRenameDraft] = useState<string | null>(null)
-  if (!landmark) return null
-  if (confirmingDelete) {
+  if (landmark && confirmingDelete) {
     return (
       <span className="flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
         Delete {landmark.name}?
@@ -82,7 +81,7 @@ function LandmarkQuickActions({
       </span>
     )
   }
-  if (renameDraft !== null) {
+  if (landmark && renameDraft !== null) {
     return (
       <span className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-1.5 py-1">
         <input
@@ -120,13 +119,19 @@ function LandmarkQuickActions({
       </span>
     )
   }
+  // The row is always on screen above the map (the admin asked for every
+  // control to stay put); with no landmark selected it is simply greyed
+  // out, so the buttons never move around as the selection changes.
+  const none = !landmark
+  const disabledBtn = "rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
   return (
     <div className="flex items-center gap-1">
       <button
         type="button"
-        onClick={() => setRenameDraft(landmark.name)}
-        title={`Rename ${landmark.name}`}
-        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+        disabled={none}
+        onClick={() => landmark && setRenameDraft(landmark.name)}
+        title={landmark ? `Rename ${landmark.name}` : "Select a pin first"}
+        className={disabledBtn}
       >
         ✏️ Rename
       </button>
@@ -135,11 +140,12 @@ function LandmarkQuickActions({
           no second Save to remember, unlike a drag that can happen by
           accident. */}
       <select
-        value={landmark.category}
-        onChange={(e) => onCategoryChange(landmark, e.target.value as LandmarkCategory)}
-        title={`Category of ${landmark.name}`}
-        aria-label={`Category of ${landmark.name}`}
-        className="rounded-md border border-slate-300 bg-white px-1.5 py-1 text-[11px] font-semibold text-slate-600"
+        disabled={none}
+        value={landmark?.category ?? "other"}
+        onChange={(e) => landmark && onCategoryChange(landmark, e.target.value as LandmarkCategory)}
+        title={landmark ? `Category of ${landmark.name}` : "Select a pin first"}
+        aria-label={landmark ? `Category of ${landmark.name}` : "Category"}
+        className="rounded-md border border-slate-300 bg-white px-1.5 py-1 text-[11px] font-semibold text-slate-600 disabled:opacity-40"
       >
         {(Object.keys(LANDMARK_CATEGORY_LABELS) as LandmarkCategory[]).map((c) => (
           <option key={c} value={c}>
@@ -149,10 +155,10 @@ function LandmarkQuickActions({
       </select>
       <button
         type="button"
-        disabled={!stagedGps}
-        onClick={() => onSaveMove(landmark)}
-        aria-label={stagedGps ? `Save ${landmark.name}'s new position` : 'Save position'}
-        title={stagedGps ? `Save ${landmark.name}'s new position` : 'Drag the pin first — then tap to save where it lands'}
+        disabled={!landmark || !stagedGps}
+        onClick={() => landmark && onSaveMove(landmark)}
+        aria-label={landmark && stagedGps ? `Save ${landmark.name}'s new position` : 'Save position'}
+        title={landmark && stagedGps ? `Save ${landmark.name}'s new position` : 'Drag a pin first — then tap to save where it lands'}
         className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition disabled:opacity-40 ${
           stagedGps
             ? 'border-gold-400 bg-gold-400 text-navy-900 shadow-sm hover:bg-gold-400/80'
@@ -163,9 +169,10 @@ function LandmarkQuickActions({
       </button>
       <button
         type="button"
-        onClick={() => onDeleteRequest(landmark)}
-        title={`Delete ${landmark.name}`}
-        className="rounded-md border border-rose-300 bg-white px-2 py-1 text-[11px] font-semibold text-rose-600 transition hover:bg-rose-50"
+        disabled={none}
+        onClick={() => landmark && onDeleteRequest(landmark)}
+        title={landmark ? `Delete ${landmark.name}` : "Select a pin first"}
+        className="rounded-md border border-rose-300 bg-white px-2 py-1 text-[11px] font-semibold text-rose-600 transition hover:bg-rose-50 disabled:opacity-40"
       >
         🗑️ Delete
       </button>
@@ -196,16 +203,20 @@ function LandmarkQuickActions({
 // (which is out of reach entirely in full screen). Keyed by the pin's
 // position from the caller so a re-tap elsewhere starts a fresh draft.
 function NewLandmarkQuickActions({
+  enabled,
   initialName,
   onAdd,
   onDiscard,
 }: {
+  // False until the map has been tapped (or coordinates typed): the two
+  // buttons stay on screen, greyed, so the row never jumps.
+  enabled: boolean
   initialName: string
   onAdd: (name: string) => void
   onDiscard: () => void
 }) {
   const [draft, setDraft] = useState<string | null>(null)
-  if (draft !== null) {
+  if (enabled && draft !== null) {
     return (
       <span className="flex items-center gap-1 rounded-md border border-teal-300 bg-white px-1.5 py-1">
         <input
@@ -248,17 +259,19 @@ function NewLandmarkQuickActions({
     <div className="flex items-center gap-1">
       <button
         type="button"
+        disabled={!enabled}
         onClick={() => setDraft(initialName)}
-        title="Name this new landmark and add it"
-        className="rounded-md border border-teal-300 bg-teal-50 px-2 py-1 text-[11px] font-semibold text-teal-800 transition hover:bg-teal-100"
+        title={enabled ? "Name this new landmark and add it" : "Tap the map where the new landmark stands first"}
+        className="rounded-md border border-teal-300 bg-teal-50 px-2 py-1 text-[11px] font-semibold text-teal-800 transition hover:bg-teal-100 disabled:opacity-40"
       >
         ➕ Add name
       </button>
       <button
         type="button"
+        disabled={!enabled}
         onClick={onDiscard}
         title="Discard the pending new landmark's pin"
-        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
       >
         ✕ Clear
       </button>
@@ -802,9 +815,12 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
                   resultsClassName="absolute left-0 top-full mt-1 w-64 max-h-56 overflow-y-auto"
                   inputClassName="w-full rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-600 placeholder:font-normal"
                 />
-                {pending && !editingId ? (
-                  <NewLandmarkQuickActions
-                    key={`${pending.lat},${pending.lng}`}
+                {/* Both rows at once when both apply: tapping the map to
+                    start a new pin does not deselect the landmark that was
+                    selected, so its Rename/Delete stay reachable. */}
+                <NewLandmarkQuickActions
+                    key={pending && !editingId ? `${pending.lat},${pending.lng}` : "none"}
+                    enabled={!!pending && !editingId}
                     initialName={name}
                     onAdd={(n) => handleSubmit(n)}
                     onDiscard={() => {
@@ -815,9 +831,8 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
                       setError('')
                     }}
                   />
-                ) : selectedId && (
-                  <LandmarkQuickActions
-                    key={selectedId}
+                <LandmarkQuickActions
+                    key={selectedId ?? "none"}
                     landmark={cityLandmarks.find((l) => l.id === selectedId) ?? null}
                     stagedGps={stagedMove?.id === selectedId ? stagedMove.gps : null}
                     undoMove={lastMove}
@@ -892,7 +907,6 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
                     }}
                     onDeleteCancel={() => setConfirmingRemoveId(null)}
                   />
-                )}
                 {isFullscreen && (
                   <div className="relative z-[80]">
                     <input

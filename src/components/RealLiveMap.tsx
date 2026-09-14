@@ -736,8 +736,14 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
   // The map filling the phone, for following a route rather than glancing at
   // one. Local to the map, so every screen that draws one gets it.
   const [fullscreen, setFullscreen] = useState(false)
-  // Marker names, off until asked for — see the row above the map.
-  const [showLabels, setShowLabels] = useState(false)
+  // The legend floats over the top of the map (see legendVisible below);
+  // its measured height is what pushes the pickup/destination overlay down
+  // clear of it, however many rows the entries wrap to.
+  const legendRef = useRef<HTMLDivElement>(null)
+  const [legendHeight, setLegendHeight] = useState(0)
+  useEffect(() => {
+    setLegendHeight(legendRef.current?.offsetHeight ?? 0)
+  })
   // Locked until asked otherwise — see PanLock. alwaysInteractive starts
   // already unlocked instead of skipping the control: a driver or a
   // passenger watching a trip should not have to tap anything before they
@@ -789,6 +795,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
   // pickup, the drop-off and the tricycle — the things the viewer opened it
   // for — off the top of the key.
   const legendPoints = points.filter((p) => p.icon !== 'terminal')
+  const legendVisible = !hideLegend && !nav && (legendOverride ? legendOverride.length > 0 : legendPoints.length > 0)
   // A caller that froze this map meant it — a finished trip is a picture, not
   // a thing to explore, and no button should offer to move it.
   const interactive = !frozen
@@ -857,20 +864,6 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
         >
           {fullscreen ? '✕ Close' : '⛶ Full screen'}
         </button>
-        {!hideLegend && (legendOverride ? legendOverride.length > 0 : legendPoints.length > 0) && (
-          <button
-            type="button"
-            onClick={() => setShowLabels((v) => !v)}
-            aria-pressed={showLabels}
-            className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition ${
-              showLabels
-                ? 'border-brand-300 bg-brand-50 text-brand-700'
-                : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            🏷️ Legend
-          </button>
-        )}
         {toolbarAction}
         {/* The way to a trip already under way, offered right where a
             passenger deciding how to get one is already looking. Pushed to
@@ -902,23 +895,6 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
           the key answered "what colour is this" while the map was asking
           "what is that little blue tricycle", and the reader had to translate
           between the two. */}
-      {showLabels && !hideLegend && (legendOverride ? legendOverride.length > 0 : legendPoints.length > 0) && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-500">
-          {legendOverride
-            ? legendOverride.map((entry) => (
-                <span key={entry.label} className="flex items-center gap-1.5 truncate">
-                  <MarkerArt point={{ id: entry.label, gps: { lat: 0, lng: 0 }, color: entry.color, label: entry.label }} />
-                  {entry.label}
-                </span>
-              ))
-            : legendPoints.map((p) => (
-                <span key={p.id} className="flex items-center gap-1.5 truncate">
-                  <MarkerArt point={p} />
-                  {p.label}
-                </span>
-              ))}
-        </div>
-      )}
       {/* The map and anything drawn over it. Relative so the overlays below
           anchor to the map itself, which is what keeps them on screen when it
           goes full screen. */}
@@ -959,7 +935,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
               onPointDragEnd={onPointDragEnd}
               height={fullscreen || fill ? "100%" : height}
               nav={nav}
-              showLabels={showLabels}
+              showLabels={false}
               // Offered everywhere except map-first booking — see
               // noLockNeeded above for why full screen keeps it.
               panLock={
@@ -1038,13 +1014,45 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
           top of its left edge. 4rem clears them, and the overlay is capped
           rather than stretched to the far edge so a long address wraps inside
           the bubble instead of running under the screen edge. */}
+      {/* The legend, floating along the top of the map rather than behind a
+          toggle: always there to glance at, between the zoom column on the
+          left and the compass on the right. The pickup/destination overlay
+          below it takes its measured height as an offset, so the two never
+          land on each other however many rows the legend wraps to. Not while
+          the navigation camera is driving — that mode has its own furniture
+          in this strip (the compass label) and the rider is looking at the
+          road, not a key. */}
+      {legendVisible && (
+        <div
+          ref={legendRef}
+          className="pointer-events-none absolute left-16 right-12 top-2 z-10 flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-lg bg-white/85 px-2 py-1 text-[10px] leading-tight text-slate-600 shadow-sm backdrop-blur-sm"
+        >
+          {legendOverride
+            ? legendOverride.map((entry) => (
+                <span key={entry.label} className="flex items-center gap-1 truncate">
+                  <MarkerArt point={{ id: entry.label, gps: { lat: 0, lng: 0 }, color: entry.color, label: entry.label }} />
+                  {entry.label}
+                </span>
+              ))
+            : legendPoints.map((p) => (
+                <span key={p.id} className="flex max-w-[9rem] items-center gap-1 truncate">
+                  <MarkerArt point={p} />
+                  {p.label}
+                </span>
+              ))}
+        </div>
+      )}
       {overlayTop && (
         // Sized to its own content rather than stretched to the far edge — a
         // short pickup/dropoff pair used to sit inside a bar as wide as the
         // whole map, most of it empty. max-w keeps a genuinely long address
         // from running past the right edge; it still wraps and truncates
-        // inside the bubble in that case, exactly as before.
-        <div className="pointer-events-none absolute left-16 top-2 z-10 max-w-[calc(100%-4.75rem)]">
+        // inside the bubble in that case, exactly as before. Its top clears
+        // the floating legend when one is showing (see legendHeight).
+        <div
+          className="pointer-events-none absolute left-16 z-10 max-w-[calc(100%-4.75rem)]"
+          style={{ top: legendVisible ? legendHeight + 12 : 8 }}
+        >
           <div className="pointer-events-auto">{overlayTop}</div>
         </div>
       )}

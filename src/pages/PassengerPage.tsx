@@ -2244,7 +2244,7 @@ export function PassengerPage() {
               // bars inside this same box — without them the button's
               // centre drifted up onto the City select's edge.
               className={`absolute right-1.5 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-xs shadow-sm transition hover:bg-slate-50 ${
-                openEnd ? 'top-[3.75rem]' : 'top-[calc(50%+1.25rem)]'
+                openEnd ? 'top-[5.75rem]' : 'top-[calc(50%+1.25rem)]'
               }`}
             >
               ⇅

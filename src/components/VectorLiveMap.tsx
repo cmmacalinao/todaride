@@ -131,6 +131,7 @@ export function VectorLiveMap({
   fitPointIds,
   singlePointZoom,
   holdFit,
+  fitOnce,
   followAll,
   centerOn,
   frozen,
@@ -448,6 +449,9 @@ export function VectorLiveMap({
     setEverMoved(false)
   }, [refitSignal])
 
+  // Whether the opening fit has happened — what fitOnce gates on.
+  const hasFittedRef = useRef(false)
+
   // Falls back to every point when the named ones are not on the map yet - an
   // empty frame is worse than a wide one.
   const requested = followAll
@@ -498,6 +502,10 @@ export function VectorLiveMap({
     }
     if (fitOverriddenRef.current) return
     if (holdFit) return
+    // fitOnce: the opening frame and nothing after it, unless a live trip
+    // is being followed — see RealLiveMapProps.fitOnce.
+    if (fitOnce && hasFittedRef.current && !followAll) return
+    hasFittedRef.current = true
     refitBounds()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, fitKey, refitSignal, !!nav])

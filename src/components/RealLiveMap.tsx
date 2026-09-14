@@ -178,6 +178,14 @@ export interface RealLiveMapProps {
   // as a one-render pulse (the caller flips it back off right after), not a
   // standing "never refit" switch.
   holdFit?: boolean
+  // Frames the points once, when the map first opens, and then never
+  // re-frames on its own — not for a city change, a destination pick, a
+  // landmark search, a moved pin, nor a refitSignal. Only followAll (a live
+  // trip, where the tricycle and the passenger are the things moving) still
+  // drives the camera. The booking map sets this: every automatic
+  // re-centre there was the map jumping out from under a decision the
+  // passenger was in the middle of making.
+  fitOnce?: boolean
   // Holds the frame still: no panning, no zooming, no stray drag. Used while
   // a trip is underway, when the map is something you glance at to see where
   // you are — not something to go exploring in, and certainly not something
@@ -246,6 +254,7 @@ function FitBounds({
   fitPointIds,
   singlePointZoom,
   holdFit,
+  fitOnce,
   followAll,
   centerOn,
   unlocked,
@@ -261,6 +270,8 @@ function FitBounds({
   // See RealLiveMapProps.holdFit — skips exactly the one refit that would
   // otherwise fire this render.
   holdFit?: boolean
+  // See RealLiveMapProps.fitOnce.
+  fitOnce?: boolean
   followAll?: boolean
   // Where the person holding the phone is. Given, the map re-centres on it
   // whenever the zoom changes.
@@ -274,6 +285,8 @@ function FitBounds({
 }) {
   const map = useMap()
   const userMovedRef = useRef(false)
+  // Whether the opening fit has happened — what fitOnce gates on.
+  const hasFittedRef = useRef(false)
   // Panned, specifically — see the zoomend handler below. Kept apart from
   // userMovedRef, which a zoom also sets.
   const userPannedRef = useRef(false)
@@ -373,6 +386,8 @@ function FitBounds({
     if (framed.length === 0) return
     if (userMovedRef.current) return
     if (holdFit) return
+    if (fitOnce && hasFittedRef.current && !followAll) return
+    hasFittedRef.current = true
     programmaticRef.current = true
     if (framed.length === 1) {
       map.setView([framed[0].gps.lat, framed[0].gps.lng], singlePointZoom ?? 15)
@@ -483,7 +498,7 @@ function ClickHandler({ onMapClick }: { onMapClick: (gps: GeoCoords) => void }) 
 
 // The free, keyless renderer — OpenStreetMap tiles via Leaflet. Used
 // whenever no Google Maps API key is configured (see RealLiveMap below).
-function OsmLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, followAll, centerOn, frozen, draggableIds, onPointDragEnd, height = '320px', panLock }: RealLiveMapProps & { panLock?: { unlocked: boolean; onToggle: () => void } }) {
+function OsmLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen, draggableIds, onPointDragEnd, height = '320px', panLock }: RealLiveMapProps & { panLock?: { unlocked: boolean; onToggle: () => void } }) {
   const center: [number, number] = [points[0].gps.lat, points[0].gps.lng]
 
   return (
@@ -549,6 +564,7 @@ function OsmLiveMap({ points, routeLine, hintLine, routeIsReal, routeVariant, on
         fitPointIds={fitPointIds}
         singlePointZoom={singlePointZoom}
         holdFit={holdFit}
+        fitOnce={fitOnce}
         followAll={followAll}
         centerOn={centerOn}
         unlocked={panLock?.unlocked}
@@ -659,7 +675,7 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker }: RealLiveMapProps) {
+export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, hintLine, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker }: RealLiveMapProps) {
   // If the Google script fails to load (bad key, network block, CSP), fall
   // back to the OSM/Leaflet canvas instead of showing an empty map.
   const [googleFailed, setGoogleFailed] = useState(false)
@@ -883,6 +899,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
               fitPointIds={fitPointIds}
               singlePointZoom={singlePointZoom}
               holdFit={holdFit}
+              fitOnce={fitOnce}
               followAll={followAll}
               centerOn={centerOn}
               frozen={locked}
@@ -936,6 +953,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
           fitPointIds={fitPointIds}
           singlePointZoom={singlePointZoom}
           holdFit={holdFit}
+          fitOnce={fitOnce}
           followAll={followAll}
           centerOn={centerOn}
           frozen={locked}

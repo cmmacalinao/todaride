@@ -75,7 +75,12 @@ export function PublicHeader({ title = 'TODA Ride Mobility' }: { title?: string 
           behind an opaque blue bar and the screen read as broken. Sticky
           keeps its own space in the flow, so it cannot overlap anything at
           any text size, and no measurement has to stay in step. */}
-      <header className="sticky top-0 z-20 border-b border-brand-700 bg-brand-600">
+      <header
+        className="sticky top-0 z-20 border-b border-brand-700"
+        // Same royal-blue-to-navy diagonal as the Welcome screen's backdrop
+        // (see AuthGate.tsx), minus its stripe texture — one blue everywhere.
+        style={{ backgroundImage: 'linear-gradient(135deg, #3e6fe4 0%, #0a1529 60%, #0a1529 100%)' }}
+      >
         {/* Tighter on the left than the right: the menu is an edge control,
             and a thumb reaches it at the edge.
             The right keeps its padding so the partner mark is not flush
@@ -123,7 +128,10 @@ export function PublicHeader({ title = 'TODA Ride Mobility' }: { title?: string 
             aria-hidden
           />
           <div className="fixed inset-y-0 left-0 z-[70] w-72 max-w-[85%] overflow-y-auto bg-white shadow-xl">
-            <div className="flex items-center justify-between bg-brand-600 px-4 py-3">
+            <div
+              className="flex items-center justify-between px-4 py-3"
+              style={{ backgroundImage: 'linear-gradient(135deg, #3e6fe4 0%, #0a1529 60%, #0a1529 100%)' }}
+            >
               <span className="text-sm font-semibold text-gold-400">TODA Ride Mobility</span>
               <button
                 type="button"

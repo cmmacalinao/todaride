@@ -400,7 +400,12 @@ export function NavBar() {
     return (
       <>
       {/* sticky rather than fixed — see PublicHeader for why. */}
-      <header className="sticky top-0 z-20 border-b border-brand-700 bg-brand-600">
+      <header
+        className="sticky top-0 z-20 border-b border-brand-700"
+        // Same royal-blue-to-navy diagonal as the Welcome screen's backdrop
+        // (see AuthGate.tsx), minus its stripe texture — one blue everywhere.
+        style={{ backgroundImage: 'linear-gradient(135deg, #3e6fe4 0%, #0a1529 60%, #0a1529 100%)' }}
+      >
         {/* Same edge treatment as PublicHeader — see the note there. */}
         <div className="mx-auto flex max-w-lg items-center justify-between py-1.5 pl-1 pr-4">
           <div className="flex min-w-0 items-center gap-2">
@@ -576,7 +581,13 @@ export function NavBar() {
 
   return (
     <>
-    <header ref={headerRef} className="fixed inset-x-0 top-0 z-20 border-b border-brand-700 bg-brand-600">
+    <header
+      ref={headerRef}
+      className="fixed inset-x-0 top-0 z-20 border-b border-brand-700"
+      // Same royal-blue-to-navy diagonal as the Welcome screen's backdrop
+      // (see AuthGate.tsx), minus its stripe texture — one blue everywhere.
+      style={{ backgroundImage: 'linear-gradient(135deg, #3e6fe4 0%, #0a1529 60%, #0a1529 100%)' }}
+    >
       <div
         className={`mx-auto flex items-center justify-between gap-2 px-4 py-1.5 ${
           isSimulatorPage ? 'max-w-none' : 'max-w-lg'

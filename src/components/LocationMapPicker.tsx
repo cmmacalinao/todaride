@@ -485,6 +485,9 @@ export function LocationMapPicker({
       onMapClick={(gps) => void placePin(gps)}
       refitSignal={refitSignal}
       holdFit={holdNextFitRef.current}
+      // Frame the pins once on open, then leave the view alone — the
+      // passenger moves the map, not the map the passenger.
+      fitOnce
       centerOn={myPosition}
       fill={mapFirst}
       onFullscreenChange={setMapFullscreen}

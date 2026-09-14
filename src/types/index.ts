@@ -109,6 +109,10 @@ export type LandmarkCategory =
   | 'government'
   | 'transport'
   | 'mall'
+  // A named road, seeded from OpenStreetMap (see SJC_STREET_LANDMARKS in
+  // mock/data.ts): the pin sits mid-street and the passenger drags it along
+  // the road to the gate — Nueva Ecija has almost no house numbers mapped.
+  | 'street'
   | 'other'
 
 export const LANDMARK_CATEGORY_ICONS: Record<LandmarkCategory, string> = {
@@ -120,6 +124,7 @@ export const LANDMARK_CATEGORY_ICONS: Record<LandmarkCategory, string> = {
   government: '🏛️',
   transport: '🚏',
   mall: '🏬',
+  street: '🛣️',
   other: '📍',
 }
 

@@ -16,6 +16,7 @@ const LANDMARK_CATEGORY_LABELS: Record<LandmarkCategory, string> = {
   government: 'Government',
   transport: 'Terminal / Transport',
   mall: 'Mall',
+  street: 'Street',
   other: 'Other',
 }
 

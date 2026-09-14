@@ -1804,10 +1804,14 @@ function ActiveTripCard({
     if (ride.status === 'driver_arriving') preloadNavMap()
   }, [ride.status])
 
+  // Same as the passenger's monitor: while movement is simulated the
+  // tricycle marker is the thing moving, so the camera follows it rather
+  // than this phone.
+  const navCenter = simulateMovementEnabled && driverGpsInfo ? driverGpsInfo.gps : liveDriverGps
   const navCamera =
-    ride.status === 'ongoing' && liveDriverGps
+    ride.status === 'ongoing' && navCenter
       ? {
-          center: liveDriverGps,
+          center: navCenter,
           heading: liveDriverHeading,
           speedMps: liveDriverSpeed,
           rotatePointId: 'driver',

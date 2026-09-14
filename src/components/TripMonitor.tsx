@@ -93,6 +93,7 @@ export function TripMonitor({
     declineProposedFare,
     terminals,
     liveGpsEnabled,
+    simulateMovementEnabled,
     parents,
     parentLinks,
   } = useRides()
@@ -597,10 +598,16 @@ export function TripMonitor({
     strayRef.current = { strayCount: 0 }
   }, [ride.status, ride.dropoff.gps?.lat, ride.dropoff.gps?.lng])
 
+  // Simulated movement drives the tricycle marker, not this phone — which
+  // sits still on a desk — so in that mode the camera follows the marker;
+  // centred on the phone, the tricycle drove off the screen as it neared
+  // the drop-off. On a real ride the phone in the tricycle is the better
+  // fix and stays in use.
+  const navCenter = simulateMovementEnabled && driverGpsInfo ? driverGpsInfo.gps : livePassengerGps
   const navCamera =
-    ride.status === 'ongoing' && onBoard && livePassengerGps
+    ride.status === 'ongoing' && onBoard && navCenter
       ? {
-          center: livePassengerGps,
+          center: navCenter,
           heading: livePassengerHeading,
           speedMps: livePassengerSpeed,
           rotatePointId: 'driver',

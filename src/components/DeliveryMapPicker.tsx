@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { RealLiveMap, type MapPoint } from './RealLiveMap'
+import { DestinationSearch } from './DestinationSearch'
 import { formatAddressLine } from '../lib/addressFormat'
 import { createCustomLocation, reverseGeocodeToPhAddress, type PhAddressTags } from '../lib/customLocation'
 import { getCurrentGeoPosition } from '../lib/geo'
@@ -26,10 +27,16 @@ export function DeliveryMapPicker({
   vendor,
   deliveryAddress,
   onChange,
+  city,
 }: {
   vendor: Pharmacy
   deliveryAddress: MockLocation | null
   onChange: (location: MockLocation, guess: PhAddressTags | null) => void
+  // Scopes the Find Barangay box on the map's button row — the same box
+  // Book a Ride has beside Legend, so a customer can jump the pin to their
+  // barangay and then drag it the last few metres. Defaults to the store's
+  // own city: the delivery almost always stays inside it.
+  city?: string
 }) {
   const [status, setStatus] = useState<'idle' | 'locating' | 'error'>('idle')
   const [error, setError] = useState('')
@@ -90,14 +97,30 @@ export function DeliveryMapPicker({
         refitSignal={deliveryAddress?.id ?? 'none'}
         height="260px"
         toolbarAction={
-          <button
-            type="button"
-            onClick={() => void pinMyGps()}
-            disabled={status === 'locating'}
-            className="whitespace-nowrap rounded-md border border-brand-300 bg-brand-50 px-2 py-1 text-[11px] font-semibold text-brand-700 transition hover:bg-brand-100 disabled:opacity-60"
-          >
-            {status === 'locating' ? '📍 Locating…' : '📍 Pin my GPS location'}
-          </button>
+          <>
+            <DestinationSearch
+              city={city || vendor.city}
+              near={deliveryAddress?.gps ?? storeGps}
+              // A barangay is a named point already — no reverse-geocode
+              // round trip; the pin lands on it and the customer drags it
+              // to the exact gate.
+              onSelect={(place) => onChange(createCustomLocation(place.name, place.gps), null)}
+              barangayOnly
+              noMatchNote="Search for barangay and move the pin (dot) to the desired location."
+              placeholder="🔍 Find Barangay"
+              className="relative z-[80] w-36 sm:w-44"
+              resultsClassName="absolute left-0 top-full mt-1 w-72 max-h-64 overflow-y-auto"
+              inputClassName="w-full rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-600 placeholder:font-normal"
+            />
+            <button
+              type="button"
+              onClick={() => void pinMyGps()}
+              disabled={status === 'locating'}
+              className="whitespace-nowrap rounded-md border border-brand-300 bg-brand-50 px-2 py-1 text-[11px] font-semibold text-brand-700 transition hover:bg-brand-100 disabled:opacity-60"
+            >
+              {status === 'locating' ? '📍 Locating…' : '📍 My GPS'}
+            </button>
+          </>
         }
       />
       <p className="text-center text-[11px] text-slate-500">

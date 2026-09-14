@@ -174,7 +174,7 @@ export function VendorDeliveryBooking({ vendor, onClose }: { vendor: Pharmacy; o
 
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-500">Deliver to</label>
-        <DeliveryMapPicker vendor={vendor} deliveryAddress={deliveryAddress} onChange={handleMapPin} />
+        <DeliveryMapPicker vendor={vendor} deliveryAddress={deliveryAddress} onChange={handleMapPin} city={addressSeed.city} />
         <p className="my-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400">or pick an address</p>
         <BarangayAddressPicker
           key={addressSeedKey}

@@ -699,7 +699,12 @@ export const VendorMenuBooking = forwardRef<
             </div>
             {selectedVendor && (
               <div ref={deliveryMapRef} className="mt-2 overflow-hidden rounded-lg border border-slate-200">
-                <DeliveryMapPicker vendor={selectedVendor} deliveryAddress={deliveryAddress} onChange={handleMapPin} />
+                <DeliveryMapPicker
+                  vendor={selectedVendor}
+                  deliveryAddress={deliveryAddress}
+                  onChange={handleMapPin}
+                  city={addressSeed.city || defaultCity}
+                />
               </div>
             )}
             {addressFormOpen && (

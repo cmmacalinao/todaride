@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { getCurrentGeoPosition } from '../lib/geo'
 import { RealLiveMap, type MapPoint } from './RealLiveMap'
+import { DestinationSearch } from './DestinationSearch'
 import { PH_ADDRESS_TREE } from '../mock/data'
 import { LANDMARK_CATEGORY_ICONS } from '../types'
 import type { GeoCoords, Landmark, LandmarkCategory } from '../types'
@@ -644,8 +645,29 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
             if (!fs) setStagedDragGps(null)
           }}
           toolbarAction={
-            isFullscreen || selectedId ? (
-              <>
+            <>
+                {/* Same Find Barangay box the booking maps carry beside
+                    Legend. Every barangay is itself a seeded landmark
+                    (landmark-brgy-*), so picking one just selects that pin
+                    — the map zooms there and the admin can drop or nudge
+                    landmarks around it without hunting across the city. */}
+                <DestinationSearch
+                  city={city}
+                  onSelect={(place) => {
+                    const match = cityLandmarks.find(
+                      (l) =>
+                        l.id.startsWith('landmark-brgy-') &&
+                        l.gps.lat === place.gps.lat &&
+                        l.gps.lng === place.gps.lng,
+                    )
+                    if (match) selectLandmark(match, 'map')
+                  }}
+                  barangayOnly
+                  placeholder="🔍 Find Barangay"
+                  className="relative z-[80] w-32 sm:w-40"
+                  resultsClassName="absolute left-0 top-full mt-1 w-64 max-h-56 overflow-y-auto"
+                  inputClassName="w-full rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-600 placeholder:font-normal"
+                />
                 {selectedId && (
                   <LandmarkQuickActions
                     key={selectedId}
@@ -716,8 +738,7 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
                     )}
                   </div>
                 )}
-              </>
-            ) : undefined
+            </>
           }
           fitPointIds={activeFitPointIds}
           holdFit={suppressRefitOnClearRef.current}

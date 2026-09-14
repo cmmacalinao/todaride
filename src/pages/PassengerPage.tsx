@@ -1644,6 +1644,9 @@ export function PassengerPage() {
         // A landmark search right on the map's own button row, after Legend
         // — the same box the Where to bar embeds, so a destination can be
         // found from down here without scrolling back up to that bar.
+        // The green street guide is for placing the pin; once Book a
+        // tricycle is tapped there is a ride, and the line comes off.
+        streetGuide={!activeRide}
         toolbarAction={
           <DestinationSearch
             city={cityScope}

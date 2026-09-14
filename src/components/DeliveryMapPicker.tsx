@@ -99,6 +99,7 @@ export function DeliveryMapPicker({
       <RealLiveMap
         points={points}
         streetLines={streetLines ?? undefined}
+        frameLines={streetLines ?? undefined}
         onMapClick={(gps) => void placePin(gps)}
         draggableIds={deliveryAddress?.gps ? ['dropoff'] : []}
         onPointDragEnd={(_, gps) => void placePin(gps)}

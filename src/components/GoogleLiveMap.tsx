@@ -32,6 +32,8 @@ interface GoogleLiveMapProps {
   refitSignal?: string
   // See RealLiveMap's fitPointIds — which markers the viewport frames.
   fitPointIds?: string[]
+  // See RealLiveMap's frameLines — frame these coordinates instead.
+  frameLines?: GeoCoords[][]
   // See RealLiveMap's frozen — holds the frame still during a trip.
   frozen?: boolean
   // CSS height for the map canvas. The default suits a map that sits among
@@ -45,7 +47,7 @@ interface GoogleLiveMapProps {
 // markers/polyline in place) rather than pulling in a React wrapper library
 // — matches the dependency-free pattern already used for the Google
 // geocoding/routing swap in geocode.ts/routing.ts.
-export function GoogleLiveMap({ points, routeLine, passedLine, routeIsReal, routeVariant, onMapClick, onPointClick, draggableIds, onPointDragEnd, onFailed, refitSignal, followAll, fitPointIds, frozen, height = '220px' }: GoogleLiveMapProps) {
+export function GoogleLiveMap({ points, routeLine, passedLine, routeIsReal, routeVariant, onMapClick, onPointClick, draggableIds, onPointDragEnd, onFailed, refitSignal, followAll, fitPointIds, frameLines, frozen, height = '220px' }: GoogleLiveMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<GoogleMap | null>(null)
   const markersRef = useRef<Map<string, GoogleMarker>>(new Map())
@@ -259,15 +261,21 @@ export function GoogleLiveMap({ points, routeLine, passedLine, routeIsReal, rout
     const framed = requested.length > 0 ? requested : points
     // Identity only — a marker that moves never re-frames the map — except
     // while following a trip, where movement is the point.
-    const fitKey = followAll
-      ? framed.map((p) => `${p.id}:${p.gps.lat.toFixed(4)},${p.gps.lng.toFixed(4)}`).join('|')
-      : framed.map((p) => p.id).join(',')
+    const frameCoords = (frameLines ?? []).flat()
+    const fitKey =
+      (followAll
+        ? framed.map((p) => `${p.id}:${p.gps.lat.toFixed(4)},${p.gps.lng.toFixed(4)}`).join('|')
+        : framed.map((p) => p.id).join(',')) + (frameCoords.length > 1 ? `lines:${frameCoords.length}:${frameCoords[0].lat},${frameCoords[0].lng}` : '')
     // Same rule as the Leaflet map: frame everything until the reader takes
     // the viewport over, then leave it alone.
     if (fitKey !== lastFitKeyRef.current && !userMovedRef.current) {
       lastFitKeyRef.current = fitKey
       programmaticRef.current = true
-      if (framed.length === 1) {
+      if (frameCoords.length > 1) {
+        const bounds = new google.maps.LatLngBounds()
+        for (const p of frameCoords) bounds.extend({ lat: p.lat, lng: p.lng })
+        map.fitBounds(bounds, 30)
+      } else if (framed.length === 1) {
         map.setCenter({ lat: framed[0].gps.lat, lng: framed[0].gps.lng })
       } else if (framed.length > 1) {
         const bounds = new google.maps.LatLngBounds()
@@ -275,7 +283,7 @@ export function GoogleLiveMap({ points, routeLine, passedLine, routeIsReal, rout
         map.fitBounds(bounds, 30)
       }
     }
-  }, [points, routeLine, passedLine, routeIsReal, routeVariant, status, refitSignal, followAll, fitPointIds, frozen, draggableKey])
+  }, [points, routeLine, passedLine, routeIsReal, routeVariant, status, refitSignal, followAll, fitPointIds, frameLines, frozen, draggableKey])
 
   if (status === 'failed') return null
   return <div ref={containerRef} style={{ height, width: '100%', cursor: onMapClick ? 'crosshair' : undefined }} />

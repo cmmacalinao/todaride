@@ -93,6 +93,10 @@ export interface RealLiveMapProps {
   // A chosen street, drawn as thin green runs (one per OSM segment) so the
   // passenger can set the pin along the right road — see lib/streetPaths.
   streetLines?: GeoCoords[][]
+  // What the viewport frames instead of the points, when given: every
+  // coordinate of these runs. A chosen street is shown whole this way —
+  // its midpoint pin alone says nothing about where the road runs.
+  frameLines?: GeoCoords[][]
   routeIsReal?: boolean
   // 'pickup' draws a thinner, differently-colored line for the "driver en
   // route to you" leg so it reads as distinct from the main trip route
@@ -263,6 +267,7 @@ function FitBounds({
   points,
   refitSignal,
   fitPointIds,
+  frameLines,
   singlePointZoom,
   holdFit,
   fitOnce,
@@ -273,6 +278,8 @@ function FitBounds({
   points: MapPoint[]
   refitSignal?: string
   fitPointIds?: string[]
+  // See RealLiveMapProps.frameLines.
+  frameLines?: GeoCoords[][]
   // Overrides how close a *single*-point fit (fitPointIds naming exactly one
   // marker, or a lone point on the map) zooms in — the map's own default
   // (15) is tuned for glancing at a pickup/destination pair, looser than an
@@ -361,9 +368,12 @@ function FitBounds({
   // Identity only, so a marker that merely moves leaves the viewport alone —
   // except while following a trip, where movement is exactly the thing the
   // frame has to keep up with.
-  const fitKey = followAll
-    ? framed.map((p) => `${p.id}:${p.gps.lat.toFixed(4)},${p.gps.lng.toFixed(4)}`).join('|')
-    : framed.map((p) => p.id).join(',')
+  const frameCoords = (frameLines ?? []).flat()
+  const frameKey = frameCoords.length > 1 ? `lines:${frameCoords.length}:${frameCoords[0].lat},${frameCoords[0].lng}` : ''
+  const fitKey =
+    (followAll
+      ? framed.map((p) => `${p.id}:${p.gps.lat.toFixed(4)},${p.gps.lng.toFixed(4)}`).join('|')
+      : framed.map((p) => p.id).join(',')) + frameKey
 
   // Zooming keeps you in the middle.
   //
@@ -400,6 +410,12 @@ function FitBounds({
     if (fitOnce && hasFittedRef.current && !followAll) return
     hasFittedRef.current = true
     programmaticRef.current = true
+    if (frameCoords.length > 1) {
+      // A street: the whole road on screen, not just its midpoint pin.
+      const lineBounds = L.latLngBounds(frameCoords.map((p) => [p.lat, p.lng] as [number, number]))
+      map.fitBounds(lineBounds, { padding: [30, 30], maxZoom: 17 })
+      return
+    }
     if (framed.length === 1) {
       map.setView([framed[0].gps.lat, framed[0].gps.lng], singlePointZoom ?? 15)
       return
@@ -509,7 +525,7 @@ function ClickHandler({ onMapClick }: { onMapClick: (gps: GeoCoords) => void }) 
 
 // The free, keyless renderer — OpenStreetMap tiles via Leaflet. Used
 // whenever no Google Maps API key is configured (see RealLiveMap below).
-function OsmLiveMap({ points, routeLine, passedLine, hintLine, streetLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen, draggableIds, onPointDragEnd, height = '320px', panLock }: RealLiveMapProps & { panLock?: { unlocked: boolean; onToggle: () => void } }) {
+function OsmLiveMap({ points, routeLine, passedLine, hintLine, streetLines, frameLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen, draggableIds, onPointDragEnd, height = '320px', panLock }: RealLiveMapProps & { panLock?: { unlocked: boolean; onToggle: () => void } }) {
   const center: [number, number] = [points[0].gps.lat, points[0].gps.lng]
 
   return (
@@ -585,6 +601,7 @@ function OsmLiveMap({ points, routeLine, passedLine, hintLine, streetLines, rout
         points={points}
         refitSignal={refitSignal}
         fitPointIds={fitPointIds}
+        frameLines={frameLines}
         singlePointZoom={singlePointZoom}
         holdFit={holdFit}
         fitOnce={fitOnce}
@@ -698,7 +715,7 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, progressPointId, hintLine, streetLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker }: RealLiveMapProps) {
+export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, progressPointId, hintLine, streetLines, frameLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker }: RealLiveMapProps) {
   // The driven-so-far / still-ahead split of the route, if there is a
   // vehicle to measure it by. Only for a real road path: a dashed
   // straight-line placeholder has no "behind" worth drawing.
@@ -925,6 +942,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
               passedLine={routeBehind}
               hintLine={hintLine}
               streetLines={streetLines}
+              frameLines={frameLines}
               routeIsReal={routeIsReal}
               routeVariant={routeVariant}
               onMapClick={onMapClick}
@@ -982,6 +1000,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
           passedLine={routeBehind}
           hintLine={hintLine}
           streetLines={streetLines}
+          frameLines={frameLines}
           routeIsReal={routeIsReal}
           routeVariant={routeVariant}
           onMapClick={onMapClick}

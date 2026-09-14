@@ -124,6 +124,7 @@ export function VectorLiveMap({
   passedLine,
   hintLine,
   streetLines,
+  frameLines,
   routeIsReal,
   routeVariant,
   onMapClick,
@@ -466,9 +467,12 @@ export function VectorLiveMap({
   // Identity only, so a marker that merely moves leaves the viewport alone -
   // except while following a trip, where movement is exactly what the frame
   // has to keep up with.
-  const fitKey = followAll
-    ? framed.map((p) => `${p.id}:${p.gps.lat.toFixed(4)},${p.gps.lng.toFixed(4)}`).join('|')
-    : framed.map((p) => p.id).join(',')
+  const frameCoords = (frameLines ?? []).flat()
+  const frameKey = frameCoords.length > 1 ? `lines:${frameCoords.length}:${frameCoords[0].lat},${frameCoords[0].lng}` : ''
+  const fitKey =
+    (followAll
+      ? framed.map((p) => `${p.id}:${p.gps.lat.toFixed(4)},${p.gps.lng.toFixed(4)}`).join('|')
+      : framed.map((p) => p.id).join(',')) + frameKey
 
   // The tricycle, the pickup and the destination — the three points a trip
   // is actually about, by the ids every caller of this map uses for them
@@ -484,7 +488,15 @@ export function VectorLiveMap({
 
   function refitBounds(target: typeof points = framed) {
     const map = mapRef.current
-    if (!map || target.length === 0) return
+    if (!map) return
+    if (frameCoords.length > 1) {
+      // A street: the whole road on screen, not just its midpoint pin.
+      const lineBounds = new maplibregl.LngLatBounds()
+      frameCoords.forEach((p) => lineBounds.extend([p.lng, p.lat]))
+      map.fitBounds(lineBounds, { padding: FIT_PADDING, maxZoom: 17, duration: 400 })
+      return
+    }
+    if (target.length === 0) return
     if (target.length === 1) {
       map.easeTo({ center: [target[0].gps.lng, target[0].gps.lat], zoom: singlePointZoom ?? SINGLE_POINT_ZOOM, duration: 400 })
       return

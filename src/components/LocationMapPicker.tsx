@@ -65,6 +65,7 @@ export function LocationMapPicker({
   extraPoints = [],
   onScanQr,
   toolbarAction,
+  streetGuide = true,
 }: {
   mapFirst?: boolean
   sheetHeader?: () => ReactNode
@@ -118,6 +119,10 @@ export function LocationMapPicker({
   // after Legend — the booking screen puts a landmark search box there so a
   // destination can be found without scrolling back up to the Where to bar.
   toolbarAction?: ReactNode
+  // Whether a chosen street still draws its green guide line (and frames
+  // the map on it). The booking form turns this off the moment a ride is
+  // requested: the pin is placed by then, and the trip map is for the trip.
+  streetGuide?: boolean
   // Rendered directly under the map, filling the row's width to the left
   // of underMapAction. The booking form's submit lives here so the action
   // sits with the map it is confirming, immediately after the pin the
@@ -481,12 +486,12 @@ export function LocationMapPicker({
   // whatever the frame happened to be centred on, and the person doing the
   // pinching slides off the edge.
   // A street picked from the search draws its road in green — either end.
-  const pickupStreet = streetLinesFor(pickup, landmarks)
-  const dropoffStreet = streetLinesFor(dropoff, landmarks)
+  const pickupStreet = streetGuide ? streetLinesFor(pickup, landmarks) : null
+  const dropoffStreet = streetGuide ? streetLinesFor(dropoff, landmarks) : null
   const streetLines = [...(pickupStreet ?? []), ...(dropoffStreet ?? [])]
   // The one exception to "the map never moves on its own": picking a
-  // street is a request to see that street, so the view centres on that
-  // end at street zoom while its green line is showing. Dragging the pin
+  // street is a request to see that street, so the view frames the whole
+  // road (see frameLines) while its green line is showing. Dragging the pin
   // renames the location (see streetLinesFor), the line goes, and the map
   // is left alone again from there.
   const streetEnd: "pickup" | "dropoff" | null = dropoffStreet ? "dropoff" : pickupStreet ? "pickup" : null
@@ -510,8 +515,7 @@ export function LocationMapPicker({
       // passenger moves the map, not the map the passenger. (Except a
       // street pick — see streetEnd above.)
       fitOnce={!streetEnd}
-      fitPointIds={streetEnd ? [streetEnd] : undefined}
-      singlePointZoom={streetEnd ? 16 : undefined}
+      frameLines={streetEnd ? (streetEnd === 'dropoff' ? dropoffStreet : pickupStreet) ?? undefined : undefined}
       centerOn={myPosition}
       fill={mapFirst}
       onFullscreenChange={setMapFullscreen}

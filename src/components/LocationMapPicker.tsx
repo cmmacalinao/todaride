@@ -2,7 +2,7 @@ import { BottomSheet, type SheetSnap } from './BottomSheet'
 import { useWatchPosition } from '../lib/liveTracking'
 import { useRides } from '../context/RideContext'
 import { formatAddressLine } from '../lib/addressFormat'
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { RealLiveMap, type MapPoint } from './RealLiveMap'
 import { createCustomLocation, reverseGeocodeToPhAddress, type PhAddressTags } from '../lib/customLocation'
@@ -160,6 +160,18 @@ export function LocationMapPicker({
   // True once the Pickup tab has been tapped this visit — gates the GPS
   // button under it (see there). Cleared by tapping Destination.
   const [gpsRevealed, setGpsRevealed] = useState(false)
+  // Set just before a placed/dragged pin is handed up: the caller answers
+  // with a new location id, which flips refitSignal and would otherwise
+  // re-centre the map on the spot — yanking the view out from under the
+  // finger that just put the dot there. Consumed for exactly the one
+  // render that follows (see the reset effect below).
+  const holdNextFitRef = useRef(false)
+  // Runs after every render, so the hold above lasts for the single render
+  // its pin placement triggers and no longer — a later city or destination
+  // change still re-frames the map as usual.
+  useEffect(() => {
+    holdNextFitRef.current = false
+  })
   const containerRef = useRef<HTMLDivElement>(null)
   // The shortened lines in the row are for reading at a glance; this opens
   // the full postal chain for the times someone needs to check the exact
@@ -195,6 +207,7 @@ export function LocationMapPicker({
     try {
       const { label, guess } = await reverseGeocodeToPhAddress(gps)
       const location = createCustomLocation(label ?? `Pinned location (${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)})`, gps, guess ?? undefined)
+      holdNextFitRef.current = true
       if (end === 'pickup') onPinPickup(location, guess)
       else onPinDropoff(location, guess)
       setStatus('idle')
@@ -471,6 +484,7 @@ export function LocationMapPicker({
       points={points}
       onMapClick={(gps) => void placePin(gps)}
       refitSignal={refitSignal}
+      holdFit={holdNextFitRef.current}
       centerOn={myPosition}
       fill={mapFirst}
       onFullscreenChange={setMapFullscreen}

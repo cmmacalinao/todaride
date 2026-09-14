@@ -2051,6 +2051,9 @@ function ActiveTripCard({
             points={extraPoints && extraPoints.length > 0 ? [...mapPoints, ...extraPoints] : mapPoints}
             routeLine={routeLine}
             progressPointId="driver"
+            // Same as the passenger's monitor: the address label does the
+            // legend's job on a trip screen.
+            hideLegend
             routeIsReal={!!route}
             hintLine={hintLine && hintLine.length > 1 ? hintLine : undefined}
             routeVariant={legRide?.status === 'driver_arriving' ? 'pickup' : 'trip'}

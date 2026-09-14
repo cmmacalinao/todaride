@@ -508,6 +508,10 @@ export function LocationMapPicker({
     <RealLiveMap
       points={points}
       streetLines={streetLines}
+      // The legend earns its place while the passenger is still choosing —
+      // once a destination is set the pickup/destination label says it all,
+      // and hiding the legend lets that label sit at the top of the map.
+      hideLegend={hasDropoff}
       onMapClick={(gps) => void placePin(gps)}
       refitSignal={streetEnd ? `${refitSignal}|street:${streetEnd}` : refitSignal}
       holdFit={holdNextFitRef.current}

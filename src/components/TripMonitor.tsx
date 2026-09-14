@@ -1277,6 +1277,9 @@ export function TripMonitor({
             points={mapPoints}
             routeLine={routeLine}
             progressPointId="driver"
+            // Both ends are settled on a trip screen; the pickup/destination
+            // label reads them out, so no legend — it sits at the top instead.
+            hideLegend
             routeIsReal={!!route}
             routeVariant={ride.status === 'driver_arriving' ? 'pickup' : 'trip'}
             refitSignal={framing.phase}

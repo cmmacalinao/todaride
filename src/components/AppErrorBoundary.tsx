@@ -73,14 +73,20 @@ export class AppErrorBoundary extends Component<Props, State> {
     if (!this.state.failed) return this.props.children
 
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-white px-6 text-center">
+      // The same blue the Welcome screen and every header wear — a crash
+      // screen in the app's own colours reads as the app pausing, where a
+      // white page reads as the app gone.
+      <div
+        className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center"
+        style={{ backgroundImage: 'linear-gradient(135deg, #3e6fe4 0%, #0a1529 60%, #0a1529 100%)' }}
+      >
         <img src="/logo.png" alt="TODA Ride Mobility" className="w-36 max-w-[60vw]" />
         {this.state.reloading ? (
-          <p className="text-sm text-slate-600">Kinukuha ang pinakabagong bersyon…</p>
+          <p className="text-sm text-slate-200">Kinukuha ang pinakabagong bersyon…</p>
         ) : (
           <>
-            <p className="text-sm font-semibold text-navy-900">Nagka-aberya ang app.</p>
-            <p className="max-w-xs text-xs leading-relaxed text-slate-600">
+            <p className="text-sm font-semibold text-white">Nagka-aberya ang app.</p>
+            <p className="max-w-xs text-xs leading-relaxed text-slate-200">
               Subukan itong buksan muli. Kung paulit-ulit ito, i-scan muli ang QR code — kinukuha nito ang
               pinakabagong bersyon.
             </p>
@@ -94,7 +100,7 @@ export class AppErrorBoundary extends Component<Props, State> {
                 }
                 window.location.replace('/?fresh=1')
               }}
-              className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-bold text-white"
+              className="rounded-lg bg-gold-400 px-5 py-2.5 text-sm font-bold text-navy-900"
             >
               Buksan muli
             </button>

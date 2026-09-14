@@ -7072,6 +7072,14 @@ export function RideProvider({ children }: { children: ReactNode }) {
     state.specialPickupEscalationMs,
     state.todaOrganizations,
     state.terminals,
+    // These four were stored (above) but missing here, so a landmark move,
+    // rename, add or delete — or a store removal — only reached storage
+    // when some unrelated state happened to change next. The admin saw
+    // "not saving" on a dragged landmark pin.
+    state.landmarks,
+    state.deletedLandmarkIds,
+    state.clsuFleetQueued,
+    state.removedPharmacyIds,
     state.boundaries,
     state.duesRecords,
     state.membershipRequests,

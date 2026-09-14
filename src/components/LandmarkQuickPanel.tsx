@@ -28,9 +28,9 @@ const NUEVA_ECIJA_CITIES = Object.keys(PH_ADDRESS_TREE['Nueva Ecija'] ?? {})
 // rather than a native window.prompt() — Capacitor's WebView (this app
 // ships through it) blocks prompt/alert/confirm outright on most Android
 // builds, so a rename button built on prompt() silently does nothing there.
-// Save changes only does anything once a drag has staged a new position
-// (see stagedGps — dragging the *selected* pin always stages rather than
-// autosaving, so this button is the one place that commits it).
+// A drag only stages the pin's new spot (see stagedMove in the panel); 💾
+// beside Rename lights up gold until it is tapped, and ↩️ beside Delete
+// either drops that unsaved move or, once saved, puts the pin back.
 //
 // key={landmark.id} at the call site remounts this fresh whenever the
 // selected landmark changes, which is what resets the rename draft below
@@ -38,18 +38,25 @@ const NUEVA_ECIJA_CITIES = Object.keys(PH_ADDRESS_TREE['Nueva Ecija'] ?? {})
 function LandmarkQuickActions({
   landmark,
   stagedGps,
+  undoMove,
   confirmingDelete,
   onRename,
-  onSaveChanges,
+  onSaveMove,
+  onUndoMove,
   onDeleteRequest,
   onDeleteConfirm,
   onDeleteCancel,
 }: {
   landmark: Landmark | null
+  // Where this pin was dropped and not yet saved — turns 💾 gold.
   stagedGps: GeoCoords | null
+  // The last SAVED move that can still be put back (any landmark, not only
+  // the selected one). With neither this nor a staged drag, ↩️ is greyed.
+  undoMove: { id: string; name: string } | null
   confirmingDelete: boolean
   onRename: (l: Landmark, newName: string) => void
-  onSaveChanges: (l: Landmark) => void
+  onSaveMove: (l: Landmark) => void
+  onUndoMove: () => void
   onDeleteRequest: (l: Landmark) => void
   onDeleteConfirm: (l: Landmark) => void
   onDeleteCancel: () => void
@@ -124,11 +131,16 @@ function LandmarkQuickActions({
       <button
         type="button"
         disabled={!stagedGps}
-        onClick={() => onSaveChanges(landmark)}
-        title={stagedGps ? `Save ${landmark.name}'s dragged position` : 'Drag the selected pin to enable'}
-        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+        onClick={() => onSaveMove(landmark)}
+        aria-label={stagedGps ? `Save ${landmark.name}'s new position` : 'Save position'}
+        title={stagedGps ? `Save ${landmark.name}'s new position` : 'Drag the pin first — then tap to save where it lands'}
+        className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition disabled:opacity-40 ${
+          stagedGps
+            ? 'border-gold-400 bg-gold-400 text-navy-900 shadow-sm hover:bg-gold-400/80'
+            : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+        }`}
       >
-        💾 Save changes
+        💾
       </button>
       <button
         type="button"
@@ -137,6 +149,22 @@ function LandmarkQuickActions({
         className="rounded-md border border-rose-300 bg-white px-2 py-1 text-[11px] font-semibold text-rose-600 transition hover:bg-rose-50"
       >
         🗑️ Delete
+      </button>
+      <button
+        type="button"
+        disabled={!stagedGps && !undoMove}
+        onClick={onUndoMove}
+        aria-label={stagedGps ? 'Discard the unsaved move' : undoMove ? `Undo moving ${undoMove.name}` : 'Undo last move'}
+        title={
+          stagedGps
+            ? 'Put the pin back — discard the unsaved move'
+            : undoMove
+              ? `Undo moving ${undoMove.name} — put it back where it was`
+              : 'Nothing to undo yet'
+        }
+        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+      >
+        ↩️
       </button>
     </div>
   )
@@ -249,17 +277,22 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
   // separate from editingId so browsing the list doesn't discard whatever
   // the admin is mid-typing in an unrelated Add.
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  // Full screen gets its own quick-action row (Rename/Save changes/Delete —
+  // Full screen gets its own quick-action row (Rename/Save/Delete/Undo —
   // see toolbarAction below), since the whole form above is out of view
   // there. isFullscreen tracks RealLiveMap's own fullscreen toggle so that
   // row only shows up where the rest of the form is genuinely unreachable —
   // the same three actions already live in the form for the normal view.
   const [isFullscreen, setIsFullscreen] = useState(false)
-  // A pin dragged while selected (not editing) doesn't autosave the way an
-  // ordinary drag does elsewhere — there's no Save changes button visible
-  // right at the pin to already imply that, so the drop is held here until
-  // the toolbar's own Save changes commits it.
-  const [stagedDragGps, setStagedDragGps] = useState<GeoCoords | null>(null)
+  // Dragging an existing pin stages the move: the pin shows at the new spot
+  // and the map row's 💾 turns gold until it is tapped (the admin's choice —
+  // a drop by itself is too easy to do by accident on a phone). One staged
+  // move at a time: dragging another pin selects that one and lets the
+  // earlier, unsaved drag snap back.
+  const [stagedMove, setStagedMove] = useState<{ id: string; gps: GeoCoords } | null>(null)
+  // The last move that was actually saved — where that pin was before — so
+  // ↩️ Undo (beside Delete) can put it straight back even after 💾. Only the
+  // latest is kept: one wrong drag is the case that happens, not a chain.
+  const [lastMove, setLastMove] = useState<{ id: string; name: string; from: GeoCoords } | null>(null)
   const [listFilterText, setListFilterText] = useState('')
   const [listFilterCategory, setListFilterCategory] = useState<LandmarkCategory | 'all'>('all')
   const [listSort, setListSort] = useState<'name-asc' | 'name-desc' | 'category'>('name-asc')
@@ -363,9 +396,10 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
         // dragged or typed — a second, separate "new landmark" marker
         // hovering next to the real one would just be confusing for an
         // edit, unlike adding, where there's no existing pin to reuse yet.
-        // The selected pin's own staged drag (full screen only) works the
-        // same way.
-        const gps = isEditing && pending ? pending : isSelected && stagedDragGps ? stagedDragGps : l.gps
+        // A staged drag shows the pin where it was dropped, the same way an
+        // edit's pending position does — the saved coordinate only changes
+        // once 💾 is tapped.
+        const gps = isEditing && pending ? pending : stagedMove?.id === l.id ? stagedMove.gps : l.gps
         const color = isEditing ? '#0f766e' : isSelected ? '#2563eb' : '#7c3aed'
         // Category alongside the name — the dot's colour is the same purple
         // for every landmark (unlike a trip map's tricycle/pickup/dropoff
@@ -411,13 +445,16 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
   // toward the list, the opposite of the point of tapping a pin).
   function selectLandmark(l: Landmark, source: 'list' | 'map') {
     setSelectedId(l.id)
-    setStagedDragGps(null)
+    // Moving on to another pin lets an unsaved drag of the previous one
+    // snap back — one staged move at a time, and 💾 always refers to the
+    // selected pin.
+    if (stagedMove && stagedMove.id !== l.id) setStagedMove(null)
     if (source === 'list') scrollToMap()
   }
 
   function startEdit(l: Landmark, source: 'list' | 'map') {
     setSelectedId(null)
-    setStagedDragGps(null)
+    setStagedMove(null)
     setEditingId(l.id)
     setName(l.name)
     setAliasesText(l.aliases.join(', '))
@@ -454,7 +491,7 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
     setListFilterCategory('all')
     setMapSearchText('')
     setSelectedId(null)
-    setStagedDragGps(null)
+    setStagedMove(null)
     cancelEdit()
   }
 
@@ -721,10 +758,7 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
             const l = cityLandmarks.find((x) => x.id === id)
             if (l) handleLandmarkInteract(l, 'map')
           }}
-          onFullscreenChange={(fs) => {
-            setIsFullscreen(fs)
-            if (!fs) setStagedDragGps(null)
-          }}
+          onFullscreenChange={setIsFullscreen}
           toolbarAction={
             <>
                 {/* Same Find Barangay box the booking maps carry beside
@@ -766,27 +800,47 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
                   <LandmarkQuickActions
                     key={selectedId}
                     landmark={cityLandmarks.find((l) => l.id === selectedId) ?? null}
-                    stagedGps={stagedDragGps}
+                    stagedGps={stagedMove?.id === selectedId ? stagedMove.gps : null}
+                    undoMove={lastMove}
                     confirmingDelete={confirmingRemoveId === selectedId}
                     onRename={(l, nextName) => {
+                      // A rename commits a staged drag along with it — the
+                      // admin is clearly done with this pin.
+                      const staged = stagedMove?.id === l.id ? stagedMove.gps : null
+                      if (staged && l.gps) setLastMove({ id: l.id, name: nextName, from: l.gps })
                       updateLandmark(l.id, {
                         name: nextName,
                         aliases: l.aliases,
                         category: l.category,
                         city: l.city,
-                        gps: stagedDragGps ?? l.gps,
+                        gps: staged ?? l.gps,
                         todaOrgId: l.todaOrgId,
                       })
-                      setStagedDragGps(null)
+                      if (staged) setStagedMove(null)
                       setJustEdited(nextName)
                       setJustAdded('')
                       setJustMoved('')
                     }}
-                    onSaveChanges={(l) => {
-                      if (!stagedDragGps) return
-                      setLandmarkGps(l.id, stagedDragGps)
-                      setStagedDragGps(null)
+                    onSaveMove={(l) => {
+                      if (stagedMove?.id !== l.id) return
+                      if (l.gps) setLastMove({ id: l.id, name: l.name, from: l.gps })
+                      setLandmarkGps(l.id, stagedMove.gps)
+                      setStagedMove(null)
                       setJustMoved(l.name)
+                      setJustAdded('')
+                      setJustEdited('')
+                    }}
+                    onUndoMove={() => {
+                      // A staged (unsaved) drag is simply dropped — the pin
+                      // snaps back. Otherwise the last SAVED move is reverted.
+                      if (stagedMove) {
+                        setStagedMove(null)
+                        return
+                      }
+                      if (!lastMove) return
+                      setLandmarkGps(lastMove.id, lastMove.from)
+                      setLastMove(null)
+                      setJustMoved('')
                       setJustAdded('')
                       setJustEdited('')
                     }}
@@ -796,7 +850,8 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
                       removeLandmark(l.id)
                       setConfirmingRemoveId(null)
                       setSelectedId(null)
-                      setStagedDragGps(null)
+                      if (stagedMove?.id === l.id) setStagedMove(null)
+                      if (lastMove?.id === l.id) setLastMove(null)
                     }}
                     onDeleteCancel={() => setConfirmingRemoveId(null)}
                   />
@@ -846,21 +901,11 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
               setFromGps(gps)
               return
             }
-            if (id === selectedId) {
-              // The selected pin's own Save changes lives right in the
-              // toolbar (see toolbarAction) — staged there rather than
-              // autosaved so a drag can be undone by just not pressing it.
-              setStagedDragGps(gps)
-              return
-            }
-            // Any other pin's drag is a standalone move, not part of an
-            // edit or a selection in progress — dropping it is the save,
-            // dispatch fires immediately, the same way a drag already saves
-            // a terminal's position.
-            setLandmarkGps(id, gps)
-            setJustMoved(cityLandmarks.find((l) => l.id === id)?.name ?? '')
-            setJustAdded('')
-            setJustEdited('')
+            // Any existing pin's drag selects that pin and stages the move
+            // for the map row's 💾 (see stagedMove) — nothing is saved yet.
+            setSelectedId(id)
+            setStagedMove({ id, gps })
+            setConfirmingRemoveId(null)
           }}
         />
       </div>

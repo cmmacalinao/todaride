@@ -41,6 +41,7 @@ function LandmarkQuickActions({
   undoMove,
   confirmingDelete,
   onRename,
+  onCategoryChange,
   onSaveMove,
   onUndoMove,
   onDeleteRequest,
@@ -55,6 +56,7 @@ function LandmarkQuickActions({
   undoMove: { id: string; name: string } | null
   confirmingDelete: boolean
   onRename: (l: Landmark, newName: string) => void
+  onCategoryChange: (l: Landmark, category: LandmarkCategory) => void
   onSaveMove: (l: Landmark) => void
   onUndoMove: () => void
   onDeleteRequest: (l: Landmark) => void
@@ -128,6 +130,23 @@ function LandmarkQuickActions({
       >
         ✏️ Rename
       </button>
+      {/* The form's own category picker, right here beside the pin. A
+          select is one deliberate tap already, so it applies on change —
+          no second Save to remember, unlike a drag that can happen by
+          accident. */}
+      <select
+        value={landmark.category}
+        onChange={(e) => onCategoryChange(landmark, e.target.value as LandmarkCategory)}
+        title={`Category of ${landmark.name}`}
+        aria-label={`Category of ${landmark.name}`}
+        className="rounded-md border border-slate-300 bg-white px-1.5 py-1 text-[11px] font-semibold text-slate-600"
+      >
+        {(Object.keys(LANDMARK_CATEGORY_LABELS) as LandmarkCategory[]).map((c) => (
+          <option key={c} value={c}>
+            {LANDMARK_CATEGORY_ICONS[c]} {LANDMARK_CATEGORY_LABELS[c]}
+          </option>
+        ))}
+      </select>
       <button
         type="button"
         disabled={!stagedGps}
@@ -818,6 +837,24 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
                       })
                       if (staged) setStagedMove(null)
                       setJustEdited(nextName)
+                      setJustAdded('')
+                      setJustMoved('')
+                    }}
+                    onCategoryChange={(l, nextCategory) => {
+                      // Carries a staged drag along, the same as Rename —
+                      // the admin is clearly finishing this pin.
+                      const staged = stagedMove?.id === l.id ? stagedMove.gps : null
+                      if (staged && l.gps) setLastMove({ id: l.id, name: l.name, from: l.gps })
+                      updateLandmark(l.id, {
+                        name: l.name,
+                        aliases: l.aliases,
+                        category: nextCategory,
+                        city: l.city,
+                        gps: staged ?? l.gps,
+                        todaOrgId: l.todaOrgId,
+                      })
+                      if (staged) setStagedMove(null)
+                      setJustEdited(l.name)
                       setJustAdded('')
                       setJustMoved('')
                     }}

@@ -87,6 +87,9 @@ export function DestinationSearch({
 }) {
   const { landmarks } = useRides()
   const [query, setQuery] = useState('')
+  // Whether the box has focus — the noMatchNote doubles as a hint shown the
+  // moment the box is tapped, before anything is typed.
+  const [focused, setFocused] = useState(false)
   const pool = barangayOnly ? landmarks.filter((l) => l.id.startsWith('landmark-brgy-')) : landmarks
   const scoped = city ? pool.filter((l) => l.city === city) : pool
   const matches = searchLandmarks(query, scoped, near ?? null)
@@ -153,9 +156,14 @@ export function DestinationSearch({
         onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
         autoFocus={autoFocus}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         className={inputClassName}
       />
       <div className={resultsClassName}>
+      {!trimmed && focused && noMatchNote && (
+        <p className="mt-1 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-400">{noMatchNote}</p>
+      )}
       {trimmed &&
         (matches.length > 0 ? (
           <div className="mt-1 space-y-0.5 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">

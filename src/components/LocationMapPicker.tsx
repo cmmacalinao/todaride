@@ -157,6 +157,9 @@ export function LocationMapPicker({
   extraPoints?: MapPoint[]
 }) {
   const [status, setStatus] = useState<'idle' | 'locating' | 'error'>('idle')
+  // True once the Pickup tab has been tapped this visit — gates the GPS
+  // button under it (see there). Cleared by tapping Destination.
+  const [gpsRevealed, setGpsRevealed] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   // The shortened lines in the row are for reading at a glance; this opens
   // the full postal chain for the times someone needs to check the exact
@@ -377,7 +380,10 @@ export function LocationMapPicker({
         <div className="flex shrink-0 gap-1 rounded-lg bg-slate-100 p-1">
           <button
             type="button"
-            onClick={() => selectTarget('pickup')}
+            onClick={() => {
+              selectTarget('pickup')
+              setGpsRevealed(true)
+            }}
             className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
               // Both tabs stay in their pin's colour at all times — the colour
               // is identity (which pin am I moving), not selection. Selection
@@ -393,7 +399,10 @@ export function LocationMapPicker({
           </button>
           <button
             type="button"
-            onClick={() => selectTarget('dropoff')}
+            onClick={() => {
+              selectTarget('dropoff')
+              setGpsRevealed(false)
+            }}
             className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
               // dest-accent, not the reserved `danger` red — an SOS has to
               // stay the only thing wearing that colour. Themeable (see
@@ -408,6 +417,19 @@ export function LocationMapPicker({
         </div>
         )}
       </div>
+      {/* Directly under the Pickup tab, and only once that tab has actually
+          been tapped — pickup is the default target, so keying this on
+          `target` alone had it standing on screen from the first render. */}
+      {!mapFirst && showGpsFor === target && gpsRevealed && (
+        <button
+          type="button"
+          onClick={() => void useMyGpsHere()}
+          disabled={status === 'locating'}
+          className="w-full rounded-lg border border-gold-400/60 bg-gold-400/20 py-1.5 text-[11px] font-semibold text-brand-700 transition hover:bg-gold-400/40 disabled:opacity-60"
+        >
+          {status === 'locating' ? '📍 Locating…' : `📍 My GPS Location — set ${target === 'pickup' ? pickupLabel : dropoffLabel}`}
+        </button>
+      )}
       {belowTabs}
       {/* Directly under the two address strips, which is where the sheet is
           answering "where from, where to, go". The location status, Group
@@ -430,16 +452,6 @@ export function LocationMapPicker({
           "refresh my location" control above it was answering a question
           nobody was asking twice. */}
       {sheetExtras}
-      {!mapFirst && showGpsFor === target && (
-        <button
-          type="button"
-          onClick={() => void useMyGpsHere()}
-          disabled={status === 'locating'}
-          className="w-full rounded-lg border border-brand-300 bg-brand-50 py-1.5 text-[11px] font-semibold text-brand-700 transition hover:bg-brand-100 disabled:opacity-60"
-        >
-          {status === 'locating' ? '📍 Locating…' : `📍 My GPS Location — set ${target === 'pickup' ? pickupLabel : dropoffLabel}`}
-        </button>
-      )}
       {/* Named the armed end so a tap was unambiguous. On the booking screen
          the two Set-on-Map buttons say which end they arm at the moment of
          arming it, so this repeated an answer already given - and the GPS

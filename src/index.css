@@ -117,3 +117,15 @@ body {
     font-size: 16px;
   }
 }
+
+/* The search boxes on a map's own button row (Find Barangay, Find a
+ * landmark) are drawn at 11px to sit beside 11px buttons; the rule above
+ * made them the one oversized thing on that row on a phone. Opted out:
+ * the pilot's phones are Android (via Capacitor), which never auto-zooms;
+ * on iOS Safari this one box will zoom on focus, the lesser wrong.
+ * !important because the rule above carries four :not() selectors. */
+@media (pointer: coarse) {
+  input.map-toolbar-input {
+    font-size: 11px !important;
+  }
+}

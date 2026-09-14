@@ -768,7 +768,7 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
                   placeholder="🔍 Find Barangay"
                   className="relative z-[80] w-32 sm:w-40"
                   resultsClassName="absolute left-0 top-full mt-1 w-64 max-h-56 overflow-y-auto"
-                  inputClassName="w-full rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-600 placeholder:font-normal"
+                  inputClassName="map-toolbar-input w-full rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-600 placeholder:font-normal"
                 />
                 {/* One row for whatever is in hand: a pending new pin takes
                     the first button (Add name) and the category picker;
@@ -867,7 +867,7 @@ export function LandmarkQuickPanel({ onClose }: { onClose: () => void }) {
                       value={mapSearchText}
                       onChange={(e) => setMapSearchText(e.target.value)}
                       placeholder="🔍 Find a landmark"
-                      className="w-28 rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-600 placeholder:font-normal sm:w-40"
+                      className="map-toolbar-input w-28 rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-600 placeholder:font-normal sm:w-40"
                     />
                     {normalizedMapSearch && (
                       <div className="absolute right-0 top-full mt-1 max-h-56 w-56 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">

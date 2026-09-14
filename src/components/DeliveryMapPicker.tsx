@@ -121,7 +121,7 @@ export function DeliveryMapPicker({
               placeholder="🔍 Find Barangay"
               className="relative z-[80] w-36 sm:w-44"
               resultsClassName="absolute left-0 top-full mt-1 w-72 max-h-64 overflow-y-auto"
-              inputClassName="w-full rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-600 placeholder:font-normal"
+              inputClassName="map-toolbar-input w-full rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-600 placeholder:font-normal"
             />
             <button
               type="button"

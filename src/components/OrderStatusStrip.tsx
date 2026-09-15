@@ -78,7 +78,15 @@ export function orderStageDetail(order: MedsOrder, ride: Ride | undefined, viewe
     case 'delivered':
       return `Delivered${driver ? ` by ${driver}` : ''}`
     case 'cancelled':
-      return 'Cancelled'
+      // The label already says "Cancelled"; the detail is who did it, when
+      // the ride knows — "Cancelled · Cancelled" was reading as a stutter.
+      return ride?.cancelledBy === 'driver'
+        ? 'by the rider'
+        : ride?.cancelledBy === 'passenger'
+          ? 'by the customer'
+          : ride?.cancelledBy === 'vendor'
+            ? 'by the store'
+            : ''
     case 'declined':
       return order.rejectionReason ? `Declined — ${order.rejectionReason}` : 'Declined'
   }
@@ -118,7 +126,8 @@ export function OrderStatusStrip({
         ))}
       </ol>
       <p className={`mt-1 text-[11px] ${ended ? 'text-amber-700' : 'text-slate-600'}`}>
-        <span className="font-semibold">{ORDER_STAGE_LABELS[stage]}</span> · {orderStageDetail(order, ride, viewer)}
+        <span className="font-semibold">{ORDER_STAGE_LABELS[stage]}</span>
+        {orderStageDetail(order, ride, viewer) && <> · {orderStageDetail(order, ride, viewer)}</>}
       </p>
     </div>
   )

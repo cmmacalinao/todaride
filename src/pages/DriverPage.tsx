@@ -196,7 +196,25 @@ export function DriverPage() {
   }, [driverView])
   const [showSoa, setShowSoa] = useState(false)
   // Rides whose payment notice the driver has already seen and waved away.
-  const [dismissedPaidIds, setDismissedPaidIds] = useState<string[]>([])
+  // Kept on the phone, not just in this render: the notice is offered for
+  // 15 minutes after a payment, and a reopen or reload inside that window
+  // used to bring back a "Bayad na" the driver had already thanked away.
+  const [dismissedPaidIds, setDismissedPaidIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('toda-driver-paid-dismissed-v1')
+      const ids: unknown = raw ? JSON.parse(raw) : []
+      return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string').slice(-50) : []
+    } catch {
+      return []
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('toda-driver-paid-dismissed-v1', JSON.stringify(dismissedPaidIds.slice(-50)))
+    } catch {
+      // A phone with storage off just sees the notice again after a reload.
+    }
+  }, [dismissedPaidIds])
   const requestsPanelRef = useRef<HTMLDivElement | null>(null)
   // Opening the panel from the alert bar brings it to just under that bar —
   // a driver who taps a blinking alert while scrolled down was being shown

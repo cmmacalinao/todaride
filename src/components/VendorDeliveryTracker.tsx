@@ -7,7 +7,7 @@ import { StatusBadge } from './StatusBadge'
 import { formatAddressLine } from '../lib/addressFormat'
 import { useNow } from '../lib/liveTracking'
 import { useRoute } from '../lib/routing'
-import { buildTimeline, formatEta, getLegInfo, sharedDriverMapGps } from '../lib/tracking'
+import { buildTimeline, formatArrives, formatEta, getLegInfo, sharedDriverMapGps } from '../lib/tracking'
 import { formatKm } from '../lib/geo'
 import { remainingLeg } from '../lib/legRemaining'
 import type { MedsOrder, Pharmacy, Ride } from '../types'
@@ -144,7 +144,7 @@ export function VendorDeliveryTracker({ order, ride, vendor }: { order: MedsOrde
       {showEta && (
         <p className="text-[11px] text-slate-600">
           {ride.status === 'ongoing' ? 'To the customer: ' : 'To your store: '}
-          {leg.arrived ? 'arrived' : remaining ? `arrives ${formatEta(remaining.seconds)} · distance ${formatKm(remaining.meters)}` : formatEta(leg.etaSeconds)}
+          {leg.arrived ? 'arrived' : remaining ? `${formatArrives(remaining.seconds).toLowerCase()} · distance ${formatKm(remaining.meters)}` : formatEta(leg.etaSeconds)}
           {route ? ` · ${(route.distanceMeters / 1000).toFixed(1)} km` : ''}
         </p>
       )}

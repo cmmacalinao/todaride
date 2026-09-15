@@ -246,6 +246,19 @@ export function isWithinRetentionDays(dateIso: string, retentionDays: number): b
 // Hours and minutes, never seconds: "12s away" read as a countdown nobody
 // could trust, and under a minute out the honest word is that you are
 // arriving. "4 min", "1 h 12 min", "2 h" — the caller says "Arrives".
+// The clock time that many seconds from now — "2:52 PM" — for a passenger
+// deciding whether to wait at the gate or finish their coffee.
+export function formatArrivalClock(seconds: number, now: number = Date.now()): string {
+  return new Date(now + Math.max(0, seconds) * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+}
+
+// "Arrives 4 min (~2:52 PM)", or plainly "Arriving now" — never "Arrives
+// Arriving now".
+export function formatArrives(seconds: number, withClock = false): string {
+  if (seconds <= 45) return 'Arriving now'
+  return `Arrives ${formatEta(seconds)}${withClock ? ` (~${formatArrivalClock(seconds)})` : ''}`
+}
+
 export function formatEta(seconds: number): string {
   if (seconds <= 45) return 'Arriving now'
   const minutes = Math.max(1, Math.ceil(seconds / 60))

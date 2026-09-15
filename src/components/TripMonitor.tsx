@@ -10,7 +10,7 @@ import { RealLiveMap, preloadNavMap, type MapPoint } from './RealLiveMap'
 import { AlertBanner } from './AlertBanner'
 import { PhotoCaptureButton } from './PhotoCaptureButton'
 import { PhotoGallery } from './PhotoGallery'
-import { buildTimeline, driverPickupOverdue, formatEta, getDispatchWindow, getLegInfo, getPassengerMapGps, primaryAboardRide, sharedDriverMapGps, tripMapFraming } from '../lib/tracking'
+import { buildTimeline, driverPickupOverdue, formatArrives, formatEta, getDispatchWindow, getLegInfo, getPassengerMapGps, primaryAboardRide, sharedDriverMapGps, tripMapFraming } from '../lib/tracking'
 import { formatKm, haversineDistanceMeters } from '../lib/geo'
 import { remainingLeg } from '../lib/legRemaining'
 import { reverseGeocodeToPhAddress } from '../lib/customLocation'
@@ -645,7 +645,7 @@ export function TripMonitor({
           <p className="flex flex-wrap items-center justify-center gap-x-2 text-xs font-medium text-brand-700">
             <span>
               🛺 {ride.status === 'driver_arriving' ? 'Driver arriving: ' : 'To destination: '}
-              {remaining ? `Arrives ${formatEta(remaining.seconds)} · Distance ${formatKm(remaining.meters)}` : formatEta(leg.etaSeconds)}
+              {remaining ? `${formatArrives(remaining.seconds, true)} · Distance ${formatKm(remaining.meters)}` : formatEta(leg.etaSeconds)}
             </span>
             <span className="text-[11px] font-medium text-slate-500">
               🏁 ~{Math.max(1, Math.round(tripDurationSeconds / 60))} min trip

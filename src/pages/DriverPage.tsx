@@ -2030,22 +2030,41 @@ function ActiveTripCard({
             </div>
           </div>
         )}
-      <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 text-xs text-slate-500">
-          <span className="text-base font-bold text-slate-800">Fare: ₱{ride.fareEstimate}</span>
-          {ride.pabiliTip > 0 && <span className="ml-2">· +₱{ride.pabiliTip} tip</span>}
-          {ride.tipOffer > 0 && <span className="ml-2 font-medium text-emerald-600">· +₱{ride.tipOffer} tip offer</span>}
+      {/* The four figures a driver glances at, as one row of equal cells
+          — label over value, all the same size — instead of a big fare
+          wrapping onto two lines beside a smaller arrival paragraph. */}
+      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+        <p className="mb-1 text-[11px] font-medium text-slate-500">
+          🛺 {ride.status === 'driver_arriving' ? 'To pickup' : 'To destination'}
           {ride.passengerCount > 1 && <span className="ml-2">· 👥 {ride.passengerCount} passengers</span>}
         </p>
-        <div className="shrink-0 text-right">
-          <p className="text-xs font-medium text-brand-700">
-            🛺 {ride.status === 'driver_arriving' ? 'To pickup: ' : 'To destination: '}
-            {remaining ? `Arrives ${formatEta(remaining.seconds)} · Distance ${formatKm(remaining.meters)}` : formatEta(leg.etaSeconds)}
-          </p>
-          <p className="text-[11px] font-medium text-slate-500">
-            🏁 Trip: ~{Math.max(1, Math.round(tripDurationSeconds / 60))} min
-          </p>
+        <div className="grid grid-cols-4 gap-2 text-xs">
+          <div className="min-w-0">
+            <p className="text-slate-500">Fare</p>
+            <p className="truncate font-bold text-slate-800">₱{ride.fareEstimate}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-slate-500">Arrives</p>
+            <p className="truncate font-bold text-brand-700">
+              {(remaining ? remaining.seconds : leg.etaSeconds) <= 45 ? 'Now' : formatEta(remaining ? remaining.seconds : leg.etaSeconds)}
+            </p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-slate-500">Distance</p>
+            <p className="truncate font-bold text-brand-700">{remaining ? formatKm(remaining.meters) : '—'}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-slate-500">Trip</p>
+            <p className="truncate font-bold text-slate-800">~{Math.max(1, Math.round(tripDurationSeconds / 60))} min</p>
+          </div>
         </div>
+        {(ride.pabiliTip > 0 || ride.tipOffer > 0) && (
+          <p className="mt-1 text-[11px] text-slate-500">
+            {ride.pabiliTip > 0 && <span>+₱{ride.pabiliTip} tip</span>}
+            {ride.pabiliTip > 0 && ride.tipOffer > 0 && <span> · </span>}
+            {ride.tipOffer > 0 && <span className="font-medium text-emerald-600">+₱{ride.tipOffer} tip offer</span>}
+          </p>
+        )}
       </div>
 
       {ride.pickupGps && ride.status === 'driver_arriving' && (
@@ -2115,31 +2134,6 @@ function ActiveTripCard({
                     <span className="font-semibold text-dest-accent">🏁 </span>
                     {formatAddressLine(ride.dropoff.label)}
                   </p>
-                </div>
-                {/* When it reaches the passenger, how long the trip runs, and
-                    what it pays — the same three the passenger reads on their
-                    own map, so the two people on one ride are looking at the
-                    same numbers rather than each doing arithmetic on the
-                    other's. It replaced a raw distance, which told a driver
-                    who is already on the route the one thing they can see out
-                    of the windscreen.
-                    Drawn on the map itself so it rides along into full screen
-                    instead of being left behind under it. */}
-                <div className="flex items-center divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white/90 px-2 py-1 text-[11px] leading-tight text-slate-700">
-                  <span className="flex-1 truncate pr-1.5">
-                    <span className="font-medium text-pickup-accent">Arrives</span>{' '}
-                    <span className="font-bold">{formatEta(remaining ? remaining.seconds : leg.etaSeconds)}</span>
-                  </span>
-                  <span className="flex-1 truncate px-1.5">
-                    <span className="font-medium text-dest-accent">Distance</span>{' '}
-                    <span className="font-bold">
-                      {remaining ? formatKm(remaining.meters) : `~${Math.max(1, Math.round(tripDurationSeconds / 60))} min`}
-                    </span>
-                  </span>
-                  <span className="flex-1 truncate pl-1.5">
-                    <span className="font-medium text-slate-500">Fare</span>{' '}
-                    <span className="font-bold">₱{ride.fareEstimate}</span>
-                  </span>
                 </div>
               </div>
             }

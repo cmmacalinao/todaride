@@ -998,6 +998,34 @@ export function DriverPage() {
     )
   }
 
+  // The "not at the terminal" / "no location" answer to a Join Pila tap.
+  // Declared up here so the Pila page can draw it too: it used to live only
+  // in the dashboard's tree, and a driver tapping Join from the Pila page
+  // saw nothing happen at all.
+  const queueNoticeDialog = queueNotice && (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      onClick={() => setQueueNotice(null)}
+    >
+      <div
+        className="w-full max-w-xs rounded-xl border border-amber-300 bg-white p-4 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-sm font-semibold text-amber-900">🚏 {queueNotice.title}</p>
+        <p className="mt-1 text-xs text-slate-600">{queueNotice.body}</p>
+        <button
+          type="button"
+          onClick={() => setQueueNotice(null)}
+          className="mt-3 w-full rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  )
+
   if (driverView === 'pila' && homeToda) {
     return (
       <div className="mx-auto flex min-h-[100%] max-w-lg flex-col px-4 pb-20 pt-2">
@@ -1018,6 +1046,7 @@ export function DriverPage() {
           />
         </div>
         {footerBar}
+        {queueNoticeDialog}
       </div>
     )
   }
@@ -1425,29 +1454,7 @@ export function DriverPage() {
       )}
 
 
-      {queueNotice && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setQueueNotice(null)}
-        >
-          <div
-            className="w-full max-w-xs rounded-xl border border-amber-300 bg-white p-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="text-sm font-semibold text-amber-900">🚏 {queueNotice.title}</p>
-            <p className="mt-1 text-xs text-slate-600">{queueNotice.body}</p>
-            <button
-              type="button"
-              onClick={() => setQueueNotice(null)}
-              className="mt-3 w-full rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
-            >
-              Got it
-            </button>
-          </div>
-        </div>
-      )}
+      {queueNoticeDialog}
 
       {showHotlines && (
         <EmergencyNumbersPanel

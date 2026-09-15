@@ -1,4 +1,3 @@
-import { BrandGlow } from '../components/BrandGlow'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
@@ -101,7 +100,6 @@ export function RoleChooserPage() {
           backgroundImage: 'repeating-linear-gradient(-45deg, white 0, white 2px, transparent 2px, transparent 18px)',
         }}
       />
-      <BrandGlow />
       <div className="relative mx-auto max-w-lg">
         {/* The way back to the main login, in words — the logo above also
             links home, but a picture is not a button to everyone. */}

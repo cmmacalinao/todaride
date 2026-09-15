@@ -1,4 +1,3 @@
-import { BrandGlow } from '../components/BrandGlow'
 import { Link, useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { terminalRideIsFree } from '../lib/terminalFee'
@@ -45,7 +44,6 @@ export function RiderStartPage() {
           backgroundImage: 'repeating-linear-gradient(-45deg, white 0, white 2px, transparent 2px, transparent 18px)',
         }}
       />
-      <BrandGlow />
       <div className="relative mx-auto max-w-lg space-y-3">
         {/* Same "‹ Go back" the role chooser uses, to the same place —
             RiderStartPage is reached by picking Passenger there and signing

@@ -2307,7 +2307,13 @@ function ActiveTripCard({
                 : 'bg-brand-600 hover:bg-brand-700'
             }`}
           >
-            {ride.passengerArrivedAt ? `Passenger got off — confirm ₱${amountDue} received` : 'Complete trip'}
+            {/* While locked, the button itself says why — the distance still
+                to run — instead of a paragraph under it doing the explaining. */}
+            {ride.passengerArrivedAt
+              ? `Passenger got off — confirm ₱${amountDue} received`
+              : !atDropoff && !passengerLeft && metersFromDropoff !== null
+                ? `Complete trip · ${formatKm(metersFromDropoff)} to go`
+                : 'Complete trip'}
           </button>
           {!atDropoff && !ride.passengerArrivedAt && !pickingWhoGetsOff && (
             <button
@@ -2322,7 +2328,11 @@ function ActiveTripCard({
               }}
               className="w-full rounded-lg border border-amber-400 bg-white py-2 text-xs font-semibold text-amber-800 hover:bg-amber-50"
             >
-              🚶 Someone is getting off here — end their trip
+              {/* One fare aboard: it can only be them. Several: the tap has to
+                  ask who (see pickingWhoGetsOff). */}
+              {aboardRides.length <= 1
+                ? '🚶 Passenger is getting off here — end the trip'
+                : '🚶 Someone is getting off here — end their trip'}
             </button>
           )}
           {pickingWhoGetsOff && (
@@ -2354,14 +2364,6 @@ function ActiveTripCard({
               </button>
             </div>
           )}
-          {!atDropoff && !ride.passengerArrivedAt && !pickingWhoGetsOff && (
-            <p className="text-center text-[11px] text-slate-400">
-              {metersFromDropoff !== null
-                ? `You are ${formatKm(metersFromDropoff)} from ${formatAddressLine(ride.dropoff.label)} — this unlocks`
-                : 'This unlocks'}{' '}
-              as you near the drop-off, or when the passenger says they are getting off here.
-            </p>
-          )}
         </>
       )}
 
@@ -2373,13 +2375,9 @@ function ActiveTripCard({
           itself settles. */}
       {ride.status === 'ongoing' && needsDriverPaymentCheck && confirmingPayment && (
         <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
-          {ride.actualDropoff && (
-            <p className="rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-[11px] text-amber-900">
-              🚩 Got out early at <span className="font-semibold">{ride.actualDropoff.label}</span> —{' '}
-              {formatKm(ride.actualDropoff.metersShort)} short of {formatAddressLine(ride.dropoff.label)}. This is what the trip record will
-              show.
-            </p>
-          )}
+          {/* The early drop-off is still recorded on the ride (actualDropoff)
+              and shows in the trip record; it is no longer announced here,
+              where the driver is busy taking the money. */}
           <div className="flex gap-2">
             <button
               onClick={() => onComplete(paidMethod ?? ride.paymentMethod)}

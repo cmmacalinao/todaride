@@ -2040,7 +2040,7 @@ function ActiveTripCard({
         <div className="shrink-0 text-right">
           <p className="text-xs font-medium text-brand-700">
             🛺 {ride.status === 'driver_arriving' ? 'To pickup: ' : 'To destination: '}
-            {remaining ? `${formatKm(remaining.meters)} · ${formatEta(remaining.seconds)}` : formatEta(leg.etaSeconds)}
+            {remaining ? `Arrives ${formatEta(remaining.seconds)} · Distance ${formatKm(remaining.meters)}` : formatEta(leg.etaSeconds)}
           </p>
           <p className="text-[11px] font-medium text-slate-500">
             🏁 Trip: ~{Math.max(1, Math.round(tripDurationSeconds / 60))} min
@@ -2131,7 +2131,7 @@ function ActiveTripCard({
                     <span className="font-bold">{formatEta(remaining ? remaining.seconds : leg.etaSeconds)}</span>
                   </span>
                   <span className="flex-1 truncate px-1.5">
-                    <span className="font-medium text-dest-accent">Travel</span>{' '}
+                    <span className="font-medium text-dest-accent">Distance</span>{' '}
                     <span className="font-bold">
                       {remaining ? formatKm(remaining.meters) : `~${Math.max(1, Math.round(tripDurationSeconds / 60))} min`}
                     </span>

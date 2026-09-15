@@ -144,7 +144,7 @@ export function VendorDeliveryTracker({ order, ride, vendor }: { order: MedsOrde
       {showEta && (
         <p className="text-[11px] text-slate-600">
           {ride.status === 'ongoing' ? 'To the customer: ' : 'To your store: '}
-          {leg.arrived ? 'arrived' : remaining ? `${formatKm(remaining.meters)} · ${formatEta(remaining.seconds)}` : formatEta(leg.etaSeconds)}
+          {leg.arrived ? 'arrived' : remaining ? `arrives ${formatEta(remaining.seconds)} · distance ${formatKm(remaining.meters)}` : formatEta(leg.etaSeconds)}
           {route ? ` · ${(route.distanceMeters / 1000).toFixed(1)} km` : ''}
         </p>
       )}

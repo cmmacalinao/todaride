@@ -645,7 +645,7 @@ export function TripMonitor({
           <p className="flex flex-wrap items-center justify-center gap-x-2 text-xs font-medium text-brand-700">
             <span>
               🛺 {ride.status === 'driver_arriving' ? 'Driver arriving: ' : 'To destination: '}
-              {remaining ? `${formatKm(remaining.meters)} · ${formatEta(remaining.seconds)}` : formatEta(leg.etaSeconds)}
+              {remaining ? `Arrives ${formatEta(remaining.seconds)} · Distance ${formatKm(remaining.meters)}` : formatEta(leg.etaSeconds)}
             </span>
             <span className="text-[11px] font-medium text-slate-500">
               🏁 ~{Math.max(1, Math.round(tripDurationSeconds / 60))} min trip

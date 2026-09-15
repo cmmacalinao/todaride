@@ -1,6 +1,6 @@
 import { formatAddressLine } from '../lib/addressFormat'
 import { formatTripRoute } from '../lib/addressFormat'
-import { rideServiceTag } from '../lib/vendorOrders'
+import { isVendorDeliveryRide, rideServiceTag } from '../lib/vendorOrders'
 import { TrackYourTripCard } from './RiderStartPage'
 import { useHeaderTabs } from '../context/HeaderSlotContext'
 import { PaDeliverSubTabs } from '../components/PaDeliverSubTabs'
@@ -3019,6 +3019,7 @@ export function PassengerPage() {
           tip={unpaidRide.pabiliTip + (unpaidRide.tipOffer || 0)}
           total={unpaidRide.fareEstimate + unpaidRide.pabiliTip + (unpaidRide.tipOffer || 0)}
           initialMethod={unpaidRide.paymentMethod}
+          kind={isVendorDeliveryRide(unpaidRide) ? 'delivery' : 'ride'}
           onConfirm={(method, referenceNo) => {
             acknowledgeRidePayment(unpaidRide.id, method, referenceNo)
             setShowPayment(false)

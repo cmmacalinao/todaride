@@ -2357,9 +2357,9 @@ function ActiveTripCard({
           {!atDropoff && !ride.passengerArrivedAt && !pickingWhoGetsOff && (
             <p className="text-center text-[11px] text-slate-400">
               {metersFromDropoff !== null
-                ? `Nasa ${formatKm(metersFromDropoff)} ka pa mula sa ${formatAddressLine(ride.dropoff.label)} — bubukas ito`
-                : 'Bubukas ito'}{' '}
-              paglapit sa babaan, o kapag sinabi ng pasahero na dito na siya bababa.
+                ? `You are ${formatKm(metersFromDropoff)} from ${formatAddressLine(ride.dropoff.label)} — this unlocks`
+                : 'This unlocks'}{' '}
+              as you near the drop-off, or when the passenger says they are getting off here.
             </p>
           )}
         </>

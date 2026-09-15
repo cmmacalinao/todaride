@@ -2155,13 +2155,12 @@ function ActiveTripCard({
       {/* In real-GPS mode the driver's location is the only thing that can
           move the marker, so opting out would leave the passenger, parent and
           TODA watching a frozen map for a trip that's actually underway —
-          the switch is locked on and shown as required, not offered. */}
-      {gpsSharingLocked ? (
-        <div className="w-full rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-center">
-          <p className="text-xs font-medium text-blue-700">📡 Sharing your live GPS location</p>
-          <p className="mt-0.5 text-[11px] text-blue-600">Required for this trip — set by the app administrator.</p>
-        </div>
-      ) : (
+          sharing is simply on, with nothing drawn for it. (A "required, set
+          by the administrator" notice stood here and was one more box to
+          read past on every trip for a fact that never changes; the GPS
+          diagnostic line below still says what the phone's fix is doing.)
+          The toggle only exists while movement is simulated. */}
+      {!gpsSharingLocked && (
         <button
           type="button"
           onClick={() => setShareLiveGps((v) => !v)}

@@ -355,8 +355,14 @@ export function PassengerPage() {
     // would land on the generic "Ready to head out?" prompt with no sign
     // their order (awaiting a quote, or already quoted) still exists.
     const resolvedPassengerId = currentPassengerId ?? passengers[0]?.id
+    // Only a pharmacy order counts. A Food Order / PaDeliver checkout is a
+    // MedsOrder too (same table, pharmacyId = the store), and counting it
+    // here shoved a passenger who had just ordered lunch from a carinderia
+    // onto the hidden "Order medicine" screen the next time the app opened.
+    const isPharmacyOrder = (o: (typeof medsOrders)[number]) =>
+      !o.pricedFromMenu && pharmacies.find((p) => p.id === o.pharmacyId)?.businessType === 'pharmacy'
     const hasActiveMedsOrder = medsOrders.some((o) => {
-      if (o.customerId !== resolvedPassengerId) return false
+      if (o.customerId !== resolvedPassengerId || !isPharmacyOrder(o)) return false
       if (o.status === 'pending_confirmation' || o.status === 'quoted' || o.status === 'confirmed' || o.status === 'ready_for_pickup') {
         return true
       }
@@ -374,7 +380,9 @@ export function PassengerPage() {
         !medsOrders.some((o) => o.linkedRideId === r.id) &&
         !['completed', 'cancelled', 'declined'].includes(r.status),
     )
-    if (hasActiveMedsOrder || hasActiveDirectMedsRide) {
+    // And only while the Medicine service is switched on at all — a hidden
+    // service must never be the screen the app opens on.
+    if (medsEnabled && (hasActiveMedsOrder || hasActiveDirectMedsRide)) {
       setPageTab('book')
       setServiceType('buy_medicine')
     }

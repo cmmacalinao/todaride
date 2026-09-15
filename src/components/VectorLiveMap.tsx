@@ -867,11 +867,13 @@ export function VectorLiveMap({
           }}
           aria-label="Recenter"
           title="Recenter — bring the trip back into view"
-          // Icon-only and the zoom column's width: a pill with a word beside
-          // it ran under the pickup/destination label at phone width.
-          className="absolute left-[10px] top-[10px] z-10 flex h-[29px] w-[29px] items-center justify-center rounded border border-slate-300 bg-white/95 text-[15px] leading-none shadow-md hover:bg-white"
+          // A pill with the word on it. It was icon-only while the
+          // pickup/destination label floated over this corner of the map;
+          // that label is a row above the map now, so the word fits.
+          className="absolute left-[10px] top-[10px] z-10 flex h-[29px] items-center gap-1 rounded border border-slate-300 bg-white/95 px-2 text-[11px] font-semibold leading-none text-slate-700 shadow-md hover:bg-white"
         >
-          <span aria-hidden>🎯</span>
+          <span aria-hidden className="text-[15px]">🎯</span>
+          Recenter
         </button>
       )}
 

@@ -579,7 +579,7 @@ export const VendorMenuBooking = forwardRef<
             onClick={backToBrowse}
             className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
           >
-            ‹ Vendors
+            ‹ Go Back
           </button>
 
           <VendorStorefront

@@ -47,20 +47,6 @@ export function scrollViewToTop(el: HTMLElement | null): void {
   el?.ownerDocument?.defaultView?.scrollTo({ top: 0 })
 }
 
-// The same, held for a moment. A page that mounts a Leaflet map grows after
-// its first paint — tiles load, the map claims its height — and the browser
-// pushes the scroll position down to compensate, undoing a single scroll-to-
-// top. So repeat it until the layout stops moving.
-export function scrollViewToTopWhenSettled(el: HTMLElement | null, forMs = 900): () => void {
-  if (!el) return () => {}
-  const id = setInterval(() => scrollViewToTop(el), 100)
-  const stop = setTimeout(() => clearInterval(id), forMs)
-  scrollViewToTop(el)
-  return () => {
-    clearInterval(id)
-    clearTimeout(stop)
-  }
-}
 // NOTE: keepInView used to live here — a 3-second timer that scrolled a
 // moving map back to the middle of the screen whenever it drifted out of
 // view. It was removed along with the maps' automatic re-zoom: between them

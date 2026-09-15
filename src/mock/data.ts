@@ -335,19 +335,6 @@ export const DEFAULT_BOOKING_CITY = 'Science City of Muñoz'
 export const DEFAULT_BOOKING_BARANGAY = 'CLSU'
 export const DEFAULT_BOOKING_ADDRESS_DETAIL = 'CLSU Main Gate'
 
-// Where a booking lands first when the passenger picks a city but has not yet
-// picked a barangay. Both are the busiest origin/destination in their city —
-// CLSU for Muñoz, the Poblacion/cathedral area for San Jose — so the common
-// case needs no extra tap. A city with no entry here keeps the blank
-// "Select barangay" prompt rather than guessing.
-export const CITY_DEFAULT_BARANGAY: Record<string, string> = {
-  'Science City of Muñoz': 'CLSU',
-}
-
-export function defaultBarangayForCity(city: string): string {
-  return CITY_DEFAULT_BARANGAY[city] ?? ''
-}
-
 export const CLSU_MAIN_GATE_LOCATION: MockLocation = {
   id: 'loc-clsu-main-gate',
   label: 'CLSU Main Gate, Science City of Muñoz',

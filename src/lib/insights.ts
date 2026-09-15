@@ -12,51 +12,6 @@ export interface DayDatum {
   value: number
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000
-
-function dayKey(iso: string): string {
-  return new Date(iso).toISOString().slice(0, 10)
-}
-
-// Buckets a timestamped, numeric-valued series into the trailing N calendar
-// days (including empty days, so a quiet day reads as a real zero rather
-// than a gap) — shared by "rides per day" and "gross fare per day".
-function bucketByDay(
-  entries: { at: string; value: number }[],
-  days: number,
-  now: Date = new Date(),
-): DayDatum[] {
-  const buckets = new Map<string, number>()
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(now.getTime() - i * DAY_MS)
-    buckets.set(d.toISOString().slice(0, 10), 0)
-  }
-  for (const e of entries) {
-    const key = dayKey(e.at)
-    if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + e.value)
-  }
-  return Array.from(buckets.entries()).map(([key, value]) => ({
-    key,
-    label: new Date(key).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-    value,
-  }))
-}
-
-export function ridesPerDay(rides: Ride[], days = 14): DayDatum[] {
-  return bucketByDay(
-    rides.map((r) => ({ at: r.requestedAt, value: 1 })),
-    days,
-  )
-}
-
-export function grossFarePerDay(rides: Ride[], days = 14): DayDatum[] {
-  const completed = rides.filter((r) => r.status === 'completed' && r.completedAt && r.payment)
-  return bucketByDay(
-    completed.map((r) => ({ at: r.completedAt!, value: r.payment!.amount })),
-    days,
-  )
-}
-
 // How many distinct calendar days actually have a nonzero value — below 2,
 // a day-bucketed chart is just a single bar wearing a chart's clothes (see
 // dataviz skill's "is it even a chart?" table), so callers show a stat

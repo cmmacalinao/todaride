@@ -17,12 +17,6 @@ import type { GeoCoords } from '../types'
 // larger and a person walking to the corner never sees the dot leave.
 const MIN_MOVE_METERS = 3
 
-// What counts as a fix precise enough to trust without comment. Vaguer than
-// this is still shown — a rough position beats none, and a driver waiting for
-// GPS to lock needs to see something — but it is flagged, so a pin that is
-// hundreds of metres out can be recognised as vague rather than broken.
-export const COARSE_ACCURACY_METERS = 150
-
 // Above this, a reading is not a position — it is a glitch.
 //
 // 40 m/s is about 144 km/h, far beyond anything a tricycle does and beyond

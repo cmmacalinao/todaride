@@ -1,3 +1,4 @@
+import { BrandGlow } from './BrandGlow'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
@@ -193,6 +194,7 @@ export function LegacyAuthGate() {
           backgroundImage: 'repeating-linear-gradient(-45deg, white 0, white 2px, transparent 2px, transparent 18px)',
         }}
       />
+      <BrandGlow />
       <div className="relative mx-auto max-w-lg px-4 pt-6">
         <div className="mb-6 flex flex-col items-center text-center">
           <button

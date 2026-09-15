@@ -1,3 +1,4 @@
+import { BrandGlow } from '../components/BrandGlow'
 import { Link } from 'react-router-dom'
 import { AppLoginForm } from '../components/AppLoginForm'
 import { AndroidAppBanner } from '../components/AndroidAppBanner'
@@ -60,6 +61,7 @@ export function LandingPage() {
               'repeating-linear-gradient(-45deg, white 0, white 2px, transparent 2px, transparent 18px)',
           }}
         />
+        <BrandGlow />
         {/* Where the pilot is running — the one thing on this screen that
             changes per city. A pill rather than a line of text, so it reads
             as a location badge rather than another sentence to read. */}

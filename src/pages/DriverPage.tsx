@@ -2119,13 +2119,12 @@ function ActiveTripCard({
             // trip, not one sitting mid-page among other things to read —
             // the lock exists for that other case.
             alwaysInteractive
-            // Full screen leaves the address strip and the distance line
-            // behind — both sit below the map in the normal layout, and full
-            // screen is a fixed layer over everything else on the page.
-            // Drawn over the map itself, they come along.
+            // Drawn by the map as a row above itself, under its toolbar —
+            // outside the map, so no road is hidden under it, yet still
+            // inside the frame that goes full screen, so it comes along.
             overlayTop={
               <div className="space-y-1.5">
-                <div className="space-y-0.5 rounded-lg bg-white/75 px-2 py-1 text-[11px] leading-tight backdrop-blur-sm">
+                <div className="space-y-0.5 text-[11px] leading-tight">
                   <p className="truncate">
                     <span className="font-semibold text-pickup-accent">📍 </span>
                     {formatAddressLine(ride.pickup.label)}

@@ -355,7 +355,7 @@ export function LocationMapPicker({
     <div
       className={`space-y-0.5 rounded-lg px-2 py-1 text-[11px] leading-tight transition ${
         mapFirst
-          ? 'w-full bg-white/60 backdrop-blur-sm hover:bg-white/85'
+          ? 'w-full hover:bg-slate-50'
           : 'min-w-0 flex-1 bg-slate-50 hover:bg-slate-100'
       }`}
     >
@@ -386,11 +386,12 @@ export function LocationMapPicker({
             the tabs immediately to the right already say them, and at this
             width they were costing the end of the address itself. Tapping
             opens the full, unshortened address for both ends. */}
-        {/* In map-first this floats over the top of the map instead — see
-            summary below. It is a caption for the two pins, and it belongs
-            against the pins rather than in a panel that can be dragged shut
-            over them. */}
-        {!mapFirst && summary}
+        {/* The way to act on the pins, beside the tabs that choose which
+            pin a tap moves. The two-line "not set yet" summary that stood
+            here repeated what the map's own row above it now says, and
+            pushed the button a row further from the tabs. In map-first the
+            summary is that row above the map — see overlayTop below. */}
+        {!mapFirst && leadingAction && <div className="min-w-0 flex-1">{leadingAction}</div>}
         {/* Hidden on the booking screen. There is one pin to place there —
             the destination — so a pair of tabs choosing between two ends is
             a control with nothing to choose. Every other screen that shares
@@ -456,9 +457,9 @@ export function LocationMapPicker({
           rather than stand between the destination and the way to act on it.
           Book on the left, how many are riding on the right; the fare sits
           with the button that commits to it. */}
-      {(leadingAction || underMapAction) && (
-        <div className="flex items-center gap-2">
-          {leadingAction && <div className="min-w-0 flex-1">{leadingAction}</div>}
+      {((mapFirst && leadingAction) || underMapAction) && (
+        <div className="flex items-center justify-end gap-2">
+          {mapFirst && leadingAction && <div className="min-w-0 flex-1">{leadingAction}</div>}
           {underMapAction && <div className="shrink-0">{underMapAction}</div>}
         </div>
       )}
@@ -525,9 +526,9 @@ export function LocationMapPicker({
       onFullscreenChange={setMapFullscreen}
       onScanQr={onScanQr}
       toolbarAction={toolbarAction}
-      // Drawn over the map rather than beside it, so the two things a person
-      // needs while looking at the map — where their pins are, and the way
-      // out to the booking — are still there when the map fills the phone.
+      // Handed to the map, which draws it as a row above itself, under its
+      // toolbar: outside the map so no road is hidden under it, and still
+      // inside the frame that fills the phone in full screen.
       overlayTop={
         mapFirst ? (
           // Stacked under the address summary rather than beside it — the

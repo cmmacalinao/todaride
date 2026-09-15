@@ -6,7 +6,10 @@ import { useRides } from '../context/RideContext'
 // screen, with the gold fill marking whichever one is open. The fill is the
 // selection, nothing else: the same strip on another screen shows that
 // screen's own tab lit.
-export function ServiceTabs({ active, tone = 'dark' }: { active: 'toda' | 'food' | 'padeliver'; tone?: 'dark' | 'light' }) {
+// compact: the header-row size — three labels have to share the width left
+// beside the hamburger on a phone, so the type comes down a step and the
+// pills lose some height.
+export function ServiceTabs({ active, tone = 'dark', compact = false }: { active: 'toda' | 'food' | 'padeliver'; tone?: 'dark' | 'light'; compact?: boolean }) {
   const navigate = useNavigate()
   const { vendorsEnabled } = useRides()
   // Without registered vendors there is nothing to switch to — Food Order
@@ -22,7 +25,7 @@ export function ServiceTabs({ active, tone = 'dark' }: { active: 'toda' | 'food'
         type="button"
         onClick={isActive ? undefined : to}
         aria-current={isActive ? 'page' : undefined}
-        className={`flex-1 rounded-full py-1.5 text-center text-[13px] font-black uppercase tracking-wide transition ${
+        className={`flex-1 rounded-full text-center font-black uppercase tracking-wide transition ${compact ? 'py-1 text-[11px]' : 'py-1.5 text-[13px]'} ${
           isActive ? 'bg-gold-400 text-navy-900 shadow-sm' : idle
         }`}
       >

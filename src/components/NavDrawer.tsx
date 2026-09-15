@@ -187,6 +187,7 @@ export function NavDrawer({
   onOpenPanel,
   onLogout,
   onSwitchToTodaAdmin,
+  sponsorLogoDataUrl = null,
 }: {
   open: boolean
   onClose: () => void
@@ -202,6 +203,11 @@ export function NavDrawer({
   onOpenPanel: (panel: AccountPanelKind) => void
   onLogout: () => void
   onSwitchToTodaAdmin: () => void
+  // Set by the Operator backing this pilot (see PartnerLogoSection in
+  // OperatorPortalPage.tsx). It used to sit in the header; the passenger
+  // header is now just the hamburger and the service tabs, so the credit
+  // lives here, on the same blue it was drawn for.
+  sponsorLogoDataUrl?: string | null
 }) {
   const { pabiliEnabled, medsEnabled, rewardsEnabled } = useRides()
   const [showShare, setShowShare] = useState(false)
@@ -338,6 +344,15 @@ export function NavDrawer({
             )
           })}
         </nav>
+        {sponsorLogoDataUrl && (
+          <div
+            className="flex items-center gap-3 px-4 py-3"
+            style={{ backgroundImage: 'linear-gradient(135deg, #3e6fe4 0%, #0a1529 60%, #0a1529 100%)' }}
+          >
+            <img src={sponsorLogoDataUrl} alt="Pilot partner" className="h-10 w-auto max-w-[7rem] shrink-0 object-contain" />
+            <span className="text-[11px] leading-tight text-white/80">Pilot partner</span>
+          </div>
+        )}
       </div>
       {showShare && <ShareAppPanel onClose={() => setShowShare(false)} />}
     </>

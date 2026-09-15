@@ -5,6 +5,8 @@ import { AdminViewToggle } from './AdminViewToggle'
 import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useSession } from '../context/SessionContext'
 import { useRides } from '../context/RideContext'
+import { useHeaderSlot } from '../context/HeaderSlotContext'
+import { ServiceTabs } from './ServiceTabs'
 import { AdBanner } from './AdBanner'
 import { NavDrawer, type DrawerRole, type DrawerSection } from './NavDrawer'
 import { AccountPanels, type AccountPanelKind, type AccountPanelInfo, type ProfileSaveValues } from './AccountPanels'
@@ -101,15 +103,11 @@ export function NavBar() {
   // and a hook after one of those changes NavBar's hook count per route.
   const { containerClass: adminContainerClass } = useAdminViewMode()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  // What the booking page wants in the header — see HeaderSlotContext.
+  const { tabs: headerTabs } = useHeaderSlot()
+  const { vendorsEnabled } = useRides()
   const [activePanel, setActivePanel] = useState<AccountPanelKind | null>(null)
   const [activeSection, setActiveSection] = useState<DrawerSection>('home')
-  // The /book header badge must reflect whoever actually authenticated, not
-  // whichever mock identity currentPassengerId/currentParentId happen to
-  // still hold from a previous session — otherwise a parent login can show
-  // the previous passenger's name (or vice versa) next to the correct
-  // "Viewing as"/"Booking as" name shown further down the page.
-  const riderAppName = authedAccount?.role === 'parent' ? currentParent?.name : currentPassenger?.name
-
   // Whatever URL a role was confined to (e.g. a rider stuck on /book) has no
   // meaning once nobody's logged in — reset it so the next login (as any
   // role, including a different one) doesn't inherit a stale path and end
@@ -386,6 +384,7 @@ export function NavBar() {
         onSwitchToTodaAdmin={handleSwitchToTodaAdmin}
         onOpenPanel={(panel) => setActivePanel(panel)}
         onLogout={handleDrawerLogout}
+        sponsorLogoDataUrl={sponsorLogoDataUrl}
       />
       <AccountPanels
         panel={activePanel}
@@ -407,6 +406,29 @@ export function NavBar() {
         style={{ backgroundImage: 'linear-gradient(135deg, #3e6fe4 0%, #0a1529 60%, #0a1529 100%)' }}
       >
         {/* Same edge treatment as PublicHeader — see the note there. */}
+        {isRiderApp ? (
+          // The passenger header: the menu, and the three services as tabs
+          // that stay on screen however far the booking page scrolls. The
+          // logo, the account chip, Log out and the partner's mark that
+          // used to fill this strip now live in the drawer — a row of things
+          // you look at once a day was costing the row you use every time.
+          <div className="mx-auto flex max-w-lg items-center gap-2 py-1.5 pl-1 pr-3">
+            <div className="flex shrink-0 items-center">{hamburgerButton}</div>
+            {headerTabs && vendorsEnabled ? (
+              <div className="min-w-0 flex-1">
+                <ServiceTabs active={headerTabs.active} tone="dark" compact />
+              </div>
+            ) : (
+              <Link
+                to="/"
+                className="min-w-0 truncate text-sm font-semibold text-white"
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              >
+                Book a Ride
+              </Link>
+            )}
+          </div>
+        ) : (
         <div className="mx-auto flex max-w-lg items-center justify-between py-1.5 pl-1 pr-4">
           <div className="flex min-w-0 items-center gap-2">
             <div className="flex shrink-0 items-center">{hamburgerButton}</div>
@@ -442,11 +464,6 @@ export function NavBar() {
             )}
           </div>
           <div className="flex items-center justify-end gap-1.5">
-            {isRiderApp && riderAppName && (
-              <span className="max-w-[7.5rem] truncate rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white">
-                👤 {riderAppName}
-              </span>
-            )}
             <div className="flex items-center gap-1.5">
               <span className="hidden rounded-full bg-white/10 px-2 py-1 text-[11px] text-slate-300 sm:inline">
                 Prototype · Simulated data
@@ -472,6 +489,7 @@ export function NavBar() {
             )}
           </div>
         </div>
+        )}
       </header>
       {hamburgerOverlay}
       </>

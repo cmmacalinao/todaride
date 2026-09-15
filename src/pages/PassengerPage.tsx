@@ -2,7 +2,7 @@ import { formatAddressLine } from '../lib/addressFormat'
 import { formatTripRoute } from '../lib/addressFormat'
 import { rideServiceTag } from '../lib/vendorOrders'
 import { TrackYourTripCard } from './RiderStartPage'
-import { ServiceTabs } from '../components/ServiceTabs'
+import { useHeaderTabs } from '../context/HeaderSlotContext'
 import { PaDeliverSubTabs } from '../components/PaDeliverSubTabs'
 import { showInMiddle, showInMiddleWhenSettled } from '../lib/showInMiddle'
 import { NearbyDriversPicker, buildNearbyDrivers } from '../components/NearbyDriversPicker'
@@ -536,6 +536,15 @@ export function PassengerPage() {
   // while vendorsEnabled is off. Same self-contained-flow shape as Buy
   // Medicine below: none of the shared Ride/Pabili JSX renders for it either.
   const showVendorMenu = isPabili && foodHinted && vendorsEnabled
+  // The Book a Ride / Food Order / PaDeliver strip is drawn in the blue
+  // header (see NavBar), where it is always on screen — this page just says
+  // which one is open. Not for Buy Medicine (self-contained, nothing here
+  // to switch away from) and not on the Rewards/Emergency tabs.
+  useHeaderTabs(
+    pageTab === 'book' && !isBuyMedicine
+      ? { active: showVendorMenu ? (catalogKind === 'goods' ? 'padeliver' : 'food') : isPadala ? 'padeliver' : 'toda' }
+      : null,
+  )
   // Buy Medicine has its own self-contained flow (MedsBooking) with a
   // completely different shape (cart, pharmacy confirmation) — none of the
   // shared Ride/Pabili JSX below (address forms, fare breakdown, submit
@@ -2280,7 +2289,6 @@ export function PassengerPage() {
   if (groupRideOpen) {
     return (
       <div className="mx-auto flex min-h-[calc(100vh-70px)] max-w-lg flex-col space-y-2 px-4 pb-[72px] pt-1">
-        <ServiceTabs active="toda" tone="light" />
         {/* Rider one is a rider. Their pickup is where the whole group
             boards and their destination is their own — and with this card
             left behind on the booking form, neither could be changed from
@@ -2322,12 +2330,8 @@ export function PassengerPage() {
           footer's old TODA Ride/Food Express tiles (removed — see the
           footer below). Not shown for Buy Medicine — self-contained with
           nothing here to switch away from. */}
-      {pageTab === 'book' && !isBuyMedicine && (
-        <ServiceTabs
-          active={showVendorMenu ? (catalogKind === 'goods' ? 'padeliver' : 'food') : isPadala ? 'padeliver' : 'toda'}
-          tone="light"
-        />
-      )}
+      {/* The service strip itself is in the header now — see useHeaderTabs
+          above. */}
       {/* PaDeliver's own two doors, one line under the main strip — only
           while PaDeliver itself is the selected tab there, so it reads as
           PaDeliver opening up rather than a fourth, unrelated tab. */}

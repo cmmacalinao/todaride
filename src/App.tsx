@@ -19,6 +19,7 @@ import { AppUpdateBanner } from './components/AppUpdateBanner'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { ScanArrivalChoice } from './components/ScanArrivalChoice'
 import { RideProvider } from './context/RideContext'
+import { HeaderSlotProvider } from './context/HeaderSlotContext'
 import { SessionProvider, useSession } from './context/SessionContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { useAskForLocationOnOpen } from './lib/askForLocation'
@@ -431,6 +432,7 @@ export default function App() {
     <ThemeProvider>
       <SessionProvider>
         <RideProvider>
+        <HeaderSlotProvider>
           {/* Above every route and outside the auth gate: a phone can be out
               of date on any screen at all, including before anybody has
               signed in. */}
@@ -442,6 +444,7 @@ export default function App() {
           <AppUpdateBanner />
           <ScanArrivalChoice />
           <AppShell />
+        </HeaderSlotProvider>
         </RideProvider>
       </SessionProvider>
     </ThemeProvider>

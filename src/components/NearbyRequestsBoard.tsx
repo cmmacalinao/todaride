@@ -2,8 +2,8 @@ import { formatKm, haversineDistanceMeters } from '../lib/geo'
 import { formatTripRoute } from '../lib/addressFormat'
 import { getActiveTodaCommission } from '../mock/data'
 import { getDispatchWindow } from '../lib/tracking'
-import type { Driver, GeoCoords, Ride, TodaOrganization } from '../types'
-import { rideServiceTag } from '../lib/vendorOrders'
+import type { Driver, GeoCoords, MedsOrder, Ride, TodaOrganization } from '../types'
+import { codBreakdown, rideServiceTag } from '../lib/vendorOrders'
 
 const SERVICE_ICON: Record<string, string> = {
   pabili: '🛍️',
@@ -25,6 +25,10 @@ export interface NearbyRequest {
   // What actually lands in the driver's pocket: the total less the platform
   // fee and the TODA's cut, both of which only ever touch the base fare.
   takeHome: number
+  // A cash-on-delivery vendor order: what to collect at the door and what
+  // to hand the store, so the fare above can be the driver's own fee rather
+  // than the whole order total (see codBreakdown).
+  cod: { fee: number; goods: number; collect: number } | null
   // Null when the driver may take it right now; otherwise why they cannot.
   blockedReason: string | null
   // Which kind of block, so callers can judge it. The two are not alike: a
@@ -42,13 +46,16 @@ export function buildNearbyRequests(
   commissionPerRide: number,
   todaQueueWindowMs: number,
   specialPickupEscalationMs: number,
+  orders: MedsOrder[] = [],
 ): NearbyRequest[] {
   const myOrg = driver.todaOrgId ? orgs.find((o) => o.id === driver.todaOrgId) : null
   const todaCut = getActiveTodaCommission(myOrg)
   return rides
     .filter((r) => r.status === 'requested' && !(r.declinedByDriverIds ?? []).includes(driver.id))
     .map((r) => {
-      const fare = r.fareEstimate
+      const cod = codBreakdown(r, orders)
+      // The driver's own money: the fee on a cash delivery, the fare otherwise.
+      const fare = cod ? cod.fee : r.fareEstimate
       const tips = r.pabiliTip + (r.tipOffer || 0)
       const platformFee = Math.min(fare, commissionPerRide)
       const commission = Math.min(Math.max(0, fare - platformFee), todaCut)
@@ -74,6 +81,7 @@ export function buildNearbyRequests(
         tips,
         total: fare + tips,
         takeHome: Math.max(0, fare - platformFee - commission) + tips,
+        cod,
         blockedReason,
         blockedKind,
       }
@@ -114,7 +122,7 @@ export function NearbyRequestsBoard({ requests, onAccept, onDecline, busyNote = 
       {busyNote && (
         <p className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] font-medium text-amber-800">{busyNote}</p>
       )}
-      {requests.map(({ ride, distanceMeters, fare, tips, total, takeHome, blockedReason }) => (
+      {requests.map(({ ride, distanceMeters, fare, tips, total, takeHome, cod, blockedReason }) => (
         <div
           key={ride.id}
           className={`rounded-lg border p-3 ${blockedReason || busyNote ? 'border-slate-200 bg-slate-50' : 'border-slate-200 bg-white'}`}
@@ -154,6 +162,12 @@ export function NearbyRequestsBoard({ requests, onAccept, onDecline, busyNote = 
             You keep <span className="font-semibold text-slate-700">₱{takeHome}</span> after the platform fee and
             TODA share — tips are yours in full.
           </p>
+          {cod && (
+            <p className="mt-1.5 rounded-lg bg-amber-50 p-2 text-[11px] font-medium text-amber-700">
+              💵 Cash on delivery — pay the store ₱{cod.goods} for the goods, collect ₱{cod.collect} from the
+              customer. The ₱{cod.fee} fee is yours.
+            </p>
+          )}
 
           {ride.specialPickupRequested && (
             <p className="mt-1.5 rounded-lg bg-amber-50 p-2 text-[11px] font-medium text-amber-700">

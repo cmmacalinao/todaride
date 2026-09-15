@@ -1,5 +1,20 @@
 import { haversineDistanceMeters } from './geo'
-import type { GeoCoords, Ride } from '../types'
+import type { GeoCoords, MedsOrder, Ride } from '../types'
+
+// A cash-on-delivery vendor order rides on a fare equal to the whole order
+// total: the driver pays the store for the goods at pickup and is repaid at
+// the door, so the money that changes hands is the total. What the driver
+// actually earns is only the fee part; the goods pass straight through.
+// Null for anything that is not a cash vendor delivery.
+export function codBreakdown(
+  ride: Ride,
+  orders: MedsOrder[],
+): { fee: number; goods: number; collect: number } | null {
+  if (ride.paymentMethod !== 'cash') return null
+  const order = orders.find((o) => o.linkedRideId === ride.id)
+  if (!order || order.paymentMethod !== 'cash') return null
+  return { fee: order.deliveryFee + order.serviceFee, goods: order.subtotal, collect: order.total }
+}
 
 export function distanceKm(a: GeoCoords | null, b: GeoCoords | null | undefined): number | null {
   if (!a || !b) return null

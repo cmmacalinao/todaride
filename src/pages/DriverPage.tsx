@@ -1,6 +1,6 @@
 import { formatAddressLine } from '../lib/addressFormat'
 import { formatTripRoute } from '../lib/addressFormat'
-import { isVendorDeliveryRide, rideServiceTag } from '../lib/vendorOrders'
+import { codBreakdown, isVendorDeliveryRide, rideServiceTag } from '../lib/vendorOrders'
 import { showInMiddle, showInMiddleWhenSettled, scrollViewToTop } from '../lib/showInMiddle'
 import { DriverFooterNav } from '../components/DriverFooterNav'
 import { PlatformFeeSoa, buildSoa } from '../components/PlatformFeeSoa'
@@ -120,6 +120,7 @@ export function DriverPage() {
     triggerDriverSos,
     resolveAlert,
     reportDriverGps,
+    medsOrders,
   } = useRides()
   const { loggedInDriverId, setLoggedInDriverId, loggedInTodaAdminOrgId, setLoggedInTodaAdminOrgId } = useSession()
   // Two ways to get a fix, because on Android they are not equally likely to
@@ -534,6 +535,7 @@ export function DriverPage() {
     commissionPerRide,
     todaQueueWindowMs,
     specialPickupEscalationMs,
+    medsOrders,
   )
   // Passengers standing on the road this driver is already driving down.
   //
@@ -1355,8 +1357,8 @@ export function DriverPage() {
 
       {myActiveRide && sharingBlocked && (
         <p className="rounded-xl border border-navy-900/20 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-600">
-          🛞 Special trip — buong tricycle ang binayaran ni {myActiveRide.passengerName}. Huwag munang sumakay
-          ng iba hanggang matapos ito.
+          🛞 Special trip — {myActiveRide.passengerName} paid for the whole tricycle. Don&apos;t take other
+          passengers until this one is done.
         </p>
       )}
 
@@ -1632,6 +1634,7 @@ function ActiveTripCard({
     driverCancelRide,
     setPabiliItemBought,
     confirmPassengerArrival,
+    medsOrders,
   } = useRides()
   // Calling off a ride already accepted. Two steps on purpose: the reason is
   // the point of it — a cancellation with no account of itself tells the
@@ -1754,6 +1757,8 @@ function ActiveTripCard({
   ]
 
   const driverGpsInfo = sharedDriverMapGps(ride, rides, route)
+  // Cash vendor delivery: the fare is the whole order, the fee is the driver's.
+  const cod = codBreakdown(ride, medsOrders)
   // Road and minutes still ahead from where this tricycle is — its own
   // phone's fix first, the drawn marker otherwise. See lib/legRemaining.
   const remaining = remainingLeg({
@@ -2054,7 +2059,9 @@ function ActiveTripCard({
         <div className="grid grid-cols-4 gap-2 text-xs">
           <div className="min-w-0">
             <p className="text-slate-500">Fare</p>
-            <p className="truncate font-bold text-slate-800">₱{ride.fareEstimate}</p>
+            {/* On a cash delivery the fare carries the whole order; the
+                driver's own money is the fee (see codBreakdown). */}
+            <p className="truncate font-bold text-slate-800">₱{cod ? cod.fee : ride.fareEstimate}</p>
           </div>
           <div className="min-w-0">
             <p className="text-slate-500">Arrives</p>
@@ -2246,8 +2253,12 @@ function ActiveTripCard({
             disabled={!shoppingDone}
             className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
           >
+            {/* The checklist only appears at the store (see atPickup), so
+                until then the button says where to go, not what to tick. */}
             {!shoppingDone
-              ? `Buy all ${shoppingList.length} item(s) first — ${boughtCount} done`
+              ? !atPickup
+                ? `Drive to ${formatAddressLine(ride.pickup.label)} first${metersFromPickup !== null ? ` · ${formatKm(metersFromPickup)} away` : ''}`
+                : `Buy all ${shoppingList.length} item(s) first — ${boughtCount} done`
               : 'Start trip'}
           </button>
           {/* The distance is a warning now, not a lock.

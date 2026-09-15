@@ -3067,16 +3067,27 @@ function reducer(state: RideState, action: RideAction): RideState {
       // reads. The label promises "no charge" only when this is on, so the
       // two can never disagree — and a promise on the button that the
       // receipt then breaks is worse than charging openly.
+      // What the driver is actually paid for. On a cash-on-delivery vendor
+      // order the fare is the whole order total — the driver paid the store
+      // for the goods and is repaid at the door — so only the fee part is
+      // earnings; the goods pass straight through. (See codBreakdown in
+      // lib/vendorOrders, which the driver's screens use for the same split.)
+      // The payment's amount below stays the full sum that changed hands.
+      const codOrder =
+        ride.paymentMethod === 'cash'
+          ? state.medsOrders.find((o) => o.linkedRideId === ride.id && o.paymentMethod === 'cash')
+          : undefined
+      const earnedFare = codOrder ? codOrder.deliveryFee + codOrder.serviceFee : ride.fareEstimate
       const platformFee =
         (ride.bookedAtTerminal || ride.safetyRecord) && state.terminalQrFeeWaived
           ? 0
-          : Math.min(ride.fareEstimate, state.commissionPerRide)
+          : Math.min(earnedFare, state.commissionPerRide)
       const todaCommission = Math.min(
-        Math.max(0, ride.fareEstimate - platformFee),
+        Math.max(0, earnedFare - platformFee),
         getActiveTodaCommission(drivingDriverToda),
       )
       const totalTip = ride.pabiliTip + (ride.tipOffer || 0)
-      const driverPayout = Math.max(0, ride.fareEstimate - platformFee - todaCommission) + totalTip
+      const driverPayout = Math.max(0, earnedFare - platformFee - todaCommission) + totalTip
       return {
         ...state,
         rides: state.rides.map((r) =>

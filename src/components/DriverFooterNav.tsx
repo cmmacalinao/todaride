@@ -7,10 +7,15 @@ import { ContactSheet } from './ContactSheet'
 // footer is for the places you go back to twenty times an hour, not the ones
 // you visit once. Ordered the way a shift runs: check the board, take work,
 // drive it, see what it paid.
+//
+// No separate Trip tab: the trip's map sits near the top of the dashboard,
+// a thumb-swipe from where Home lands, and the two tabs were a tap apart
+// for the same screen. Home carries what Trip did — it pulses while a
+// trip is live, and lands on the trip map then (see DriverPage's
+// goToSection) rather than the page top.
 const DRIVER_TABS: { section: DrawerSection; icon: string; label: string }[] = [
   { section: 'home', icon: '🏠', label: 'Home' },
   { section: 'requests', icon: '🚗', label: 'Requests' },
-  { section: 'current', icon: '📍', label: 'Trip' },
   { section: 'queue', icon: '🚏', label: 'Pila' },
   { section: 'earnings', icon: '💰', label: 'Earnings' },
   { section: 'history', icon: '🧾', label: 'History' },
@@ -25,8 +30,8 @@ interface DriverFooterNavProps {
   // A freelance driver belongs to no terminal, so there is no line to stand
   // in — the tab is dropped rather than shown leading nowhere.
   showQueue?: boolean
-  // Highlighted while a trip is live, for the same reason: it is the one
-  // place the driver needs to get back to in a hurry.
+  // Pulses the Home tab while a trip is live: the trip map is the one place
+  // the driver needs to get back to in a hurry, and Home is the way there.
   tripActive?: boolean
   // The rider on the driver's current job — present from the moment a
   // request is accepted (not only once the trip is under way), since a
@@ -47,6 +52,8 @@ export function DriverFooterNav({
 }: DriverFooterNavProps) {
   const [contactOpen, setContactOpen] = useState(false)
   const tabs = DRIVER_TABS.filter((t) => showQueue || t.section !== 'queue')
+  // The trip section lives on the Home tab now, so "current" lights Home.
+  const activeTab = active === 'current' ? 'home' : active
   return (
     <>
       <nav
@@ -66,9 +73,9 @@ export function DriverFooterNav({
       >
         <div className="mx-auto flex max-w-lg items-stretch justify-between px-1 py-1">
         {tabs.map((tab) => {
-          const isActive = tab.section === active
+          const isActive = tab.section === activeTab
           const badge = tab.section === 'requests' ? requestCount : 0
-          const pulse = tab.section === 'current' && tripActive
+          const pulse = tab.section === 'home' && tripActive
           return (
             <button
               key={tab.section}

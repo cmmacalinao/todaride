@@ -262,6 +262,13 @@ export function DriverPage() {
     setDriverView('dashboard')
     switch (section) {
       case 'home':
+        // With a trip live, Home is the way back to it — the footer's Trip
+        // tab used to be — so it lands on the trip map, centred, rather than
+        // on the page top with the map half under the sticky header.
+        if (myActiveRide) {
+          setTimeout(() => showInMiddle(currentOrRequestsSectionRef.current), 60)
+          break
+        }
         setTimeout(() => topSentinelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
         break
       case 'current':

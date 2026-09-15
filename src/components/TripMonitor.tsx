@@ -917,7 +917,7 @@ export function TripMonitor({
           used to be asked here as well, and in a modal over the whole screen
           — three places for one answer. */}
 
-      <p className="text-lg font-bold text-slate-800">Fare: ₱{ride.fareEstimate}</p>
+      <p className="text-sm font-bold text-slate-800">Fare: ₱{ride.fareEstimate}</p>
       {(ride.pabiliTip > 0 || ride.tipOffer > 0 || ride.passengerCount > 1) && (
         <p className="text-xs text-slate-500">
           {[
@@ -1174,20 +1174,9 @@ export function TripMonitor({
           </div>
         ) : null)}
 
-      {contacts.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {contacts.map((c) => (
-            <a
-              key={c.phone}
-              href={`tel:${c.phone}`}
-              className="flex items-center gap-1.5 rounded-lg border border-brand-300 bg-white px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-50"
-            >
-              📞 {c.label}
-            </a>
-          ))}
-        </div>
-      )}
-
+      {/* No "Call <driver>" row here any more — the footer's Contact tile
+          already lists the driver, and the off-route panel below keeps its
+          own copy of the numbers for the moment they are actually needed. */}
       {!driver && !isTerminal && ride.status === 'requested' && (
         <div className="space-y-1">
           <p className="text-xs text-slate-500">

@@ -1673,6 +1673,12 @@ function ActiveTripCard({
   const needsDriverPaymentCheck = ride ? ride.paymentMethod !== 'card' : false
   const amountDue = ride ? ride.fareEstimate + ride.pabiliTip + ride.tipOffer : 0
   const bookedEWallet = ride?.paymentMethod === 'gcash' || ride?.paymentMethod === 'maya'
+  // Only an e-wallet booking has a question left at the kerb — paid by
+  // GCash/Maya as booked, or cash instead? — so only it opens the payment
+  // panel. A cash booking completes on the one tap: the button already says
+  // the cash was received, and asking "confirm?" again on top of that was
+  // the same question twice.
+  const paymentPanelNeeded = needsDriverPaymentCheck && bookedEWallet
   const bookedMethodName = PAYMENT_METHODS.find((p) => p.id === ride?.paymentMethod)?.label ?? ride?.paymentMethod ?? ''
 
   // Real road-network route for the current leg, if the endpoints resolve —
@@ -2271,7 +2277,7 @@ function ActiveTripCard({
           <button
             type="button"
             onClick={() => {
-              if (needsDriverPaymentCheck) setConfirmingPayment(true)
+              if (paymentPanelNeeded) setConfirmingPayment(true)
               else onComplete()
             }}
             className="mt-2 w-full rounded-lg bg-amber-600 py-2 text-xs font-bold text-white transition hover:bg-amber-700"
@@ -2293,12 +2299,12 @@ function ActiveTripCard({
           tricycle. Three things unlock it, and they are the ways a trip really
           ends: arriving, the passenger saying they are getting off here, and
           the two phones having plainly parted. */}
-      {ride.status === 'ongoing' && !(needsDriverPaymentCheck && confirmingPayment) && (
+      {ride.status === 'ongoing' && !(paymentPanelNeeded && confirmingPayment) && (
         <>
           <button
             disabled={!atDropoff && !ride.passengerArrivedAt && !passengerLeft}
             onClick={() => {
-              if (needsDriverPaymentCheck) setConfirmingPayment(true)
+              if (paymentPanelNeeded) setConfirmingPayment(true)
               else onComplete()
             }}
             className={`w-full rounded-lg py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 ${
@@ -2309,11 +2315,20 @@ function ActiveTripCard({
           >
             {/* While locked, the button itself says why — the distance still
                 to run — instead of a paragraph under it doing the explaining. */}
+            {/* The label says what the tap does: for a cash booking it ends
+                the trip with the cash counted as received; for an e-wallet
+                booking it opens the one question that is left. */}
             {ride.passengerArrivedAt
-              ? `Passenger got off — confirm ₱${amountDue} received`
+              ? bookedEWallet
+                ? `Passenger got off — take ₱${amountDue} payment`
+                : `Passenger got off — ₱${amountDue} cash received, complete trip`
               : !atDropoff && !passengerLeft && metersFromDropoff !== null
                 ? `Complete trip · ${formatKm(metersFromDropoff)} to go`
-                : 'Complete trip'}
+                : bookedEWallet
+                  ? `Complete trip — take ₱${amountDue} payment`
+                  : needsDriverPaymentCheck
+                    ? `Complete trip · ₱${amountDue} cash`
+                    : 'Complete trip'}
           </button>
           {!atDropoff && !ride.passengerArrivedAt && !pickingWhoGetsOff && (
             <button
@@ -2373,7 +2388,7 @@ function ActiveTripCard({
           the driver vouching for a payment they had not been asked about. Cash,
           GCash and Maya now all stop here; Card is the one method the checkout
           itself settles. */}
-      {ride.status === 'ongoing' && needsDriverPaymentCheck && confirmingPayment && (
+      {ride.status === 'ongoing' && paymentPanelNeeded && confirmingPayment && (
         <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
           {/* The early drop-off is still recorded on the ride (actualDropoff)
               and shows in the trip record; it is no longer announced here,

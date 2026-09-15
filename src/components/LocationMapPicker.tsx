@@ -387,10 +387,10 @@ export function LocationMapPicker({
             width they were costing the end of the address itself. Tapping
             opens the full, unshortened address for both ends. */}
         {/* The way to act on the pins, beside the tabs that choose which
-            pin a tap moves. The two-line "not set yet" summary that stood
-            here repeated what the map's own row above it now says, and
-            pushed the button a row further from the tabs. In map-first the
-            summary is that row above the map — see overlayTop below. */}
+            pin a tap moves. The two-line address summary moved down a row,
+            into the space beside the passenger counter — see below. In
+            map-first the summary is the row above the map instead (see
+            overlayTop). */}
         {!mapFirst && leadingAction && <div className="min-w-0 flex-1">{leadingAction}</div>}
         {/* Hidden on the booking screen. There is one pin to place there —
             the destination — so a pair of tabs choosing between two ends is
@@ -457,8 +457,11 @@ export function LocationMapPicker({
           rather than stand between the destination and the way to act on it.
           Book on the left, how many are riding on the right; the fare sits
           with the button that commits to it. */}
-      {((mapFirst && leadingAction) || underMapAction) && (
+      {/* The address summary fills the half of this row the passenger
+          counter leaves empty, directly above the map it captions. */}
+      {(!mapFirst || leadingAction || underMapAction) && (
         <div className="flex items-center justify-end gap-2">
+          {!mapFirst && <div className="min-w-0 flex-1">{summary}</div>}
           {mapFirst && leadingAction && <div className="min-w-0 flex-1">{leadingAction}</div>}
           {underMapAction && <div className="shrink-0">{underMapAction}</div>}
         </div>

@@ -76,7 +76,8 @@ export function orderStageDetail(order: MedsOrder, ride: Ride | undefined, viewe
     case 'on_the_way':
       return `${driver ?? 'Rider'} is on the way to the customer`
     case 'delivered':
-      return `Delivered${driver ? ` by ${driver}` : ''}`
+      // The label already says "Delivered"; the detail is by whom, when known.
+      return driver ? `by ${driver}` : order.deliveryMode === 'vendor_other' ? 'by the store' : ''
     case 'cancelled':
       // The label already says "Cancelled"; the detail is who did it, when
       // the ride knows — "Cancelled · Cancelled" was reading as a stutter.

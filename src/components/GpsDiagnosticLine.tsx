@@ -64,6 +64,12 @@ export function GpsDiagnosticLine({
   }, [])
 
   if (!enabled) return null
+  // A site the browser has blocked used to get a red "Blocked for this
+  // site" box with padlock instructions here. Removed at the pilot lead's
+  // request — a driver on the road cannot act on it mid-trip, and it sat
+  // there for the whole ride. The line below simply stays quiet in that
+  // state; the admin's live-GPS notice above still says sharing is expected.
+  if (permission === 'denied') return null
 
   const ageSeconds = lastFixAt === null ? null : Math.round((Date.now() - lastFixAt) / 1000)
   // A minute without a reading while a tricycle is moving is not a slow fix,
@@ -71,7 +77,7 @@ export function GpsDiagnosticLine({
   const stale = ageSeconds !== null && ageSeconds > 60
 
   const tone =
-    permission === 'denied' || error
+    error
       ? 'border-rose-300 bg-rose-50 text-rose-800'
       : lastFixAt === null || stale
         ? 'border-amber-300 bg-amber-50 text-amber-800'
@@ -80,22 +86,15 @@ export function GpsDiagnosticLine({
   return (
     <div className={`rounded-lg border px-2.5 py-1.5 text-[11px] leading-snug ${tone}`}>
       <p className="font-semibold">
-        {permission === 'denied'
-          ? '📍 Blocked for this site'
-          : error
-            ? '📍 GPS error'
-            : lastFixAt === null
-              ? '📍 Waiting for your first fix…'
-              : stale
-                ? `📍 No new fix for ${ageSeconds}s`
-                : `📍 Live · ${ageSeconds}s ago${accuracy != null ? ` · ±${Math.round(accuracy)}m` : ''}`}
+        {error
+          ? '📍 GPS error'
+          : lastFixAt === null
+            ? '📍 Waiting for your first fix…'
+            : stale
+              ? `📍 No new fix for ${ageSeconds}s`
+              : `📍 Live · ${ageSeconds}s ago${accuracy != null ? ` · ±${Math.round(accuracy)}m` : ''}`}
       </p>
-      {permission === 'denied' ? (
-        <p className="mt-0.5">
-          Your phone's location can be on and this site still blocked. Tap the padlock 🔒 in the address bar →
-          Location → Allow, then reload.
-        </p>
-      ) : error ? (
+      {error ? (
         <p className="mt-0.5">{error}</p>
       ) : stale ? (
         <p className="mt-0.5">

@@ -243,10 +243,11 @@ export function isWithinRetentionDays(dateIso: string, retentionDays: number): b
   return new Date(dateIso).getTime() >= cutoffMs
 }
 
+// Minutes, never seconds: "12s away" read as a countdown nobody could
+// trust, and under a minute out the honest word is that you are arriving.
 export function formatEta(seconds: number): string {
-  if (seconds <= 0) return 'Arriving now'
-  if (seconds < 60) return `${seconds}s away`
-  return `${Math.ceil(seconds / 60)} min away`
+  if (seconds <= 45) return 'Arriving now'
+  return `${Math.max(1, Math.ceil(seconds / 60))} min away`
 }
 
 export function buildTimeline(ride: Ride): { label: string; ts: string }[] {

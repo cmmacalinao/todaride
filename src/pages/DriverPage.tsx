@@ -12,6 +12,8 @@ import { TricycleQrPanel } from '../components/TricycleQrPanel'
 import { NearbyRequestsBoard, buildNearbyRequests } from '../components/NearbyRequestsBoard'
 import type { DrawerSection } from '../components/NavDrawer'
 import { useEffect, useRef, useState } from 'react'
+import { remainingLeg } from '../lib/legRemaining'
+import { nextRerouteDecision } from '../lib/reroute'
 import { DRIVER_GPS_PUBLISH_MS } from '../lib/rideTogether'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ETA_SECONDS_PER_LEG, useRides } from '../context/RideContext'
@@ -1688,7 +1690,27 @@ function ActiveTripCard({
       : legRide.driverLiveGps ?? legRide.driverOriginGps ?? DRIVER_BASE_GPS
     : null
   const routeLineDestination = legRide ? (isOngoingLeg ? legRide.dropoff.gps : legRide.pickup.gps) : null
-  const route = useRoute(routeLineOrigin ?? null, routeLineDestination ?? null)
+  // Where the drawn route starts from. The leg's own origin, until this
+  // phone has demonstrably left that road (see reroute.ts) — then the
+  // position it actually reached, and a fresh route is fetched from there.
+  // The passenger's monitor has done this for a while; the driver's own map
+  // kept describing the original road for the whole trip, along with the
+  // distance and arrival time resting on it.
+  const [rerouteFrom, setRerouteFrom] = useState<GeoCoords | null>(null)
+  const route = useRoute(rerouteFrom ?? routeLineOrigin ?? null, routeLineDestination ?? null)
+  const strayRef = useRef({ strayCount: 0 })
+  useEffect(() => {
+    const status = legRide?.status
+    if (status !== 'ongoing' && status !== 'driver_arriving') return
+    const decision = nextRerouteDecision(liveDriverGps ?? null, route?.points, strayRef.current)
+    strayRef.current = { strayCount: decision.strayCount }
+    if (decision.reroute && liveDriverGps) setRerouteFrom(liveDriverGps)
+  }, [liveDriverGps, route, legRide?.status])
+  // A new leg is a new route: forget where the last reroute started.
+  useEffect(() => {
+    setRerouteFrom(null)
+    strayRef.current = { strayCount: 0 }
+  }, [legRide?.status, routeLineDestination?.lat, routeLineDestination?.lng])
   // Independent of which leg is current — always the pickup→destination
   // trip itself, so the driver can see how long the actual ride will take
   // even while still en route to pick the passenger up.
@@ -1719,6 +1741,14 @@ function ActiveTripCard({
   ]
 
   const driverGpsInfo = sharedDriverMapGps(ride, rides, route)
+  // Road and minutes still ahead from where this tricycle is — its own
+  // phone's fix first, the drawn marker otherwise. See lib/legRemaining.
+  const remaining = remainingLeg({
+    route,
+    vehicleGps: liveDriverGps ?? driverGpsInfo?.gps ?? null,
+    destination: routeLineDestination ?? null,
+    legProgress: ride.legProgress,
+  })
   // True whenever the tricycle has anyone aboard — not just when this card's
   // own fare has started. While the driver was on the way to the second
   // passenger, this card's ride was still 'driver_arriving', so the callout
@@ -2010,7 +2040,7 @@ function ActiveTripCard({
         <div className="shrink-0 text-right">
           <p className="text-xs font-medium text-brand-700">
             🛺 {ride.status === 'driver_arriving' ? 'To pickup: ' : 'To destination: '}
-            {formatEta(leg.etaSeconds)}
+            {remaining ? `${formatKm(remaining.meters)} · ${formatEta(remaining.seconds)}` : formatEta(leg.etaSeconds)}
           </p>
           <p className="text-[11px] font-medium text-slate-500">
             🏁 Trip: ~{Math.max(1, Math.round(tripDurationSeconds / 60))} min
@@ -2098,11 +2128,13 @@ function ActiveTripCard({
                 <div className="flex items-center divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white/90 px-2 py-1 text-[11px] leading-tight text-slate-700">
                   <span className="flex-1 truncate pr-1.5">
                     <span className="font-medium text-pickup-accent">Arrives</span>{' '}
-                    <span className="font-bold">{formatEta(leg.etaSeconds)}</span>
+                    <span className="font-bold">{formatEta(remaining ? remaining.seconds : leg.etaSeconds)}</span>
                   </span>
                   <span className="flex-1 truncate px-1.5">
-                    <span className="font-medium text-dest-accent">Travel</span> ~
-                    <span className="font-bold">{Math.max(1, Math.round(tripDurationSeconds / 60))} min</span>
+                    <span className="font-medium text-dest-accent">Travel</span>{' '}
+                    <span className="font-bold">
+                      {remaining ? formatKm(remaining.meters) : `~${Math.max(1, Math.round(tripDurationSeconds / 60))} min`}
+                    </span>
                   </span>
                   <span className="flex-1 truncate pl-1.5">
                     <span className="font-medium text-slate-500">Fare</span>{' '}

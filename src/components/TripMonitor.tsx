@@ -11,7 +11,8 @@ import { AlertBanner } from './AlertBanner'
 import { PhotoCaptureButton } from './PhotoCaptureButton'
 import { PhotoGallery } from './PhotoGallery'
 import { buildTimeline, driverPickupOverdue, formatEta, getDispatchWindow, getLegInfo, getPassengerMapGps, primaryAboardRide, sharedDriverMapGps, tripMapFraming } from '../lib/tracking'
-import { haversineDistanceMeters } from '../lib/geo'
+import { formatKm, haversineDistanceMeters } from '../lib/geo'
+import { remainingLeg } from '../lib/legRemaining'
 import { reverseGeocodeToPhAddress } from '../lib/customLocation'
 import { useNow, useWatchPosition } from '../lib/liveTracking'
 import { useRoute } from '../lib/routing'
@@ -248,6 +249,14 @@ export function TripMonitor({
   const tripDurationSeconds = tripRoute?.durationSeconds ?? ETA_SECONDS_PER_LEG
 
   const driverGpsInfo = sharedDriverMapGps(ride, rides, route)
+  // Road and minutes still ahead, from where the tricycle actually is —
+  // shrinking as it moves. See lib/legRemaining.
+  const remaining = remainingLeg({
+    route,
+    vehicleGps: driverGpsInfo?.gps ?? null,
+    destination: routeLineDestinationForRoute ?? null,
+    legProgress: legRide.legProgress,
+  })
 
   // Anything under this is "close enough to the booked drop-off" — GPS drift
   // and the width of a street should not turn a normal arrival into a
@@ -636,7 +645,7 @@ export function TripMonitor({
           <p className="flex flex-wrap items-center justify-center gap-x-2 text-xs font-medium text-brand-700">
             <span>
               🛺 {ride.status === 'driver_arriving' ? 'Driver arriving: ' : 'To destination: '}
-              {formatEta(leg.etaSeconds)}
+              {remaining ? `${formatKm(remaining.meters)} · ${formatEta(remaining.seconds)}` : formatEta(leg.etaSeconds)}
             </span>
             <span className="text-[11px] font-medium text-slate-500">
               🏁 ~{Math.max(1, Math.round(tripDurationSeconds / 60))} min trip

@@ -8,6 +8,8 @@ import { formatAddressLine } from '../lib/addressFormat'
 import { useNow } from '../lib/liveTracking'
 import { useRoute } from '../lib/routing'
 import { buildTimeline, formatEta, getLegInfo, sharedDriverMapGps } from '../lib/tracking'
+import { formatKm } from '../lib/geo'
+import { remainingLeg } from '../lib/legRemaining'
 import type { MedsOrder, Pharmacy, Ride } from '../types'
 
 // Which rides still count as a delivery in progress from the vendor's side.
@@ -59,6 +61,7 @@ export function VendorDeliveryTracker({ order, ride, vendor }: { order: MedsOrde
   const legOrigin = ride.status === 'ongoing' ? ride.pickup.gps : driverGps?.gps ?? null
   const legDestination = ride.status === 'ongoing' ? ride.dropoff.gps : ride.pickup.gps
   const route = useRoute(ACTIVE_RIDE_STATUSES.has(ride.status) && legOrigin ? legOrigin : null, legDestination)
+  const remaining = remainingLeg({ route, vehicleGps: driverGps?.gps ?? null, destination: legDestination, legProgress: ride.legProgress })
 
   const storeIcon = vendor.businessType === 'pharmacy' || vendor.businessType === 'store' ? 'pharmacy' : 'resto'
   const points: MapPoint[] = [
@@ -141,7 +144,7 @@ export function VendorDeliveryTracker({ order, ride, vendor }: { order: MedsOrde
       {showEta && (
         <p className="text-[11px] text-slate-600">
           {ride.status === 'ongoing' ? 'To the customer: ' : 'To your store: '}
-          {leg.arrived ? 'arrived' : formatEta(leg.etaSeconds)}
+          {leg.arrived ? 'arrived' : remaining ? `${formatKm(remaining.meters)} · ${formatEta(remaining.seconds)}` : formatEta(leg.etaSeconds)}
           {route ? ` · ${(route.distanceMeters / 1000).toFixed(1)} km` : ''}
         </p>
       )}

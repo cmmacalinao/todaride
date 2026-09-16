@@ -247,7 +247,7 @@ export function UnifiedAuth() {
         {/* Prototype only. The staff logins that used to be printed here
             came out when the pilot moved to a shared database — see the note
             beside APP_ADMIN_CREDENTIALS. */}
-        <p className="px-2 text-center text-[11px] leading-relaxed text-slate-400">
+        <p className="px-2 text-center text-xs leading-relaxed text-slate-500">
           Prototype · simulated data · <BuildLabel />
         </p>
       </div>

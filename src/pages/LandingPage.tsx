@@ -83,6 +83,13 @@ export function LandingPage() {
           {partnerBanner && (
             <img src={partnerBanner} alt="Partner banner" className="mx-auto w-full max-w-sm" />
           )}
+          {/* Which build this actually is — see BuildLabel. Right under the
+              logo/partner artwork so it's the first thing a screenshot of a
+              bug report captures, rather than something found by scrolling
+              to the bottom of the page or the login form. */}
+          <p className="mt-2 text-center text-xs font-semibold tracking-wide text-white/80">
+            <BuildLabel />
+          </p>
           {/* Whichever TODA's terminal is nearest right now (or Super
               Admin's manual override, or — if neither — the app's own
               generic name) — see usePilotBranding. A specific org gets the
@@ -185,7 +192,7 @@ export function LandingPage() {
           hero's own scroll area and is easy to miss before reaching "Why
           Choose TODA SafeRide?"; this one is unmissable once someone has
           scrolled the whole page. */}
-      <p className="pb-6 text-center text-[10px] text-slate-300">
+      <p className="pb-6 text-center text-xs text-slate-500">
         Prototype · simulated data · <BuildLabel />
       </p>
     </div>

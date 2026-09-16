@@ -538,7 +538,7 @@ export function AppLoginForm() {
           used to be printed here for demo convenience; they came out when
           the pilot moved to a shared database, where one visitor signing in
           as Super Admin changes the world for every other tester. */}
-      <p className="mt-2 px-1 text-center text-[10px] text-white/30">
+      <p className="mt-2 px-1 text-center text-xs text-white/70">
         Prototype · simulated data · <BuildLabel />
       </p>
 

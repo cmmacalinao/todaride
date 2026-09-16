@@ -384,7 +384,9 @@ interface RideState {
   medsEnabled: boolean
   // Food/Resto and other-commodity partner vendors — deliberately separate
   // from medsEnabled so an operator can run Pabili-style vendor delivery
-  // without opening the pharmacy/prescription side at all.
+  // without opening the pharmacy/prescription side at all. On by default,
+  // per Super Admin — Food Order and merchant sign-up are meant to be open
+  // out of the box; still a real switch either way.
   vendorsEnabled: boolean
   // The Rotary Club partnership card on the sign-in screen — see
   // LandingPage.tsx. Off by default: the asset (public/partner-banner-
@@ -1848,7 +1850,12 @@ function fromStored(parsed: StoredState): RideState {
     pabiliEnabled: parsed.pabiliEnabled ?? false,
     rewardsEnabled: parsed.rewardsEnabled ?? false,
     medsEnabled: parsed.medsEnabled ?? false,
-    vendorsEnabled: parsed.vendorsEnabled ?? false,
+    // Food Order and the vendor/merchant sign-up path — on by default per
+    // Super Admin (see the matching change to the initial state below).
+    // Still a real Super Admin switch: turning it off hides it same as any
+    // other service, this just changes what a phone with nothing stored
+    // yet starts from.
+    vendorsEnabled: parsed.vendorsEnabled ?? true,
     partnerBannerEnabled: parsed.partnerBannerEnabled ?? false,
     // Real codes unless somebody has said otherwise. The endpoint is live
     // and the account has credits, so a pilot with real testers should be
@@ -2120,7 +2127,7 @@ function loadInitialState(): RideState {
     pabiliEnabled: false,
     rewardsEnabled: false,
     medsEnabled: false,
-    vendorsEnabled: false,
+    vendorsEnabled: true,
     partnerBannerEnabled: false,
     simulatedOtpEnabled: false,
     publicBaseUrl: '',

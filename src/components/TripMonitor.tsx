@@ -705,6 +705,33 @@ export function TripMonitor({
     </div>
   )
 
+  // Fare/Arrives/Trip, for RealLiveMap's detailsBar — the row full screen
+  // shows above even the Close button (see RealLiveMap.tsx). Reuses the
+  // same remaining/leg/tripDurationSeconds photoRouteSosRow already reads;
+  // this just adds the fare, which that row never carried.
+  const tripDetailsBar = (
+    <div className="grid grid-cols-3 gap-2 text-xs">
+      <div className="min-w-0">
+        <p className="text-slate-500">Fare</p>
+        <p className="truncate font-bold text-slate-800">₱{ride.fareEstimate}</p>
+      </div>
+      <div className="min-w-0">
+        <p className="text-slate-500">{ride.status === 'driver_arriving' ? 'Driver arrives' : 'Arrives'}</p>
+        <p className="truncate font-bold text-brand-700">
+          {hasDriver
+            ? remaining
+              ? formatArrives(remaining.seconds, true)
+              : formatEta(leg.etaSeconds)
+            : '—'}
+        </p>
+      </div>
+      <div className="min-w-0">
+        <p className="text-slate-500">Trip</p>
+        <p className="truncate font-bold text-slate-800">~{Math.max(1, Math.round(tripDurationSeconds / 60))} min</p>
+      </div>
+    </div>
+  )
+
   // Same reasoning, same fix. Withdrawn once arrival is already confirmed —
   // see the block this replaced for why.
   const gotOffCard =
@@ -1315,6 +1342,7 @@ export function TripMonitor({
             fitPointIds={fitPointIds}
             frozen={framing.frozen}
             nav={navCamera}
+            detailsBar={tripDetailsBar}
             // Drawn by the map as a row above itself, under its toolbar —
             // outside the map, so no road is hidden under it, yet still
             // inside the frame that goes full screen, so it comes along.

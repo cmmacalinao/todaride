@@ -230,6 +230,15 @@ export interface RealLiveMapProps {
     // the way it is travelling.
     rotatePointId?: string
   } | null
+  // Fare, arrival, and trip-length — the numbers a rider or a driver is
+  // actually watching a live trip for — as a row shown only in full screen,
+  // above even the Close button. Full screen replaces the whole page: the
+  // same figures a normal view keeps below or beside the map (TripMonitor's
+  // "Fare: ₱X" line, DriverPage's own Fare/Arrives/Distance/Trip strip) are
+  // left behind the instant it opens, unless a caller hands them here too.
+  // Absent outside an ongoing trip — a booking preview has no fare settled
+  // and nothing arriving yet.
+  detailsBar?: ReactNode
 }
 
 function routeLineStyle(routeIsReal: boolean | undefined, routeVariant: 'trip' | 'pickup' | undefined) {
@@ -715,7 +724,7 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, progressPointId, hintLine, streetLines, frameLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker }: RealLiveMapProps) {
+export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscreenChange, routeLine, progressPointId, hintLine, streetLines, frameLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker, detailsBar }: RealLiveMapProps) {
   // The driven-so-far / still-ahead split of the route, if there is a
   // vehicle to measure it by. Only for a real road path: a dashed
   // straight-line placeholder has no "behind" worth drawing.
@@ -842,6 +851,15 @@ export function RealLiveMap({ points, fill, overlayTop, overlayBottom, onFullscr
           : `relative z-0 flex flex-col overflow-hidden rounded-lg border border-slate-200 ${fill ? 'h-full' : ''} ${frozen ? 'map-frozen' : ''}`
       }
     >
+      {/* Fare/Arrives/Trip, above even the Close button — the numbers a
+          full-screen trip map is actually being watched for, and otherwise
+          the first thing full screen would hide. Only while full screen:
+          the normal view already has room for these beside or below the
+          map, and repeating them here too would just be the same figures
+          twice on one screen. */}
+      {fullscreen && detailsBar && (
+        <div className="border-b border-slate-200 bg-white px-2 py-1.5">{detailsBar}</div>
+      )}
       {/* Full screen, and the names, in one row above the map.
           A 320px strip is enough to glance at and not enough to look at
           properly — following a route or checking which street is coming

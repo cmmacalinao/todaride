@@ -1835,6 +1835,32 @@ function ActiveTripCard({
     destination: routeLineDestination ?? null,
     legProgress: ride.legProgress,
   })
+  // Same Fare/Arrives/Distance/Trip figures as the card below — pulled out
+  // as a value so RealLiveMap's detailsBar (the row full screen shows above
+  // even the Close button) can carry them too, instead of a driver having
+  // to back out of full screen to see what they're actually driving toward.
+  const tripDetailsBar = (
+    <div className="grid grid-cols-4 gap-2 text-xs">
+      <div className="min-w-0">
+        <p className="text-slate-500">Fare</p>
+        <p className="truncate font-bold text-slate-800">₱{cod ? cod.fee : ride.fareEstimate}</p>
+      </div>
+      <div className="min-w-0">
+        <p className="text-slate-500">Arrives</p>
+        <p className="truncate font-bold text-brand-700">
+          {(remaining ? remaining.seconds : leg.etaSeconds) <= 45 ? 'Now' : formatEta(remaining ? remaining.seconds : leg.etaSeconds)}
+        </p>
+      </div>
+      <div className="min-w-0">
+        <p className="text-slate-500">Distance</p>
+        <p className="truncate font-bold text-brand-700">{remaining ? formatKm(remaining.meters) : '—'}</p>
+      </div>
+      <div className="min-w-0">
+        <p className="text-slate-500">Trip</p>
+        <p className="truncate font-bold text-slate-800">~{Math.max(1, Math.round(tripDurationSeconds / 60))} min</p>
+      </div>
+    </div>
+  )
   // True whenever the tricycle has anyone aboard — not just when this card's
   // own fare has started. While the driver was on the way to the second
   // passenger, this card's ride was still 'driver_arriving', so the callout
@@ -2138,36 +2164,15 @@ function ActiveTripCard({
           </div>
         </div>
       )}
-      {/* The four figures a driver glances at, as one row of equal cells
-          — label over value, all the same size — instead of a big fare
-          wrapping onto two lines beside a smaller arrival paragraph. */}
+      {/* Same figures as tripDetailsBar above — kept as one JSX value (not
+          duplicated) so full screen's copy of this row can never drift out
+          of sync with the one shown here normally. */}
       <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
         <p className="mb-1 text-[11px] font-medium text-slate-500">
           🛺 {ride.status === 'driver_arriving' ? 'To pickup' : 'To destination'}
           {ride.passengerCount > 1 && <span className="ml-2">· 👥 {ride.passengerCount} passengers</span>}
         </p>
-        <div className="grid grid-cols-4 gap-2 text-xs">
-          <div className="min-w-0">
-            <p className="text-slate-500">Fare</p>
-            {/* On a cash delivery the fare carries the whole order; the
-                driver's own money is the fee (see codBreakdown). */}
-            <p className="truncate font-bold text-slate-800">₱{cod ? cod.fee : ride.fareEstimate}</p>
-          </div>
-          <div className="min-w-0">
-            <p className="text-slate-500">Arrives</p>
-            <p className="truncate font-bold text-brand-700">
-              {(remaining ? remaining.seconds : leg.etaSeconds) <= 45 ? 'Now' : formatEta(remaining ? remaining.seconds : leg.etaSeconds)}
-            </p>
-          </div>
-          <div className="min-w-0">
-            <p className="text-slate-500">Distance</p>
-            <p className="truncate font-bold text-brand-700">{remaining ? formatKm(remaining.meters) : '—'}</p>
-          </div>
-          <div className="min-w-0">
-            <p className="text-slate-500">Trip</p>
-            <p className="truncate font-bold text-slate-800">~{Math.max(1, Math.round(tripDurationSeconds / 60))} min</p>
-          </div>
-        </div>
+        {tripDetailsBar}
         {(ride.pabiliTip > 0 || ride.tipOffer > 0) && (
           <p className="mt-1 text-[11px] text-slate-500">
             {ride.pabiliTip > 0 && <span>+₱{ride.pabiliTip} tip</span>}
@@ -2225,6 +2230,7 @@ function ActiveTripCard({
             }
             frozen={framing.frozen}
             nav={navCamera}
+            detailsBar={tripDetailsBar}
             // The map a driver is actually watching for the length of the
             // trip, not one sitting mid-page among other things to read —
             // the lock exists for that other case.

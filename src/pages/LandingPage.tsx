@@ -5,7 +5,6 @@ import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
 import { PilotBranding } from '../components/PilotBranding'
 import { BuildLabel } from '../components/BuildLabel'
 import { VisionMission } from '../components/VisionMission'
-import { TodaAcronym } from '../components/TodaAcronym'
 import { usePilotBranding } from '../lib/usePilotBranding'
 import { useRides } from '../context/RideContext'
 
@@ -99,13 +98,10 @@ export function LandingPage() {
               generic name) — see usePilotBranding. A specific org gets the
               ad-like card; the generic name renders plainly, since the app
               naming itself isn't a promotion. */}
-          <p className="mt-3 text-center text-[11px] font-semibold uppercase tracking-wide text-white">
-            <TodaAcronym letterClassName="text-[15px] font-extrabold text-gold-400" />
-          </p>
           {pilotBranding.specific ? (
             <NearbyTodaAdCard name={pilotBranding.name} showNearYouTag={pilotBranding.showNearYouTag} />
           ) : (
-            <div className="mt-1.5">
+            <div className="mt-4">
               <PilotBranding name={pilotBranding.name} />
             </div>
           )}
@@ -114,7 +110,6 @@ export function LandingPage() {
             <br />
             Strengthening Communities.
           </p>
-
           {/* One user name and password for everyone — the form works out
               whether you're a rider, parent, driver, TODA officer, partner or
               admin, and sends you to your own page.

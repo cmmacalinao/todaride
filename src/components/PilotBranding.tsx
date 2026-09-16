@@ -13,7 +13,7 @@ export function PilotBranding({ name, compact }: { name: string; compact?: boole
   return (
     // The outer flex centers the block as a whole in the card; the inner
     // div is un-stretched (shrinks to the name row's own width) so
-    // "Booking App" — centered within that same narrow box — lands under
+    // the line under it — centered within that same narrow box — lands under
     // the name/badge row rather than the card, even while the block itself
     // sits centered.
     <div className="flex justify-center">
@@ -35,11 +35,9 @@ export function PilotBranding({ name, compact }: { name: string; compact?: boole
           </span>
         </p>
         <p
-          className={`mt-0.5 text-center font-bold uppercase tracking-[0.25em] text-white/50 ${
-            compact ? 'text-[8px]' : 'text-[10px]'
-          }`}
+          className={`mt-1 whitespace-nowrap text-center text-gold-400 ${compact ? 'text-[9px]' : 'text-xs'}`}
         >
-          Booking App
+          Transport &amp; Opportunity Digital Access
         </p>
       </div>
     </div>

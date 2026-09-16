@@ -11,7 +11,7 @@
 // several things — and guesswork that nothing checks tends to rot.
 import { isNativeApp } from './platform'
 
-export const APK_PATH = '/TodaSafeRide.apk'
+export const APK_PATH = '/TODARideMobility.apk'
 
 interface DeviceFacts {
   userAgent: string

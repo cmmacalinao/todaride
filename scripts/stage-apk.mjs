@@ -35,7 +35,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const source = resolve(root, 'android/app/build/outputs/apk/release/app-release.apk')
-const target = resolve(root, 'dist/TodaSafeRide.apk')
+const target = resolve(root, 'dist/TODARideMobility.apk')
 
 if (!existsSync(source)) {
   console.error(`No APK at ${source}\nBuild one first: npm run apk`)
@@ -49,7 +49,7 @@ if (!existsSync(resolve(root, 'dist'))) {
 mkdirSync(dirname(target), { recursive: true })
 copyFileSync(source, target)
 const mb = (statSync(target).size / 1024 / 1024).toFixed(1)
-console.log(`Staged TodaSafeRide.apk (${mb} MB) into dist/ — it will be served at /TodaSafeRide.apk`)
+console.log(`Staged TODARideMobility.apk (${mb} MB) into dist/ — it will be served at /TODARideMobility.apk`)
 
 const gradle = readFileSync(resolve(root, 'android/app/build.gradle'), 'utf8')
 const versionCode = Number(gradle.match(/versionCode\s+(\d+)/)?.[1] ?? 0)
@@ -66,6 +66,6 @@ if (existsSync(knobs)) {
 }
 writeFileSync(
   resolve(root, 'dist/app-version.json'),
-  JSON.stringify({ versionCode, versionName, apkUrl: '/TodaSafeRide.apk', ...extra }, null, 2) + '\n',
+  JSON.stringify({ versionCode, versionName, apkUrl: '/TODARideMobility.apk', ...extra }, null, 2) + '\n',
 )
 console.log(`Wrote app-version.json — ${versionName} (code ${versionCode})${extra.required ? ', REQUIRED' : ''}`)

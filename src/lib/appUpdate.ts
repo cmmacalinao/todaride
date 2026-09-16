@@ -56,7 +56,7 @@ export async function checkForAppUpdate(): Promise<AvailableUpdate | null> {
     const code = Number(j.versionCode)
     const name = typeof j.versionName === 'string' ? j.versionName.trim() : ''
     if (!Number.isFinite(code) || code <= mine || !name) return null
-    const apkPath = typeof j.apkUrl === 'string' && j.apkUrl ? j.apkUrl : '/TodaSafeRide.apk'
+    const apkPath = typeof j.apkUrl === 'string' && j.apkUrl ? j.apkUrl : '/TODARideMobility.apk'
     return {
       versionCode: code,
       versionName: name,

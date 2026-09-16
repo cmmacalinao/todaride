@@ -25,7 +25,7 @@ import { resolve } from 'node:path'
 // build inside the next one and double the download every time — which is
 // why the deploy stages it into dist/ afterwards instead (see
 // scripts/stage-apk.mjs). That leaves the dev server with nothing at
-// /TodaSafeRide.apk, and Vite's SPA fallback answering it with index.html:
+// /TODARideMobility.apk, and Vite's SPA fallback answering it with index.html:
 // 200 OK, an .apk filename, and HTML inside. Android rejects that as a
 // corrupt package, which looks like a broken build rather than a missing
 // file.
@@ -37,7 +37,7 @@ function apkForDev(): Plugin {
     name: 'toda-apk-dev',
     apply: 'serve',
     configureServer(server) {
-      server.middlewares.use('/TodaSafeRide.apk', (_req, res) => {
+      server.middlewares.use('/TODARideMobility.apk', (_req, res) => {
         const built = resolve(process.cwd(), 'android/app/build/outputs/apk/release/app-release.apk')
         if (!existsSync(built)) {
           res.statusCode = 404
@@ -48,7 +48,7 @@ function apkForDev(): Plugin {
         const bytes = readFileSync(built)
         res.setHeader('Content-Type', 'application/vnd.android.package-archive')
         res.setHeader('Content-Length', String(bytes.length))
-        res.setHeader('Content-Disposition', 'attachment; filename="TodaSafeRide.apk"')
+        res.setHeader('Content-Disposition', 'attachment; filename="TODARideMobility.apk"')
         res.end(bytes)
       })
     },

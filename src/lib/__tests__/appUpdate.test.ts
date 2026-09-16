@@ -64,7 +64,7 @@ describe('deciding whether a newer APK exists', () => {
   })
 
   it('offers the update when the website has a higher versionCode', async () => {
-    answer = { body: { versionCode: mine + 1, versionName: '5B.9', apkUrl: '/TodaSafeRide.apk', notes: '  Map fixes  ' } }
+    answer = { body: { versionCode: mine + 1, versionName: '5B.9', apkUrl: '/TODARideMobility.apk', notes: '  Map fixes  ' } }
     const u = await checkForAppUpdate()
     expect(u).not.toBeNull()
     expect(u?.versionCode).toBe(mine + 1)
@@ -75,14 +75,14 @@ describe('deciding whether a newer APK exists', () => {
 
   it('resolves the download against the pilot origin, never the app\'s own', async () => {
     // Inside the APK "own origin" is https://localhost, which serves nothing.
-    answer = { body: { versionCode: mine + 1, versionName: '5B.9', apkUrl: '/TodaSafeRide.apk' } }
+    answer = { body: { versionCode: mine + 1, versionName: '5B.9', apkUrl: '/TODARideMobility.apk' } }
     const u = await checkForAppUpdate()
-    expect(u?.apkUrl).toBe(`${PILOT_ORIGIN}/TodaSafeRide.apk`)
+    expect(u?.apkUrl).toBe(`${PILOT_ORIGIN}/TODARideMobility.apk`)
   })
 
   it('falls back to the standard APK path when none is given', async () => {
     answer = { body: { versionCode: mine + 1, versionName: '5B.9' } }
-    expect((await checkForAppUpdate())?.apkUrl).toBe(`${PILOT_ORIGIN}/TodaSafeRide.apk`)
+    expect((await checkForAppUpdate())?.apkUrl).toBe(`${PILOT_ORIGIN}/TODARideMobility.apk`)
   })
 
   it('says nothing when the phone is already on the current build', async () => {

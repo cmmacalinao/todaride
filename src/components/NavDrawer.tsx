@@ -7,7 +7,6 @@ import { useRides } from '../context/RideContext'
 export type DrawerSection =
   | 'home'
   | 'ride'
-  | 'pabili'
   | 'food'
   | 'current'
   | 'history'
@@ -209,7 +208,7 @@ export function NavDrawer({
   // lives here, on the same blue it was drawn for.
   sponsorLogoDataUrl?: string | null
 }) {
-  const { pabiliEnabled, medsEnabled, rewardsEnabled } = useRides()
+  const { medsEnabled, rewardsEnabled } = useRides()
   const [showShare, setShowShare] = useState(false)
 
   useEffect(() => {
@@ -222,7 +221,6 @@ export function NavDrawer({
   }, [open, onClose])
 
   const items = ITEMS_BY_ROLE[role].filter((item) => {
-    if (item.section === 'pabili' && !pabiliEnabled) return false
     if (item.section === 'medicine' && !medsEnabled) return false
     if (item.section === 'rewards' && !rewardsEnabled) return false
     return true

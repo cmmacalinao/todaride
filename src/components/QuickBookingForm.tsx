@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { reverseGeocodeToPhAddress } from '../lib/customLocation'
-import { errandBaseFare, useRides } from '../context/RideContext'
+import { useRides } from '../context/RideContext'
 import {
   CLSU_MAIN_GATE_LOCATION,
   DEFAULT_BOOKING_ADDRESS_DETAIL,
@@ -21,8 +21,7 @@ import { makeGuestPassengerId } from './GuestRiderFields'
 import { BarangayAddressPicker } from './BarangayAddressPicker'
 import { LocationMapPicker } from './LocationMapPicker'
 import { MedsBooking } from './MedsBooking'
-import { PabiliItemsInput } from './PabiliItemsInput'
-import type { GeoCoords, MockLocation, PaymentMethod, Pharmacy, ServiceType } from '../types'
+import type { GeoCoords, MockLocation, PaymentMethod, ServiceType } from '../types'
 
 // A known rider's identity + address — present when booking for the
 // account holder themselves or one of their linked children. Absent (rider
@@ -70,7 +69,7 @@ export function QuickBookingForm({
   // caller bumps a `key` to force a fresh mount when it changes.
   initialServiceType?: ServiceType
 }) {
-  const { tariffSettings, pabiliServiceFee, pabiliFareMode, pabiliFixedFare, todaOrganizations, drivers, requestRide, pharmacies, pabiliEnabled, medsEnabled } = useRides()
+  const { tariffSettings, todaOrganizations, drivers, requestRide, medsEnabled } = useRides()
   const isGuest = !rider
   const [guestName, setGuestName] = useState('')
   const [guestPhone, setGuestPhone] = useState('')
@@ -88,24 +87,13 @@ export function QuickBookingForm({
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'locating' | 'done' | 'error'>('idle')
   const [gpsError, setGpsError] = useState('')
   // Fixed for the life of the form: there is no service switch any more
-  // (Pabili and Buy Medicine are not offered on any screen), so the type is
+  // (Pabili is not offered on any screen at all — see PassengerPage.tsx —
+  // and Buy Medicine only when Super Admin has it on), so the type is
   // whatever the caller opened the form with — a plain ride unless told.
   const serviceType: ServiceType = (() => {
-    if (initialServiceType === 'pabili' && !pabiliEnabled) return 'ride'
     if (initialServiceType === 'buy_medicine' && !medsEnabled) return 'ride'
     return initialServiceType ?? 'ride'
   })()
-  const [pabiliItems, setPabiliItems] = useState('')
-  // Bumping this remounts PabiliItemsInput fresh (clearing its internal rows)
-  // after a successful submit — the child owns its own row state and has no
-  // other way to detect that the parent externally reset pabiliItems to ''.
-  const [pabiliItemsResetKey, setPabiliItemsResetKey] = useState(0)
-  // The specific store/establishment to buy from, typed freeform — overrides
-  // the resolved pickup point's generic label only at request time (see the
-  // submit handler below), same pattern MedsBooking's "direct" flow uses for
-  // directPharmacyName, so the driver's ride card shows the actual store name.
-  const [storeName, setStoreName] = useState('')
-  const [tipInput, setTipInput] = useState('')
   const [specialPickupRequested, setSpecialPickupRequested] = useState(false)
   const [pickupPickerSeed, setPickupPickerSeed] = useState({ key: 0, province: '', city: '', barangay: '', addressDetail: '' })
   const [dropoffPickerSeed, setDropoffPickerSeed] = useState({ key: 0, province: '', city: '', barangay: '', addressDetail: '' })
@@ -120,9 +108,7 @@ export function QuickBookingForm({
   )
   const pickup = allLocations.find((l) => l.id === pickupId)!
   const dropoff = allLocations.find((l) => l.id === dropoffId)!
-  const isPabili = serviceType === 'pabili'
   const isBuyMedicine = serviceType === 'buy_medicine'
-  const tip = Math.max(0, Number(tipInput) || 0)
   const fareBreakdown = estimateFareBreakdown(pickup, dropoff, tariffSettings, {
     isStudent: rider?.isStudent ?? false,
     isPwdSenior: rider?.isPwdSenior ?? false,
@@ -133,23 +119,18 @@ export function QuickBookingForm({
   const terminalGps = getTerminalGps(priorityTodaOrg)
   const specialPickupBreakdown = estimateSpecialPickupBreakdown(terminalGps, pickupGps, tariffSettings)
   const specialPickupFee = specialPickupRequested ? specialPickupBreakdown.fee : 0
-  const baseFare = isPabili ? errandBaseFare(oneWayFare, pabiliFareMode, pabiliFixedFare) : oneWayFare
-  const serviceFee = isPabili ? pabiliServiceFee : 0
-  const totalFare = baseFare + serviceFee + specialPickupFee + (isPabili ? tip : 0)
+  const totalFare = oneWayFare + specialPickupFee
   const fareExtraKmFeePortionOneWay = Math.round(fareBreakdown.extraKmFee)
-  const isFixedErrandFare = isPabili && pabiliFareMode === 'fixed'
   const fareExtraKmFeePortion = fareExtraKmFeePortionOneWay
   const fareStandardRatePortion = oneWayFare - fareExtraKmFeePortionOneWay
   const fareExtraKmDisplay = fareBreakdown.extraKm
 
-  // "Pickup"/"Destination" for a ride; "Buy near to"/"Deliver to" for Pabili
-  const pickupLabel = isPabili ? 'Buy near to' : 'Pickup'
-  const dropoffLabel = isPabili ? 'Deliver to' : 'Destination'
+  const pickupLabel = 'Pickup'
+  const dropoffLabel = 'Destination'
 
   const effectiveName = rider?.name ?? guestName.trim()
   const effectiveCustomerId = rider?.id ?? guestCustomerId
-  const canSubmit =
-    pickupId !== dropoffId && (!isPabili || pabiliItems.trim().length > 0) && effectiveName.length > 0
+  const canSubmit = pickupId !== dropoffId && effectiveName.length > 0
 
   function handlePickupQuickPick(location: MockLocation) {
     setPickupId(location.id)
@@ -174,25 +155,6 @@ export function QuickBookingForm({
     const point = await resolveNearbyPublicMarket(newCity, DEFAULT_BOOKING_PROVINCE)
     setCustomLocations((prev) => [...prev, point])
     handlePickupQuickPick(point)
-  }
-
-  // See PassengerPage.tsx's identical helper for why the location must be
-  // added to customLocations before handlePickupQuickPick points pickupId
-  // at it — skipping that step leaves `pickup` resolving to undefined and
-  // crashes the page on the next render.
-  function handleStorePickupQuickPick(store: Pharmacy) {
-    const location: MockLocation = {
-      id: store.id,
-      label: store.name,
-      coords: store.coords,
-      gps: store.locationGps ?? { lat: 15.7940977, lng: 120.9905849 },
-      province: store.province,
-      city: store.city,
-      barangay: store.barangay,
-    }
-    setCustomLocations((prev) => [...prev, location])
-    handlePickupQuickPick(location)
-    setStoreName(store.name)
   }
 
   async function handlePickupResolve(address: PhAddressTags) {
@@ -282,7 +244,7 @@ export function QuickBookingForm({
       passengerId: rider?.id ?? makeGuestPassengerId(),
       passengerName: effectiveName,
       passengerPhone: isGuest ? guestPhone.trim() || null : null,
-      pickup: isPabili && storeName.trim() ? { ...pickup, label: storeName.trim() } : pickup,
+      pickup,
       dropoff,
       paymentMethod,
       isStudentRide: rider?.isStudent ?? false,
@@ -290,17 +252,13 @@ export function QuickBookingForm({
       pickupGps,
       passengerCount,
       serviceType,
-      pabiliItems: isPabili ? pabiliItems.trim() : null,
-      tip: isPabili ? tip : 0,
+      pabiliItems: null,
+      tip: 0,
       bookedByParentId,
       specialPickupRequested: specialPickupRequested && pickupGps !== null,
     })
     setSubmitted(true)
     setPassengerCount(1)
-    setPabiliItems('')
-    setPabiliItemsResetKey((k) => k + 1)
-    setStoreName('')
-    setTipInput('')
     setGuestName('')
     setGuestPhone('')
     setSpecialPickupRequested(false)
@@ -326,16 +284,9 @@ export function QuickBookingForm({
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
       </div>
-      {/* No service switch: Pabili and Buy Medicine are no longer offered
-          on any screen. The errand fields below still render for a booking
-          that arrives already typed as one (initialServiceType), so an old
-          link or a parent's saved preference does not break. */}
-      {isPabili && (
-        <p className="text-xs text-slate-500">
-          Tell the driver what to buy — food, groceries, anything from a nearby store.
-        </p>
-      )}
-
+      {/* No service switch: Pabili is not offered on any screen (see
+          PassengerPage.tsx), and Buy Medicine only shows when Super Admin
+          has it on — see MedsBooking below. */}
       {isGuest && (
         <div className="grid grid-cols-2 gap-2">
           <input
@@ -353,24 +304,6 @@ export function QuickBookingForm({
         </div>
       )}
 
-      {isPabili && <PabiliItemsInput key={pabiliItemsResetKey} value={pabiliItems} onChange={setPabiliItems} />}
-
-      {isPabili && (
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Store / establishment (optional)</label>
-          <input
-            value={storeName}
-            onChange={(e) => setStoreName(e.target.value)}
-            placeholder="e.g. 7-Eleven, SM Grocery, Aling Nena's Store"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
-          <p className="mt-1 text-[11px] text-slate-400">
-            Tell your driver exactly where to buy from — this shows on their ride card. Leave blank to just let them
-            buy near the pickup point below.
-          </p>
-        </div>
-      )}
-
       {isBuyMedicine ? (
         <MedsBooking
           customerId={effectiveCustomerId}
@@ -383,9 +316,7 @@ export function QuickBookingForm({
       ) : (
         <>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">
-              {isPabili ? 'Jump to city (buy near to)' : 'Jump to city (pickup)'}
-            </label>
+            <label className="mb-1 block text-xs font-medium text-slate-500">Jump to city (pickup)</label>
             <select
               value={pickupPickerSeed.city || pickup.city || DEFAULT_BOOKING_CITY}
               onChange={(e) => handlePickupCityQuickPick(e.target.value)}
@@ -398,33 +329,6 @@ export function QuickBookingForm({
               ))}
             </select>
           </div>
-          {isPabili && pharmacies.some((p) => p.businessType === 'store') && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">Or pick a registered store</label>
-              <div className="space-y-1.5">
-                {pharmacies
-                  .filter((p) => p.businessType === 'store')
-                  .map((store) => (
-                    <button
-                      key={store.id}
-                      type="button"
-                      onClick={() => handleStorePickupQuickPick(store)}
-                      className="w-full rounded-lg border border-slate-200 p-2.5 text-left text-xs transition hover:bg-slate-50"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-slate-700">🏪 {store.name}</span>
-                        <span className={store.isOpen ? 'text-emerald-600' : 'text-amber-700'}>
-                          {store.isOpen ? '🟢 Open' : '⚪ Closed'}
-                        </span>
-                      </div>
-                      <p className="mt-0.5 text-[11px] text-slate-400">
-                        {store.addressDetail}, {store.barangay}, {store.city}
-                      </p>
-                    </button>
-                  ))}
-              </div>
-            </div>
-          )}
           <LocationMapPicker
             pickup={pickup}
             dropoff={dropoff}
@@ -473,47 +377,35 @@ export function QuickBookingForm({
                 defaultBarangay={pickupPickerSeed.barangay || DEFAULT_BOOKING_BARANGAY}
                 defaultAddressDetail={pickupPickerSeed.addressDetail}
                 onResolve={handlePickupResolve}
-                gpsOption={
-                  isPabili
-                    ? undefined
-                    : { onSelect: handleUseMyGps, status: gpsStatus, error: gpsError }
-                }
+                gpsOption={{ onSelect: handleUseMyGps, status: gpsStatus, error: gpsError }}
               />
-              {/* A Ride's "special pickup" (terminal detour) belongs here, at
-                  wherever the passenger boards. Pabili's exact-GPS capture
-                  instead belongs on Deliver to below — the store isn't
-                  where the passenger is standing. */}
-              {!isPabili && (
-                <>
-                  {/* The button itself now lives at the top of the picker
-                      above; what stays here is the consequence of a fix —
-                      the terminal-detour offer, which only makes sense once
-                      there is a point to measure the detour from. */}
-                  {gpsStatus === 'done' && terminalGps && (
-                    <label className="mt-1.5 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={specialPickupRequested}
-                        onChange={(e) => setSpecialPickupRequested(e.target.checked)}
-                        className="mt-0.5"
-                      />
-                      {/* The explanatory notes are gone — the distance and
-                          the escalation rule were four lines of small print
-                          on a checkbox. What stays is the money, because a
-                          box that quietly adds a fee is not one anybody
-                          should have to read the small print to notice. */}
-                      <span>
-                        <span className="font-medium text-amber-800">Special request — Terminal is far, pick up here</span>
-                        {specialPickupBreakdown.fee > 0 && (
-                          <>
-                            <br />
-                            <span className="text-amber-700">adds ₱{specialPickupBreakdown.fee}</span>
-                          </>
-                        )}
-                      </span>
-                    </label>
-                  )}
-                </>
+              {/* The button itself now lives at the top of the picker
+                  above; what stays here is the consequence of a fix —
+                  the terminal-detour offer, which only makes sense once
+                  there is a point to measure the detour from. */}
+              {gpsStatus === 'done' && terminalGps && (
+                <label className="mt-1.5 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={specialPickupRequested}
+                    onChange={(e) => setSpecialPickupRequested(e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  {/* The explanatory notes are gone — the distance and
+                      the escalation rule were four lines of small print
+                      on a checkbox. What stays is the money, because a
+                      box that quietly adds a fee is not one anybody
+                      should have to read the small print to notice. */}
+                  <span>
+                    <span className="font-medium text-amber-800">Special request — Terminal is far, pick up here</span>
+                    {specialPickupBreakdown.fee > 0 && (
+                      <>
+                        <br />
+                        <span className="text-amber-700">adds ₱{specialPickupBreakdown.fee}</span>
+                      </>
+                    )}
+                  </span>
+                </label>
               )}
             </div>
           )}
@@ -528,16 +420,6 @@ export function QuickBookingForm({
                 defaultBarangay={dropoffPickerSeed.barangay}
                 defaultAddressDetail={dropoffPickerSeed.addressDetail}
                 onResolve={handleDropoffResolve}
-                gpsOption={
-                  isPabili
-                    ? {
-                        onSelect: handleUseMyGps,
-                        status: gpsStatus,
-                        error: gpsError,
-                        doneLabel: '✓ Exact GPS location captured — driver can find you exactly',
-                      }
-                    : undefined
-                }
               />
             </div>
           )}
@@ -547,29 +429,10 @@ export function QuickBookingForm({
             disabled={!canSubmit}
             className="w-full rounded-lg bg-gold-400 py-2.5 text-sm font-bold text-navy-900 transition hover:bg-gold-500 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
           >
-            {isPabili
-              ? `Request Pabili for ${effectiveName || 'them'}`
-              : `Book a tricycle for ${effectiveName || 'them'}`}
+            {`Book a tricycle for ${effectiveName || 'them'}`}
           </button>
 
-          {isPabili && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">Tip (optional)</label>
-              <div className="flex items-center gap-1">
-                <span className="text-sm text-slate-500">₱</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={tipInput}
-                  onChange={(e) => setTipInput(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-            </div>
-          )}
-
-          {!isPabili && (
-            <div>
+          <div>
               <label className="mb-1 block text-xs font-medium text-slate-500">Passengers riding (up to 4)</label>
               <div className="flex items-center gap-3">
                 <button
@@ -588,8 +451,7 @@ export function QuickBookingForm({
                   +
                 </button>
               </div>
-            </div>
-          )}
+          </div>
 
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500">Payment method</label>
@@ -614,12 +476,10 @@ export function QuickBookingForm({
           <div className="space-y-1 rounded-lg bg-slate-50 px-3 py-2 text-sm">
             <p className="pb-0.5 text-[11px] font-medium text-slate-400">Estimated cost breakdown</p>
             <div className="flex items-center justify-between text-xs text-slate-500">
-              <span>
-                {isFixedErrandFare ? 'Fixed errand rate' : `Standard rate${isPabili ? '' : ` (covers ${tariffSettings.standardKmCovered} km)`}`}
-              </span>
-              <span>₱{isFixedErrandFare ? pabiliFixedFare : fareStandardRatePortion}</span>
+              <span>Standard rate (covers {tariffSettings.standardKmCovered} km)</span>
+              <span>₱{fareStandardRatePortion}</span>
             </div>
-            {!isFixedErrandFare && fareExtraKmFeePortion > 0 && (
+            {fareExtraKmFeePortion > 0 && (
               <div className="flex items-center justify-between text-xs text-slate-500">
                 <span>
                   Extra distance ({fareExtraKmDisplay.toFixed(1)} km beyond the {tariffSettings.standardKmCovered} km
@@ -628,26 +488,14 @@ export function QuickBookingForm({
                 <span>₱{fareExtraKmFeePortion}</span>
               </div>
             )}
-            {isPabili && (
-              <div className="flex items-center justify-between text-xs text-slate-500">
-                <span>Service fee</span>
-                <span>₱{serviceFee}</span>
-              </div>
-            )}
             {specialPickupFee > 0 && (
               <div className="flex items-center justify-between text-xs text-slate-500">
                 <span>Special pickup — Terminal detour ({specialPickupBreakdown.extraKm.toFixed(1)} km)</span>
                 <span>₱{specialPickupFee}</span>
               </div>
             )}
-            {isPabili && tip > 0 && (
-              <div className="flex items-center justify-between text-xs text-slate-500">
-                <span>Tip</span>
-                <span>₱{tip}</span>
-              </div>
-            )}
             <div className="flex items-center justify-between border-t border-slate-200 pt-1 font-semibold text-slate-800">
-              <span>{isPabili ? 'Total' : 'Estimated fare'}</span>
+              <span>Estimated fare</span>
               <span>₱{totalFare}</span>
             </div>
           </div>
@@ -680,7 +528,7 @@ export function QuickBookingForm({
             disabled={!canSubmit}
             className="w-full rounded-lg bg-gold-400 py-2.5 text-sm font-bold text-navy-900 transition hover:bg-gold-500 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
           >
-            {isPabili ? `Request Pabili for ${effectiveName || 'them'}` : `Book a tricycle for ${effectiveName || 'them'}`}
+            {`Book a tricycle for ${effectiveName || 'them'}`}
           </button>
         </>
       )}

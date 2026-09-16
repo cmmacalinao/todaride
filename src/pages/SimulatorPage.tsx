@@ -240,10 +240,8 @@ export function SimulatorPage() {
     pharmacies,
     rides,
     clearAllRides,
-    pabiliEnabled,
     medsEnabled,
     vendorsEnabled,
-    setPabiliEnabled,
     setMedsEnabled,
     setVendorsEnabled,
     terminals,
@@ -935,18 +933,8 @@ export function SimulatorPage() {
             </button>
           ))}
         </div>
-        <ServiceToggle label="🛍️" title="Pabili" on={pabiliEnabled} onChange={setPabiliEnabled} />
         <ServiceToggle label="💊" title="Medicine" on={medsEnabled} onChange={setMedsEnabled} />
-        {/* Food has no catalog of its own yet — the order is fulfilled through
-            Pabili, so the tab needs both switches on. Saying so on the control
-            beats a switch that looks broken when Pabili happens to be off. */}
-        <ServiceToggle
-          label="🍽️"
-          title="Food"
-          on={vendorsEnabled}
-          onChange={setVendorsEnabled}
-          hint={vendorsEnabled && !pabiliEnabled ? '!' : undefined}
-        />
+        <ServiceToggle label="🍽️" title="Food" on={vendorsEnabled} onChange={setVendorsEnabled} />
         <label
           title="How long a simulated leg takes. Slower is for showing someone; faster is for testing."
           className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-600"

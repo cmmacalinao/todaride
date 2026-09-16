@@ -33,7 +33,7 @@ export function ParentPage() {
   const location = useLocation()
   const navigate = useNavigate()
   // Forces the self-booking QuickBookingForm to remount with a fresh
-  // initialServiceType when the hamburger drawer deep-links to Ride/Pabili/
+  // initialServiceType when the hamburger drawer deep-links to Ride/
   // Medicine — it only reads that prop once on mount (see QuickBookingForm's
   // own doc comment), same remount-to-reseed pattern used throughout this
   // app (e.g. MedsItemsBrandInput's itemsResetKey).
@@ -51,7 +51,6 @@ export function ParentPage() {
         scrollTop()
         break
       case 'ride':
-      case 'pabili':
       case 'medicine':
         setSelectedTab(SELF_TAB)
         setDesiredServiceType(section === 'medicine' ? 'buy_medicine' : (section as ServiceType))

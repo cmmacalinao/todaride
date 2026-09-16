@@ -56,7 +56,6 @@ import { VendorMenuBooking, type VendorMenuBookingHandle } from '../components/V
 import { EmergencyHotlines } from '../components/EmergencyHotlines'
 import { EmergencySheet } from '../components/EmergencySheet'
 import { isActiveAlert, passengerEmergencyContacts } from '../lib/safety'
-import { PabiliItemsInput } from '../components/PabiliItemsInput'
 import { makeGuestPassengerId, useGuestRider } from '../components/GuestRiderFields'
 import { PassengerRewardsCard } from '../components/PassengerRewardsCard'
 import { GroupRideInlinePanel, type GroupRiderEntry } from '../components/GroupRideInlinePanel'
@@ -101,7 +100,6 @@ export function PassengerPage() {
     removePassengerLocation,
     medsOrders,
     pharmacies,
-    pabiliEnabled,
     rewardsEnabled,
     medsEnabled,
     vendorsEnabled,
@@ -148,14 +146,6 @@ export function PassengerPage() {
   const [pageTab, setPageTab] = useState<'book' | 'rewards' | 'emergency'>('book')
   const serviceTabsRef = useRef<HTMLDivElement>(null)
   const addressSectionRef = useRef<HTMLElement>(null)
-  // On an errand the addresses are a later question than what to buy, so the
-  // From/Where-to block waits behind a "Book a tricycle" button rather than
-  // standing between the customer and the item list.
-  const [showErrandBooking, setShowErrandBooking] = useState(true)
-  // The item list is the order itself, so it opens on request too. Between
-  // them the errand screen starts as two plain choices — write the order, or
-  // book the ride — instead of one long form to scroll through.
-  const [showOrderBox, setShowOrderBox] = useState(false)
 
   // Brings the opened panel into view — used only by the Rewards and
   // Emergency icons, which swap the whole page below for something the reader
@@ -235,11 +225,6 @@ export function PassengerPage() {
   const inApp = isInAppBrowser()
   const [gpsError, setGpsError] = useState('')
   const [serviceType, setServiceType] = useState<ServiceType>('ride')
-  const [pabiliItems, setPabiliItems] = useState('')
-  // Bumping this remounts PabiliItemsInput fresh (clearing its internal
-  // table rows) after a successful submit — it owns its own row state and
-  // has no other way to know pabiliItems was reset out from under it.
-  const [pabiliItemsResetKey, setPabiliItemsResetKey] = useState(0)
   // Padala only — what's in the package and/or who it's for. Plain text,
   // no item/cost table: nobody is buying anything, so there is nothing to
   // itemize (see isPadala).
@@ -423,12 +408,6 @@ export function PassengerPage() {
         if (!medsEnabled) break
         setPageTab('book')
         setServiceType('buy_medicine')
-        scrollTop()
-        break
-      case 'pabili':
-        if (!pabiliEnabled) break
-        setPageTab('book')
-        setServiceType('pabili')
         scrollTop()
         break
       case 'food':
@@ -691,11 +670,6 @@ export function PassengerPage() {
     setServiceType(next)
     setFoodHinted(!!opts?.food)
     setCatalogKind(opts?.catalog ?? 'food')
-    // The item list still starts folded; the From/Where-to block does not,
-    // because its map is how someone says where the errand goes and a map
-    // that has to be unfolded first is a map you have to know about.
-    setShowErrandBooking(true)
-    setShowOrderBox(false)
   }
   // Switching Ride/Pabili → Medicine must not carry a stale "someone else"
   // into a pharmacy order: the picker is gone in that mode, so the customer
@@ -1112,16 +1086,9 @@ export function PassengerPage() {
     pickupId === dropoffId ||
     (!!pickup.gps && !!dropoff.gps && haversineDistanceMeters(pickup.gps, dropoff.gps) < 40)
 
-  // Only Pabili's freeform errand needs an item list before it can be
-  // submitted — Padala (PaDeliver's "Book a Delivery") has no such gate by
-  // design (see the packageNote textarea below, explicitly optional), so
-  // this was checking isPabili all along in spirit; it just read isErrand
-  // (isPabili || isPadala), which meant pabiliItems — a field Padala's own
-  // UI never writes to — silently kept its submit button disabled.
   const canSubmit =
     hasDestination &&
     !endsAreSameSpot &&
-    (!isPabili || pabiliItems.trim().length > 0) &&
     (!isGuestBooking || guestRider.otherName.trim().length > 0)
 
   // How far away the nearest driver who could take this actually is.
@@ -1179,7 +1146,7 @@ export function PassengerPage() {
       pickupGps,
       passengerCount,
       serviceType,
-      pabiliItems: isPabili ? pabiliItems.trim() : null,
+      pabiliItems: null,
       packageNote: isPadala ? packageNote.trim() || null : null,
       tip: isErrand ? tip : 0,
       specialPickupRequested: specialPickupRequested && pickupGps !== null,
@@ -1190,8 +1157,6 @@ export function PassengerPage() {
     setRequestedDriverId(null)
     setSpecialTrip(false)
     setPassengerCount(1)
-    setPabiliItems('')
-    setPabiliItemsResetKey((k) => k + 1)
     setPackageNote('')
     setStoreName('')
     setTipInput('')
@@ -2526,17 +2491,14 @@ export function PassengerPage() {
           list and sub-address for that end; the city above drives both. Only
           on the booking tab — Rewards and Emergency have nothing to address. */}
       {/* In map-first booking this card lives at the top of the sheet over
-          the map (see sharedMap's sheetHeader), so it is not repeated here. */}
-      {pageTab === 'book' && !mapFirstBooking && !isBuyMedicine && !showVendorMenu && (!isPabili || showErrandBooking) && (
+          the map (see sharedMap's sheetHeader), so it is not repeated here.
+          isPabili is always showVendorMenu too now that freeform Pabili has
+          no live entry point (chooseErrand('pabili', ...) only ever fires
+          with food:true, already gated on vendorsEnabled) — so this used to
+          also check "!isPabili || showErrandBooking" for the freeform form's
+          own reveal step, which no longer applies. */}
+      {pageTab === 'book' && !mapFirstBooking && !isBuyMedicine && !showVendorMenu && (
         addressCard(true)
-      )}
-
-      {foodHinted && pageTab === 'book' && !vendorsEnabled && (
-        <p className="rounded-lg bg-gold-50 p-2.5 text-[11px] leading-relaxed text-slate-600">
-          🍽️ Ordering from a partner resto menu is not live yet. For now this books a{' '}
-          <span className="font-semibold">Pabili</span> — name the resto and what you want below, and your driver
-          buys it and brings it over.
-        </p>
       )}
 
       {pageTab === 'rewards' && rewardsEnabled && <PassengerRewardsCard passenger={passenger} />}
@@ -2638,12 +2600,6 @@ export function PassengerPage() {
               two mode cards and the errand tiles at the top of the page now
               make that choice, and two competing switches for one piece of
               state is how people end up in a mode they did not pick. */}
-          {isPabili && !showVendorMenu && (
-            <p className="text-xs text-slate-500">
-              Tell your driver what to buy — food, groceries, medicine, anything from a nearby store — and they'll
-              pick it up and deliver it to you.
-            </p>
-          )}
           {isBuyMedicine && (
             <p className="text-xs text-slate-500">
               Order medicine from a nearby participating pharmacy — your driver picks it up and delivers it to you.
@@ -2694,80 +2650,13 @@ export function PassengerPage() {
           {/* Buy Medicine has no "who is this for?" step — a pharmacy order
               is always the logged-in customer's, and the two fulfilment tabs
               take this slot instead (see MedsBooking). Registered Vendor has
-              none either, same reason (see VendorMenuBooking). Ride and
-              freeform Pabili keep it, since booking those for a relative or
-              neighbour is common. */}
-
-          {isPabili && !showVendorMenu && !showOrderBox && (
-            <button
-              type="button"
-              onClick={() => setShowOrderBox(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-brand-300 bg-brand-50 py-2.5 text-sm font-semibold text-brand-700 transition hover:bg-brand-100"
-            >
-              🧾 Create order
-            </button>
-          )}
-
-          {isPabili && !showVendorMenu && showOrderBox && (
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-slate-600">🧾 Your order</span>
-              <button
-                type="button"
-                onClick={() => setShowOrderBox(false)}
-                className="rounded-md px-2 py-0.5 text-[11px] font-medium text-slate-500 hover:bg-slate-100"
-              >
-                Hide
-              </button>
-            </div>
-          )}
-
-          {isPabili && !showVendorMenu && showOrderBox && (
-            <PabiliItemsInput key={pabiliItemsResetKey} value={pabiliItems} onChange={setPabiliItems} />
-          )}
-
-          {isPabili && !showVendorMenu && !showErrandBooking && (
-            <button
-              type="button"
-              disabled={pabiliItems.trim().length === 0}
-              title={
-                pabiliItems.trim().length === 0
-                  ? 'Create your order first — the driver needs to know what to buy.'
-                  : undefined
-              }
-              onClick={() => {
-                setShowErrandBooking(true)
-                // The block sits above this button, so take the eye there
-                // rather than leaving it to be found by scrolling up.
-                setTimeout(
-                  () => addressSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
-                  60,
-                )
-              }}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
-            >
-              📍 Add Buy Near to and Deliver to Location
-            </button>
-          )}
-          {isPabili && !showVendorMenu && !showErrandBooking && pabiliItems.trim().length === 0 && (
-            <p className="text-center text-[11px] text-slate-400">Create your order first.</p>
-          )}
-
-
-          {isPabili && !showVendorMenu && showOrderBox && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">Store / establishment (optional)</label>
-              <input
-                value={storeName}
-                onChange={(e) => setStoreName(e.target.value)}
-                placeholder="e.g. 7-Eleven, SM Grocery, Aling Nena's Store"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              />
-              <p className="mt-1 text-[11px] text-slate-400">
-                Tell your driver exactly where to buy from — this shows on their ride card. Leave blank to just let
-                them buy near the pickup point below.
-              </p>
-            </div>
-          )}
+              none either, same reason (see VendorMenuBooking).
+              The freeform Pabili errand's own "Create order"/item-list/
+              store-name steps used to live here — removed along with the
+              rest of that feature's UI, since it has no live entry point any
+              more (Food Order and PaDeliver both moved to their own types;
+              see buildMedsDeliveryRide in RideContext.tsx). Ride still gets
+              the "who is this for?" step above, unaffected. */}
 
           {isBuyMedicine ? (
             <MedsBooking

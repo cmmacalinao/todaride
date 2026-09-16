@@ -36,7 +36,6 @@ export function SuperAdminPage() {
     todaOrganizations,
     operators,
     franchises,
-    pabiliEnabled,
     rewardsEnabled,
     setRewardsEnabled,
     medsEnabled,
@@ -62,7 +61,6 @@ export function SuperAdminPage() {
     publicBaseUrl,
     pilotTodaName,
     setPilotTodaName,
-    setPabiliEnabled,
     setMedsEnabled,
     setVendorsEnabled,
     setSimulatedOtpEnabled,
@@ -256,13 +254,6 @@ export function SuperAdminPage() {
                 deleted: existing orders, pharmacy accounts and history stay intact and reappear when switched back on.
               </p>
             </div>
-            <FeatureToggleRow
-              icon="🛍️"
-              label="Pabili"
-              description="Ask a driver to buy something from a nearby store"
-              enabled={pabiliEnabled}
-              onChange={setPabiliEnabled}
-            />
             <FeatureToggleRow
               icon="💊"
               label="Buy Medicine"

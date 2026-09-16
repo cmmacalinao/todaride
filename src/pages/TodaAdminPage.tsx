@@ -1,5 +1,5 @@
 import { SaasFeeCard } from '../components/SaasFeeCard'
-import { isActiveAlert } from '../lib/safety'
+import { SafetyDashboard } from '../components/SafetyDashboard'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
@@ -65,7 +65,6 @@ export function TodaAdminPage({
     todaExpenses,
     activityLog,
     alerts,
-    resolveAlert,
   } = useRides()
   // Follows Super Admin's Mobile/Desktop choice while this dashboard is
   // being viewed from inside SuperAdminPage; a TODA admin logging in
@@ -108,8 +107,6 @@ export function TodaAdminPage({
   // never reached the TODA whose member was driving. alertsForToda walks the
   // ride to its driver for exactly that case.
   const orgAlerts = alertsForToda(alerts, orgId, rides, drivers)
-  const openOrgAlerts = orgAlerts.filter((a) => isActiveAlert(a))
-  const resolvedOrgAlerts = orgAlerts.filter((a) => a.status === 'resolved')
   const activeCommission = getActiveTodaCommission(org)
   const treasury = rides
     .filter((r) => r.status === 'completed' && members.some((m) => m.id === r.driverId))
@@ -161,60 +158,15 @@ export function TodaAdminPage({
       </section>
 
       <div className={`space-y-6 ${readOnly ? 'pointer-events-none opacity-90' : ''}`}>
-      {openOrgAlerts.length > 0 && (
-        <section className="rounded-xl border border-danger-300 bg-danger-50 p-4 shadow-sm">
-          <div className="mb-1 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-danger-900">🆘 Emergency Alerts</h2>
-            <span className="rounded-full bg-danger-700 px-2 py-0.5 text-xs font-medium text-white">
-              {openOrgAlerts.length} open
-            </span>
-          </div>
-          <p className="mb-2 text-xs text-danger-800">A member of {org.name} triggered an SOS. Call them directly if possible.</p>
-          <div className="space-y-2">
-            {openOrgAlerts.map((a) => {
-              const d = members.find((m) => m.id === a.triggeredBy)
-              return (
-                <div key={a.id} className="rounded-lg border border-danger-300 bg-white p-2.5 text-xs">
-                  <p className="font-medium text-danger-800">
-                    {d ? `${d.name} · ${d.plateNumber}` : 'Unknown member'} — {new Date(a.createdAt).toLocaleString()}
-                  </p>
-                  <p className="mt-0.5 text-slate-600">{a.notes}</p>
-                  {d?.phone && <p className="mt-0.5 text-slate-500">📞 {d.phone}</p>}
-                  <p className="mt-0.5 text-slate-500">
-                    {a.location ? `📍 ${a.location.lat.toFixed(5)}, ${a.location.lng.toFixed(5)}` : 'Location not captured.'}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => resolveAlert(a.id)}
-                    className="mt-2 w-full rounded-lg bg-danger-700 py-1.5 text-xs font-semibold text-white hover:bg-danger-800"
-                  >
-                    Mark resolved
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      )}
-
-      {resolvedOrgAlerts.length > 0 && (
-        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">Past emergency alerts</h2>
-          <div className="max-h-[300px] space-y-1.5 overflow-y-auto pr-1">
-            {resolvedOrgAlerts.map((a) => {
-              const d = members.find((m) => m.id === a.triggeredBy)
-              return (
-                <div key={a.id} className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs opacity-70">
-                  <p className="font-medium text-slate-600">
-                    {d ? `${d.name} · ${d.plateNumber}` : 'Unknown member'} · Resolved
-                  </p>
-                  <p className="text-slate-400">{new Date(a.createdAt).toLocaleString()}</p>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      )}
+      {/* Every incident on one of this TODA's tricycles — a member's own
+          SOS or a passenger's on a member's trip — with the same workflow
+          the App Admin has. Read-only for the Super Admin's oversight view. */}
+      <SafetyDashboard
+        alerts={orgAlerts}
+        actor={{ name: `${org.name} admin`, role: 'toda_admin' }}
+        canAct={!readOnly}
+        title="🆘 Emergency alerts"
+      />
 
       <TerminalLocationSection org={org} />
 

@@ -2542,7 +2542,12 @@ export function PassengerPage() {
               hotlines list follows for everything else. */}
           {(() => {
             const emergencyRide = activeRide ?? null
-            const emergencyAlert = emergencyRide ? alerts.find((a) => a.rideId === emergencyRide.id && a.type === 'sos' && isActiveAlert(a)) ?? null : null
+            // On a trip, the incident is tied to that ride; off one, an SOS
+            // is raised with no ride at all (see TRIGGER_PASSENGER_SOS) and is
+            // found by whose it is instead.
+            const emergencyAlert = emergencyRide
+              ? alerts.find((a) => a.rideId === emergencyRide.id && a.type === 'sos' && isActiveAlert(a)) ?? null
+              : alerts.find((a) => !a.rideId && a.triggeredBy === passenger.id && a.type === 'sos' && isActiveAlert(a)) ?? null
             const emergencyDriver = emergencyRide?.driverId ? drivers.find((d) => d.id === emergencyRide.driverId) ?? null : null
             const emergencyToda = emergencyDriver?.todaOrgId ? todaOrganizations.find((o) => o.id === emergencyDriver.todaOrgId) ?? null : null
             return (

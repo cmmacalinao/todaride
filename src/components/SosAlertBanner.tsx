@@ -1,5 +1,5 @@
 import { formatTripRoute } from '../lib/addressFormat'
-import { isActiveAlert } from '../lib/safety'
+import { INCIDENT_STATUS_LABEL, isActiveAlert } from '../lib/safety'
 import { useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { useSession } from '../context/SessionContext'
@@ -16,7 +16,7 @@ import { useSession } from '../context/SessionContext'
 // amber and this is not.
 export function SosAlertBanner() {
   const navigate = useNavigate()
-  const { alerts, rides, drivers, passengers, resolveAlert, logActivity } = useRides()
+  const { alerts, rides, drivers, passengers, acknowledgeAlert, logActivity } = useRides()
   const { authedAccount } = useSession()
 
   const open = alerts.filter((a) => isActiveAlert(a))
@@ -51,7 +51,9 @@ export function SosAlertBanner() {
           return (
             <div key={a.id} className="rounded-lg border border-danger-300 bg-white p-2.5 text-xs">
               <div className="flex items-start justify-between gap-2">
-                <span className="font-semibold text-danger-900">{who(a)}</span>
+                <span className="font-semibold text-danger-900">
+                  {who(a)} · <span className="font-normal text-danger-700">{INCIDENT_STATUS_LABEL[a.status]}</span>
+                </span>
                 <span className="shrink-0 text-[10px] text-danger-600">
                   {new Date(a.createdAt).toLocaleString()}
                 </span>
@@ -78,23 +80,23 @@ export function SosAlertBanner() {
                   onClick={() => navigate('/admin?tab=rides')}
                   className="flex-1 rounded-lg border border-danger-300 py-1.5 text-[11px] font-medium text-danger-800 hover:bg-danger-50"
                 >
-                  Open incident feed
+                  Open safety desk
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    resolveAlert(a.id)
+                    acknowledgeAlert(a.id, actorName, authedAccount?.role === 'super_admin' ? 'super_admin' : 'admin')
                     logActivity({
                       actorRole: 'admin',
                       actorName,
                       todaOrgId: null,
-                      action: 'Resolved emergency alert',
+                      action: 'Acknowledged emergency alert',
                       summary: `${who(a)} — ${a.notes}`,
                     })
                   }}
                   className="flex-1 rounded-lg bg-danger-600 py-1.5 text-[11px] font-semibold text-white hover:bg-danger-700"
                 >
-                  Mark resolved
+                  Acknowledge
                 </button>
               </div>
             </div>

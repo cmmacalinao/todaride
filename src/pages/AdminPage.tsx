@@ -1,5 +1,5 @@
 import { formatTripRoute } from '../lib/addressFormat'
-import { isActiveAlert } from '../lib/safety'
+import { SafetyDashboard } from '../components/SafetyDashboard'
 import { rideServiceTag } from '../lib/vendorOrders'
 import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -38,13 +38,6 @@ import type {
   TodaOrgVerificationStatus,
   MockLocation,
   TerminalType, PabiliFareMode, SaasPlan } from '../types'
-
-const ALERT_TYPE_LABELS = { sos: 'SOS', route_deviation: 'Route deviation', possible_crash: 'Possible crash' }
-
-function alertLabel(a: { type: keyof typeof ALERT_TYPE_LABELS; triggeredByRole?: 'passenger' | 'driver' }): string {
-  if (a.type === 'sos' && a.triggeredByRole === 'driver') return 'Driver SOS'
-  return ALERT_TYPE_LABELS[a.type]
-}
 
 const TAAS_STATUS_STYLES: Record<string, string> = {
   approved: 'bg-brand-100 text-brand-700',
@@ -151,7 +144,6 @@ export function AdminPage() {
     driverReports,
     pabiliServiceFee,
     activityLog,
-    resolveAlert,
     setCommission,
     setTodaQueueWindowMs,
     queueOfferTimeoutMs,
@@ -291,8 +283,6 @@ export function AdminPage() {
     operators.filter((o) => o.verificationStatus === 'approved').reduce((sum, o) => sum + o.monthlyPlatformFee, 0) +
     franchises.filter((f) => f.verificationStatus === 'approved').reduce((sum, f) => sum + f.monthlyTechnologyFee, 0)
 
-  const openAlerts = alerts.filter((a) => isActiveAlert(a))
-  const resolvedAlerts = alerts.filter((a) => a.status === 'resolved')
   const openReports = driverReports.filter((r) => r.status === 'open')
   const reviewedReports = driverReports.filter((r) => r.status === 'reviewed')
 
@@ -1809,72 +1799,9 @@ export function AdminPage() {
 
       {adminTab === 'rides' && (
       <>
-      {/* Top of the tab and loud when live — an SOS outranks every other
-          thing on this screen, and it shouldn't need scrolling to find. */}
-      <section
-        className={`rounded-xl border p-4 shadow-sm ${
-          openAlerts.length > 0 ? 'animate-pulse border-danger-600 bg-danger-700' : 'border-slate-200 bg-white'
-        }`}
-      >
-        <div className="flex items-center justify-between">
-          <h2 className={`text-sm font-semibold ${openAlerts.length > 0 ? 'text-white' : 'text-slate-700'}`}>
-            🆘 SOS alert status
-          </h2>
-          <span
-            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-              openAlerts.length > 0 ? 'bg-white text-danger-800' : 'bg-emerald-100 text-emerald-800'
-            }`}
-          >
-            {openAlerts.length > 0 ? `${openAlerts.length} ACTIVE` : 'All clear'}
-          </span>
-        </div>
-        {openAlerts.length === 0 ? (
-          <p className="mt-1 text-xs text-slate-500">
-            No open SOS right now. {resolvedAlerts.length} resolved to date — the full incident feed is further down.
-          </p>
-        ) : (
-          <div className="mt-2 space-y-1.5">
-            {openAlerts.map((a) => {
-              const ride = a.rideId ? rides.find((r) => r.id === a.rideId) : null
-              const driver = drivers.find((d) => d.id === a.triggeredBy)
-              const who = a.triggeredByRole === 'driver' ? (driver?.name ?? 'A driver') : (ride?.passengerName ?? 'A passenger')
-              const phone = a.triggeredByRole === 'driver' ? driver?.phone : (ride?.passengerPhone ?? a.guardianNotifiedPhone)
-              return (
-                <div key={a.id} className="rounded-lg bg-white p-2.5 text-xs">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-danger-800">
-                        {who} · {a.triggeredByRole === 'driver' ? 'Driver SOS' : 'Passenger SOS'}
-                      </p>
-                      <p className="mt-0.5 text-slate-500">
-                        {new Date(a.createdAt).toLocaleString()}
-                        {ride ? ` · ${formatTripRoute(ride.pickup.label, ride.dropoff.label, 2)}` : ' · no active trip'}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 gap-1.5">
-                      {phone && (
-                        <a
-                          href={`tel:${phone}`}
-                          className="rounded-lg bg-danger-700 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-danger-800"
-                        >
-                          Call
-                        </a>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => resolveAlert(a.id)}
-                        className="rounded-lg border border-slate-300 px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
-                      >
-                        Resolve
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </section>
+      {/* The safety desk: every incident, the workflow actions, the map of
+          the live ones. See SafetyDashboard. */}
+      <SafetyDashboard alerts={alerts} actor={{ name: 'Admin', role: 'admin' }} canAct onActed={(summary) => logAdmin('Safety desk', summary)} />
 
       <HotlineManager />
 
@@ -1957,47 +1884,6 @@ export function AdminPage() {
         )}
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-700">Incident feed</h2>
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-            {openAlerts.length} open
-          </span>
-        </div>
-
-        {alerts.length === 0 && <p className="text-sm text-slate-400">No incidents reported.</p>}
-
-        <div className="max-h-[520px] space-y-2 overflow-y-auto pr-1">
-          {openAlerts.map((a) => (
-            <div key={a.id} className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-xs">
-              <div className="mb-1 flex items-center justify-between">
-                <span className="font-semibold text-danger-800">{alertLabel(a)}</span>
-                <span className="text-danger-500">{new Date(a.createdAt).toLocaleTimeString()}</span>
-              </div>
-              <p className="mb-2 text-slate-600">{a.notes}</p>
-              <button
-                onClick={() => {
-                  resolveAlert(a.id)
-                  logAdmin('Resolved incident', `Marked ${alertLabel(a)} alert resolved — "${a.notes}".`)
-                }}
-                className="rounded-lg border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100"
-              >
-                Mark resolved
-              </button>
-            </div>
-          ))}
-
-          {resolvedAlerts.map((a) => (
-            <div key={a.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs opacity-70">
-              <div className="mb-1 flex items-center justify-between">
-                <span className="font-semibold text-slate-600">{alertLabel(a)} · Resolved</span>
-                <span className="text-slate-400">{new Date(a.createdAt).toLocaleTimeString()}</span>
-              </div>
-              <p className="text-slate-500">{a.notes}</p>
-            </div>
-          ))}
-        </div>
-      </section>
       </>
       )}
 

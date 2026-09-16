@@ -666,6 +666,16 @@ export function DriverPage() {
       )
     : []
   ).map((a) => ({ alert: a, driver: drivers.find((d) => d.id === a.triggeredBy) }))
+  // Level 5: a verified driver nearby, whether or not they share a TODA —
+  // told only that someone may need help and where, not who or what
+  // happened (see buildIncident's nearbyDrivers). Skips anything already
+  // shown above as a fellow member's own alert, so it is never doubled.
+  const nearbyAssistAlerts = alerts.filter(
+    (a) =>
+      isActiveAlert(a) &&
+      (a.notifications ?? []).some((n) => n.recipientKind === 'nearby_driver' && n.recipientId === driver.id) &&
+      !fellowOpenAlerts.some((f) => f.alert.id === a.id),
+  )
 
   async function handleJoinQueue() {
     if (!homeToda) return
@@ -1499,6 +1509,27 @@ export function DriverPage() {
                     <p className="mt-0.5 text-slate-500">
                       {alert.location ? `📍 ${alert.location.lat.toFixed(5)}, ${alert.location.lng.toFixed(5)}` : 'Location not captured — try calling them.'}
                     </p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {nearbyAssistAlerts.length > 0 && (
+              <div className="mt-3 space-y-1.5 border-t border-amber-200 pt-3">
+                <p className="text-[11px] font-semibold text-amber-800">📢 Safety alert — nearby</p>
+                {nearbyAssistAlerts.map((a) => (
+                  <div key={a.id} className="rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs">
+                    <p className="font-medium text-amber-900">A TodaSafeRide user may need assistance nearby.</p>
+                    <p className="mt-0.5 text-amber-700">Please assist only if it is safe to do so.</p>
+                    {a.location && (
+                      <a
+                        href={`https://www.google.com/maps?q=${a.location.lat},${a.location.lng}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 inline-block text-amber-800 underline"
+                      >
+                        📍 Open location
+                      </a>
+                    )}
                   </div>
                 ))}
               </div>

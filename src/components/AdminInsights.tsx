@@ -1,5 +1,13 @@
 import { useState } from 'react'
-import { isActiveAlert } from '../lib/safety'
+import {
+  isActiveAlert,
+  safetyByDayTrend,
+  safetyByTodaBreakdown,
+  safetyNotificationDeliveryBreakdown,
+  safetyOutcomeBreakdown,
+  safetyReportSummary,
+  safetyTriggerBreakdown,
+} from '../lib/safety'
 import { useRides } from '../context/RideContext'
 import { CategoryBarChart } from './charts/CategoryBarChart'
 import { DailyBarChart } from './charts/DailyBarChart'
@@ -54,6 +62,12 @@ export function AdminInsights() {
   const trendCount = REPORT_PERIOD_DEFAULT_COUNT[trendPeriod]
   const ridesTrend = amountsByPeriod(ridesEntries, trendPeriod, trendCount)
   const fareTrend = amountsByPeriod(fareEntries, trendPeriod, trendCount)
+
+  // Aggregates only, never an incident's own notes or a passenger's name —
+  // the safety desk (see SafetyDashboard) is where the actual detail lives,
+  // gated to the people the incident concerns.
+  const safetySummary = safetyReportSummary(alerts)
+  const todaNameById = new Map(todaOrganizations.map((o) => [o.id, o.name]))
 
   return (
     <section className="space-y-4">
@@ -136,6 +150,43 @@ export function AdminInsights() {
         <CategoryBarChart title="Driver verification" data={driverVerificationBreakdown(drivers)} />
         <CategoryBarChart title="Driver access status" data={driverAccessBreakdown(drivers)} />
       </div>
+
+      {/* Safety reports — see lib/safety.ts. Counts and averages only; who
+          raised what and why lives on the safety desk, not here. */}
+      <div>
+        <h2 className="text-sm font-semibold text-slate-700">🆘 Safety reports</h2>
+        <p className="mt-0.5 text-xs text-slate-400">Emergency incidents across the platform — see the Safety desk above for the incidents themselves.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {[
+          { label: 'Total incidents', value: safetySummary.total },
+          { label: 'Passenger SOS', value: safetySummary.passengerSos },
+          { label: 'Driver SOS', value: safetySummary.driverSos },
+          { label: 'Possible crashes', value: safetySummary.possibleCrashes },
+          { label: 'Confirmed', value: safetySummary.confirmed },
+          { label: 'Cancelled (false alarm)', value: safetySummary.cancelled },
+          { label: 'Avg. response', value: safetySummary.avgResponseSeconds !== null ? `${Math.round(safetySummary.avgResponseSeconds / 60)} min` : '—' },
+          { label: 'Avg. resolution', value: safetySummary.avgResolutionSeconds !== null ? `${Math.round(safetySummary.avgResolutionSeconds / 60)} min` : '—' },
+        ].map((s) => (
+          <div key={s.label} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+            <p className="text-[11px] text-slate-500">{s.label}</p>
+            <p className="text-lg font-bold text-slate-800">{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {safetySummary.total > 0 && (
+        <>
+          <DailyBarChart title="Incidents by day" data={safetyByDayTrend(alerts)} />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <CategoryBarChart title="Incidents by trigger" data={safetyTriggerBreakdown(alerts)} />
+            <CategoryBarChart title="Incidents by outcome" data={safetyOutcomeBreakdown(alerts)} />
+          </div>
+          <CategoryBarChart title="Incidents by TODA" data={safetyByTodaBreakdown(alerts, todaNameById)} />
+          <CategoryBarChart title="Notification delivery" data={safetyNotificationDeliveryBreakdown(alerts)} />
+        </>
+      )}
     </section>
   )
 }

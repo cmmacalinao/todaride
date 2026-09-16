@@ -12,6 +12,7 @@ import { ClientNotesCenter } from '../components/ClientNotesCenter'
 import { SupportInbox } from '../components/SupportInbox'
 import { ActivityLogPanel } from '../components/ActivityLogPanel'
 import { SosAlertBanner } from '../components/SosAlertBanner'
+import { SafetySettingsPanel } from '../components/SafetySettingsPanel'
 
 type SuperAdminTab =
   | 'hub'
@@ -40,6 +41,8 @@ export function SuperAdminPage() {
     setRewardsEnabled,
     medsEnabled,
     vendorsEnabled,
+    safetySettings,
+    setSafetySettings,
     commissionPerRide,
     setCommission,
     platformGcashAccount,
@@ -280,6 +283,8 @@ export function SuperAdminPage() {
               onChange={setVendorsEnabled}
             />
           </section>
+
+          <SafetySettingsPanel value={safetySettings} onChange={setSafetySettings} />
 
           <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div>

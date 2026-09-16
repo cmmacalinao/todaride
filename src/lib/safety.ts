@@ -324,3 +324,102 @@ export function resolutionSeconds(alert: SosAlert): number | null {
   if (!alert.resolvedAt) return null
   return Math.round((new Date(alert.resolvedAt).getTime() - new Date(alert.createdAt).getTime()) / 1000)
 }
+
+// ---------------------------------------------------------------------------
+// Safety reports (Admin insights). Aggregates only — never a passenger's
+// name or an incident's own notes, so this is safe to show without the
+// access the safety desk itself needs.
+
+import type { CategoryDatum, DayDatum } from './insights'
+
+export interface SafetyReportSummary {
+  total: number
+  passengerSos: number
+  driverSos: number
+  possibleCrashes: number
+  confirmed: number
+  cancelled: number
+  avgResponseSeconds: number | null
+  avgResolutionSeconds: number | null
+}
+
+export function safetyReportSummary(alerts: SosAlert[]): SafetyReportSummary {
+  const responseTimes = alerts.map(responseSeconds).filter((n): n is number => n !== null)
+  const resolutionTimes = alerts.map(resolutionSeconds).filter((n): n is number => n !== null)
+  const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null)
+  return {
+    total: alerts.length,
+    passengerSos: alerts.filter((a) => a.type === 'sos' && a.triggeredByRole !== 'driver').length,
+    driverSos: alerts.filter((a) => a.type === 'sos' && a.triggeredByRole === 'driver').length,
+    possibleCrashes: alerts.filter((a) => a.type === 'possible_crash' || a.triggerSource === 'automatic_crash_detection').length,
+    confirmed: alerts.filter((a) => a.status !== 'cancelled').length,
+    cancelled: alerts.filter((a) => a.status === 'cancelled').length,
+    avgResponseSeconds: avg(responseTimes),
+    avgResolutionSeconds: avg(resolutionTimes),
+  }
+}
+
+export function safetyTriggerBreakdown(alerts: SosAlert[]): CategoryDatum[] {
+  return [
+    { label: 'Passenger SOS', value: alerts.filter((a) => a.type === 'sos' && a.triggeredByRole !== 'driver').length },
+    { label: 'Driver SOS', value: alerts.filter((a) => a.type === 'sos' && a.triggeredByRole === 'driver').length },
+    { label: 'Possible crash', value: alerts.filter((a) => a.type === 'possible_crash' || a.triggerSource === 'automatic_crash_detection').length },
+  ]
+}
+
+export function safetyOutcomeBreakdown(alerts: SosAlert[]): CategoryDatum[] {
+  return [
+    { label: 'Resolved', value: alerts.filter((a) => a.status === 'resolved').length },
+    { label: 'Cancelled (false alarm)', value: alerts.filter((a) => a.status === 'cancelled').length },
+    { label: 'Still active', value: alerts.filter((a) => isActiveAlert(a)).length },
+  ]
+}
+
+// Top TODAs by incident count, everything else folded into "Other" so the
+// chart stays readable with a large fleet.
+export function safetyByTodaBreakdown(alerts: SosAlert[], todaNameById: Map<string, string>): CategoryDatum[] {
+  const counts = new Map<string, number>()
+  let none = 0
+  for (const a of alerts) {
+    if (!a.todaOrgId) {
+      none += 1
+      continue
+    }
+    counts.set(a.todaOrgId, (counts.get(a.todaOrgId) ?? 0) + 1)
+  }
+  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1])
+  const top = ranked.slice(0, 6).map(([id, value]) => ({ label: todaNameById.get(id) ?? id, value }))
+  const restTotal = ranked.slice(6).reduce((sum, [, v]) => sum + v, 0)
+  if (restTotal > 0) top.push({ label: 'Other TODAs', value: restTotal })
+  if (none > 0) top.push({ label: 'No TODA', value: none })
+  return top
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000
+export function safetyByDayTrend(alerts: SosAlert[], days = 14, now: Date = new Date()): DayDatum[] {
+  const buckets = new Map<string, number>()
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * DAY_MS)
+    buckets.set(d.toISOString().slice(0, 10), 0)
+  }
+  for (const a of alerts) {
+    const key = new Date(a.createdAt).toISOString().slice(0, 10)
+    if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + 1)
+  }
+  return Array.from(buckets.entries()).map(([key, value]) => ({
+    key,
+    label: new Date(key).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    value,
+  }))
+}
+
+export function safetyNotificationDeliveryBreakdown(alerts: SosAlert[]): CategoryDatum[] {
+  const counts = new Map<string, number>()
+  for (const a of alerts) {
+    for (const n of a.notifications ?? []) {
+      counts.set(n.status, (counts.get(n.status) ?? 0) + 1)
+    }
+  }
+  const label: Record<string, string> = { delivered: 'Delivered', pending: 'Pending', skipped: 'Skipped', failed: 'Failed' }
+  return (['delivered', 'pending', 'skipped', 'failed'] as const).map((s) => ({ label: label[s], value: counts.get(s) ?? 0 }))
+}

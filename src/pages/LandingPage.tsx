@@ -141,11 +141,11 @@ export function LandingPage() {
             it would push the login form down. */}
         <div className="mb-8 text-center">
           <p className="text-xl font-extrabold tracking-wide text-navy-900">TODARIDE MOBILITY</p>
-          <p className="mt-1 text-xs font-semibold text-brand-700">
-            TODA — Transport &amp; Opportunity Digital Access
-          </p>
-          <p className="mx-auto mt-3 max-w-xs text-sm font-medium italic leading-snug text-slate-600">
+          <p className="mx-auto mt-2 max-w-xs text-sm font-medium italic leading-snug text-slate-600">
             Empowering Drivers. Protecting Passengers. Strengthening Communities.
+          </p>
+          <p className="mt-2 text-xs font-semibold text-brand-700">
+            TODA — Transport &amp; Opportunity Digital Access
           </p>
         </div>
 

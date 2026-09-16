@@ -1432,7 +1432,15 @@ export interface Ride {
   cancelledAt: string | null
 }
 
-export type ServiceType = 'ride' | 'pabili' | 'buy_medicine' | 'padala'
+// 'vendor_order' is a Registered Vendor's own priced-catalog checkout —
+// Food Order (resto_food) and PaDeliver's Store (other_commodity), built by
+// buildMedsDeliveryRide in RideContext.tsx. Split out from 'pabili' so
+// Food Order and PaDeliver keep working exactly as they do today even if
+// the freeform 'pabili' errand-request feature is ever turned off or
+// removed entirely — see lib/vendorOrders.ts's isVendorDeliveryRide,
+// which already treats both as the same "picked up from a real
+// storefront" case for driver-facing purposes.
+export type ServiceType = 'ride' | 'pabili' | 'buy_medicine' | 'padala' | 'vendor_order'
 
 // Why a driver called off a ride they had already accepted.
 export type RideCancellationReason =

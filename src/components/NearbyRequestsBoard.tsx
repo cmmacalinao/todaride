@@ -175,7 +175,7 @@ export function NearbyRequestsBoard({ requests, onAccept, onDecline, busyNote = 
               detour fee already in the fare)
             </p>
           )}
-          {(ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine') && ride.pabiliItems && (
+          {(ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine' || ride.serviceType === 'vendor_order') && ride.pabiliItems && (
             <p className="mt-1.5 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-600">🛒 {ride.pabiliItems}</p>
           )}
           {ride.serviceType === 'padala' && ride.packageNote && (

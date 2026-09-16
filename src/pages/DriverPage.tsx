@@ -119,7 +119,6 @@ export function DriverPage() {
     setDriverPaymentAccount,
     driverWithdrawals,
     requestDriverWithdrawal,
-    pabiliEnabled,
     simulateMovementEnabled,
     triggerDriverSos,
     cancelAlert,
@@ -745,7 +744,15 @@ export function DriverPage() {
   // well as behind their own footer tabs, which meant scrolling past both to
   // reach anything under them. They live on their pages now; these are what
   // those pages render.
-  const pabiliPriorityControl = pabiliEnabled ? (
+  //
+  // Despite the name, this now covers priority for every non-ride service
+  // (padala, vendor_order, and legacy pabili alike — see
+  // nextQueueOffer/REQUEST_RIDE's `serviceType !== 'ride'` check in
+  // RideContext.tsx), not just the freeform Pabili errand. It used to be
+  // hidden whenever Super Admin's Pabili switch was off, which also hid it
+  // for PaDeliver — a service that's always on — leaving those drivers no
+  // way to prioritize PaDeliver work at all. Shown unconditionally now.
+  const pabiliPriorityControl = (
     <label className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
       <span>
         <span className="block text-xs font-medium text-slate-700">Prioritize Food Express deliveries</span>
@@ -760,7 +767,7 @@ export function DriverPage() {
         className="h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600"
       />
     </label>
-  ) : null
+  )
 
   const earningsSection = (
     <section ref={earningsSectionRef} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -1304,7 +1311,7 @@ export function DriverPage() {
                           {r.specialPickupFee} detour fee included in the fare)
                         </p>
                       )}
-                      {(r.serviceType === 'pabili' || r.serviceType === 'buy_medicine') && r.pabiliItems && (
+                      {(r.serviceType === 'pabili' || r.serviceType === 'buy_medicine' || r.serviceType === 'vendor_order') && r.pabiliItems && (
                         <p className="mt-1 rounded-lg bg-slate-50 p-2 text-xs text-slate-600">🛒 {r.pabiliItems}</p>
                       )}
                       {r.serviceType === 'padala' && r.packageNote && (
@@ -1933,7 +1940,7 @@ function ActiveTripCard({
   // what the passenger typed and what every other screen shows), so it is
   // split back apart here — the driver in the store needs to tick items off,
   // not read a paragraph.
-  const isErrandRide = ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine'
+  const isErrandRide = ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine' || ride.serviceType === 'vendor_order'
   const shoppingList =
     isErrandRide && ride.pabiliItems
       ? ride.pabiliItems.split(',').map((part) => part.trim()).filter(Boolean)
@@ -2061,7 +2068,7 @@ function ActiveTripCard({
   return (
     <section className="space-y-3 rounded-xl border border-brand-200 bg-brand-50 p-4 shadow-sm">
       {ride.bookedByParentId && <p className="text-xs text-slate-500">📋 Booked by parent</p>}
-      {(ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine') && (
+      {(ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine' || ride.serviceType === 'vendor_order') && (
         <p className="text-sm font-medium text-slate-700">
           {isVendorDeliveryRide(ride)
             ? `🍽️ Food Express — pick up at ${ride.pickup.label}, deliver to ${ride.passengerName}`
@@ -2080,7 +2087,7 @@ function ActiveTripCard({
           {ride.paymentMethod === 'cash' ? ` · cash: pay the store for the goods, collect ₱${ride.fareEstimate} from the customer` : ' · paid online — collect the delivery fee only'}
         </p>
       )}
-      {(ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine') && ride.pabiliItems && (
+      {(ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine' || ride.serviceType === 'vendor_order') && ride.pabiliItems && (
         <p className="rounded-lg bg-white p-2 text-xs text-slate-600">🛒 {ride.pabiliItems}</p>
       )}
       {ride.serviceType === 'padala' && ride.packageNote && (

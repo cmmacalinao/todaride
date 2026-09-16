@@ -2311,11 +2311,13 @@ function buildMedsDeliveryRide(
     todaRating: null,
     todaReviewText: null,
     ratedAt: null,
-    // A Registered Vendor's delivery (food, dry goods) is a Pabili errand to
-    // the driver — a shopping list to pick up and bring — not a medicine run;
-    // it shows with the 🛍️ label and the per-item "bought" checklist, and
-    // never the prescription paperwork a pharmacy order carries.
-    serviceType: pharmacy.businessType === 'resto_food' || pharmacy.businessType === 'other_commodity' ? 'pabili' : 'buy_medicine',
+    // A Registered Vendor's delivery (food, dry goods) is its own
+    // 'vendor_order' type — genuinely distinct from a freeform Pabili
+    // errand someone typed by hand, even though it shares the same
+    // shopping-list/"bought" checklist treatment on the driver's screens
+    // (see lib/vendorOrders.ts's isVendorDeliveryRide). Not a medicine run
+    // either, so never the prescription paperwork a pharmacy order carries.
+    serviceType: pharmacy.businessType === 'resto_food' || pharmacy.businessType === 'other_commodity' ? 'vendor_order' : 'buy_medicine',
     pabiliItems: itemsSummary,
     packageNote: null,
     pabiliTip: overrides?.tip ?? 0,

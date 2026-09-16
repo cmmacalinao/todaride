@@ -1112,10 +1112,16 @@ export function PassengerPage() {
     pickupId === dropoffId ||
     (!!pickup.gps && !!dropoff.gps && haversineDistanceMeters(pickup.gps, dropoff.gps) < 40)
 
+  // Only Pabili's freeform errand needs an item list before it can be
+  // submitted — Padala (PaDeliver's "Book a Delivery") has no such gate by
+  // design (see the packageNote textarea below, explicitly optional), so
+  // this was checking isPabili all along in spirit; it just read isErrand
+  // (isPabili || isPadala), which meant pabiliItems — a field Padala's own
+  // UI never writes to — silently kept its submit button disabled.
   const canSubmit =
     hasDestination &&
     !endsAreSameSpot &&
-    (!isErrand || pabiliItems.trim().length > 0) &&
+    (!isPabili || pabiliItems.trim().length > 0) &&
     (!isGuestBooking || guestRider.otherName.trim().length > 0)
 
   // How far away the nearest driver who could take this actually is.
@@ -3007,7 +3013,7 @@ export function PassengerPage() {
                   {r.pabiliTip > 0 && ` + ₱${r.pabiliTip} tip`}
                   {r.tipOffer > 0 && ` + ₱${r.tipOffer} tip offer`} · {new Date(r.requestedAt).toLocaleString()}
                 </div>
-                {(r.serviceType === 'pabili' || r.serviceType === 'buy_medicine') && r.pabiliItems && (
+                {(r.serviceType === 'pabili' || r.serviceType === 'buy_medicine' || r.serviceType === 'vendor_order') && r.pabiliItems && (
                   <p className="mt-1 rounded-lg bg-slate-50 p-2 text-xs text-slate-600">🛒 {r.pabiliItems}</p>
                 )}
                 {r.serviceType === 'padala' && r.packageNote && (

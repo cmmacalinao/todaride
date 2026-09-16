@@ -16,13 +16,13 @@ export function RiderStartPage() {
   const navigate = useNavigate()
   const { vendorsEnabled } = useRides()
   const pilotBranding = usePilotBranding()
-  // Only the Food & Vendor partners switch matters here. This used to also
-  // require Pabili, since both Food Order and PaDeliver's Store are reached
-  // through the Pabili flow underneath — but they're their own tiles to a
-  // passenger, and Super Admin turning errands off silently removed them
-  // from this screen. PaDeliver's "Book a Delivery" is unaffected — it's the
-  // plain Pabili form itself, not a vendor catalog, so it stays available
-  // even with vendorsEnabled off.
+  // Only the Food & Vendor partners switch matters here. Food Order and
+  // PaDeliver's Store both check out through VendorMenuBooking and end up
+  // as their own 'vendor_order' ride type (see buildMedsDeliveryRide in
+  // RideContext.tsx) — genuinely distinct from the freeform Pabili errand
+  // now, not borrowed from it, so nothing here depends on Super Admin's
+  // Pabili switch at all. PaDeliver's "Book a Delivery" ('padala') was
+  // already its own type and stays available regardless of either switch.
   const vendorCatalogsAvailable = vendorsEnabled
   return (
     // Same pattern as the launch and role-chooser screens before it — dark
@@ -122,11 +122,14 @@ export function RiderStartPage() {
 
         {/* PaDeliver — goods, not people or meals: a marketplace Store
             (priced other_commodity catalog, same VendorMenuBooking flow
-            Food Order uses) for the store-to-door case, and Book a Delivery
-            (the plain Pabili form) for "I already have the item/errand,
-            just bring it" — see PassengerPage's 'goods_store'/
-            'goods_delivery' section cases. Book a Delivery doesn't depend
-            on any registered vendor, so it's offered even when Store isn't. */}
+            Food Order uses, ending as its own 'vendor_order' ride) for the
+            store-to-door case, and Book a Delivery (its own 'padala' type —
+            no vendor catalog, no shopping list, just pickup -> dropoff) for
+            "I already have the item, just bring it" — see PassengerPage's
+            'goods_store'/'goods_delivery' section cases. Neither depends on
+            Pabili's freeform errand feature or its Super Admin switch;
+            Book a Delivery doesn't depend on any registered vendor either,
+            so it's offered even when Store isn't. */}
         <div className="overflow-hidden rounded-xl border border-white/20 bg-white/5 shadow-sm">
           <button
             type="button"

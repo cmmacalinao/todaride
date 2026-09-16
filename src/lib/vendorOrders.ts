@@ -25,18 +25,26 @@ export function distanceKm(a: GeoCoords | null, b: GeoCoords | null | undefined)
 // buildMedsDeliveryRide in RideContext.tsx): the pickup IS the store — its
 // MockLocation carries the pharmacy's own id — which is how the driver's
 // screens tell "bring this food from Aling Nena's" apart from a Pabili
-// errand somebody typed by hand.
+// errand somebody typed by hand. 'pabili' is still checked alongside the
+// dedicated 'vendor_order' type for any ride created before that type
+// existed — old data keeps reading correctly, nothing to migrate.
 export function isVendorDeliveryRide(ride: Pick<Ride, 'serviceType' | 'pickup'>): boolean {
-  return (ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine') && /^(pharm|vendor)-/.test(ride.pickup.id)
+  return (
+    (ride.serviceType === 'vendor_order' || ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine') &&
+    /^(pharm|vendor)-/.test(ride.pickup.id)
+  )
 }
 
 // What to call a ride that is not a plain passenger trip, everywhere a
-// list or a monitor tags one. Food Express is the service people see; the
-// errand types underneath it (Pabili, Buy Medicine) are no longer offered
-// on any screen, so a leftover ride of that kind is labelled plainly rather
-// than by a service name nobody can pick any more. Null for a plain ride.
+// list or a monitor tags one. Food Express is what a Registered Vendor
+// checkout (Food Order or PaDeliver Store — 'vendor_order', or 'pabili' on
+// older data, see isVendorDeliveryRide) shows as, since that's the service
+// name a passenger actually picked. A freeform Pabili errand, a pharmacy
+// order, and a Padala courier request keep their own plainer labels. Null
+// for a plain ride.
 export function rideServiceTag(ride: Pick<Ride, 'serviceType' | 'pickup'>): { icon: string; label: string } | null {
   if (isVendorDeliveryRide(ride)) return { icon: '🍽️', label: 'Food Express' }
+  if (ride.serviceType === 'vendor_order') return { icon: '🍽️', label: 'Food Express' }
   if (ride.serviceType === 'pabili') return { icon: '🛍️', label: 'Errand' }
   if (ride.serviceType === 'buy_medicine') return { icon: '💊', label: 'Medicine' }
   if (ride.serviceType === 'padala') return { icon: '📦', label: 'Padala' }

@@ -1847,7 +1847,7 @@ export function AdminPage() {
                     💸 Passenger raised the tip offer to ₱{r.tipOffer} to attract a driver
                   </p>
                 )}
-                {(r.serviceType === 'pabili' || r.serviceType === 'buy_medicine') && r.pabiliItems && (
+                {(r.serviceType === 'pabili' || r.serviceType === 'buy_medicine' || r.serviceType === 'vendor_order') && r.pabiliItems && (
                   <p className="mt-1 rounded-lg bg-slate-50 p-2 text-slate-600">🛒 {r.pabiliItems}</p>
                 )}
                 {r.serviceType === 'padala' && r.packageNote && (

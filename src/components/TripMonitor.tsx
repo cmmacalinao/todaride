@@ -345,7 +345,7 @@ export function TripMonitor({
   // bought" is the difference between a driver who is working and one who
   // has forgotten you.
   const errandItems =
-    (ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine') && ride.pabiliItems
+    (ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine' || ride.serviceType === 'vendor_order') && ride.pabiliItems
       ? ride.pabiliItems.split(',').map((p) => p.trim()).filter(Boolean)
       : []
   const errandBought = errandItems.filter((_, i) => ride.pabiliBoughtIndexes.includes(i)).length
@@ -904,7 +904,7 @@ export function TripMonitor({
           </p>
         ) : null
       })()}
-      {(ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine') && ride.pabiliItems && (
+      {(ride.serviceType === 'pabili' || ride.serviceType === 'buy_medicine' || ride.serviceType === 'vendor_order') && ride.pabiliItems && (
         <p className="rounded-lg bg-white p-2 text-xs text-slate-600">🛒 {ride.pabiliItems}</p>
       )}
       {ride.serviceType === 'padala' && ride.packageNote && (

@@ -98,18 +98,18 @@ export function LandingPage() {
               generic name) — see usePilotBranding. A specific org gets the
               ad-like card; the generic name renders plainly, since the app
               naming itself isn't a promotion. */}
+          <p className="mt-3 text-center text-[11px] font-semibold uppercase tracking-wide text-gold-400">
+            Transport &amp; Opportunity Digital Access
+          </p>
           {pilotBranding.specific ? (
             <NearbyTodaAdCard name={pilotBranding.name} showNearYouTag={pilotBranding.showNearYouTag} />
           ) : (
-            <div className="mt-4">
+            <div className="mt-1.5">
               <PilotBranding name={pilotBranding.name} />
             </div>
           )}
           <p className="mt-2 text-center text-xs font-medium italic text-white/70">
             Keeping Your Family Moving Safely
-          </p>
-          <p className="mt-1 text-center text-[11px] font-semibold uppercase tracking-wide text-gold-400">
-            Transport &amp; Opportunity Digital Access
           </p>
 
           {/* One user name and password for everyone — the form works out

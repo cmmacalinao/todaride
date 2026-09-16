@@ -99,9 +99,9 @@ function sosSmsText(raisedBy: string, source: SosTriggerSource, location: GeoCoo
   const who =
     source === 'automatic_crash_detection'
       ? `${raisedBy}'s phone detected a possible accident`
-      : `${raisedBy} pressed the emergency SOS button in the TodaSafeRide app`
+      : `${raisedBy} pressed the emergency SOS button in the TODARide Mobility app`
   const where = location ? ` Location: https://www.google.com/maps?q=${location.lat},${location.lng}` : ' Location not available.'
-  return `TodaSafeRide EMERGENCY ALERT: ${who}.${where} This is an automated message — call them or 911 if you cannot reach them.`
+  return `TODARide Mobility EMERGENCY ALERT: ${who}.${where} This is an automated message — call them or 911 if you cannot reach them.`
 }
 
 export function makeEvent(kind: SosEventKind, summary: string, actorName: string, actorRole: SosEvent['actorRole'], at = new Date().toISOString()): SosEvent {
@@ -187,7 +187,7 @@ export function buildIncident(ctx: IncidentContext): SosAlert {
   const note = (n: Omit<SosNotification, 'id' | 'at'>) => notifications.push({ id: newId('sosnt'), at: now, ...n })
 
   // Level 3: the safety desk, always.
-  note({ recipientKind: 'admin', recipientId: 'admin', recipientName: 'TodaSafeRide Admin', channel: 'in_app', status: 'delivered' })
+  note({ recipientKind: 'admin', recipientId: 'admin', recipientName: 'TODARide Mobility Admin', channel: 'in_app', status: 'delivered' })
 
   // Level 4: the registered TODA, by rule.
   const todaRule = source === 'driver' ? settings.notifyTodaOn.driverSos : source === 'automatic_crash_detection' ? settings.notifyTodaOn.possibleCrash : settings.notifyTodaOn.passengerSos
@@ -243,7 +243,7 @@ export function buildIncident(ctx: IncidentContext): SosAlert {
     const hits = delivered.filter((n) => n.recipientKind === kind)
     if (hits.length) events.push(makeEvent('notified', `${label} notified (${hits.length})`, 'System', 'system', now))
   }
-  summarise('admin', 'TodaSafeRide Admin')
+  summarise('admin', 'TODARide Mobility Admin')
   summarise('guardian', 'Guardian')
   summarise('toda', 'Registered TODA')
   summarise('counterpart', source === 'driver' ? 'Passenger on this trip' : 'Driver on this trip')

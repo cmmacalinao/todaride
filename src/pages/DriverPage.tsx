@@ -1546,7 +1546,7 @@ export function DriverPage() {
                 <p className="text-[11px] font-semibold text-amber-800">📢 Safety alert — nearby</p>
                 {nearbyAssistAlerts.map((a) => (
                   <div key={a.id} className="rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs">
-                    <p className="font-medium text-amber-900">A TodaSafeRide user may need assistance nearby.</p>
+                    <p className="font-medium text-amber-900">A TODARide Mobility user may need assistance nearby.</p>
                     <p className="mt-0.5 text-amber-700">Please assist only if it is safe to do so.</p>
                     {a.location && (
                       <a
@@ -2113,7 +2113,7 @@ function ActiveTripCard({
         <div className="rounded-lg border-2 border-danger-600 bg-danger-100 p-3">
           <p className="text-xs font-bold text-danger-900">🚨 {ride.passengerName} raised an emergency SOS on this trip</p>
           <p className="mt-0.5 text-[11px] text-danger-800">
-            TodaSafeRide{passengerSosOnRide.todaNotified ? ' and the TODA have' : ' has'} been told. Pull over somewhere safe and check on them.
+            TODARide Mobility{passengerSosOnRide.todaNotified ? ' and the TODA have' : ' has'} been told. Pull over somewhere safe and check on them.
           </p>
           <div className="mt-2 flex gap-2">
             {(passenger?.phone ?? ride.passengerPhone) && (

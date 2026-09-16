@@ -79,7 +79,7 @@ export function EmergencySheet({
 
   const delivered = (alertLive?.notifications ?? []).filter((n) => n.status === 'delivered')
   const told: string[] = []
-  if (delivered.some((n) => n.recipientKind === 'admin')) told.push('TodaSafeRide Admin')
+  if (delivered.some((n) => n.recipientKind === 'admin')) told.push('TODARide Mobility Admin')
   if (delivered.some((n) => n.recipientKind === 'toda')) told.push('your TODA')
   if (delivered.some((n) => n.recipientKind === 'guardian')) told.push('your guardian')
   if (delivered.some((n) => n.recipientKind === 'counterpart')) told.push(role === 'passenger' ? 'your driver' : 'your passenger')
@@ -150,7 +150,7 @@ export function EmergencySheet({
       )}
 
       <p className="text-[11px] text-slate-500">
-        SOS tells TodaSafeRide and your TODA through the app. It does not call the police or an ambulance — for
+        SOS tells TODARide Mobility and your TODA through the app. It does not call the police or an ambulance — for
         that, use the phone:
       </p>
 

@@ -1451,7 +1451,7 @@ export function TripMonitor({
       {driverSos && !openSos && (
         <div className="rounded-lg border-2 border-danger-600 bg-danger-100 p-3">
           <p className="text-xs font-bold text-danger-900">🚨 Your driver raised an emergency SOS</p>
-          <p className="mt-0.5 text-[11px] text-danger-800">TodaSafeRide and the TODA have been told. If you are in danger, use the SOS or call 911.</p>
+          <p className="mt-0.5 text-[11px] text-danger-800">TODARide Mobility and the TODA have been told. If you are in danger, use the SOS or call 911.</p>
           <button
             type="button"
             onClick={() => setEmergencyOpen(true)}

@@ -5,7 +5,9 @@
 // it stays plain white text. A single-word name (including the bare generic
 // "TODA") has nothing to put ahead of the badge, so it badges alone — same
 // component, same split rule, no special-casing the generic case.
-export function PilotBranding({ name, compact }: { name: string; compact?: boolean }) {
+// hideSubtitle: for a screen that places "Transport & Opportunity Digital
+// Access" itself — the Welcome page puts it under its tagline instead.
+export function PilotBranding({ name, compact, hideSubtitle }: { name: string; compact?: boolean; hideSubtitle?: boolean }) {
   const words = name.trim().split(/\s+/)
   const org = words[words.length - 1]
   const prefix = words.length > 1 ? words.slice(0, -1).join(' ') : ''
@@ -34,11 +36,13 @@ export function PilotBranding({ name, compact }: { name: string; compact?: boole
             {org}
           </span>
         </p>
-        <p
-          className={`mt-1 whitespace-nowrap text-center text-gold-400 ${compact ? 'text-[9px]' : 'text-xs'}`}
-        >
-          Transport &amp; Opportunity Digital Access
-        </p>
+        {!hideSubtitle && (
+          <p
+            className={`mt-1 whitespace-nowrap text-center text-gold-400 ${compact ? 'text-[9px]' : 'text-xs'}`}
+          >
+            Transport &amp; Opportunity Digital Access
+          </p>
+        )}
       </div>
     </div>
   )

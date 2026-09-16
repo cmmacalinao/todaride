@@ -102,7 +102,7 @@ export function LandingPage() {
             <NearbyTodaAdCard name={pilotBranding.name} showNearYouTag={pilotBranding.showNearYouTag} />
           ) : (
             <div className="mt-4">
-              <PilotBranding name={pilotBranding.name} />
+              <PilotBranding name={pilotBranding.name} hideSubtitle />
             </div>
           )}
           <p className="mt-2 text-center text-xs font-medium italic leading-snug text-white/70">
@@ -110,6 +110,7 @@ export function LandingPage() {
             <br />
             Strengthening Communities.
           </p>
+          <p className="mt-1 text-center text-xs text-gold-400">Transport &amp; Opportunity Digital Access</p>
           {/* One user name and password for everyone — the form works out
               whether you're a rider, parent, driver, TODA officer, partner or
               admin, and sends you to your own page.

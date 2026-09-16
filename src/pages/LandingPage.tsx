@@ -4,6 +4,7 @@ import { AndroidAppBanner } from '../components/AndroidAppBanner'
 import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
 import { PilotBranding } from '../components/PilotBranding'
 import { BuildLabel } from '../components/BuildLabel'
+import { VisionMission } from '../components/VisionMission'
 import { usePilotBranding } from '../lib/usePilotBranding'
 import { useRides } from '../context/RideContext'
 
@@ -180,6 +181,8 @@ export function LandingPage() {
           ))}
         </div>
       </section>
+
+      <VisionMission />
 
       {/* Below the features, above the sign-up card: by here somebody has
           seen what the app does, which is the point at which installing it

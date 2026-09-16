@@ -68,6 +68,10 @@ import type { GeoCoords, PaymentMethod, Ride, RideCancellationReason } from '../
 
 type EarningsFilter = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'all'
 
+// Room the driver's section menu (DriverFooterNav) takes over a full-screen
+// map, so the map's bottom row stays above it.
+const DRIVER_FOOTER_INSET = '3.75rem'
+
 const EARNINGS_FILTER_LABELS: Record<EarningsFilter, string> = {
   daily: 'Today',
   weekly: 'This week',
@@ -950,6 +954,10 @@ export function DriverPage() {
 
   // The direct rider on the driver's own job — not the guardian fallback the
   // full contacts list on the trip screen also offers, which is one more tap
+  // The Fare/Arrives/Distance/Time/Trip row with nothing to fill it yet — no
+  // trip — so the dashboard shows the same row a trip will.
+  const idleDetailsBar = <TripDetailsBar fare="—" arrives="—" distance="—" time="—" trip="—" />
+
   // away and stays there. This is the quick line, reachable from every
   // screen the footer appears on rather than only the trip screen itself.
   const footerContact = (() => {
@@ -1479,11 +1487,18 @@ export function DriverPage() {
              a trip is running the frame holds the driver, the passenger and
              both ends of the journey, and re-centring on one of them would
              push the other three out. */
-          <RealLiveMap
-            points={dashboardMapPoints}
-            height="calc(100vh - 300px)"
-            centerOn={myLiveGps}
-          />
+          <div className="space-y-2">
+            <RealLiveMap
+              points={dashboardMapPoints}
+              height="calc(100vh - 300px)"
+              centerOn={myLiveGps}
+              detailsBar={idleDetailsBar}
+              fullscreenBottomInset={DRIVER_FOOTER_INSET}
+            />
+            {/* The same row a trip fills in, shown before there is one — it
+                does not appear and disappear as trips come and go. */}
+            <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">{idleDetailsBar}</div>
+          </div>
         )}
       </div>
 
@@ -2296,6 +2311,7 @@ function ActiveTripCard({
             frozen={framing.frozen}
             nav={navCamera}
             detailsBar={tripDetailsBar}
+            fullscreenBottomInset={DRIVER_FOOTER_INSET}
             // The map a driver is actually watching for the length of the
             // trip, not one sitting mid-page among other things to read —
             // the lock exists for that other case.

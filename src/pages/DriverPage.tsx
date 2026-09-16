@@ -1,5 +1,6 @@
 import { formatAddressLine } from '../lib/addressFormat'
 import { isActiveAlert } from '../lib/safety'
+import { EmergencySheet } from '../components/EmergencySheet'
 import { formatTripRoute } from '../lib/addressFormat'
 import { codBreakdown, isVendorDeliveryRide, rideServiceTag } from '../lib/vendorOrders'
 import { showInMiddle, showInMiddleWhenSettled, scrollViewToTop } from '../lib/showInMiddle'
@@ -119,7 +120,9 @@ export function DriverPage() {
     pabiliEnabled,
     simulateMovementEnabled,
     triggerDriverSos,
-    resolveAlert,
+    cancelAlert,
+    logAlertEvent,
+    safetySettings,
     reportDriverGps,
     medsOrders,
   } = useRides()
@@ -182,8 +185,6 @@ export function DriverPage() {
   }, [loggedInDriverId])
   const [queueNotice, setQueueNotice] = useState<{ title: string; body: string } | null>(null)
   const [checkingLocation, setCheckingLocation] = useState(false)
-  const [sosSending, setSosSending] = useState(false)
-  const [sosNotes, setSosNotes] = useState('')
   const [showHotlines, setShowHotlines] = useState(false)
   const [showRequests, setShowRequests] = useState(false)
   // Requests and the Pila are pages of their own rather than panels on the
@@ -710,16 +711,13 @@ export function DriverPage() {
   // fails/is denied, the alert still fires with location: null — TODA admin
   // and fellow members can still see it and call the driver directly.
   async function handleTriggerSos() {
-    setSosSending(true)
     let position = null
     try {
       position = await getCurrentGeoPosition()
     } catch {
       // No GPS — still send the alert below, just without a pin.
     }
-    triggerDriverSos(currentDriverId, position, sosNotes)
-    setSosNotes('')
-    setSosSending(false)
+    triggerDriverSos(currentDriverId, position, null)
   }
 
 
@@ -1463,60 +1461,33 @@ export function DriverPage() {
           city={driver.city}
           onClose={() => setShowHotlines(false)}
         >
-          <section className="rounded-xl border border-danger-200 bg-danger-50 p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-danger-900">🆘 Emergency SOS</h2>
-                <p className="mt-0.5 text-xs text-danger-800">
-                  {myOpenSos
-                    ? 'Sent — your TODA admin and fellow members have been alerted.'
-                    : homeToda
-                      ? `Alerts ${homeToda.name}'s admin and every online member.`
-                      : "You're not in a TODA yet — this still reaches the App Admin."}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleTriggerSos}
-                disabled={sosSending || !!myOpenSos}
-                className="shrink-0 rounded-full bg-danger-700 px-5 py-2.5 text-sm font-bold text-white shadow transition hover:bg-danger-800 disabled:cursor-not-allowed disabled:bg-danger-300"
-              >
-                {myOpenSos ? 'Sent' : sosSending ? 'Sending…' : 'SOS'}
-              </button>
-            </div>
-            {homeToda?.contactPhone && (
-              <a
-                href={`tel:${homeToda.contactPhone}`}
-                className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-danger-500 bg-white py-2 text-xs font-semibold text-danger-800 hover:bg-danger-100"
-              >
-                📞 Call {homeToda.name} admin — {homeToda.contactPhone}
-              </a>
-            )}
-            {!myOpenSos && (
-              <textarea
-                value={sosNotes}
-                onChange={(e) => setSosNotes(e.target.value)}
-                placeholder="What's the emergency? (optional — accident, hold-up, breakdown, etc.)"
-                rows={2}
-                className="mt-3 w-full rounded-lg border border-danger-300 bg-white px-3 py-2 text-xs placeholder:text-slate-400"
+          {(() => {
+            // The driver's own emergency screen — SOS with its countdown,
+            // Call 911, the passenger on the trip and the TODA office. See
+            // EmergencySheet; shared with the passenger's side.
+            const sosRide = myActiveRide ?? null
+            const sosPassenger = sosRide ? passengers.find((p) => p.id === sosRide.passengerId) ?? null : null
+            const sosPassengerPhone = sosPassenger?.phone ?? sosRide?.passengerPhone ?? null
+            return (
+              <EmergencySheet
+                inline
+                role="driver"
+                ride={sosRide}
+                actorName={driver.name}
+                location={watchedGps ?? driver.lastKnownGps ?? null}
+                contacts={driver.emergencyContact ? [{ id: 'driver-ec', name: driver.emergencyContact, phone: driver.emergencyContact, relationship: 'Emergency contact', smsEnabled: false }] : []}
+                counterpart={sosRide && sosPassengerPhone ? { label: sosRide.passengerName, phone: sosPassengerPhone } : null}
+                toda={homeToda?.contactPhone ? { name: homeToda.name, phone: homeToda.contactPhone } : null}
+                activeAlert={myOpenSos ?? null}
+                countdownSeconds={safetySettings.sosCountdownSeconds}
+                onSendSos={() => void handleTriggerSos()}
+                onCancelSos={(id) => cancelAlert(id, driver.name, 'driver')}
+                onLogEvent={(id, kind, summary) => logAlertEvent(id, kind, summary, driver.name, 'driver')}
+                onClose={() => setShowHotlines(false)}
               />
-            )}
-            {myOpenSos && (
-              <div className="mt-3 rounded-lg border border-danger-300 bg-white p-2.5 text-xs">
-                <p className="font-medium text-danger-800">
-                  Open since {new Date(myOpenSos.createdAt).toLocaleTimeString()}
-                  {myOpenSos.location ? ' · location shared' : ' · location not captured'}
-                </p>
-                <p className="mt-1 text-slate-600">{myOpenSos.notes}</p>
-                <button
-                  type="button"
-                  onClick={() => resolveAlert(myOpenSos.id)}
-                  className="mt-2 w-full rounded-lg border border-danger-300 py-1.5 text-xs font-medium text-danger-800 hover:bg-danger-50"
-                >
-                  I'm safe now — cancel SOS
-                </button>
-              </div>
-            )}
+            )
+          })()}
+          <section className="rounded-xl border border-danger-200 bg-danger-50 p-4 shadow-sm">
             {fellowOpenAlerts.length > 0 && (
               <div className="mt-3 space-y-1.5 border-t border-danger-200 pt-3">
                 <p className="text-[11px] font-semibold text-danger-800">Fellow member alerts — {homeToda?.name}</p>
@@ -1661,6 +1632,8 @@ function ActiveTripCard({
     setPabiliItemBought,
     confirmPassengerArrival,
     medsOrders,
+    alerts,
+    logAlertEvent,
   } = useRides()
   // Calling off a ride already accepted. Two steps on purpose: the reason is
   // the point of it — a cancellation with no account of itself tells the
@@ -1769,6 +1742,9 @@ function ActiveTripCard({
 
   const leg = getLegInfo(ride)
   const passenger = passengers.find((p) => p.id === ride.passengerId)
+  // A live passenger SOS on this very ride.
+  const passengerSosOnRide = alerts.find((a) => a.rideId === ride.id && a.type === 'sos' && a.triggeredByRole !== 'driver' && isActiveAlert(a)) ?? null
+  const driverName = drivers.find((d) => d.id === ride.driverId)?.name ?? 'Driver'
   const parentLink = parentLinks.find((l) => l.studentPassengerId === ride.passengerId)
   const parent = parentLink ? parents.find((p) => p.id === parentLink.parentId) : null
   const contacts = [
@@ -2074,6 +2050,28 @@ function ActiveTripCard({
             </div>
           </div>
         )}
+      {passengerSosOnRide && (
+        <div className="rounded-lg border-2 border-danger-600 bg-danger-100 p-3">
+          <p className="text-xs font-bold text-danger-900">🚨 {ride.passengerName} raised an emergency SOS on this trip</p>
+          <p className="mt-0.5 text-[11px] text-danger-800">
+            TodaSafeRide{passengerSosOnRide.todaNotified ? ' and the TODA have' : ' has'} been told. Pull over somewhere safe and check on them.
+          </p>
+          <div className="mt-2 flex gap-2">
+            {(passenger?.phone ?? ride.passengerPhone) && (
+              <a
+                href={`tel:${passenger?.phone ?? ride.passengerPhone}`}
+                onClick={() => logAlertEvent(passengerSosOnRide.id, 'call_passenger', `Driver called ${ride.passengerName}`, driverName, 'driver')}
+                className="flex-1 rounded-lg bg-danger-600 py-2 text-center text-xs font-semibold text-white hover:bg-danger-700"
+              >
+                📞 Call {ride.passengerName}
+              </a>
+            )}
+            <a href="tel:911" onClick={() => logAlertEvent(passengerSosOnRide.id, 'call_911', 'Driver tapped Call 911', driverName, 'driver')} className="flex-1 rounded-lg border border-danger-600 bg-white py-2 text-center text-xs font-semibold text-danger-800 hover:bg-danger-50">
+              🚑 Call 911
+            </a>
+          </div>
+        </div>
+      )}
       {/* The four figures a driver glances at, as one row of equal cells
           — label over value, all the same size — instead of a big fare
           wrapping onto two lines beside a smaller arrival paragraph. */}

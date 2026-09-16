@@ -4,6 +4,13 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import './index.css'
 import { freshStart, wantsFreshStart } from './lib/freshStart'
+import { registerServiceWorkerUpdates } from './lib/swUpdate'
+
+// Checks for a newer deploy immediately and again whenever this tab is
+// looked at — see swUpdate.ts for why the plugin's own default injection
+// wasn't enough. Registered once here regardless of which branch below
+// runs, so it applies the moment any of them loads.
+registerServiceWorkerUpdates()
 
 // A scanned or shared link arrives with ?fresh, meaning: bring this phone up
 // to the current build before showing it anything. Nothing is mounted in that

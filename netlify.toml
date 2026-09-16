@@ -36,3 +36,17 @@
   [headers.values]
     Access-Control-Allow-Origin = "*"
     Cache-Control = "no-store"
+
+# The service worker script itself must never be cached — the whole update
+# check (see src/lib/swUpdate.ts) is a byte comparison against this exact
+# file, done over the network. A CDN or browser HTTP cache serving a stale
+# copy here would make every layer of that check pass on old bytes, which
+# looks identical to "already up to date" from the outside.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+[[headers]]
+  for = "/registerSW.js"
+  [headers.values]
+    Cache-Control = "no-cache"

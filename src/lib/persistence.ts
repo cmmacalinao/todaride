@@ -212,6 +212,11 @@ class SupabaseAdapter implements PersistenceAdapter {
   // The realtime channel, once subscribed — the blob's change notice is
   // sent over it (see saveAsync).
   private channel: RealtimeChannel | null = null
+  // The whole shared world as this document last knew it: the last full
+  // read, with this document's own successful writes laid over it. Lets a
+  // change to one table be answered by re-reading that table alone (see
+  // fetchTables) instead of the blob and every table again.
+  private lastShared: Record<string, unknown> | null = null
 
   // Called by RideContext once a shared read has been applied — not merely
   // received. A read that arrives but cannot be hydrated leaves the document
@@ -256,10 +261,43 @@ class SupabaseAdapter implements PersistenceAdapter {
         missingTables.delete(h.table)
         merged[h.key] = (res.data ?? []).map((row) => (row as { data: unknown }).data)
       })
+      this.lastShared = merged
       return merged
     } catch (err) {
       // A pilot phone that loses signal must keep working on what it has
       // rather than showing an empty app.
+      console.warn('[persistence] could not read the shared state', err)
+      return null
+    }
+  }
+
+  // Re-reads only the named hot tables and lays them over lastShared.
+  //
+  // A ride moving along writes its row every few seconds, and every connected
+  // device used to answer each of those notices by downloading the blob and
+  // every table — megabytes per device per tick, which is what pushed the
+  // shared reads past the database's statement timeout. The blob and the
+  // other tables have their own notices (the blob-changed broadcast, their
+  // own row changes) and the heartbeat still does a full read, so nothing
+  // relies on a ride notice to learn about anything but rides.
+  private async fetchTables(tables: Set<string>): Promise<Record<string, unknown> | null> {
+    if (!this.lastShared) return this.fetchShared()
+    const db = getSupabase()
+    if (!db) return null
+    const wanted = HOT.filter((h) => tables.has(h.table) && !missingTables.has(h.table))
+    if (wanted.length === 0) return null
+    try {
+      const results = await Promise.all(wanted.map((h) => db.from(h.table).select('data')))
+      // Read after the queries return, so a write of ours that finished in
+      // the meantime is already part of it.
+      const merged: Record<string, unknown> = { ...this.lastShared }
+      results.forEach((res, i) => {
+        if (res.error) throw res.error
+        merged[wanted[i].key] = (res.data ?? []).map((row) => (row as { data: unknown }).data)
+      })
+      this.lastShared = merged
+      return merged
+    } catch (err) {
       console.warn('[persistence] could not read the shared state', err)
       return null
     }
@@ -332,6 +370,11 @@ class SupabaseAdapter implements PersistenceAdapter {
     try {
       await Promise.all(work)
       this.localOnly = false
+      // Without this, a table-only refetch would hand back the blob from
+      // the last full read — older than what this document just wrote — and
+      // HYDRATE takes the blob's settings wholesale, reverting this
+      // device's own change on screen and then saving the reverted value.
+      if (this.lastShared) this.lastShared = { ...this.lastShared, ...next }
       if (blobChanged) {
         this.lastBlobJson = blobJson
         // Tell the other devices the blob changed — a few bytes, not the
@@ -350,10 +393,10 @@ class SupabaseAdapter implements PersistenceAdapter {
     const db = getSupabase()
     if (!db) return this.local.subscribe(onRemote)
 
-    // On any change from anywhere, re-read the whole world and hand it over.
-    // Surgically patching one row into the in-memory tree would be faster and
-    // would also be where the subtle bugs live; at a pilot's data volume the
-    // simple thing is fast enough and is obviously correct.
+    // On a change from anywhere, re-read what changed and hand over the whole
+    // world. Surgically patching one row into the in-memory tree would be
+    // faster still and would also be where the subtle bugs live; re-reading a
+    // whole table keeps the simple, obviously correct shape.
     let timer: ReturnType<typeof setTimeout> | null = null
     // How many reads in a row were thrown away because a save began while
     // they were in flight. A device that saves every second (a ride ticking
@@ -363,20 +406,32 @@ class SupabaseAdapter implements PersistenceAdapter {
     // HYDRATE merges rides, accounts and posts, so what this device changed
     // in the meantime survives the merge and goes out on its next save.
     let deferred = 0
-    const refetch = () => {
+    // What the pending refetch has to read: named hot tables, or everything.
+    let pendingAll = false
+    const pendingTables = new Set<string>()
+    // No table: a full read (the blob changed, the heartbeat, coming back
+    // from the background). A table: just that table — see fetchTables.
+    const refetch = (table?: string) => {
+      if (table) pendingTables.add(table)
+      else pendingAll = true
       if (timer) clearTimeout(timer)
       // A single user action can touch several tables — accepting a ride
       // writes the ride and the driver. Coalesce so that lands as one update.
       timer = setTimeout(async () => {
+        const all = pendingAll
+        const tables = new Set(pendingTables)
+        pendingAll = false
+        pendingTables.clear()
         // See saveInFlight: never read over the top of our own unfinished
         // write, and never apply a read that a newer write has overtaken —
         // that newer save's own completion will trigger the next refetch.
         const seqAtStart = this.saveSeq
         if (this.saveInFlight) await this.saveInFlight
-        const shared = await this.fetchShared()
+        const shared = all ? await this.fetchShared() : await this.fetchTables(tables)
         if (this.saveSeq !== seqAtStart && deferred < 2) {
           deferred += 1
-          refetch()
+          if (all) refetch()
+          else tables.forEach((t) => refetch(t))
           return
         }
         deferred = 0
@@ -389,7 +444,7 @@ class SupabaseAdapter implements PersistenceAdapter {
     // The blob is not: its notice is the small broadcast below instead of
     // a postgres_changes subscription that would deliver the whole row.
     for (const table of HOT.map((h) => h.table)) {
-      channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => refetch())
+      channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => refetch(table))
     }
     channel.on('broadcast', { event: 'blob-changed' }, (msg) => {
       const writer = (msg.payload as { writer?: string } | undefined)?.writer

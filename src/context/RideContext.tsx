@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useReducer, type ReactNode, useRef } from 'react'
+import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode, useRef } from 'react'
 import { BANNER_AD_SLOT_COUNT, MAX_VENDOR_POSTS } from '../types'
 import { mergeById, mergeIncomingRides, mergeVendorPosts } from '../lib/rideMerge'
 import { PILOT_ORIGIN } from '../lib/pilotOrigin'
@@ -1934,15 +1934,58 @@ const LATE_SEED_VENDOR_IDS = new Set(['vendor-3', 'vendor-4', 'vendor-5', 'vendo
 // person might have customized — a stored landmark missing `city` (from
 // before that field existed) is healed from the current seed by id, and any
 // seed landmark added since is merged in the same way late-seed vendors are.
+//
+// The shared state stores only landmarks that differ from the seed (see
+// landmarksToStore), so this is also what rebuilds the full list on load.
+// A copy saved before that change still holds every seed landmark; those
+// come back as the seed objects themselves, so the next save sees them as
+// unchanged and drops them.
+const SEED_LANDMARK_BY_ID = new Map(MOCK_LANDMARKS.map((l) => [l.id, l]))
+
+function sameAsSeed(l: Landmark, seed: Landmark): boolean {
+  if (l === seed) return true
+  const a = l as unknown as Record<string, unknown>
+  const b = seed as unknown as Record<string, unknown>
+  for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    if (a[key] === b[key]) continue
+    if (key === 'gps') {
+      if (l.gps?.lat !== seed.gps?.lat || l.gps?.lng !== seed.gps?.lng) return false
+      continue
+    }
+    if (key === 'aliases') {
+      if (!Array.isArray(l.aliases) || l.aliases.length !== seed.aliases.length) return false
+      if (l.aliases.some((alias, i) => alias !== seed.aliases[i])) return false
+      continue
+    }
+    return false
+  }
+  return true
+}
+
 function withHealedLandmarks(stored: Landmark[] | undefined): Landmark[] {
   if (!stored?.length) return MOCK_LANDMARKS
-  const seen = new Set(stored.map((l) => l.id))
-  const missing = MOCK_LANDMARKS.filter((l) => !seen.has(l.id))
-  const healed = stored.map((l) => {
-    const seed = MOCK_LANDMARKS.find((s) => s.id === l.id)
-    return seed ? { ...seed, ...l, city: l.city ?? seed.city } : l
+  const storedById = new Map(stored.map((l) => [l.id, l]))
+  const fromSeed = MOCK_LANDMARKS.map((seed) => {
+    const l = storedById.get(seed.id)
+    if (!l) return seed
+    const healed = { ...seed, ...l, city: l.city ?? seed.city }
+    return sameAsSeed(healed, seed) ? seed : healed
   })
-  return missing.length > 0 ? [...healed, ...missing] : healed
+  const added = stored.filter((l) => !SEED_LANDMARK_BY_ID.has(l.id))
+  return added.length > 0 ? [...fromSeed, ...added] : fromSeed
+}
+
+// What of the landmark list actually needs saving: places someone added, and
+// seed places someone moved or renamed. The seed itself ships inside the app,
+// so re-uploading its ~7,000 entries (about 1.4 MB) on every save — and every
+// device re-downloading them on every refresh — bought nothing and was most
+// of what made shared-state reads time out. Deleted seed places are carried
+// by deletedLandmarkIds, not by this list.
+export function landmarksToStore(landmarks: Landmark[]): Landmark[] {
+  return landmarks.filter((l) => {
+    const seed = SEED_LANDMARK_BY_ID.get(l.id)
+    return !seed || !sameAsSeed(l, seed)
+  })
 }
 
 function withLateSeedVendors(stored: Pharmacy[] | undefined): Pharmacy[] {
@@ -7099,6 +7142,9 @@ export function RideProvider({ children }: { children: ReactNode }) {
   // The last blob handed to the adapter. Compared against the next one to
   // work out which rides/drivers/alerts actually changed.
   const lastSavedRef = useRef<StoredState | null>(null)
+  // Recomputed only when the landmark list itself changes, not on every
+  // ride tick that triggers a save.
+  const storedLandmarks = useMemo(() => landmarksToStore(state.landmarks), [state.landmarks])
 
   // Pull the shared world once at startup. Without a backend configured this
   // resolves to null immediately and the app carries on with what was in
@@ -7162,7 +7208,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           specialPickupEscalationMs: state.specialPickupEscalationMs,
           todaOrganizations: state.todaOrganizations,
           terminals: state.terminals,
-          landmarks: state.landmarks,
+          landmarks: storedLandmarks,
           deletedLandmarkIds: state.deletedLandmarkIds,
           boundaries: state.boundaries,
           clsuFleetQueued: state.clsuFleetQueued,
@@ -7271,7 +7317,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     // rename, add or delete — or a store removal — only reached storage
     // when some unrelated state happened to change next. The admin saw
     // "not saving" on a dragged landmark pin.
-    state.landmarks,
+    storedLandmarks,
     state.deletedLandmarkIds,
     state.clsuFleetQueued,
     state.removedPharmacyIds,

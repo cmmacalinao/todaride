@@ -26,11 +26,13 @@ const MORE_FEATURES = [
 
 export function LandingPage() {
   const pilotBranding = usePilotBranding()
-  // Whichever Operator has set one — the same lookup the header uses for the
-  // partner logo, and the same owner. Null once they remove it, in which case
-  // the screen simply starts at the masthead.
-  const { operators } = useRides()
-  const partnerBanner = operators.find((o) => o.bannerDataUrl)?.bannerDataUrl ?? null
+  // The Rotary partnership card — a Super Admin switch (see
+  // SuperAdminPage.tsx's "Sign-in screen branding"), not the per-Operator
+  // banner upload below. That upload feature (operator.bannerDataUrl) stays
+  // in the data model for a future custom banner, but this specific asset
+  // is a fixed file: the original combined graphic cropped free of the old
+  // TODA SafeRide logo it used to carry, kept off until switched back on.
+  const { partnerBannerEnabled } = useRides()
   return (
     <div className="mx-auto max-w-lg bg-white">
       {/* One dark screen, sized to fill the phone rather than just its own
@@ -76,12 +78,12 @@ export function LandingPage() {
           <div className="rounded-2xl border-2 border-white/25 p-3">
             <img src="/logo.png" alt="TODA Ride Mobility" className="h-20 w-auto object-contain" />
           </div>
-          {/* The partnership artwork, in place of the old logo card. Seeded
-              with the Rotary banner, its navy field cut away so it sits on the
-              cover gradient itself; replaceable or removable by the Operator
-              from their portal (see PartnerBannerSection). */}
-          {partnerBanner && (
-            <img src={partnerBanner} alt="Partner banner" className="mx-auto w-full max-w-sm" />
+          {/* The Rotary partnership card — off unless Super Admin has
+              switched it on. Its navy field is cut away so it sits on the
+              cover gradient itself, same as the combined graphic it was
+              cropped from. */}
+          {partnerBannerEnabled && (
+            <img src="/partner-banner-rotary.png" alt="Rotary Club partnership" className="mx-auto w-full max-w-sm" />
           )}
           {/* Which build this actually is — see BuildLabel. Right under the
               logo/partner artwork so it's the first thing a screenshot of a

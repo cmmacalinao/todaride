@@ -386,6 +386,12 @@ interface RideState {
   // from medsEnabled so an operator can run Pabili-style vendor delivery
   // without opening the pharmacy/prescription side at all.
   vendorsEnabled: boolean
+  // The Rotary Club partnership card on the sign-in screen — see
+  // LandingPage.tsx. Off by default: the asset (public/partner-banner-
+  // rotary.png, the card cropped free of the old TODA SafeRide logo it used
+  // to carry) stays reserved rather than deleted, so Super Admin can switch
+  // it back on without anyone re-uploading anything.
+  partnerBannerEnabled: boolean
   // Prototype shortcut: show the one-time code on screen instead of texting
   // it. Off means OTP screens must get a real code from the SMS server
   // (see server/index.js) and surface an error if it isn't reachable,
@@ -579,6 +585,7 @@ type RideAction =
   | { type: 'SET_REWARDS_ENABLED'; enabled: boolean }
   | { type: 'SET_MEDS_ENABLED'; enabled: boolean }
   | { type: 'SET_VENDORS_ENABLED'; enabled: boolean }
+  | { type: 'SET_PARTNER_BANNER_ENABLED'; enabled: boolean }
   | { type: 'SET_SIMULATED_OTP_ENABLED'; enabled: boolean }
   | { type: 'SET_PUBLIC_BASE_URL'; url: string }
   | { type: 'SET_PILOT_TODA_NAME'; name: string }
@@ -1570,6 +1577,7 @@ interface StoredState {
   rewardsEnabled?: boolean
   medsEnabled?: boolean
   vendorsEnabled?: boolean
+  partnerBannerEnabled?: boolean
   simulatedOtpEnabled?: boolean
   publicBaseUrl?: string
   pilotTodaName?: string
@@ -1841,6 +1849,7 @@ function fromStored(parsed: StoredState): RideState {
     rewardsEnabled: parsed.rewardsEnabled ?? false,
     medsEnabled: parsed.medsEnabled ?? false,
     vendorsEnabled: parsed.vendorsEnabled ?? false,
+    partnerBannerEnabled: parsed.partnerBannerEnabled ?? false,
     // Real codes unless somebody has said otherwise. The endpoint is live
     // and the account has credits, so a pilot with real testers should be
     // proving the real path. An install that has already chosen keeps its
@@ -2112,6 +2121,7 @@ function loadInitialState(): RideState {
     rewardsEnabled: false,
     medsEnabled: false,
     vendorsEnabled: false,
+    partnerBannerEnabled: false,
     simulatedOtpEnabled: false,
     publicBaseUrl: '',
     pilotTodaName: '',
@@ -3724,6 +3734,8 @@ function reducer(state: RideState, action: RideAction): RideState {
       return { ...state, medsEnabled: action.enabled }
     case 'SET_VENDORS_ENABLED':
       return { ...state, vendorsEnabled: action.enabled }
+    case 'SET_PARTNER_BANNER_ENABLED':
+      return { ...state, partnerBannerEnabled: action.enabled }
     case 'SET_SIMULATED_OTP_ENABLED':
       return { ...state, simulatedOtpEnabled: action.enabled }
     case 'ADD_EMERGENCY_HOTLINE':
@@ -6282,6 +6294,7 @@ interface RideContextValue extends RideState {
   setRewardsEnabled: (enabled: boolean) => void
   setMedsEnabled: (enabled: boolean) => void
   setVendorsEnabled: (enabled: boolean) => void
+  setPartnerBannerEnabled: (enabled: boolean) => void
   setSimulatedOtpEnabled: (enabled: boolean) => void
   setPublicBaseUrl: (url: string) => void
   setPilotTodaName: (name: string) => void
@@ -7199,6 +7212,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           rewardsEnabled: state.rewardsEnabled,
           medsEnabled: state.medsEnabled,
           vendorsEnabled: state.vendorsEnabled,
+          partnerBannerEnabled: state.partnerBannerEnabled,
           simulatedOtpEnabled: state.simulatedOtpEnabled,
           publicBaseUrl: state.publicBaseUrl,
           pilotTodaName: state.pilotTodaName,
@@ -7307,6 +7321,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     state.rewardsEnabled,
     state.medsEnabled,
     state.vendorsEnabled,
+    state.partnerBannerEnabled,
     state.simulatedOtpEnabled,
     state.publicBaseUrl,
     state.pilotTodaName,
@@ -7534,6 +7549,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setRewardsEnabled: (enabled) => dispatch({ type: 'SET_REWARDS_ENABLED', enabled }),
     setMedsEnabled: (enabled) => dispatch({ type: 'SET_MEDS_ENABLED', enabled }),
     setVendorsEnabled: (enabled) => dispatch({ type: 'SET_VENDORS_ENABLED', enabled }),
+    setPartnerBannerEnabled: (enabled) => dispatch({ type: 'SET_PARTNER_BANNER_ENABLED', enabled }),
     setSimulatedOtpEnabled: (enabled) => dispatch({ type: 'SET_SIMULATED_OTP_ENABLED', enabled }),
     setPublicBaseUrl: (url) => dispatch({ type: 'SET_PUBLIC_BASE_URL', url }),
     setPilotTodaName: (name) => dispatch({ type: 'SET_PILOT_TODA_NAME', name }),

@@ -41,6 +41,8 @@ export function SuperAdminPage() {
     setRewardsEnabled,
     medsEnabled,
     vendorsEnabled,
+    partnerBannerEnabled,
+    setPartnerBannerEnabled,
     safetySettings,
     setSafetySettings,
     commissionPerRide,
@@ -281,6 +283,23 @@ export function SuperAdminPage() {
               description="Resto/Food and other-commodity partner sign-up and accounts — independent of Buy Medicine, so vendors can run without the pharmacy side."
               enabled={vendorsEnabled}
               onChange={setVendorsEnabled}
+            />
+          </section>
+
+          <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-700">Sign-in screen branding</h2>
+              <p className="mt-0.5 text-[11px] text-slate-500">
+                Extras shown on the launch/sign-in screen, below the app logo — separate from the per-Operator
+                partner banner upload in the Operator portal.
+              </p>
+            </div>
+            <FeatureToggleRow
+              icon="🤝"
+              label="Rotary partnership card"
+              description="The Community Economic Development Initiative card. Off by default — the image (cropped free of the old TODA SafeRide logo it used to carry) stays reserved, ready to switch back on."
+              enabled={partnerBannerEnabled}
+              onChange={setPartnerBannerEnabled}
             />
           </section>
 

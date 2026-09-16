@@ -241,9 +241,7 @@ export function SimulatorPage() {
     rides,
     clearAllRides,
     medsEnabled,
-    vendorsEnabled,
     setMedsEnabled,
-    setVendorsEnabled,
     terminals,
     todaOrganizations,
     addTerminal,
@@ -934,7 +932,8 @@ export function SimulatorPage() {
           ))}
         </div>
         <ServiceToggle label="💊" title="Medicine" on={medsEnabled} onChange={setMedsEnabled} />
-        <ServiceToggle label="🍽️" title="Food" on={vendorsEnabled} onChange={setVendorsEnabled} />
+        {/* Food Order's own toggle came out with vendorsEnabled ever being
+            settable to false — see SuperAdminPage.tsx. Always on now. */}
         <label
           title="How long a simulated leg takes. Slower is for showing someone; faster is for testing."
           className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-600"

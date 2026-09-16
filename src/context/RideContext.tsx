@@ -382,11 +382,14 @@ interface RideState {
   // by default: the Rewards tab, drawer item and page stay hidden until on.
   rewardsEnabled: boolean
   medsEnabled: boolean
-  // Food/Resto and other-commodity partner vendors — deliberately separate
-  // from medsEnabled so an operator can run Pabili-style vendor delivery
-  // without opening the pharmacy/prescription side at all. On by default,
-  // per Super Admin — Food Order and merchant sign-up are meant to be open
-  // out of the box; still a real switch either way.
+  // Food/Resto and other-commodity partner vendors — Food Order and the
+  // merchant sign-up path. Always true now (see fromStored) — kept apart
+  // from medsEnabled the way it always was (an operator can run
+  // Pabili-style vendor delivery without opening the pharmacy/
+  // prescription side at all), but there is no live switch left that can
+  // turn it off. Kept as a real field rather than deleted so the
+  // RideState/StoredState shape and every existing reader of it don't
+  // need touching.
   vendorsEnabled: boolean
   // The Rotary Club partnership card on the sign-in screen — see
   // LandingPage.tsx. Off by default: the asset (public/partner-banner-
@@ -586,7 +589,6 @@ type RideAction =
   | { type: 'SET_PABILI_ENABLED'; enabled: boolean }
   | { type: 'SET_REWARDS_ENABLED'; enabled: boolean }
   | { type: 'SET_MEDS_ENABLED'; enabled: boolean }
-  | { type: 'SET_VENDORS_ENABLED'; enabled: boolean }
   | { type: 'SET_PARTNER_BANNER_ENABLED'; enabled: boolean }
   | { type: 'SET_SIMULATED_OTP_ENABLED'; enabled: boolean }
   | { type: 'SET_PUBLIC_BASE_URL'; url: string }
@@ -1850,12 +1852,15 @@ function fromStored(parsed: StoredState): RideState {
     pabiliEnabled: parsed.pabiliEnabled ?? false,
     rewardsEnabled: parsed.rewardsEnabled ?? false,
     medsEnabled: parsed.medsEnabled ?? false,
-    // Food Order and the vendor/merchant sign-up path — on by default per
-    // Super Admin (see the matching change to the initial state below).
-    // Still a real Super Admin switch: turning it off hides it same as any
-    // other service, this just changes what a phone with nothing stored
-    // yet starts from.
-    vendorsEnabled: parsed.vendorsEnabled ?? true,
+    // Food Order and the vendor/merchant sign-up path — permanently on,
+    // not a real Super Admin switch any more (see the matching removal in
+    // SuperAdminPage.tsx). A stored `false` from before that change, or
+    // from the shared-state clobber this project already has a memory
+    // note about (a stale tab's own periodic save silently overwriting a
+    // newer setting), is ignored outright rather than merely defaulted —
+    // this is the one field that must never come back false no matter
+    // what's sitting in the blob.
+    vendorsEnabled: true,
     partnerBannerEnabled: parsed.partnerBannerEnabled ?? false,
     // Real codes unless somebody has said otherwise. The endpoint is live
     // and the account has credits, so a pilot with real testers should be
@@ -3741,8 +3746,6 @@ function reducer(state: RideState, action: RideAction): RideState {
       return { ...state, rewardsEnabled: action.enabled }
     case 'SET_MEDS_ENABLED':
       return { ...state, medsEnabled: action.enabled }
-    case 'SET_VENDORS_ENABLED':
-      return { ...state, vendorsEnabled: action.enabled }
     case 'SET_PARTNER_BANNER_ENABLED':
       return { ...state, partnerBannerEnabled: action.enabled }
     case 'SET_SIMULATED_OTP_ENABLED':
@@ -6302,7 +6305,6 @@ interface RideContextValue extends RideState {
   setPabiliEnabled: (enabled: boolean) => void
   setRewardsEnabled: (enabled: boolean) => void
   setMedsEnabled: (enabled: boolean) => void
-  setVendorsEnabled: (enabled: boolean) => void
   setPartnerBannerEnabled: (enabled: boolean) => void
   setSimulatedOtpEnabled: (enabled: boolean) => void
   setPublicBaseUrl: (url: string) => void
@@ -7557,7 +7559,6 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setPabiliEnabled: (enabled) => dispatch({ type: 'SET_PABILI_ENABLED', enabled }),
     setRewardsEnabled: (enabled) => dispatch({ type: 'SET_REWARDS_ENABLED', enabled }),
     setMedsEnabled: (enabled) => dispatch({ type: 'SET_MEDS_ENABLED', enabled }),
-    setVendorsEnabled: (enabled) => dispatch({ type: 'SET_VENDORS_ENABLED', enabled }),
     setPartnerBannerEnabled: (enabled) => dispatch({ type: 'SET_PARTNER_BANNER_ENABLED', enabled }),
     setSimulatedOtpEnabled: (enabled) => dispatch({ type: 'SET_SIMULATED_OTP_ENABLED', enabled }),
     setPublicBaseUrl: (url) => dispatch({ type: 'SET_PUBLIC_BASE_URL', url }),

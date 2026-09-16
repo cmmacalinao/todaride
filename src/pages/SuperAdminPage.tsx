@@ -39,7 +39,6 @@ export function SuperAdminPage() {
     rewardsEnabled,
     setRewardsEnabled,
     medsEnabled,
-    vendorsEnabled,
     partnerBannerEnabled,
     setPartnerBannerEnabled,
     safetySettings,
@@ -62,7 +61,6 @@ export function SuperAdminPage() {
     pilotTodaName,
     setPilotTodaName,
     setMedsEnabled,
-    setVendorsEnabled,
     setSimulatedOtpEnabled,
     setSimulateMovementEnabled,
     setPublicBaseUrl,
@@ -268,13 +266,14 @@ export function SuperAdminPage() {
               enabled={rewardsEnabled}
               onChange={setRewardsEnabled}
             />
-            <FeatureToggleRow
-              icon="🍽️"
-              label="Food & Vendor partners"
-              description="Resto/Food and other-commodity partner sign-up and accounts — independent of Buy Medicine, so vendors can run without the pharmacy side."
-              enabled={vendorsEnabled}
-              onChange={setVendorsEnabled}
-            />
+            {/* Food & Vendor partners had its own switch here — removed
+                along with vendorsEnabled ever being settable to false (see
+                RideContext.tsx's fromStored). It kept reverting to off
+                whenever a stale tab elsewhere resaved an old snapshot of
+                the shared state, making the switch itself the thing that
+                looked broken; Food Order and merchant sign-up are meant to
+                always be available, so the fix was to stop it being a
+                switch at all rather than keep chasing the revert. */}
           </section>
 
           <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">

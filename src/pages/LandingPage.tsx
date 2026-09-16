@@ -139,6 +139,13 @@ export function LandingPage() {
       {/* Hairline instead of a colour change: with the login screen now white
           too, this is the only thing separating the two halves. */}
       <section className="border-t border-slate-200 bg-white px-5 py-10">
+        {/* The first thing below the login area, on the white half. Renders
+            nothing off Android. -mx-4 cancels the banner's own side margin,
+            which this section's padding already provides. */}
+        <div className="-mx-4">
+          <AndroidAppBanner />
+        </div>
+
         {/* What the name stands for, opening the half of the page that
             explains the app — below the fold rather than in the hero, where
             it would push the login form down. */}
@@ -191,10 +198,6 @@ export function LandingPage() {
 
       <VisionMission />
 
-      {/* Below the features, above the sign-up card: by here somebody has
-          seen what the app does, which is the point at which installing it
-          is a reasonable thing to ask. Renders nothing off Android. */}
-      <AndroidAppBanner />
 
       <section className="bg-white px-5 pb-10">
         <div className="rounded-xl bg-brand-600 p-5 text-center">

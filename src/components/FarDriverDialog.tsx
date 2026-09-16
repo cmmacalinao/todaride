@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { formatDuration, formatKm } from '../lib/geo'
 
 // "This driver is far away" — asked of the passenger once a far-away driver
@@ -8,12 +9,15 @@ export function FarDriverDialog({
   who,
   meters,
   minutes,
+  note,
   confirmLabel,
   cancelLabel,
   onConfirm,
   onCancel,
 }: {
   title: string
+  // What choosing the first button costs, shown before anyone taps it.
+  note?: ReactNode
   // Who is far from whom, finished by the distance and time, e.g. "Mang Ramon
   // is" / "The pickup is".
   who: string
@@ -33,6 +37,7 @@ export function FarDriverDialog({
           {who} about <span className="font-bold text-slate-900">{formatKm(meters)}</span> away — around{' '}
           <span className="font-bold text-slate-900">{formatDuration(minutes)}</span> to arrive.
         </p>
+        {note && <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">{note}</div>}
         <div className="mt-4 space-y-2">
           <button type="button" onClick={onConfirm} className="w-full rounded-xl bg-brand-600 py-3 text-base font-bold text-white hover:bg-brand-700">
             {confirmLabel}

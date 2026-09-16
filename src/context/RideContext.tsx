@@ -523,6 +523,7 @@ type RideAction =
   | { type: 'ACCEPT_RIDE'; rideId: string; driverId: string }
   | { type: 'DECLINE_RIDE'; rideId: string; driverId: string }
   | { type: 'PASSENGER_RELEASE_DRIVER'; rideId: string }
+  | { type: 'PASSENGER_KEEP_FAR_DRIVER'; rideId: string; meters: number }
   | {
       type: 'START_RIDE'
       rideId: string
@@ -2565,6 +2566,16 @@ function busyDriverIds(rides: Ride[]): Set<string> {
 
 // The state a dispatch decision is made against, gathered in one place so
 // every call site ranks candidates the same way.
+// What keeping a far-away driver costs: every kilometre of their drive to the
+// pickup at the per-km rate of the tariff this ride is priced on (the same
+// TODA → city → platform schedule REQUEST_RIDE uses). One decimal of km, the
+// way the passenger is shown it, so the quoted and charged figures agree.
+function farPickupQuote(state: RideState, ride: Ride, meters: number): { km: number; fee: number } {
+  const tariff = resolveTariff(state.tariffSettings, state.cityTariffs, state.todaTariffs, ride.pickup.city, ride.priorityTodaOrgId)
+  const km = Math.round(meters / 100) / 10
+  return { km, fee: Math.round(km * tariff.perKmRate) }
+}
+
 function dispatchCtx(state: RideState, pickupGps: GeoCoords | null) {
   return {
     pickupGps,
@@ -3118,15 +3129,40 @@ function reducer(state: RideState, action: RideAction): RideState {
                 driverLiveGpsAt: null,
                 // The out-of-area charge belonged to where that driver was
                 // coming from; the next driver quotes their own.
-                fareEstimate: r.fareEstimate - (r.outOfAreaFee ?? 0),
+                fareEstimate: r.fareEstimate - (r.outOfAreaFee ?? 0) - (r.farPickupFee ?? 0),
                 outOfAreaKm: 0,
                 outOfAreaFee: 0,
+                farPickupKeptAt: null,
+                farPickupKm: 0,
+                farPickupFee: 0,
                 pendingApproval: null,
                 declinedByDriverIds: declined.includes(releasedId) ? declined : [...declined, releasedId],
                 releasedDrivers: [...(r.releasedDrivers ?? []), { driverId: releasedId, driverName: releasedName, at }],
                 priorityQueueLog,
                 priorityQueueOfferedDriverId: offeredDriverId,
                 priorityQueueOfferedAt: offeredAt,
+              }
+            : r,
+        ),
+      }
+    }
+    // The passenger keeps a driver who accepted from far away, and with it
+    // agrees to pay for that drive to the pickup (the dialog showed the
+    // amount before they chose). Charged once: a second keep is a no-op.
+    case 'PASSENGER_KEEP_FAR_DRIVER': {
+      const ride = state.rides.find((r) => r.id === action.rideId)
+      if (!ride || ride.status !== 'driver_arriving' || ride.farPickupKeptAt) return state
+      const { km, fee } = farPickupQuote(state, ride, action.meters)
+      return {
+        ...state,
+        rides: state.rides.map((r) =>
+          r.id === action.rideId
+            ? {
+                ...r,
+                farPickupKeptAt: new Date().toISOString(),
+                farPickupKm: km,
+                farPickupFee: fee,
+                fareEstimate: r.fareEstimate + fee,
               }
             : r,
         ),
@@ -6352,6 +6388,10 @@ interface RideContextValue extends RideState {
   // The passenger lets the accepted driver go (too far away) and the ride goes
   // back to finding someone else — see PASSENGER_RELEASE_DRIVER.
   releaseDriver: (rideId: string) => void
+  // The passenger keeps a far-away driver and accepts the charge for that
+  // drive to the pickup — see PASSENGER_KEEP_FAR_DRIVER and farPickupQuote.
+  keepFarDriver: (rideId: string, meters: number) => void
+  quoteFarPickupFee: (rideId: string, meters: number) => { km: number; fee: number } | null
   startRide: (rideId: string, driverGps?: GeoCoords | null) => void
   // The passenger saying they are off — hands the ride to the driver for
   // payment confirmation rather than completing it.
@@ -7548,6 +7588,11 @@ export function RideProvider({ children }: { children: ReactNode }) {
     acceptRide: (rideId, driverId) => dispatch({ type: 'ACCEPT_RIDE', rideId, driverId }),
     declineRide: (rideId, driverId) => dispatch({ type: 'DECLINE_RIDE', rideId, driverId }),
     releaseDriver: (rideId) => dispatch({ type: 'PASSENGER_RELEASE_DRIVER', rideId }),
+    keepFarDriver: (rideId, meters) => dispatch({ type: 'PASSENGER_KEEP_FAR_DRIVER', rideId, meters }),
+    quoteFarPickupFee: (rideId, meters) => {
+      const ride = state.rides.find((r) => r.id === rideId)
+      return ride ? farPickupQuote(state, ride, meters) : null
+    },
     startRide: (rideId, driverGps) => dispatch({ type: 'START_RIDE', rideId, driverGps }),
     confirmPassengerArrival: (rideId, actualDropoff) =>
       dispatch({ type: 'PASSENGER_CONFIRM_ARRIVAL', rideId, actualDropoff }),

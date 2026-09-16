@@ -1267,6 +1267,14 @@ export interface Ride {
   // backwards (driver arriving → requested) survive sync: see
   // mergeIncomingRides. Optional so older rides parse.
   releasedDrivers?: { driverId: string; driverName: string; at: string }[]
+  // Set when the passenger chose to keep a driver who accepted from far away.
+  // That drive to the pickup is charged at the tariff's per-km rate and is
+  // already included in fareEstimate; these record how much and why. The
+  // timestamp is also what keeps the charge from being undone by a stale
+  // device (see mergeIncomingRides). Optional so older rides parse.
+  farPickupKeptAt?: string | null
+  farPickupKm?: number
+  farPickupFee?: number
   isStudentRide: boolean
   // PWD/Senior discount, snapshotted at request time same as isStudentRide —
   // takes priority over the student rate if both are somehow true.

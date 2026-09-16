@@ -148,6 +148,15 @@ describe('a passenger letting a far-away driver go', () => {
     expect(merged[0].driverId).toBe('drv-2')
   })
 
+  it('keeps the far-pickup charge when a stale driver device resaves the ride', () => {
+    const merged = mergeIncomingRides(
+      [ride('r1', 'driver_arriving', { driverId: 'drv-1', farPickupKeptAt: '2026-09-17T00:00:00Z', farPickupKm: 9, farPickupFee: 72, fareEstimate: 107 })],
+      [ride('r1', 'driver_arriving', { driverId: 'drv-1', fareEstimate: 35 })],
+    )
+    expect(merged[0].fareEstimate).toBe(107)
+    expect(merged[0].farPickupFee).toBe(72)
+  })
+
   it('never re-opens a ride this device has ended', () => {
     const merged = mergeIncomingRides([ride('r1', 'cancelled')], [ride('r1', 'requested', { releasedDrivers: released })])
     expect(merged[0].status).toBe('cancelled')

@@ -72,18 +72,6 @@ interface TripMonitorProps {
   askAboutFarDriver?: boolean
 }
 
-const FAR_DRIVER_OK_KEY = 'toda-far-driver-ok-v1'
-
-// "rideId:driverId" pairs the passenger already chose to keep, so a reload
-// does not ask the same question about the same driver again.
-function readKeptFarDrivers(): string[] {
-  try {
-    return JSON.parse(localStorage.getItem(FAR_DRIVER_OK_KEY) ?? '[]') as string[]
-  } catch {
-    return []
-  }
-}
-
 export function TripMonitor({
   title,
   ride,
@@ -121,6 +109,8 @@ export function TripMonitor({
     approveProposedFare,
     declineProposedFare,
     releaseDriver,
+    keepFarDriver,
+    quoteFarPickupFee,
     terminals,
     liveGpsEnabled,
     simulateMovementEnabled,
@@ -313,23 +303,14 @@ export function TripMonitor({
   // A driver who accepted from far away. Measured from where the driver
   // really is (live GPS, or where they were when they accepted) — never the
   // placeholder the map falls back to when neither is known, which would
-  // invent a distance. Asked once per driver; the answer is remembered.
-  const farDriverKey = `${ride.id}:${ride.driverId ?? ''}`
-  const [keptFarDrivers, setKeptFarDrivers] = useState<string[]>(readKeptFarDrivers)
+  // invent a distance. Asked once: keeping the driver is recorded on the ride
+  // itself (farPickupKeptAt), so no device asks again.
   const knownDriverGps = ride.driverLiveGps ?? ride.driverOriginGps ?? null
   const farDriver =
-    askAboutFarDriver && ride.status === 'driver_arriving' && ride.driverId && !keptFarDrivers.includes(farDriverKey)
+    askAboutFarDriver && ride.status === 'driver_arriving' && ride.driverId && !ride.farPickupKeptAt
       ? farDriverGap(knownDriverGps, ride.pickup.gps ?? null, remaining ? { meters: remaining.meters, seconds: remaining.seconds } : null)
       : null
-  function keepFarDriver() {
-    const next = [...keptFarDrivers, farDriverKey].slice(-50)
-    setKeptFarDrivers(next)
-    try {
-      localStorage.setItem(FAR_DRIVER_OK_KEY, JSON.stringify(next))
-    } catch {
-      // Private mode: it just asks again after a reload.
-    }
-  }
+  const farPickupQuote = farDriver ? quoteFarPickupFee(ride.id, farDriver.meters) : null
 
   // Anything under this is "close enough to the booked drop-off" — GPS drift
   // and the width of a street should not turn a normal arrival into a
@@ -1525,9 +1506,18 @@ export function TripMonitor({
           who={`${ride.driverName ?? 'Your driver'} is`}
           meters={farDriver.meters}
           minutes={farDriver.minutes}
-          confirmLabel="Keep this driver"
+          note={
+            farPickupQuote && farPickupQuote.fee > 0 ? (
+              <>
+                Keeping this driver adds <span className="font-bold">₱{farPickupQuote.fee}</span> for the{' '}
+                {farPickupQuote.km} km drive to you. New fare:{' '}
+                <span className="font-bold">₱{ride.fareEstimate + farPickupQuote.fee}</span>.
+              </>
+            ) : undefined
+          }
+          confirmLabel={farPickupQuote && farPickupQuote.fee > 0 ? `Keep this driver (+₱${farPickupQuote.fee})` : 'Keep this driver'}
           cancelLabel="Find another driver"
-          onConfirm={keepFarDriver}
+          onConfirm={() => keepFarDriver(ride.id, farDriver.meters)}
           onCancel={() => releaseDriver(ride.id)}
         />
       )}

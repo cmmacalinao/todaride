@@ -143,6 +143,15 @@ export function mergeIncomingRides(local: Ride[], incoming: Ride[]): Ride[] {
     // Every client refusing to adopt an older status means the world
     // converges forwards instead of on whoever wrote last.
     if (LIFECYCLE_RANK[ours.status] > LIFECYCLE_RANK[theirs.status]) return ours
+    // Paying is one-way too, for the same reason endings are: a driver's
+    // phone can still be holding — and periodically resaving — its own copy
+    // of a ride from the moment it completed, before the passenger tapped
+    // "Paid" on theirs. Without this, that stale copy lands right after the
+    // acknowledgment and silently un-pays a fare that was already settled,
+    // reopening "Trip complete — time to pay" on a trip that is done.
+    if (ours.paymentAcknowledged && !theirs.paymentAcknowledged) {
+      return { ...theirs, paymentAcknowledged: true, paymentMethod: ours.paymentMethod, payment: ours.payment ?? theirs.payment }
+    }
     return theirs
   })
 }

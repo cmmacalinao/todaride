@@ -25,7 +25,13 @@ export function PilotBranding({ name, compact, hideSubtitle }: { name: string; c
             compact ? 'gap-1 text-[17px]' : 'gap-1.5 text-2xl'
           }`}
         >
-          {prefix}
+          {/* "Ride" in the logo's own green, as the wordmark draws it. */}
+          {prefix &&
+            prefix.split(' ').map((word, i) => (
+              <span key={i} className={word === 'Ride' ? 'text-green-500' : undefined}>
+                {word}
+              </span>
+            ))}
           {/* A relative nudge, not padding — the badge's padding is already
               symmetric, but this font's glyphs sit slightly high within
               their own line box, which read as the badge itself sitting a

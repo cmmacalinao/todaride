@@ -142,7 +142,7 @@ export function LandingPage() {
         <div className="mb-8 text-center">
           <p className="text-xl font-extrabold tracking-wide text-navy-900">TODARIDE MOBILITY</p>
           <p className="mt-1 text-xs font-semibold text-brand-700">
-            TODA — <TodaAcronym letterClassName="rounded bg-gold-400 px-0.5 text-sm font-extrabold text-navy-900" />
+            TODA — Transport &amp; Opportunity Digital Access
           </p>
           <p className="mx-auto mt-3 max-w-xs text-sm font-medium italic leading-snug text-slate-600">
             Empowering Drivers. Protecting Passengers. Strengthening Communities.

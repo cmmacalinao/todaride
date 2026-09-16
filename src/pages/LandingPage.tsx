@@ -5,6 +5,7 @@ import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
 import { PilotBranding } from '../components/PilotBranding'
 import { BuildLabel } from '../components/BuildLabel'
 import { VisionMission } from '../components/VisionMission'
+import { TodaAcronym } from '../components/TodaAcronym'
 import { usePilotBranding } from '../lib/usePilotBranding'
 import { useRides } from '../context/RideContext'
 
@@ -98,8 +99,8 @@ export function LandingPage() {
               generic name) — see usePilotBranding. A specific org gets the
               ad-like card; the generic name renders plainly, since the app
               naming itself isn't a promotion. */}
-          <p className="mt-3 text-center text-[11px] font-semibold uppercase tracking-wide text-gold-400">
-            Transport &amp; Opportunity Digital Access
+          <p className="mt-3 text-center text-[11px] font-semibold uppercase tracking-wide text-white">
+            <TodaAcronym letterClassName="text-[15px] font-extrabold text-gold-400" />
           </p>
           {pilotBranding.specific ? (
             <NearbyTodaAdCard name={pilotBranding.name} showNearYouTag={pilotBranding.showNearYouTag} />
@@ -141,7 +142,7 @@ export function LandingPage() {
         <div className="mb-8 text-center">
           <p className="text-xl font-extrabold tracking-wide text-navy-900">TODARIDE MOBILITY</p>
           <p className="mt-1 text-xs font-semibold text-brand-700">
-            TODA — Transport &amp; Opportunity Digital Access
+            TODA — <TodaAcronym letterClassName="rounded bg-gold-400 px-0.5 text-sm font-extrabold text-navy-900" />
           </p>
           <p className="mx-auto mt-3 max-w-xs text-sm font-medium italic leading-snug text-slate-600">
             Empowering Drivers. Protecting Passengers. Strengthening Communities.

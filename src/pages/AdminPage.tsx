@@ -1,4 +1,5 @@
 import { formatTripRoute } from '../lib/addressFormat'
+import { isActiveAlert } from '../lib/safety'
 import { rideServiceTag } from '../lib/vendorOrders'
 import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -38,7 +39,7 @@ import type {
   MockLocation,
   TerminalType, PabiliFareMode, SaasPlan } from '../types'
 
-const ALERT_TYPE_LABELS = { sos: 'SOS', route_deviation: 'Route deviation' }
+const ALERT_TYPE_LABELS = { sos: 'SOS', route_deviation: 'Route deviation', possible_crash: 'Possible crash' }
 
 function alertLabel(a: { type: keyof typeof ALERT_TYPE_LABELS; triggeredByRole?: 'passenger' | 'driver' }): string {
   if (a.type === 'sos' && a.triggeredByRole === 'driver') return 'Driver SOS'
@@ -290,7 +291,7 @@ export function AdminPage() {
     operators.filter((o) => o.verificationStatus === 'approved').reduce((sum, o) => sum + o.monthlyPlatformFee, 0) +
     franchises.filter((f) => f.verificationStatus === 'approved').reduce((sum, f) => sum + f.monthlyTechnologyFee, 0)
 
-  const openAlerts = alerts.filter((a) => a.status === 'open')
+  const openAlerts = alerts.filter((a) => isActiveAlert(a))
   const resolvedAlerts = alerts.filter((a) => a.status === 'resolved')
   const openReports = driverReports.filter((r) => r.status === 'open')
   const reviewedReports = driverReports.filter((r) => r.status === 'reviewed')

@@ -1,4 +1,5 @@
 import { formatTripRoute } from '../lib/addressFormat'
+import { isActiveAlert } from '../lib/safety'
 import { useRides } from '../context/RideContext'
 import type { SosAlert } from '../types'
 
@@ -21,7 +22,7 @@ export function SosConcernNotice({
   // off-route are not the same event, and must never look the same. Reading
   // "Emergency" over an automatic route notice tells a parent their child hit
   // SOS when nobody touched it.
-  const open = alerts.filter((a) => a.status === 'open')
+  const open = alerts.filter((a) => isActiveAlert(a))
   const emergencies = open.filter((a) => a.type === 'sos')
   const concerns = open.filter((a) => a.type !== 'sos')
   if (open.length === 0 && emptyWhenNone) return null

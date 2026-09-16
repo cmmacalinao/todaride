@@ -885,6 +885,10 @@ export interface Passenger {
   // name against it is of limited use to whoever has to make the call.
   guardianName?: string | null
   guardianRelationship?: string | null
+  // More people to reach in an emergency, on top of the guardian above (up
+  // to three; see lib/safety.ts passengerEmergencyContacts, which lists
+  // both). Optional: every existing Passenger record predates it.
+  emergencyContacts?: EmergencyContact[]
   // When set, a new ride is offered to this driver first, ahead of the
   // normal terminal-queue order.
   favoriteDriverId: string | null
@@ -989,9 +993,90 @@ export interface ParentLink {
   consentedAt: string
 }
 
-export type SosAlertType = 'sos' | 'route_deviation'
-export type SosAlertStatus = 'open' | 'resolved'
+// A possible crash the phone's sensors flagged and the person answered
+// "I'm OK" to: kept for the safety analytics, never escalated.
+export type SosAlertType = 'sos' | 'route_deviation' | 'possible_crash'
+// The incident workflow. 'open' is TRIGGERED — the name every stored alert
+// already carries, so old rows read correctly. Triggered → acknowledged →
+// responding → resolved, or triggered → cancelled (a false alarm).
+export type SosAlertStatus = 'open' | 'acknowledged' | 'responding' | 'resolved' | 'cancelled'
 export type SosTriggeredByRole = 'passenger' | 'driver'
+export type SosTriggerSource = 'passenger' | 'driver' | 'automatic_crash_detection'
+export type SosSeverity = 'medium' | 'high' | 'critical'
+export type SosEventKind =
+  | 'triggered'
+  | 'acknowledged'
+  | 'responding'
+  | 'resolved'
+  | 'cancelled'
+  | 'notified'
+  | 'note'
+  | 'call_911'
+  | 'call_contact'
+  | 'call_driver'
+  | 'call_passenger'
+  | 'call_toda'
+  | 'repeat_press'
+  | 'crash_ok'
+  | 'viewed'
+
+// One line of an incident's history: what happened, when, and who did it.
+export interface SosEvent {
+  id: string
+  at: string
+  kind: SosEventKind
+  summary: string
+  actorName: string
+  actorRole: 'passenger' | 'driver' | 'admin' | 'super_admin' | 'toda_admin' | 'guardian' | 'system'
+}
+
+// Everyone an incident was sent to, over which channel, and whether it got
+// there. Only 'in_app' delivers today; 'sms' entries are written as
+// 'skipped' so the day it is switched on nothing else has to change.
+export interface SosNotification {
+  id: string
+  at: string
+  recipientKind: 'admin' | 'toda' | 'guardian' | 'contact' | 'counterpart' | 'nearby_driver'
+  recipientId: string
+  recipientName: string
+  channel: 'in_app' | 'sms'
+  status: 'delivered' | 'pending' | 'skipped' | 'failed'
+  note?: string
+}
+
+export interface SosNote {
+  id: string
+  at: string
+  by: string
+  text: string
+}
+
+// A person to reach if something happens to the passenger. Tap-to-call in
+// the app; smsEnabled is kept for the day emergency SMS is switched on.
+export interface EmergencyContact {
+  id: string
+  name: string
+  phone: string
+  relationship: string
+  smsEnabled: boolean
+}
+
+// Super Admin's dials for the whole safety system. Defaults live in
+// lib/safety.ts (SAFETY_DEFAULTS); a stored copy is merged over them.
+export interface SafetySettings {
+  sosCountdownSeconds: number
+  notifyTodaOn: { passengerSos: boolean; driverSos: boolean; possibleCrash: boolean }
+  notifyGuardian: boolean
+  notifyCounterpart: boolean
+  nearbyDriversEnabled: boolean
+  nearbyRadiusMeters: number
+  nearbyMaxRecipients: number
+  nearbyMaxFixAgeMinutes: number
+  channels: { inApp: boolean; sms: boolean }
+  crashDetectionEnabled: boolean
+  crashSensitivity: 'low' | 'medium' | 'high'
+  crashTimeoutSeconds: number
+}
 
 export type HotlineCategory = 'police' | 'fire' | 'medical' | 'rescue' | 'disaster' | 'toda' | 'other'
 
@@ -1042,6 +1127,35 @@ export interface SosAlert {
   triggeredByRole?: SosTriggeredByRole
   todaOrgId?: string | null
   location?: GeoCoords | null
+  // ---- The incident record (see lib/safety.ts). All optional so every
+  // alert stored before this existed still reads; buildIncident fills them
+  // for new ones. Trip details are copied here at the moment of the alert,
+  // because the ride can change afterwards and the record must not.
+  triggerSource?: SosTriggerSource
+  severity?: SosSeverity
+  passengerId?: string | null
+  driverId?: string | null
+  vehiclePlate?: string | null
+  origin?: string | null
+  destination?: string | null
+  tripStatus?: RideStatus | null
+  locationAccuracy?: number | null
+  deviceInfo?: string | null
+  acknowledgedAt?: string | null
+  respondingAt?: string | null
+  resolvedAt?: string | null
+  cancelledAt?: string | null
+  resolvedBy?: string | null
+  resolutionNotes?: string | null
+  adminNotes?: SosNote[]
+  events?: SosEvent[]
+  notifications?: SosNotification[]
+  emergencyContactsNotified?: boolean
+  todaNotified?: boolean
+  nearbyMembersNotified?: number
+  call911Requested?: boolean
+  possibleCrashDetected?: boolean
+  automaticDetection?: boolean
 }
 
 export interface RidePhoto {

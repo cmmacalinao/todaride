@@ -1,4 +1,5 @@
 import { formatAddressLine } from '../lib/addressFormat'
+import { isActiveAlert } from '../lib/safety'
 import { rideServiceTag } from '../lib/vendorOrders'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -172,7 +173,7 @@ export function TripMonitor({
   const leg = getLegInfo(ride)
   const timeline = buildTimeline(ride)
   const isTerminal = ride.status === 'completed' || ride.status === 'declined' || ride.status === 'cancelled'
-  const openSos = alerts.find((a) => a.rideId === ride.id && a.type === 'sos' && a.status === 'open')
+  const openSos = alerts.find((a) => a.rideId === ride.id && a.type === 'sos' && isActiveAlert(a))
   // A booking just placed. The map is the answer to "did that work?" — it is
   // where the pickup pin and, in a moment, the driver coming for it are — so
   // it is put in the middle of the screen the instant the trip appears,

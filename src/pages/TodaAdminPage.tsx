@@ -1,4 +1,5 @@
 import { SaasFeeCard } from '../components/SaasFeeCard'
+import { isActiveAlert } from '../lib/safety'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
@@ -107,7 +108,7 @@ export function TodaAdminPage({
   // never reached the TODA whose member was driving. alertsForToda walks the
   // ride to its driver for exactly that case.
   const orgAlerts = alertsForToda(alerts, orgId, rides, drivers)
-  const openOrgAlerts = orgAlerts.filter((a) => a.status === 'open')
+  const openOrgAlerts = orgAlerts.filter((a) => isActiveAlert(a))
   const resolvedOrgAlerts = orgAlerts.filter((a) => a.status === 'resolved')
   const activeCommission = getActiveTodaCommission(org)
   const treasury = rides

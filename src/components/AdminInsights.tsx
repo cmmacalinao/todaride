@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { isActiveAlert } from '../lib/safety'
 import { useRides } from '../context/RideContext'
 import { CategoryBarChart } from './charts/CategoryBarChart'
 import { DailyBarChart } from './charts/DailyBarChart'
@@ -34,7 +35,7 @@ export function AdminInsights() {
   const { rides, drivers, passengers, parents, todaOrganizations, alerts, driverReports } = useRides()
   const [trendPeriod, setTrendPeriod] = useState<ReportPeriod>('daily')
 
-  const openAlertsCount = alerts.filter((a) => a.status === 'open').length
+  const openAlertsCount = alerts.filter((a) => isActiveAlert(a)).length
   const openReportsCount = driverReports.filter((r) => r.status === 'open').length
 
   const insights = generateInsights({

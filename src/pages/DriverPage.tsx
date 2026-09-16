@@ -1,4 +1,5 @@
 import { formatAddressLine } from '../lib/addressFormat'
+import { isActiveAlert } from '../lib/safety'
 import { formatTripRoute } from '../lib/addressFormat'
 import { codBreakdown, isVendorDeliveryRide, rideServiceTag } from '../lib/vendorOrders'
 import { showInMiddle, showInMiddleWhenSettled, scrollViewToTop } from '../lib/showInMiddle'
@@ -652,7 +653,7 @@ export function DriverPage() {
   // My own most recent open SOS (if any) — disables/relabels the button and
   // shows a "help is on the way" banner instead of letting a second alert
   // stack on top of it.
-  const myOpenSos = alerts.find((a) => a.triggeredBy === driver.id && a.triggeredByRole === 'driver' && a.status === 'open')
+  const myOpenSos = alerts.find((a) => a.triggeredBy === driver.id && a.triggeredByRole === 'driver' && isActiveAlert(a))
   // Fellow members' open alerts — same TODA, not mine — so a driver gets
   // situational awareness of a colleague in trouble even outside an active
   // ride. Only TODA Admin can resolve these (see TodaAdminPage.tsx); this is
@@ -660,7 +661,7 @@ export function DriverPage() {
   // another's stuff" boundary used everywhere else in this hierarchy.
   const fellowOpenAlerts = (driver.todaOrgId
     ? alertsForToda(alerts, driver.todaOrgId, rides, drivers).filter(
-        (a) => a.status === 'open' && a.triggeredBy !== driver.id,
+        (a) => isActiveAlert(a) && a.triggeredBy !== driver.id,
       )
     : []
   ).map((a) => ({ alert: a, driver: drivers.find((d) => d.id === a.triggeredBy) }))

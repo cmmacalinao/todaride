@@ -1,4 +1,5 @@
 import { formatTripRoute } from '../lib/addressFormat'
+import { isActiveAlert } from '../lib/safety'
 import { useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { useSession } from '../context/SessionContext'
@@ -18,7 +19,7 @@ export function SosAlertBanner() {
   const { alerts, rides, drivers, passengers, resolveAlert, logActivity } = useRides()
   const { authedAccount } = useSession()
 
-  const open = alerts.filter((a) => a.status === 'open')
+  const open = alerts.filter((a) => isActiveAlert(a))
   if (open.length === 0) return null
 
   const actorName = authedAccount?.role === 'super_admin' ? 'Super Admin' : 'Admin'

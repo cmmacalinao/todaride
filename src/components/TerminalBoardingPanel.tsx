@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { isActiveAlert } from '../lib/safety'
 import { useRides } from '../context/RideContext'
 import { useSession } from '../context/SessionContext'
 import { useWatchPosition } from '../lib/liveTracking'
@@ -72,7 +73,7 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
   // An SOS this passenger has already raised and nobody has closed yet.
   // Pressing it twice should not file a second one.
   const openSosForMe = alerts.find(
-    (a) => a.type === 'sos' && a.status === 'open' && a.triggeredBy === currentPassengerId && !a.rideId,
+    (a) => a.type === 'sos' && isActiveAlert(a) && a.triggeredBy === currentPassengerId && !a.rideId,
   )
   // Manual fallback for when the tricycle you are actually in did not make
   // the GPS-radius list — a driver's phone can lag, or you stepped a little

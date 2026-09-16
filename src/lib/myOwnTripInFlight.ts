@@ -1,4 +1,5 @@
 import { useRides } from '../context/RideContext'
+import { isActiveAlert } from './safety'
 import { useSession } from '../context/SessionContext'
 
 // A ride still actively happening — as opposed to finished, cancelled, or
@@ -36,6 +37,6 @@ export function useHasMyOwnTripInFlight(): boolean {
   // their child triggered the alert from.
   const myRideIds = new Set(rides.filter(isMine).map((r) => r.id))
   return alerts.some(
-    (a) => a.status === 'open' && (a.triggeredBy === id || (a.rideId && myRideIds.has(a.rideId))),
+    (a) => isActiveAlert(a) && (a.triggeredBy === id || (a.rideId && myRideIds.has(a.rideId))),
   )
 }

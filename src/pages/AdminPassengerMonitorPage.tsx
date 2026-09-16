@@ -1,4 +1,5 @@
 import { formatTripRoute } from '../lib/addressFormat'
+import { isActiveAlert } from '../lib/safety'
 import { useMemo, useState } from 'react'
 import { useAdminViewMode } from '../lib/adminViewMode'
 import { AdminSectionTabs } from '../components/AdminSectionTabs'
@@ -47,7 +48,7 @@ export function AdminPassengerMonitorPage() {
   const spend = completed.reduce((sum, r) => sum + (r.payment?.amount ?? r.fareEstimate ?? 0), 0)
   const students = inScope.filter((p) => p.isStudent).length
   const linked = parentLinks.filter((l) => scopeIds.has(l.studentPassengerId)).length
-  const openAlerts = alerts.filter((a) => a.status === 'open')
+  const openAlerts = alerts.filter((a) => isActiveAlert(a))
   const reportsFiled = driverReports.filter((r) => scopeIds.has(r.passengerId))
 
   const rated = completed.filter((r) => typeof r.driverRating === 'number')

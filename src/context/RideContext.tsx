@@ -4,6 +4,7 @@ import { mergeById, mergeIncomingRides, mergeVendorPosts } from '../lib/rideMerg
 import { PILOT_ORIGIN } from '../lib/pilotOrigin'
 import type { RecoveryKind } from '../lib/unifiedLogin'
 import type { RidePhoto } from '../types'
+import type { EmergencyContact, SafetySettings, SosEvent, SosEventKind, SosTriggerSource, SosTriggeredByRole } from '../types'
 import type {
   PabiliFareMode,
   Landmark,
@@ -172,6 +173,7 @@ import {
   DOCUMENT_TYPES,
 } from '../mock/data'
 import { TERMINAL_PROXIMITY_METERS, haversineDistanceMeters } from '../lib/geo'
+import { SAFETY_DEFAULTS, appendEvent, buildIncident, isActiveAlert, transitionAlert, withSafetyDefaults } from '../lib/safety'
 import { getPersistence } from '../lib/persistence'
 
 // The distance part of an errand's fare. Shared by the booking preview and
@@ -429,6 +431,9 @@ interface RideState {
   documentGraceDays: number
   // Real dialable numbers (see EmergencyHotline) — not simulated.
   emergencyHotlines: EmergencyHotline[]
+  // Super Admin's dials for the Safety & Emergency Alert System — see
+  // lib/safety.ts for what each one does.
+  safetySettings: SafetySettings
 }
 
 type RideAction =
@@ -528,14 +533,21 @@ type RideAction =
   | { type: 'TICK_POSITIONS' }
   | { type: 'UPDATE_DRIVER_LIVE_GPS'; rideId: string; gps: GeoCoords | null }
   | { type: 'UPDATE_PASSENGER_LIVE_GPS'; rideId: string; gps: GeoCoords | null }
-  | { type: 'TRIGGER_SOS'; rideId: string; triggeredBy: string }
-  | { type: 'TRIGGER_DRIVER_SOS'; driverId: string; location: GeoCoords | null; notes: string | null }
+  | { type: 'TRIGGER_SOS'; rideId: string; triggeredBy: string; source?: SosTriggerSource; location?: GeoCoords | null }
+  | { type: 'TRIGGER_DRIVER_SOS'; driverId: string; location: GeoCoords | null; notes: string | null; source?: SosTriggerSource }
   // A passenger's SOS before any trip exists — standing at a terminal,
   // climbing into a tricycle, deciding not to. The ride-bound TRIGGER_SOS
   // cannot serve that moment, and it is not a safe moment to be without a
   // panic button.
   | { type: 'TRIGGER_PASSENGER_SOS'; passengerId: string; location: GeoCoords | null; notes: string | null }
-  | { type: 'RESOLVE_ALERT'; alertId: string }
+  | { type: 'RESOLVE_ALERT'; alertId: string; actorName?: string; actorRole?: SosEvent['actorRole']; notes?: string | null }
+  | { type: 'ACKNOWLEDGE_ALERT'; alertId: string; actorName: string; actorRole: SosEvent['actorRole'] }
+  | { type: 'SET_ALERT_RESPONDING'; alertId: string; actorName: string; actorRole: SosEvent['actorRole'] }
+  | { type: 'CANCEL_ALERT'; alertId: string; actorName: string; actorRole: SosEvent['actorRole']; notes?: string | null }
+  | { type: 'LOG_ALERT_EVENT'; alertId: string; kind: SosEventKind; summary: string; actorName: string; actorRole: SosEvent['actorRole'] }
+  | { type: 'SET_SAFETY_SETTINGS'; patch: Partial<SafetySettings> }
+  | { type: 'SET_PASSENGER_EMERGENCY_CONTACTS'; passengerId: string; contacts: EmergencyContact[] }
+  | { type: 'LOG_POSSIBLE_CRASH'; actorId: string; role: SosTriggeredByRole; rideId: string | null; location: GeoCoords | null; outcome: 'ok' | 'timeout' }
   | { type: 'APPROVE_DRIVER'; driverId: string }
   | { type: 'REJECT_DRIVER'; driverId: string; reason: string | null }
   | { type: 'APPEAL_DRIVER_REJECTION'; driverId: string; message: string }
@@ -1561,6 +1573,7 @@ interface StoredState {
   openDriverSignup?: boolean
   documentGraceDays?: number
   emergencyHotlines?: EmergencyHotline[]
+  safetySettings?: Partial<SafetySettings>
 }
 
 // PIN/email were added to Driver/Passenger/Parent after this app already had
@@ -1838,6 +1851,7 @@ function fromStored(parsed: StoredState): RideState {
     liveGpsEnabled: parsed.liveGpsEnabled ?? true,
     openDriverSignup: parsed.openDriverSignup ?? true,
     documentGraceDays: parsed.documentGraceDays ?? 30,
+    safetySettings: withSafetyDefaults(parsed.safetySettings),
     // Merged rather than "stored wins", because a stored list would freeze
     // out every hotline added to the seed afterwards — and a missing
     // emergency number is the one kind of stale data worth being pushy
@@ -2101,6 +2115,7 @@ function loadInitialState(): RideState {
     openDriverSignup: true,
     documentGraceDays: 30,
     emergencyHotlines: MOCK_EMERGENCY_HOTLINES,
+    safetySettings: SAFETY_DEFAULTS,
   }
 }
 
@@ -3332,7 +3347,28 @@ function reducer(state: RideState, action: RideAction): RideState {
       const notes = guardianPhone
         ? `SOS triggered on ${ride.passengerName}'s trip (${ride.pickup.label} → ${ride.dropoff.label}). No confirmed parent account — emergency contact notified at ${guardianPhone}.`
         : `SOS triggered on ${ride.passengerName}'s trip (${ride.pickup.label} → ${ride.dropoff.label}).`
-      const alert = makeAlert(action.rideId, action.triggeredBy, 'sos', notes, guardianPhone)
+      // Pressed again while the first is still open: one incident, one more
+      // line in its log — not a second alert for the same emergency.
+      const already = state.alerts.find((a) => a.rideId === action.rideId && a.type === 'sos' && isActiveAlert(a))
+      if (already) {
+        return {
+          ...state,
+          alerts: state.alerts.map((a) =>
+            a.id === already.id ? appendEvent(a, 'repeat_press', `SOS pressed again by ${ride.passengerName}`, ride.passengerName, 'passenger') : a,
+          ),
+        }
+      }
+      const source: SosTriggerSource = action.source ?? 'passenger'
+      const alert = buildIncident({
+        base: { ...makeAlert(action.rideId, action.triggeredBy, 'sos', notes, guardianPhone), triggeredByRole: 'passenger', location: action.location ?? ride.passengerLiveGps ?? ride.driverLiveGps ?? null },
+        source,
+        ride,
+        passenger: passenger ?? null,
+        driver: null,
+        drivers: state.drivers,
+        parentLinks: state.parentLinks,
+        settings: state.safetySettings,
+      })
       return {
         ...state,
         alerts: [alert, ...state.alerts],
@@ -3346,19 +3382,35 @@ function reducer(state: RideState, action: RideAction): RideState {
       const pax = state.passengers.find((p) => p.id === action.passengerId)
       if (!pax) return state
       const notes = action.notes?.trim() || `${pax.name} triggered an emergency SOS before boarding.`
-      const alert: SosAlert = {
-        id: `alert-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        rideId: null,
-        triggeredBy: action.passengerId,
-        type: 'sos',
-        status: 'open',
-        notes,
-        createdAt: new Date().toISOString(),
-        guardianNotifiedPhone: null,
-        triggeredByRole: 'passenger',
-        todaOrgId: null,
-        location: action.location,
+      const alreadyPax = state.alerts.find((a) => a.triggeredBy === action.passengerId && !a.rideId && a.type === 'sos' && isActiveAlert(a))
+      if (alreadyPax) {
+        return {
+          ...state,
+          alerts: state.alerts.map((a) => (a.id === alreadyPax.id ? appendEvent(a, 'repeat_press', `SOS pressed again by ${pax.name}`, pax.name, 'passenger') : a)),
+        }
       }
+      const alert: SosAlert = buildIncident({
+        base: {
+          id: `alert-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          rideId: null,
+          triggeredBy: action.passengerId,
+          type: 'sos',
+          status: 'open',
+          notes,
+          createdAt: new Date().toISOString(),
+          guardianNotifiedPhone: null,
+          triggeredByRole: 'passenger',
+          todaOrgId: null,
+          location: action.location,
+        },
+        source: 'passenger',
+        ride: null,
+        passenger: pax,
+        driver: null,
+        drivers: state.drivers,
+        parentLinks: state.parentLinks,
+        settings: state.safetySettings,
+      })
       return {
         ...state,
         alerts: [alert, ...state.alerts],
@@ -3372,19 +3424,39 @@ function reducer(state: RideState, action: RideAction): RideState {
       const driver = state.drivers.find((d) => d.id === action.driverId)
       if (!driver) return state
       const notes = action.notes?.trim() || `${driver.name} (${driver.plateNumber}) triggered an emergency SOS.`
-      const alert: SosAlert = {
-        id: `alert-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        rideId: null,
-        triggeredBy: action.driverId,
-        type: 'sos',
-        status: 'open',
-        notes,
-        createdAt: new Date().toISOString(),
-        guardianNotifiedPhone: null,
-        triggeredByRole: 'driver',
-        todaOrgId: driver.todaOrgId,
-        location: action.location,
+      const alreadyDrv = state.alerts.find((a) => a.triggeredBy === action.driverId && a.triggeredByRole === 'driver' && a.type === 'sos' && isActiveAlert(a))
+      if (alreadyDrv) {
+        return {
+          ...state,
+          alerts: state.alerts.map((a) => (a.id === alreadyDrv.id ? appendEvent(a, 'repeat_press', `SOS pressed again by ${driver.name}`, driver.name, 'driver') : a)),
+        }
       }
+      // The trip the driver is on right now, if any — copied onto the record
+      // and used to tell the passenger in that seat.
+      const driverRide =
+        state.rides.find((r) => r.driverId === driver.id && (r.status === 'driver_arriving' || r.status === 'ongoing' || r.status === 'accepted')) ?? null
+      const alert: SosAlert = buildIncident({
+        base: {
+          id: `alert-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          rideId: null,
+          triggeredBy: action.driverId,
+          type: 'sos',
+          status: 'open',
+          notes,
+          createdAt: new Date().toISOString(),
+          guardianNotifiedPhone: null,
+          triggeredByRole: 'driver',
+          todaOrgId: driver.todaOrgId,
+          location: action.location ?? driver.lastKnownGps ?? null,
+        },
+        source: action.source ?? 'driver',
+        ride: driverRide,
+        passenger: driverRide ? state.passengers.find((p) => p.id === driverRide.passengerId) ?? null : null,
+        driver,
+        drivers: state.drivers,
+        parentLinks: state.parentLinks,
+        settings: state.safetySettings,
+      })
       return {
         ...state,
         alerts: [alert, ...state.alerts],
@@ -3397,8 +3469,70 @@ function reducer(state: RideState, action: RideAction): RideState {
     case 'RESOLVE_ALERT':
       return {
         ...state,
-        alerts: state.alerts.map((a) => (a.id === action.alertId ? { ...a, status: 'resolved' } : a)),
+        alerts: state.alerts.map((a) =>
+          a.id === action.alertId ? transitionAlert(a, 'resolved', action.actorName ?? 'Admin', action.actorRole ?? 'admin', action.notes) : a,
+        ),
       }
+    case 'ACKNOWLEDGE_ALERT':
+      return {
+        ...state,
+        alerts: state.alerts.map((a) => (a.id === action.alertId ? transitionAlert(a, 'acknowledged', action.actorName, action.actorRole) : a)),
+      }
+    case 'SET_ALERT_RESPONDING':
+      return {
+        ...state,
+        alerts: state.alerts.map((a) => (a.id === action.alertId ? transitionAlert(a, 'responding', action.actorName, action.actorRole) : a)),
+      }
+    case 'CANCEL_ALERT':
+      return {
+        ...state,
+        alerts: state.alerts.map((a) => (a.id === action.alertId ? transitionAlert(a, 'cancelled', action.actorName, action.actorRole, action.notes) : a)),
+      }
+    case 'LOG_ALERT_EVENT':
+      return {
+        ...state,
+        alerts: state.alerts.map((a) => (a.id === action.alertId ? appendEvent(a, action.kind, action.summary, action.actorName, action.actorRole) : a)),
+      }
+    case 'SET_SAFETY_SETTINGS':
+      return { ...state, safetySettings: withSafetyDefaults({ ...state.safetySettings, ...action.patch }) }
+    case 'SET_PASSENGER_EMERGENCY_CONTACTS':
+      return {
+        ...state,
+        passengers: state.passengers.map((p) => (p.id === action.passengerId ? { ...p, emergencyContacts: action.contacts.slice(0, 3) } : p)),
+      }
+    case 'LOG_POSSIBLE_CRASH': {
+      // The phone's sensors thought something happened and the person said
+      // they are fine, or nobody answered. Kept for the safety analytics as
+      // its own record type; a real escalation goes through TRIGGER_* with
+      // source 'automatic_crash_detection' instead.
+      const who =
+        action.role === 'driver'
+          ? state.drivers.find((d) => d.id === action.actorId)?.name ?? 'Driver'
+          : state.passengers.find((p) => p.id === action.actorId)?.name ?? 'Passenger'
+      const record: SosAlert = {
+        id: `alert-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        rideId: action.rideId,
+        triggeredBy: action.actorId,
+        type: 'possible_crash',
+        status: action.outcome === 'ok' ? 'cancelled' : 'open',
+        notes: action.outcome === 'ok' ? `Possible impact detected on ${who}'s phone — they confirmed they are OK.` : `Possible impact detected on ${who}'s phone — no answer within the timeout.`,
+        createdAt: new Date().toISOString(),
+        guardianNotifiedPhone: null,
+        triggeredByRole: action.role,
+        todaOrgId: action.role === 'driver' ? state.drivers.find((d) => d.id === action.actorId)?.todaOrgId ?? null : null,
+        location: action.location,
+        triggerSource: 'automatic_crash_detection',
+        severity: 'medium',
+        automaticDetection: true,
+        possibleCrashDetected: true,
+        cancelledAt: action.outcome === 'ok' ? new Date().toISOString() : null,
+        events: [
+          { id: `sosev-${Date.now()}`, at: new Date().toISOString(), kind: action.outcome === 'ok' ? 'crash_ok' : 'triggered', summary: action.outcome === 'ok' ? `${who} answered "I'm OK"` : 'No answer to the possible-accident prompt', actorName: who, actorRole: action.role },
+        ],
+        notifications: [],
+      }
+      return { ...state, alerts: [record, ...state.alerts] }
+    }
     case 'APPROVE_DRIVER':
       return {
         ...state,
@@ -6091,7 +6225,14 @@ interface RideContextValue extends RideState {
   triggerSos: (rideId: string, triggeredBy: string) => void
   triggerDriverSos: (driverId: string, location: GeoCoords | null, notes?: string | null) => void
   triggerPassengerSos: (passengerId: string, location: GeoCoords | null, notes?: string | null) => void
-  resolveAlert: (alertId: string) => void
+  resolveAlert: (alertId: string, actorName?: string, actorRole?: SosEvent['actorRole'], notes?: string | null) => void
+  acknowledgeAlert: (alertId: string, actorName: string, actorRole: SosEvent['actorRole']) => void
+  setAlertResponding: (alertId: string, actorName: string, actorRole: SosEvent['actorRole']) => void
+  cancelAlert: (alertId: string, actorName: string, actorRole: SosEvent['actorRole'], notes?: string | null) => void
+  logAlertEvent: (alertId: string, kind: SosEventKind, summary: string, actorName: string, actorRole: SosEvent['actorRole']) => void
+  setSafetySettings: (patch: Partial<SafetySettings>) => void
+  setPassengerEmergencyContacts: (passengerId: string, contacts: EmergencyContact[]) => void
+  logPossibleCrash: (args: { actorId: string; role: SosTriggeredByRole; rideId: string | null; location: GeoCoords | null; outcome: 'ok' | 'timeout' }) => void
   approveDriver: (driverId: string) => void
   rejectDriver: (driverId: string, reason?: string | null) => void
   appealDriverRejection: (driverId: string, message: string) => void
@@ -7270,7 +7411,14 @@ export function RideProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'TRIGGER_PASSENGER_SOS', passengerId, location, notes }),
     triggerDriverSos: (driverId, location, notes = null) =>
       dispatch({ type: 'TRIGGER_DRIVER_SOS', driverId, location, notes }),
-    resolveAlert: (alertId) => dispatch({ type: 'RESOLVE_ALERT', alertId }),
+    resolveAlert: (alertId, actorName, actorRole, notes) => dispatch({ type: 'RESOLVE_ALERT', alertId, actorName, actorRole, notes }),
+    acknowledgeAlert: (alertId, actorName, actorRole) => dispatch({ type: 'ACKNOWLEDGE_ALERT', alertId, actorName, actorRole }),
+    setAlertResponding: (alertId, actorName, actorRole) => dispatch({ type: 'SET_ALERT_RESPONDING', alertId, actorName, actorRole }),
+    cancelAlert: (alertId, actorName, actorRole, notes) => dispatch({ type: 'CANCEL_ALERT', alertId, actorName, actorRole, notes }),
+    logAlertEvent: (alertId, kind, summary, actorName, actorRole) => dispatch({ type: 'LOG_ALERT_EVENT', alertId, kind, summary, actorName, actorRole }),
+    setSafetySettings: (patch) => dispatch({ type: 'SET_SAFETY_SETTINGS', patch }),
+    setPassengerEmergencyContacts: (passengerId, contacts) => dispatch({ type: 'SET_PASSENGER_EMERGENCY_CONTACTS', passengerId, contacts }),
+    logPossibleCrash: (args) => dispatch({ type: 'LOG_POSSIBLE_CRASH', ...args }),
     approveDriver: (driverId) => dispatch({ type: 'APPROVE_DRIVER', driverId }),
     rejectDriver: (driverId, reason = null) => dispatch({ type: 'REJECT_DRIVER', driverId, reason }),
     appealDriverRejection: (driverId, message) => dispatch({ type: 'APPEAL_DRIVER_REJECTION', driverId, message }),

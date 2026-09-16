@@ -108,6 +108,9 @@ export function LandingPage() {
           <p className="mt-2 text-center text-xs font-medium italic text-white/70">
             Keeping Your Family Moving Safely
           </p>
+          <p className="mt-1 text-center text-[11px] font-semibold uppercase tracking-wide text-gold-400">
+            Transport &amp; Opportunity Digital Access
+          </p>
 
           {/* One user name and password for everyone — the form works out
               whether you're a rider, parent, driver, TODA officer, partner or

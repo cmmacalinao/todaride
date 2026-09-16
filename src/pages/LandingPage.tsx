@@ -76,8 +76,13 @@ export function LandingPage() {
               the screen rather than sitting on a patch cut out of it. The
               ring is what still separates it from the stripe texture behind
               it. */}
-          <div className="rounded-2xl border-2 border-white/25 p-3">
+          {/* What TODA stands for sits inside the logo's own frame, right
+              under the mark that says TODA; the frame widens to fit it. */}
+          <div className="flex flex-col items-center rounded-2xl border-2 border-white/25 px-4 pb-2.5 pt-3">
             <img src="/logo.png" alt="TODA Ride Mobility" className="h-20 w-auto object-contain" />
+            <p className="-mt-1 whitespace-nowrap text-center text-xs text-gold-400">
+              Transport &amp; Opportunity Digital Access
+            </p>
           </div>
           {/* The Rotary partnership card — off unless Super Admin has
               switched it on. Its navy field is cut away so it sits on the
@@ -110,7 +115,6 @@ export function LandingPage() {
             <br />
             Strengthening Communities.
           </p>
-          <p className="mt-1 text-center text-xs text-gold-400">Transport &amp; Opportunity Digital Access</p>
           {/* One user name and password for everyone — the form works out
               whether you're a rider, parent, driver, TODA officer, partner or
               admin, and sends you to your own page.

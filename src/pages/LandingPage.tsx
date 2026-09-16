@@ -131,6 +131,19 @@ export function LandingPage() {
       {/* Hairline instead of a colour change: with the login screen now white
           too, this is the only thing separating the two halves. */}
       <section className="border-t border-slate-200 bg-white px-5 py-10">
+        {/* What the name stands for, opening the half of the page that
+            explains the app — below the fold rather than in the hero, where
+            it would push the login form down. */}
+        <div className="mb-8 text-center">
+          <p className="text-xl font-extrabold tracking-wide text-navy-900">TODARIDE MOBILITY</p>
+          <p className="mt-1 text-xs font-semibold text-brand-700">
+            TODA — Transport &amp; Opportunity Digital Access
+          </p>
+          <p className="mx-auto mt-3 max-w-xs text-sm font-medium italic leading-snug text-slate-600">
+            Empowering Drivers. Protecting Passengers. Strengthening Communities.
+          </p>
+        </div>
+
         <h2 className="mb-5 text-center text-lg font-bold tracking-tight text-navy-900">
           Why Choose TODA Ride Mobility?
         </h2>

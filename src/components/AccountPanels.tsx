@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
-import type { VerificationStatus } from '../types'
+import type { EmergencyContact, VerificationStatus } from '../types'
+import { EmergencyContactsEditor } from './EmergencyContactsEditor'
 import { ContactUsForm } from './ContactUsForm'
 import { FingerprintSetting } from './BiometricEnrollOption'
 
@@ -11,6 +12,9 @@ export interface ProfileSaveValues {
   email: string | null
   paymentDetail: string | null
   emergencyContact: string | null
+  // Passengers only: the people to call in an emergency (see
+  // EmergencyContactsEditor). Undefined for every other role.
+  emergencyContacts?: EmergencyContact[]
   // Blank/undefined means "leave unchanged" — a credential reset is opt-in
   // per save, not a value that's ever pre-filled back into the form.
   newPin?: string
@@ -49,6 +53,7 @@ export interface AccountPanelInfo {
   barangay: string
   paymentDetail: string | null
   emergencyContact: string | null
+  emergencyContacts?: EmergencyContact[]
   // Driver-only — undefined otherwise.
   rating?: number
   ratingCount?: number
@@ -136,6 +141,7 @@ function ProfilePanel({
   const [email, setEmail] = useState(info.email ?? '')
   const [paymentDetail, setPaymentDetail] = useState(info.paymentDetail ?? '')
   const [emergencyContact, setEmergencyContact] = useState(info.emergencyContact ?? '')
+  const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>(info.emergencyContacts ?? [])
   const [newPin, setNewPin] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [saved, setSaved] = useState(false)
@@ -147,6 +153,12 @@ function ProfilePanel({
       email: email.trim() || null,
       paymentDetail: paymentDetail.trim() || null,
       emergencyContact: emergencyContact.trim() || null,
+      emergencyContacts:
+        info.role === 'passenger'
+          ? emergencyContacts
+              .map((c) => ({ ...c, name: c.name.trim(), phone: c.phone.trim(), relationship: c.relationship.trim() || 'Contact' }))
+              .filter((c) => c.name && c.phone)
+          : undefined,
       newPin: newPin.trim() || undefined,
       newPassword: newPassword.trim() || undefined,
     })
@@ -163,6 +175,7 @@ function ProfilePanel({
     setEmail(info.email ?? '')
     setPaymentDetail(info.paymentDetail ?? '')
     setEmergencyContact(info.emergencyContact ?? '')
+    setEmergencyContacts(info.emergencyContacts ?? [])
     setNewPin('')
     setNewPassword('')
     setEditing(false)
@@ -204,6 +217,12 @@ function ProfilePanel({
               <Row label="Email" value={info.email ?? 'Not set'} />
               <Row label="Payment detail" value={info.paymentDetail ?? 'Not set'} />
               <Row label="Emergency contact" value={info.emergencyContact ?? 'Not set'} />
+              {info.role === 'passenger' && (
+                <Row
+                  label="More contacts"
+                  value={(info.emergencyContacts ?? []).length > 0 ? (info.emergencyContacts ?? []).map((c) => `${c.name} (${c.relationship})`).join(', ') : 'None'}
+                />
+              )}
               <Row label="Address" value={`${info.barangay ? `${info.barangay}, ` : ''}${info.city}, ${info.province}`} />
               {info.role === 'driver' && <Row label="Plate number" value={info.plateNumber ?? '—'} />}
             </div>
@@ -237,6 +256,7 @@ function ProfilePanel({
                 placeholder="Name and/or phone number"
               />
             </div>
+            {info.role === 'passenger' && <EmergencyContactsEditor value={emergencyContacts} onChange={setEmergencyContacts} />}
             <div className="space-y-3 rounded-lg border border-slate-100 p-3">
               <p className="text-xs font-semibold text-slate-600">Credentials</p>
               <Field label="Reset Password" value={newPassword} onChange={setNewPassword} placeholder="Leave blank to keep current" type="password" />

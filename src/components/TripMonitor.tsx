@@ -1,5 +1,6 @@
 import { formatAddressLine } from '../lib/addressFormat'
-import { isActiveAlert } from '../lib/safety'
+import { isActiveAlert, passengerEmergencyContacts } from '../lib/safety'
+import { EmergencySheet } from './EmergencySheet'
 import { rideServiceTag } from '../lib/vendorOrders'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -85,7 +86,10 @@ export function TripMonitor({
     specialPickupEscalationMs,
     rides,
     triggerSos,
-    resolveAlert,
+    cancelAlert,
+    logAlertEvent,
+    safetySettings,
+    passengers,
     addSafetyPhoto,
     updatePassengerLiveGps,
     addTipOffer,
@@ -105,6 +109,9 @@ export function TripMonitor({
   // was there only for whoever went looking for the button. The toggle
   // stays, so anyone can stop sharing.
   const [shareLiveGps, setShareLiveGps] = useState(true)
+  // The emergency screen (see EmergencySheet): SOS with its countdown,
+  // Call 911, the contacts on file. Opened from the SOS button.
+  const [emergencyOpen, setEmergencyOpen] = useState(false)
   // A driver waiting on an answer is a driver not moving, and the card that
   // asks for it can arrive while the passenger is scrolled somewhere else on
   // the page. It brings itself into view when it appears.
@@ -174,6 +181,20 @@ export function TripMonitor({
   const timeline = buildTimeline(ride)
   const isTerminal = ride.status === 'completed' || ride.status === 'declined' || ride.status === 'cancelled'
   const openSos = alerts.find((a) => a.rideId === ride.id && a.type === 'sos' && isActiveAlert(a))
+  // Who is pressing the button — the passenger on this ride, or the guardian
+  // watching it — for the incident's log.
+  const sosPassenger = passengers.find((p) => p.id === ride.passengerId) ?? null
+  const sosActorName =
+    sosActorId === ride.passengerId
+      ? ride.passengerName
+      : parents.find((p) => p.id === sosActorId)?.name ?? passengers.find((p) => p.id === sosActorId)?.name ?? 'Passenger'
+  const sosContacts = sosPassenger ? passengerEmergencyContacts(sosPassenger) : []
+  const sosDriver = ride.driverId ? drivers.find((d) => d.id === ride.driverId) ?? null : null
+  const sosToda = sosDriver?.todaOrgId ? todaOrganizations.find((o) => o.id === sosDriver.todaOrgId) ?? null : null
+  // A driver-raised SOS on this trip is told to the passenger in that seat.
+  const driverSos = alerts.find(
+    (a) => a.triggeredByRole === 'driver' && a.type === 'sos' && isActiveAlert(a) && (a.notifications ?? []).some((n) => n.recipientKind === 'counterpart' && n.recipientId === ride.passengerId),
+  )
   // A booking just placed. The map is the answer to "did that work?" — it is
   // where the pickup pin and, in a moment, the driver coming for it are — so
   // it is put in the middle of the screen the instant the trip appears,
@@ -660,11 +681,10 @@ export function TripMonitor({
       </div>
       <button
         type="button"
-        onClick={() => triggerSos(ride.id, sosActorId)}
-        disabled={!!openSos}
+        onClick={() => setEmergencyOpen(true)}
         aria-label={sosLabel}
         title={sosLabel}
-        className={`flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 transition disabled:cursor-not-allowed ${
+        className={`flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 transition ${
           openSos
             ? 'animate-pulse border-danger-700 bg-danger-600 text-white'
             : 'border-danger-300 bg-danger-50 text-danger-800 hover:bg-danger-100'
@@ -1419,6 +1439,38 @@ export function TripMonitor({
           happened yet. */}
       {gotOffCard}
 
+      {driverSos && !openSos && (
+        <div className="rounded-lg border-2 border-danger-600 bg-danger-100 p-3">
+          <p className="text-xs font-bold text-danger-900">🚨 Your driver raised an emergency SOS</p>
+          <p className="mt-0.5 text-[11px] text-danger-800">TodaSafeRide and the TODA have been told. If you are in danger, use the SOS or call 911.</p>
+          <button
+            type="button"
+            onClick={() => setEmergencyOpen(true)}
+            className="mt-2 w-full rounded-lg bg-danger-600 py-2 text-xs font-semibold text-white hover:bg-danger-700"
+          >
+            Open emergency screen
+          </button>
+        </div>
+      )}
+
+      {emergencyOpen && (
+        <EmergencySheet
+          role="passenger"
+          ride={ride}
+          actorName={sosActorName}
+          location={livePassengerGps ?? driverGpsInfo?.gps ?? null}
+          contacts={sosContacts}
+          counterpart={sosDriver?.phone ? { label: sosDriver.name, phone: sosDriver.phone } : null}
+          toda={sosToda?.contactPhone ? { name: sosToda.name, phone: sosToda.contactPhone } : null}
+          activeAlert={openSos ?? null}
+          countdownSeconds={safetySettings.sosCountdownSeconds}
+          onSendSos={() => triggerSos(ride.id, sosActorId)}
+          onCancelSos={(id) => cancelAlert(id, sosActorName, 'passenger')}
+          onLogEvent={(id, kind, summary) => logAlertEvent(id, kind, summary, sosActorName, 'passenger')}
+          onClose={() => setEmergencyOpen(false)}
+        />
+      )}
+
       {openSos && (
         <div className="overflow-hidden rounded-lg border-2 border-danger-600 bg-danger-100">
           <p className="animate-pulse px-3 pt-2 text-xs font-bold text-danger-900">🚨 EMERGENCY — SOS sent</p>
@@ -1440,12 +1492,21 @@ export function TripMonitor({
                   🚑 Call 911
                 </a>
               </div>
+              {(openSos.status === 'open' || openSos.status === 'acknowledged') && (
+                <button
+                  type="button"
+                  onClick={() => cancelAlert(openSos.id, sosActorName, 'passenger')}
+                  className="mt-2 w-full rounded-lg border border-danger-300 bg-white py-2 text-xs font-semibold text-danger-800 hover:bg-danger-50"
+                >
+                  ✕ False alarm — cancel this SOS
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => resolveAlert(openSos.id)}
-                className="mt-2 w-full rounded-lg border border-danger-300 bg-white py-2 text-xs font-semibold text-danger-800 hover:bg-danger-50"
+                onClick={() => setEmergencyOpen(true)}
+                className="mt-2 w-full rounded-lg bg-danger-600 py-2 text-xs font-semibold text-white hover:bg-danger-700"
               >
-                ✕ False alarm — cancel this SOS
+                Open emergency screen
               </button>
           </div>
         </div>

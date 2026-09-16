@@ -54,6 +54,8 @@ import type { MapPoint } from '../components/RealLiveMap'
 import { MedsBooking } from '../components/MedsBooking'
 import { VendorMenuBooking, type VendorMenuBookingHandle } from '../components/VendorMenuBooking'
 import { EmergencyHotlines } from '../components/EmergencyHotlines'
+import { EmergencySheet } from '../components/EmergencySheet'
+import { isActiveAlert, passengerEmergencyContacts } from '../lib/safety'
 import { PabiliItemsInput } from '../components/PabiliItemsInput'
 import { makeGuestPassengerId, useGuestRider } from '../components/GuestRiderFields'
 import { PassengerRewardsCard } from '../components/PassengerRewardsCard'
@@ -103,6 +105,12 @@ export function PassengerPage() {
     rewardsEnabled,
     medsEnabled,
     vendorsEnabled,
+    alerts,
+    triggerSos,
+    triggerPassengerSos,
+    cancelAlert,
+    logAlertEvent,
+    safetySettings,
   } = useRides()
   // The "no booking app fee" promise, only where it is still true.
   const { currentPassengerId, setCurrentPassengerId, authedAccount } = useSession()
@@ -2527,7 +2535,38 @@ export function PassengerPage() {
 
       {pageTab === 'rewards' && rewardsEnabled && <PassengerRewardsCard passenger={passenger} />}
 
-      {pageTab === 'emergency' && <EmergencyHotlines province={passenger.province} city={passenger.city} />}
+      {pageTab === 'emergency' && (
+        <>
+          {/* The emergency screen itself, in the page: SOS with its countdown
+              while a trip is on, and the call buttons either way. The
+              hotlines list follows for everything else. */}
+          {(() => {
+            const emergencyRide = activeRide ?? null
+            const emergencyAlert = emergencyRide ? alerts.find((a) => a.rideId === emergencyRide.id && a.type === 'sos' && isActiveAlert(a)) ?? null : null
+            const emergencyDriver = emergencyRide?.driverId ? drivers.find((d) => d.id === emergencyRide.driverId) ?? null : null
+            const emergencyToda = emergencyDriver?.todaOrgId ? todaOrganizations.find((o) => o.id === emergencyDriver.todaOrgId) ?? null : null
+            return (
+              <EmergencySheet
+                inline
+                role="passenger"
+                ride={emergencyRide}
+                actorName={passenger.name}
+                location={emergencyRide?.passengerLiveGps ?? emergencyRide?.driverLiveGps ?? null}
+                contacts={passengerEmergencyContacts(passenger)}
+                counterpart={emergencyDriver?.phone ? { label: emergencyDriver.name, phone: emergencyDriver.phone } : null}
+                toda={emergencyToda?.contactPhone ? { name: emergencyToda.name, phone: emergencyToda.contactPhone } : null}
+                activeAlert={emergencyAlert}
+                countdownSeconds={safetySettings.sosCountdownSeconds}
+                onSendSos={() => (emergencyRide ? triggerSos(emergencyRide.id, passenger.id) : triggerPassengerSos(passenger.id, null))}
+                onCancelSos={(id) => cancelAlert(id, passenger.name, 'passenger')}
+                onLogEvent={(id, kind, summary) => logAlertEvent(id, kind, summary, passenger.name, 'passenger')}
+                onClose={() => setPageTab('book')}
+              />
+            )
+          })()}
+          <EmergencyHotlines province={passenger.province} city={passenger.city} />
+        </>
+      )}
 
       {pageTab === 'book' && (
       <>

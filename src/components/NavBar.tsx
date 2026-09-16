@@ -72,6 +72,7 @@ export function NavBar() {
     rides,
     setDriverOnline,
     updatePassengerProfile,
+    setPassengerEmergencyContacts,
     updateDriverProfile,
     updateParentProfile,
     updatePharmacyProfile,
@@ -182,6 +183,7 @@ export function NavBar() {
           barangay: currentPassenger.barangay,
           paymentDetail: currentPassenger.paymentDetail ?? null,
           emergencyContact: currentPassenger.guardianPhone,
+          emergencyContacts: currentPassenger.emergencyContacts ?? [],
           hasActiveRide,
         }
       : authedAccount?.role === 'parent' && currentParent
@@ -290,6 +292,7 @@ export function NavBar() {
         password: values.newPassword ?? currentPassenger.password ?? null,
         guardianPhone: values.emergencyContact,
       })
+      if (values.emergencyContacts) setPassengerEmergencyContacts(currentPassenger.id, values.emergencyContacts)
     } else if (authedAccount?.role === 'parent' && currentParent) {
       updateParentProfile(currentParent.id, {
         name: values.name,

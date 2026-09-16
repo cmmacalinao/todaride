@@ -37,7 +37,7 @@ const FILTERS: { key: Filter; label: string }[] = [
 ]
 
 export function SafetyDashboard({ alerts, actor, canAct, onActed, title = '🆘 Safety desk' }: SafetyDashboardProps) {
-  const { rides, drivers, passengers, todaOrganizations, acknowledgeAlert, setAlertResponding, resolveAlert, cancelAlert, logAlertEvent } = useRides()
+  const { rides, drivers, passengers, todaOrganizations, acknowledgeAlert, setAlertResponding, resolveAlert, cancelAlert, logAlertEvent, sendContactSms } = useRides()
   const [filter, setFilter] = useState<Filter>('active')
   const [search, setSearch] = useState('')
   const [todaFilter, setTodaFilter] = useState<string>('all')
@@ -197,6 +197,7 @@ export function SafetyDashboard({ alerts, actor, canAct, onActed, title = '🆘 
               }}
               onNote={(id, text) => logAlertEvent(id, 'note', text, actor.name, actor.role)}
               onLogCall={(id, kind, summary) => logAlertEvent(id, kind, summary, actor.name, actor.role)}
+              onSendSms={(alertId, notificationId) => sendContactSms(alertId, notificationId, actor.name)}
             />
           ))}
         </div>

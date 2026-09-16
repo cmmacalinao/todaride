@@ -176,10 +176,15 @@ export function SafetySettingsPanel({ value, onChange }: { value: SafetySettings
             <input type="checkbox" checked={value.channels.inApp} onChange={(e) => onChange({ channels: { ...value.channels, inApp: e.target.checked } })} />
             In-app (the safety desk, the TODA admin page, a guardian's own screen)
           </label>
-          <label className="flex items-center gap-2 text-[11px] text-slate-400">
-            <input type="checkbox" checked={value.channels.sms} disabled title="Reserved for a future update — needs an SMS provider" onChange={() => {}} />
-            SMS to emergency contacts — not available yet
+          <label className="flex items-center gap-2 text-[11px] text-slate-600">
+            <input type="checkbox" checked={value.channels.sms} onChange={(e) => onChange({ channels: { ...value.channels, sms: e.target.checked } })} />
+            SMS to emergency contacts (via Semaphore, same account as login codes)
           </label>
+          {value.channels.sms && (
+            <p className="ml-6 text-[11px] text-slate-400">
+              Off by default and still one-tap: a contact who opted in gets a text queued on the safety desk, and someone there has to tap Send — nothing here goes out on its own.
+            </p>
+          )}
         </div>
       </div>
 

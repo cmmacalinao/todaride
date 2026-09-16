@@ -7,11 +7,12 @@
 // here too, in planNotifications, and every recipient is written down with
 // the channel used and whether it was delivered.
 //
-// Channels: only "in_app" delivers today. "sms" is planned for and logged as
-// skipped, so switching it on later is a sender function plus a setting, not
-// a change to any of this. Calls (911, hotlines, contacts) are never placed
-// by the app — the phone's own dialler does that; when someone taps a call
-// button the incident just records that they did.
+// Channels: "in_app" always delivers. "sms" sends a real text through
+// Semaphore (see lib/sosSmsApi.ts and RideContext's delivery effect) once
+// Super Admin turns the channel on and a contact has opted in — until then
+// it is logged as skipped, same as before. Calls (911, hotlines, contacts)
+// are never placed by the app — the phone's own dialler does that; when
+// someone taps a call button the incident just records that they did.
 import type {
   Driver,
   EmergencyContact,
@@ -88,6 +89,19 @@ export function severityFor(source: SosTriggerSource, type: SosAlert['type']): S
 
 function newId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+}
+
+// The text an emergency contact actually receives. Short and factual — no
+// diagnosis, no drama — since an automatic alert may still turn out to be
+// nothing. Sent as-is through lib/sosSmsApi.ts by RideContext's delivery
+// effect; nothing else touches the wording.
+function sosSmsText(raisedBy: string, source: SosTriggerSource, location: GeoCoords | null): string {
+  const who =
+    source === 'automatic_crash_detection'
+      ? `${raisedBy}'s phone detected a possible accident`
+      : `${raisedBy} pressed the emergency SOS button in the TodaSafeRide app`
+  const where = location ? ` Location: https://www.google.com/maps?q=${location.lat},${location.lng}` : ' Location not available.'
+  return `TodaSafeRide EMERGENCY ALERT: ${who}.${where} This is an automated message — call them or 911 if you cannot reach them.`
 }
 
 export function makeEvent(kind: SosEventKind, summary: string, actorName: string, actorRole: SosEvent['actorRole'], at = new Date().toISOString()): SosEvent {
@@ -184,21 +198,27 @@ export function buildIncident(ctx: IncidentContext): SosAlert {
   }
 
   // Level 2: guardian accounts with consent see it in the app; contacts
-  // without the app would need SMS, which is logged as skipped until that
-  // channel exists.
+  // without the app get an SMS drafted and queued as 'pending' once Super
+  // Admin has the channel on and they've opted in. Nothing sends itself —
+  // a person on the safety desk taps "Send SMS" per contact (see
+  // SafetyIncidentCard), the same one-tap-only rule every call button here
+  // already follows. See lib/sosSmsApi.ts for what that tap calls.
   if (passenger) {
     const linkedParents = parentLinks.filter((l) => l.studentPassengerId === passenger.id && l.consentGiven)
     for (const l of linkedParents) {
       note({ recipientKind: 'guardian', recipientId: l.parentId, recipientName: 'Guardian account', channel: 'in_app', status: settings.notifyGuardian ? 'delivered' : 'skipped', note: settings.notifyGuardian ? undefined : 'Guardian notification rule off' })
     }
     for (const c of passengerEmergencyContacts(passenger)) {
+      const queued = settings.channels.sms && c.smsEnabled
       note({
         recipientKind: 'contact',
         recipientId: c.id,
         recipientName: `${c.name} (${c.relationship})`,
         channel: 'sms',
-        status: settings.channels.sms && c.smsEnabled ? 'pending' : 'skipped',
-        note: settings.channels.sms ? (c.smsEnabled ? undefined : 'SMS off for this contact') : 'SMS channel not enabled — call button shown instead',
+        status: queued ? 'pending' : 'skipped',
+        note: settings.channels.sms ? (c.smsEnabled ? 'Queued — tap Send SMS to deliver' : 'SMS off for this contact') : 'SMS channel not enabled — call button shown instead',
+        phone: queued ? c.phone : undefined,
+        message: queued ? sosSmsText(raisedBy, source, location) : undefined,
       })
     }
   }
@@ -312,6 +332,21 @@ export function appendEvent(alert: SosAlert, kind: SosEventKind, summary: string
   if (kind === 'call_911') extra.call911Requested = true
   if (kind === 'note') extra.adminNotes = [...(alert.adminNotes ?? []), { id: ev.id, at: ev.at, by: actorName, text: summary }]
   return { ...alert, ...extra, events: [...(alert.events ?? []), ev] }
+}
+
+// Records the outcome of a person tapping "Send SMS" on one queued contact
+// notification — see RideContext's sendContactSms and lib/sosSmsApi.ts,
+// which is what actually calls Semaphore before this runs. Pure: this only
+// writes down what already happened, it never sends anything itself.
+export function markNotificationDelivery(alert: SosAlert, notificationId: string, status: 'delivered' | 'failed', note: string | undefined, actorName: string): SosAlert {
+  const target = (alert.notifications ?? []).find((n) => n.id === notificationId)
+  const notifications = (alert.notifications ?? []).map((n) => (n.id === notificationId ? { ...n, status, note: note ?? n.note } : n))
+  const events =
+    status === 'delivered' && target
+      ? [...(alert.events ?? []), makeEvent('notified', `SMS sent to ${target.recipientName} by ${actorName}`, actorName, 'admin')]
+      : alert.events ?? []
+  const emergencyContactsNotified = alert.emergencyContactsNotified || notifications.some((n) => n.status === 'delivered' && (n.recipientKind === 'contact' || n.recipientKind === 'guardian'))
+  return { ...alert, notifications, events, emergencyContactsNotified }
 }
 
 // Time from raise to the first person acknowledging, and to resolution —

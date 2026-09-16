@@ -8,7 +8,10 @@ import { formatTripRoute } from '../lib/addressFormat'
 // desk, the Super Admin's read-only view and the TODA admin page.
 //
 // Calls are the phone's dialler; tapping one is written to the incident's
-// log. Nothing here resolves an incident on its own.
+// log. A queued SMS is the same shape: it sits as 'pending' until someone
+// here taps Send, which is the one thing here that reaches outside the app
+// on its own — see RideContext's sendContactSms. Nothing resolves an
+// incident on its own.
 
 export interface IncidentActor {
   name: string
@@ -31,6 +34,7 @@ interface SafetyIncidentCardProps {
   onCancel: (id: string, notes: string) => void
   onNote: (id: string, text: string) => void
   onLogCall: (id: string, kind: 'call_passenger' | 'call_driver' | 'call_toda', summary: string) => void
+  onSendSms: (alertId: string, notificationId: string) => Promise<void>
 }
 
 const STATUS_STYLE: Record<SosAlert['status'], string> = {
@@ -64,11 +68,26 @@ export function SafetyIncidentCard({
   onCancel,
   onNote,
   onLogCall,
+  onSendSms,
 }: SafetyIncidentCardProps) {
   const [showLog, setShowLog] = useState(false)
   const [noteText, setNoteText] = useState('')
   const [resolveText, setResolveText] = useState('')
   const [resolving, setResolving] = useState(false)
+  const [sendingIds, setSendingIds] = useState<Set<string>>(new Set())
+
+  async function handleSendSms(notificationId: string) {
+    setSendingIds((prev) => new Set(prev).add(notificationId))
+    try {
+      await onSendSms(alert.id, notificationId)
+    } finally {
+      setSendingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(notificationId)
+        return next
+      })
+    }
+  }
 
   const ride = alert.rideId ? rides.find((r) => r.id === alert.rideId) ?? null : null
   const driverId = alert.driverId ?? (alert.triggeredByRole === 'driver' ? alert.triggeredBy : ride?.driverId ?? null)
@@ -88,7 +107,8 @@ export function SafetyIncidentCard({
   const who = alert.triggeredByRole === 'driver' ? driver?.name ?? 'A driver' : passenger?.name ?? ride?.passengerName ?? 'A passenger'
   const passengerPhone = passenger?.phone ?? ride?.passengerPhone ?? alert.guardianNotifiedPhone ?? null
   const delivered = (alert.notifications ?? []).filter((n) => n.status === 'delivered')
-  const skipped = (alert.notifications ?? []).filter((n) => n.status !== 'delivered')
+  const pendingSms = (alert.notifications ?? []).filter((n) => n.channel === 'sms' && n.status === 'pending')
+  const skipped = (alert.notifications ?? []).filter((n) => n.status !== 'delivered' && n.status !== 'pending')
   const mapsUrl = alert.location ? `https://www.google.com/maps?q=${alert.location.lat},${alert.location.lng}` : null
 
   return (
@@ -191,6 +211,21 @@ export function SafetyIncidentCard({
               </a>
             )}
           </div>
+          {pendingSms.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {pendingSms.map((n) => (
+                <button
+                  key={n.id}
+                  type="button"
+                  disabled={sendingIds.has(n.id)}
+                  onClick={() => handleSendSms(n.id)}
+                  className="rounded-lg border border-brand-300 bg-brand-50 px-2.5 py-1 text-[11px] font-medium text-brand-700 hover:bg-brand-100 disabled:opacity-50"
+                >
+                  {sendingIds.has(n.id) ? 'Sending…' : `📱 Send SMS to ${n.recipientName}`}
+                </button>
+              ))}
+            </div>
+          )}
           {active && (
             <div className="flex flex-wrap gap-1.5">
               {alert.status === 'open' && (

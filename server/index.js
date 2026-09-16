@@ -25,8 +25,10 @@ function normalizePhone(phone) {
   return String(phone ?? '').replace(/[^\d+]/g, '')
 }
 
-async function sendViaSemaphore(phone, code) {
-  const message = `Your TodaRide verification code is ${code}. It expires in 5 minutes.`
+// `code` builds the OTP message as before; passing `rawMessage` instead
+// (used by the SOS route) sends that text verbatim.
+async function sendViaSemaphore(phone, code, rawMessage) {
+  const message = rawMessage ?? `Your TodaRide verification code is ${code}. It expires in 5 minutes.`
   const res = await fetch('https://api.semaphore.co/api/v4/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -67,6 +69,29 @@ app.post('/api/send-otp', async (req, res) => {
     return res.json({ ok: true })
   } catch (err) {
     console.error('[otp] Semaphore send failed:', err.message)
+    return res.status(502).json({ error: 'Failed to send SMS. Check server logs and your Semaphore account/credits.' })
+  }
+})
+
+// Emergency SMS to a passenger's guardian/contacts — see lib/safety.ts's
+// notification plan and RideContext's delivery effect, which is what
+// actually calls this. Fire-and-forget: no stored code, no verify step.
+app.post('/api/send-sos-sms', async (req, res) => {
+  const phone = normalizePhone(req.body?.phone)
+  const message = String(req.body?.message ?? '').trim()
+  if (!phone) return res.status(400).json({ error: 'Phone number is required.' })
+  if (!message) return res.status(400).json({ error: 'Message is required.' })
+
+  if (!SEMAPHORE_API_KEY) {
+    console.log(`[sos-sms] No SEMAPHORE_API_KEY set — would have sent to ${phone}: ${message}`)
+    return res.json({ ok: true, dev: true })
+  }
+
+  try {
+    await sendViaSemaphore(phone, null, message)
+    return res.json({ ok: true })
+  } catch (err) {
+    console.error('[sos-sms] Semaphore send failed:', err.message)
     return res.status(502).json({ error: 'Failed to send SMS. Check server logs and your Semaphore account/credits.' })
   }
 })

@@ -73,6 +73,7 @@ export function NavBar() {
     setDriverOnline,
     updatePassengerProfile,
     setPassengerEmergencyContacts,
+    safetySettings,
     updateDriverProfile,
     updateParentProfile,
     updatePharmacyProfile,
@@ -184,6 +185,7 @@ export function NavBar() {
           paymentDetail: currentPassenger.paymentDetail ?? null,
           emergencyContact: currentPassenger.guardianPhone,
           emergencyContacts: currentPassenger.emergencyContacts ?? [],
+          smsAvailable: safetySettings.channels.sms,
           hasActiveRide,
         }
       : authedAccount?.role === 'parent' && currentParent

@@ -1031,8 +1031,11 @@ export interface SosEvent {
 }
 
 // Everyone an incident was sent to, over which channel, and whether it got
-// there. Only 'in_app' delivers today; 'sms' entries are written as
-// 'skipped' so the day it is switched on nothing else has to change.
+// there. 'in_app' delivers immediately; an 'sms' entry starts 'pending' when
+// Super Admin has the channel on and the contact opted in (see buildIncident
+// in lib/safety.ts), and RideContext's delivery effect sends it through
+// lib/sosSmsApi.ts and flips it to 'delivered' or 'failed'. `phone` and
+// `message` are only set on 'sms' entries — that effect is what reads them.
 export interface SosNotification {
   id: string
   at: string
@@ -1042,6 +1045,8 @@ export interface SosNotification {
   channel: 'in_app' | 'sms'
   status: 'delivered' | 'pending' | 'skipped' | 'failed'
   note?: string
+  phone?: string
+  message?: string
 }
 
 export interface SosNote {

@@ -173,8 +173,9 @@ import {
   DOCUMENT_TYPES,
 } from '../mock/data'
 import { TERMINAL_PROXIMITY_METERS, haversineDistanceMeters } from '../lib/geo'
-import { SAFETY_DEFAULTS, appendEvent, buildIncident, isActiveAlert, transitionAlert, withSafetyDefaults } from '../lib/safety'
+import { SAFETY_DEFAULTS, appendEvent, buildIncident, isActiveAlert, markNotificationDelivery, transitionAlert, withSafetyDefaults } from '../lib/safety'
 import { getPersistence } from '../lib/persistence'
+import { sendSosSms } from '../lib/sosSmsApi'
 
 // The distance part of an errand's fare. Shared by the booking preview and
 // the ride the reducer creates, so the number the customer agreed to is the
@@ -548,6 +549,10 @@ type RideAction =
   | { type: 'SET_SAFETY_SETTINGS'; patch: Partial<SafetySettings> }
   | { type: 'SET_PASSENGER_EMERGENCY_CONTACTS'; passengerId: string; contacts: EmergencyContact[] }
   | { type: 'LOG_POSSIBLE_CRASH'; actorId: string; role: SosTriggeredByRole; rideId: string | null; location: GeoCoords | null; outcome: 'ok' | 'timeout' }
+  // Records the result of a person tapping "Send SMS" on one queued contact
+  // notification. Dispatched by sendContactSms below, after lib/sosSmsApi.ts
+  // has already made (or failed to make) the real call — never on its own.
+  | { type: 'SET_NOTIFICATION_STATUS'; alertId: string; notificationId: string; status: 'delivered' | 'failed'; note?: string; actorName: string }
   | { type: 'APPROVE_DRIVER'; driverId: string }
   | { type: 'REJECT_DRIVER'; driverId: string; reason: string | null }
   | { type: 'APPEAL_DRIVER_REJECTION'; driverId: string; message: string }
@@ -3493,6 +3498,13 @@ function reducer(state: RideState, action: RideAction): RideState {
         ...state,
         alerts: state.alerts.map((a) => (a.id === action.alertId ? appendEvent(a, action.kind, action.summary, action.actorName, action.actorRole) : a)),
       }
+    case 'SET_NOTIFICATION_STATUS':
+      return {
+        ...state,
+        alerts: state.alerts.map((a) =>
+          a.id === action.alertId ? markNotificationDelivery(a, action.notificationId, action.status, action.note, action.actorName) : a,
+        ),
+      }
     case 'SET_SAFETY_SETTINGS':
       return { ...state, safetySettings: withSafetyDefaults({ ...state.safetySettings, ...action.patch }) }
     case 'SET_PASSENGER_EMERGENCY_CONTACTS':
@@ -6233,6 +6245,11 @@ interface RideContextValue extends RideState {
   setSafetySettings: (patch: Partial<SafetySettings>) => void
   setPassengerEmergencyContacts: (passengerId: string, contacts: EmergencyContact[]) => void
   logPossibleCrash: (args: { actorId: string; role: SosTriggeredByRole; rideId: string | null; location: GeoCoords | null; outcome: 'ok' | 'timeout' }) => void
+  // The one-tap "Send SMS" action on a queued contact notification (see
+  // SafetyIncidentCard) — a person triggers this, nothing sends on its own.
+  // Awaits the real Semaphore call in lib/sosSmsApi.ts, then records what
+  // happened via SET_NOTIFICATION_STATUS.
+  sendContactSms: (alertId: string, notificationId: string, actorName: string) => Promise<void>
   approveDriver: (driverId: string) => void
   rejectDriver: (driverId: string, reason?: string | null) => void
   appealDriverRejection: (driverId: string, message: string) => void
@@ -7421,6 +7438,23 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setSafetySettings: (patch) => dispatch({ type: 'SET_SAFETY_SETTINGS', patch }),
     setPassengerEmergencyContacts: (passengerId, contacts) => dispatch({ type: 'SET_PASSENGER_EMERGENCY_CONTACTS', passengerId, contacts }),
     logPossibleCrash: (args) => dispatch({ type: 'LOG_POSSIBLE_CRASH', ...args }),
+    sendContactSms: async (alertId, notificationId, actorName) => {
+      const alert = state.alerts.find((a) => a.id === alertId)
+      const n = alert?.notifications?.find((x) => x.id === notificationId)
+      if (!n || !n.phone || !n.message) {
+        dispatch({ type: 'SET_NOTIFICATION_STATUS', alertId, notificationId, status: 'failed', note: 'No phone number on file', actorName })
+        return
+      }
+      const result = await sendSosSms(n.phone, n.message)
+      dispatch({
+        type: 'SET_NOTIFICATION_STATUS',
+        alertId,
+        notificationId,
+        status: result.ok ? 'delivered' : 'failed',
+        note: result.ok ? undefined : result.unreachable ? 'SMS server unreachable' : result.error,
+        actorName,
+      })
+    },
     approveDriver: (driverId) => dispatch({ type: 'APPROVE_DRIVER', driverId }),
     rejectDriver: (driverId, reason = null) => dispatch({ type: 'REJECT_DRIVER', driverId, reason }),
     appealDriverRejection: (driverId, message) => dispatch({ type: 'APPEAL_DRIVER_REJECTION', driverId, message }),

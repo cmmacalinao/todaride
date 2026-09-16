@@ -7,9 +7,9 @@
 // JSON, the browser sends a preflight OPTIONS first and refuses the real
 // request unless that preflight is answered.
 //
-// Only the two Capacitor origins are allowed, and only for these two
-// endpoints. Reflecting whatever Origin arrives would let any page on the
-// internet spend this account's SMS credits.
+// Only the two Capacitor origins are allowed, and only for the functions
+// that import this file. Reflecting whatever Origin arrives would let any
+// page on the internet spend this account's SMS credits.
 const ALLOWED_ORIGINS = new Set(['https://localhost', 'capacitor://localhost', 'http://localhost'])
 
 export function corsHeaders(request) {

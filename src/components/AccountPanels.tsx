@@ -54,6 +54,11 @@ export interface AccountPanelInfo {
   paymentDetail: string | null
   emergencyContact: string | null
   emergencyContacts?: EmergencyContact[]
+  // Super Admin's live channels.sms setting — passenger-only, undefined
+  // otherwise. Gates the SMS checkbox in EmergencyContactsEditor; the
+  // checkbox itself only decides who gets asked, never sends anything (a
+  // human still has to tap Send on the safety desk).
+  smsAvailable?: boolean
   // Driver-only — undefined otherwise.
   rating?: number
   ratingCount?: number
@@ -256,7 +261,9 @@ function ProfilePanel({
                 placeholder="Name and/or phone number"
               />
             </div>
-            {info.role === 'passenger' && <EmergencyContactsEditor value={emergencyContacts} onChange={setEmergencyContacts} />}
+            {info.role === 'passenger' && (
+              <EmergencyContactsEditor value={emergencyContacts} onChange={setEmergencyContacts} smsAvailable={info.smsAvailable} />
+            )}
             <div className="space-y-3 rounded-lg border border-slate-100 p-3">
               <p className="text-xs font-semibold text-slate-600">Credentials</p>
               <Field label="Reset Password" value={newPassword} onChange={setNewPassword} placeholder="Leave blank to keep current" type="password" />

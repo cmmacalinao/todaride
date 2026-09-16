@@ -3018,6 +3018,7 @@ function ActiveRideCard({
       allowLiveGpsToggle
       allowGotOffCheck
       showGuardianContact
+      askAboutFarDriver
     />
   )
 }

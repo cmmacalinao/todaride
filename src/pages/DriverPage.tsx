@@ -61,6 +61,8 @@ import { nextSeparationDecision, type SeparationState } from '../lib/separation'
 import { TodaAdminPage } from './TodaAdminPage'
 import { alertsForToda } from '../lib/alertRouting'
 import { AnnouncementFeed } from '../components/AnnouncementFeed'
+import { FarDriverDialog } from '../components/FarDriverDialog'
+import { farDriverGap } from '../lib/farDriver'
 import { RIDE_CANCELLATION_REASON_LABELS } from '../types'
 import type { GeoCoords, PaymentMethod, Ride, RideCancellationReason } from '../types'
 
@@ -241,6 +243,17 @@ export function DriverPage() {
   // what they check occasionally. Folded, the section stays two lines instead
   // of as many lines as they have driven today.
   const [showEarningsBreakdown, setShowEarningsBreakdown] = useState(false)
+  // A far-away request waiting for the driver to confirm they meant to take
+  // it — see acceptRequest.
+  const [farAccept, setFarAccept] = useState<{
+    ride: Ride
+    origin: GeoCoords | null
+    meters: number
+    minutes: number
+    after?: () => void
+  } | null>(null)
+  // Releases the driver has already closed the notice for (see releasedNotice).
+  const [seenReleases, setSeenReleases] = useState<string[]>([])
   const location = useLocation()
   const navigate = useNavigate()
   // Scroll targets for the hamburger drawer's menu items (see
@@ -365,6 +378,20 @@ export function DriverPage() {
       return simulatedDriverOrigin(ride.pickup.gps, ride.id)
     }
     return myOriginGps
+  }
+  // Every Accept goes through here. A pickup far from where the driver is
+  // asks first — a tap on the wrong card should not commit anyone to a long
+  // drive, nor leave a passenger waiting on a driver who never meant to come.
+  function acceptRequest(ride: Ride | undefined, after?: () => void) {
+    if (!ride || !driver) return
+    const origin = originGpsForRide(ride)
+    const gap = farDriverGap(origin, ride.pickup.gps ?? null)
+    if (gap) {
+      setFarAccept({ ride, origin, ...gap, after })
+      return
+    }
+    driverProposeAccept(ride.id, driver.id, origin)
+    after?.()
   }
   const myActiveRides = rides
     .filter((r) => r.driverId === currentDriverId && (r.status === 'driver_arriving' || r.status === 'ongoing'))
@@ -933,15 +960,64 @@ export function DriverPage() {
     return phone ? { name: name ?? 'Passenger', phone } : null
   })()
 
+  // A passenger let this driver go in the last half hour (too far away) — the
+  // trip simply vanished from their screen otherwise, with no reason given.
+  const releasedNotice = (() => {
+    const cutoff = Date.now() - 30 * 60 * 1000
+    for (const r of rides) {
+      const mine = (r.releasedDrivers ?? []).find((rel) => rel.driverId === driver.id)
+      if (!mine || new Date(mine.at).getTime() < cutoff) continue
+      const key = `${r.id}:${mine.at}`
+      if (!seenReleases.includes(key)) return { key, passengerName: r.passengerName }
+    }
+    return null
+  })()
+
+  // Rendered with the footer, which every driver screen already includes, so
+  // the far-request check and the released notice work from any of them.
   const footerBar = (
-    <DriverFooterNav
-      active={footerSection}
-      onNavigate={goToSection}
-      requestCount={incoming.length}
-      showQueue={!!homeToda}
-      tripActive={!!myActiveRide}
-      contact={footerContact}
-    />
+    <>
+      <DriverFooterNav
+        active={footerSection}
+        onNavigate={goToSection}
+        requestCount={incoming.length}
+        showQueue={!!homeToda}
+        tripActive={!!myActiveRide}
+        contact={footerContact}
+      />
+      {farAccept && (
+        <FarDriverDialog
+          title="This pickup is far"
+          who="The passenger is"
+          meters={farAccept.meters}
+          minutes={farAccept.minutes}
+          confirmLabel="Accept anyway"
+          cancelLabel="Don't accept"
+          onConfirm={() => {
+            driverProposeAccept(farAccept.ride.id, driver.id, farAccept.origin)
+            farAccept.after?.()
+            setFarAccept(null)
+          }}
+          onCancel={() => setFarAccept(null)}
+        />
+      )}
+      {releasedNotice && (
+        <div className="fixed inset-x-3 top-16 z-[70] mx-auto flex max-w-lg items-start gap-2 rounded-xl border-2 border-amber-400 bg-amber-50 p-3 shadow-lg">
+          <p className="min-w-0 flex-1 text-xs text-amber-900">
+            <span className="font-bold">{releasedNotice.passengerName}</span> chose a nearer driver because you were far
+            away. The trip has been removed from your screen.
+          </p>
+          <button
+            type="button"
+            onClick={() => setSeenReleases((s) => [...s, releasedNotice.key])}
+            className="shrink-0 rounded-md px-2 py-0.5 text-sm font-bold text-amber-800 hover:bg-amber-100"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+    </>
   )
 
   if (driverView === 'requests') {
@@ -967,10 +1043,7 @@ export function DriverPage() {
           </p>
           <NearbyRequestsBoard
             requests={nearbyRequests}
-            onAccept={(rideId) => {
-              driverProposeAccept(rideId, driver.id, originGpsForRide(rides.find((r) => r.id === rideId)))
-              goToSection('current')
-            }}
+            onAccept={(rideId) => acceptRequest(rides.find((r) => r.id === rideId), () => goToSection('current'))}
             onDecline={(rideId) => declineRide(rideId, driver.id)}
             busyNote={
               myActiveRide
@@ -1366,10 +1439,7 @@ export function DriverPage() {
                       })()}
                       <div className="mt-3 flex gap-2">
                         <button
-                          onClick={() => {
-                            driverProposeAccept(r.id, driver.id, originGpsForRide(r))
-                            setShowRequests(false)
-                          }}
+                          onClick={() => acceptRequest(r, () => setShowRequests(false))}
                           className="flex-1 rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
                         >
                           Accept
@@ -1462,7 +1532,7 @@ export function DriverPage() {
                 <div className="mt-1.5 grid grid-cols-2 gap-1.5">
                   <button
                     type="button"
-                    onClick={() => driverProposeAccept(request.ride.id, driver.id, originGpsForRide(request.ride))}
+                    onClick={() => acceptRequest(request.ride)}
                     className="rounded-lg bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-700"
                   >
                     Sakay din
@@ -1595,10 +1665,7 @@ export function DriverPage() {
           <h2 className="text-sm font-semibold text-slate-700">🚗 Passengers waiting nearby</h2>
           <NearbyRequestsBoard
             requests={nearbyRequests}
-            onAccept={(rideId) => {
-              driverProposeAccept(rideId, driver.id, originGpsForRide(rides.find((r) => r.id === rideId)))
-              goToSection('current')
-            }}
+            onAccept={(rideId) => acceptRequest(rides.find((r) => r.id === rideId), () => goToSection('current'))}
             onDecline={(rideId) => declineRide(rideId, driver.id)}
             busyNote={
               myActiveRide

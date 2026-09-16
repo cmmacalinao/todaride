@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { FAR_DRIVER_METERS, formatDuration, formatKm, minutesToCover } from '../geo'
+import { farDriverGap } from '../farDriver'
 
 // What the passenger is told before a long wait starts, and when.
 describe('warning about a driver who is far away', () => {
@@ -35,5 +36,32 @@ describe('warning about a driver who is far away', () => {
   it('states the distance the way the rest of the app does', () => {
     expect(formatKm(1500)).toBe('1.5 km')
     expect(formatKm(20000)).toBe('20.0 km')
+  })
+})
+
+// When a driver and a pickup are far enough apart to stop and ask.
+describe('farDriverGap', () => {
+  const clsu = { lat: 15.73299, lng: 120.931426 }
+  const sanJose = { lat: 15.7886023, lng: 120.9921233 }
+
+  it('asks nothing when either end is unknown', () => {
+    expect(farDriverGap(null, sanJose)).toBeNull()
+    expect(farDriverGap(clsu, null)).toBeNull()
+  })
+
+  it('asks nothing for a driver a couple of kilometres off', () => {
+    expect(farDriverGap(clsu, clsu)).toBeNull()
+    expect(farDriverGap(clsu, sanJose, { meters: 2500, seconds: 400 })).toBeNull()
+  })
+
+  it('asks about a driver across town, straight line at tricycle speed', () => {
+    const gap = farDriverGap(clsu, sanJose)
+    expect(gap).not.toBeNull()
+    expect(Math.round(gap!.meters / 1000)).toBe(9)
+    expect(gap!.minutes).toBe(minutesToCover(gap!.meters))
+  })
+
+  it('prefers the road route when there is one', () => {
+    expect(farDriverGap(clsu, sanJose, { meters: 9900, seconds: 1020 })).toEqual({ meters: 9900, minutes: 17 })
   })
 })

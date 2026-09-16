@@ -301,6 +301,7 @@ function ParentSelfBooking({
           sosLabel="SOS — Emergency"
           showCancel
           onCancel={() => cancelRide(activeRide.id)}
+          askAboutFarDriver
         />
       ) : (
         <QuickBookingForm

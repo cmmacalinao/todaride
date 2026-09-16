@@ -131,6 +131,16 @@ export function mergeIncomingRides(local: Ride[], incoming: Ride[]): Ride[] {
   return incoming.map((theirs) => {
     const ours = mine.get(theirs.id)
     if (!ours) return theirs
+    // The one sanctioned step backwards: a passenger letting a far-away
+    // driver go puts the ride back to 'requested' (see
+    // PASSENGER_RELEASE_DRIVER). Each release is recorded, so the copy that
+    // has seen more releases is the newer one whatever its status — without
+    // this, every device still holding "driver arriving" would refuse the
+    // release below and write the old driver straight back.
+    const ourReleases = ours.releasedDrivers?.length ?? 0
+    const theirReleases = theirs.releasedDrivers?.length ?? 0
+    if (theirReleases > ourReleases && !isFinishedRide(ours.status)) return theirs
+    if (ourReleases > theirReleases && !isFinishedRide(theirs.status)) return ours
     // A ride never travels backwards.
     //
     // This began as a rule about endings — a cancelled trip that another

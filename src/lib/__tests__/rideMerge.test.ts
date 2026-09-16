@@ -119,3 +119,37 @@ describe('a ride never travels backwards', () => {
     expect(merged[0].status).toBe('driver_arriving')
   })
 })
+
+describe('a passenger letting a far-away driver go', () => {
+  const released = [{ driverId: 'drv-1', driverName: 'Mang Ramon', at: '2026-09-17T00:00:00Z' }]
+
+  it('adopts the release even though the ride steps back to requested', () => {
+    const merged = mergeIncomingRides(
+      [ride('r1', 'driver_arriving', { driverId: 'drv-1' })],
+      [ride('r1', 'requested', { driverId: null, releasedDrivers: released })],
+    )
+    expect(merged[0].status).toBe('requested')
+    expect(merged[0].driverId).toBeNull()
+  })
+
+  it('keeps the release when a stale device sends the old driver back', () => {
+    const merged = mergeIncomingRides(
+      [ride('r1', 'requested', { driverId: null, releasedDrivers: released })],
+      [ride('r1', 'driver_arriving', { driverId: 'drv-1' })],
+    )
+    expect(merged[0].status).toBe('requested')
+  })
+
+  it('lets the next driver accept after a release', () => {
+    const merged = mergeIncomingRides(
+      [ride('r1', 'requested', { driverId: null, releasedDrivers: released })],
+      [ride('r1', 'driver_arriving', { driverId: 'drv-2', releasedDrivers: released })],
+    )
+    expect(merged[0].driverId).toBe('drv-2')
+  })
+
+  it('never re-opens a ride this device has ended', () => {
+    const merged = mergeIncomingRides([ride('r1', 'cancelled')], [ride('r1', 'requested', { releasedDrivers: released })])
+    expect(merged[0].status).toBe('cancelled')
+  })
+})

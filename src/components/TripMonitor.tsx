@@ -2,6 +2,8 @@ import { formatAddressLine } from '../lib/addressFormat'
 import { isActiveAlert, passengerEmergencyContacts } from '../lib/safety'
 import { EmergencySheet } from './EmergencySheet'
 import { CrashPromptModal } from './CrashPromptModal'
+import { FarDriverDialog } from './FarDriverDialog'
+import { farDriverGap } from '../lib/farDriver'
 import { useCrashDetection } from '../lib/crashDetection'
 import { rideServiceTag } from '../lib/vendorOrders'
 import { useEffect, useRef, useState } from 'react'
@@ -64,6 +66,22 @@ interface TripMonitorProps {
   // up there would either point them at their own number or, worse, at a
   // parent link that has nothing to do with who they actually are.
   showGuardianContact?: boolean
+  // Ask whoever booked the ride whether to keep a driver who accepted from
+  // far away, or let them go and find someone nearer. Only on the booker's
+  // own screen — not a guardian watching, and not a delivery already bought.
+  askAboutFarDriver?: boolean
+}
+
+const FAR_DRIVER_OK_KEY = 'toda-far-driver-ok-v1'
+
+// "rideId:driverId" pairs the passenger already chose to keep, so a reload
+// does not ask the same question about the same driver again.
+function readKeptFarDrivers(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(FAR_DRIVER_OK_KEY) ?? '[]') as string[]
+  } catch {
+    return []
+  }
 }
 
 export function TripMonitor({
@@ -79,6 +97,7 @@ export function TripMonitor({
   allowLiveGpsToggle,
   allowGotOffCheck,
   showGuardianContact,
+  askAboutFarDriver,
 }: TripMonitorProps) {
   const navigate = useNavigate()
   const {
@@ -101,6 +120,7 @@ export function TripMonitor({
     confirmPassengerArrival,
     approveProposedFare,
     declineProposedFare,
+    releaseDriver,
     terminals,
     liveGpsEnabled,
     simulateMovementEnabled,
@@ -289,6 +309,27 @@ export function TripMonitor({
     destination: routeLineDestinationForRoute ?? null,
     legProgress: legRide.legProgress,
   })
+
+  // A driver who accepted from far away. Measured from where the driver
+  // really is (live GPS, or where they were when they accepted) — never the
+  // placeholder the map falls back to when neither is known, which would
+  // invent a distance. Asked once per driver; the answer is remembered.
+  const farDriverKey = `${ride.id}:${ride.driverId ?? ''}`
+  const [keptFarDrivers, setKeptFarDrivers] = useState<string[]>(readKeptFarDrivers)
+  const knownDriverGps = ride.driverLiveGps ?? ride.driverOriginGps ?? null
+  const farDriver =
+    askAboutFarDriver && ride.status === 'driver_arriving' && ride.driverId && !keptFarDrivers.includes(farDriverKey)
+      ? farDriverGap(knownDriverGps, ride.pickup.gps ?? null, remaining ? { meters: remaining.meters, seconds: remaining.seconds } : null)
+      : null
+  function keepFarDriver() {
+    const next = [...keptFarDrivers, farDriverKey].slice(-50)
+    setKeptFarDrivers(next)
+    try {
+      localStorage.setItem(FAR_DRIVER_OK_KEY, JSON.stringify(next))
+    } catch {
+      // Private mode: it just asks again after a reload.
+    }
+  }
 
   // Anything under this is "close enough to the booked drop-off" — GPS drift
   // and the width of a street should not turn a normal arrival into a
@@ -1476,6 +1517,19 @@ export function TripMonitor({
             Open emergency screen
           </button>
         </div>
+      )}
+
+      {farDriver && (
+        <FarDriverDialog
+          title="Your driver is far away"
+          who={`${ride.driverName ?? 'Your driver'} is`}
+          meters={farDriver.meters}
+          minutes={farDriver.minutes}
+          confirmLabel="Keep this driver"
+          cancelLabel="Find another driver"
+          onConfirm={keepFarDriver}
+          onCancel={() => releaseDriver(ride.id)}
+        />
       )}
 
       {crashPromptOpen && (

@@ -522,6 +522,7 @@ type RideAction =
   | { type: 'REPORT_DRIVER_GPS'; driverId: string; gps: GeoCoords }
   | { type: 'ACCEPT_RIDE'; rideId: string; driverId: string }
   | { type: 'DECLINE_RIDE'; rideId: string; driverId: string }
+  | { type: 'PASSENGER_RELEASE_DRIVER'; rideId: string }
   | {
       type: 'START_RIDE'
       rideId: string
@@ -3071,6 +3072,66 @@ function reducer(state: RideState, action: RideAction): RideState {
             : withDecline
         }),
       }
+    // The passenger lets a far-away driver go before the trip starts.
+    //
+    // Only while that driver is still on the way: once the passenger is
+    // aboard there is nobody else to hand the ride to. The ride goes back to
+    // 'requested' with the driver recorded as released — which keeps them off
+    // this request (declinedByDriverIds, and the queue log dispatch skips) and
+    // is what lets this one step backwards survive sync (mergeIncomingRides).
+    // Dispatch then offers it to whoever is next, exactly as if the driver had
+    // declined.
+    case 'PASSENGER_RELEASE_DRIVER': {
+      const ride = state.rides.find((r) => r.id === action.rideId)
+      if (!ride || ride.status !== 'driver_arriving' || !ride.driverId) return state
+      const releasedId = ride.driverId
+      const releasedName = ride.driverName ?? 'Driver'
+      const at = new Date().toISOString()
+      const priorityQueueLog = [
+        ...ride.priorityQueueLog,
+        { driverId: releasedId, driverName: releasedName, outcome: 'released_by_passenger' as const, at },
+      ]
+      const { offeredDriverId, offeredAt } = nextQueueOffer(
+        ride.priorityTodaOrgId,
+        priorityQueueLog,
+        state.drivers,
+        null,
+        ride.serviceType !== 'ride',
+        dispatchCtx(state, ride.pickup.gps ?? null),
+      )
+      const declined = ride.declinedByDriverIds ?? []
+      return {
+        ...state,
+        rides: state.rides.map((r) =>
+          r.id === action.rideId
+            ? {
+                ...r,
+                status: 'requested',
+                driverId: null,
+                driverName: null,
+                acceptedAt: null,
+                driverPosition: null,
+                passengerPosition: null,
+                legProgress: 0,
+                driverOriginGps: null,
+                driverLiveGps: null,
+                driverLiveGpsAt: null,
+                // The out-of-area charge belonged to where that driver was
+                // coming from; the next driver quotes their own.
+                fareEstimate: r.fareEstimate - (r.outOfAreaFee ?? 0),
+                outOfAreaKm: 0,
+                outOfAreaFee: 0,
+                pendingApproval: null,
+                declinedByDriverIds: declined.includes(releasedId) ? declined : [...declined, releasedId],
+                releasedDrivers: [...(r.releasedDrivers ?? []), { driverId: releasedId, driverName: releasedName, at }],
+                priorityQueueLog,
+                priorityQueueOfferedDriverId: offeredDriverId,
+                priorityQueueOfferedAt: offeredAt,
+              }
+            : r,
+        ),
+      }
+    }
     // The trip starts where the driver actually is.
     //
     // The pickup pin is a guess made before anybody set off — typed into an
@@ -6288,6 +6349,9 @@ interface RideContextValue extends RideState {
   reportDriverGps: (driverId: string, gps: GeoCoords) => void
   acceptRide: (rideId: string, driverId: string) => void
   declineRide: (rideId: string, driverId: string) => void
+  // The passenger lets the accepted driver go (too far away) and the ride goes
+  // back to finding someone else — see PASSENGER_RELEASE_DRIVER.
+  releaseDriver: (rideId: string) => void
   startRide: (rideId: string, driverGps?: GeoCoords | null) => void
   // The passenger saying they are off — hands the ride to the driver for
   // payment confirmation rather than completing it.
@@ -7483,6 +7547,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     reportDriverGps: (driverId, gps) => dispatch({ type: 'REPORT_DRIVER_GPS', driverId, gps }),
     acceptRide: (rideId, driverId) => dispatch({ type: 'ACCEPT_RIDE', rideId, driverId }),
     declineRide: (rideId, driverId) => dispatch({ type: 'DECLINE_RIDE', rideId, driverId }),
+    releaseDriver: (rideId) => dispatch({ type: 'PASSENGER_RELEASE_DRIVER', rideId }),
     startRide: (rideId, driverGps) => dispatch({ type: 'START_RIDE', rideId, driverGps }),
     confirmPassengerArrival: (rideId, actualDropoff) =>
       dispatch({ type: 'PASSENGER_CONFIRM_ARRIVAL', rideId, actualDropoff }),

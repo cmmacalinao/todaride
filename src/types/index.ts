@@ -1191,7 +1191,7 @@ export interface Payment {
   paidAt: string
 }
 
-export type QueueOfferOutcome = 'declined' | 'timeout'
+export type QueueOfferOutcome = 'declined' | 'timeout' | 'released_by_passenger'
 
 export interface QueueOfferLogEntry {
   driverId: string
@@ -1262,6 +1262,11 @@ export interface Ride {
   // had nowhere to be recorded and the request simply reappeared. Optional so
   // rides saved before this existed still parse.
   declinedByDriverIds?: string[]
+  // Drivers the passenger let go after they accepted — too far away — so the
+  // ride went back to looking for someone else. Also what lets that step
+  // backwards (driver arriving → requested) survive sync: see
+  // mergeIncomingRides. Optional so older rides parse.
+  releasedDrivers?: { driverId: string; driverName: string; at: string }[]
   isStudentRide: boolean
   // PWD/Senior discount, snapshotted at request time same as isStudentRide —
   // takes priority over the student rate if both are somehow true.

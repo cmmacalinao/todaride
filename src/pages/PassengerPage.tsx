@@ -45,6 +45,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { ReceiptCard } from '../components/ReceiptCard'
 import { StarRating } from '../components/StarRating'
 import { TripMonitor } from '../components/TripMonitor'
+import { TripDetailsBar } from '../components/TripDetailsBar'
 import { PassengerRegisterForm } from '../components/PassengerRegisterForm'
 import { BarangayAddressPicker } from '../components/BarangayAddressPicker'
 import { FAR_DRIVER_METERS, formatDuration, formatKm, haversineDistanceMeters, minutesToCover } from '../lib/geo'
@@ -701,36 +702,6 @@ export function PassengerPage() {
   const serviceFee = isErrand ? pabiliServiceFee : 0
   const totalFare = baseFare + serviceFee + specialPickupFee + (isErrand ? tip : 0)
 
-  // How long the trip takes and what it costs — the two numbers a passenger
-  // decides on, on one line. Only once both pins are set (see etaFareReady
-  // below): before that the fare would be priced on the hidden default pins
-  // and the time on a flat per-leg guess, which is what the row used to
-  // show under two "not set yet" labels. "Arrives" is gone from this row —
-  // there is no driver yet, so any arrival figure here was invented; the
-  // trip monitor shows the real one once someone has accepted.
-  //
-  // Named rather than written where it is drawn, because the same row is
-  // wanted in two places: under the map on the booking screen, and over the
-  // map when it goes full screen, where nothing below the map is visible.
-  const etaFareRow = (() => {
-    // Pickup → dropoff prefers the real road route, falling back to the
-    // standard per-leg figure when routing is unavailable.
-    const travelSeconds = plannedRoute?.durationSeconds || ETA_SECONDS_PER_LEG
-    const mins = (sec: number) => Math.max(1, Math.round(sec / 60))
-    return (
-      // One line, one card: label and number read together per segment
-      // ("Travel ~6 min") rather than stacked, so both fit the width of a
-      // phone sheet without the card growing a second line.
-      <div className="flex items-center divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white/90 px-2 py-1">
-        <span className="flex-1 truncate pr-1.5 text-[11px] leading-tight text-slate-800">
-          <span className="font-medium text-dest-accent">Travel</span> <span className="font-bold">~{mins(travelSeconds)} min</span>
-        </span>
-        <span className="flex-1 truncate pl-1.5 text-[11px] leading-tight text-slate-800">
-          <span className="font-medium text-slate-500">Fare</span> <span className="font-bold">₱{totalFare}</span>
-        </span>
-      </div>
-    )
-  })()
   // Split for the passenger-facing breakdown: standard rate vs. distance
   // overage. The extra-km fee rounds once and the standard-rate portion
   // absorbs whatever is left, so the two lines always add up to exactly
@@ -759,6 +730,28 @@ export function PassengerPage() {
   // price: a pickup the passenger chose and a destination (an errand's
   // destination is the pickup itself).
   const etaFareReady = pickupChosen && hasDestination
+
+  // The same Fare/Arrives/Distance/Time/Trip row the trip screens use, shown
+  // even before anything is chosen (as dashes) so the row never appears and
+  // disappears as the passenger works through the form. Figures only once
+  // both pins are set — before that the fare would be priced on the hidden
+  // default pins. Arrives and Time stay dashes: there is no driver yet, so any
+  // arrival figure here would be invented.
+  const bookingDetailsBar = (() => {
+    // Pickup → dropoff prefers the real road route, falling back to the
+    // standard per-leg figure when routing is unavailable.
+    const travelSeconds = plannedRoute?.durationSeconds || ETA_SECONDS_PER_LEG
+    const km = etaFareReady && plannedRoute ? formatKm(plannedRoute.distanceMeters) : '—'
+    return (
+      <TripDetailsBar
+        fare={etaFareReady ? `₱${totalFare}` : '—'}
+        arrives="—"
+        distance={km}
+        time="—"
+        trip={etaFareReady ? `${km} · ~${Math.max(1, Math.round(travelSeconds / 60))} min` : '—'}
+      />
+    )
+  })()
 
   function handleSaveLocation(label: SavedLocationLabel, location: MockLocation) {
     savePassengerLocation(passenger.id, label, location)
@@ -1708,7 +1701,10 @@ export function PassengerPage() {
             </span>
           )
         }
-        sheetNote={mapFirstBooking && !tripUnderway && etaFareReady ? etaFareRow : undefined}
+        sheetNote={mapFirstBooking && !tripUnderway ? bookingDetailsBar : undefined}
+        // Full screen shows the row above the map. Not while a ride is
+        // active: the trip card below carries that ride's own row.
+        detailsBar={activeRide ? undefined : bookingDetailsBar}
         sheetExtras={mapFirstBooking && !tripUnderway ? moreOptions : undefined}
         leadingAction={
           tripUnderway ? null : (
@@ -2722,7 +2718,12 @@ export function PassengerPage() {
 
           {/* In map-first booking the sheet carries this instead — see
               sharedMap's sheetNote — so it is not repeated here. */}
-          {!mapFirstBooking && etaFareReady && etaFareRow}
+          {/* Always there under the map. While a ride is active the trip card
+              carries that ride's own row, so this one steps aside rather
+              than showing a second row of dashes. */}
+          {!mapFirstBooking && !activeRide && (
+            <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">{bookingDetailsBar}</div>
+          )}
 
           {/* What is left below the map is no longer an address form, so it
               no longer hides behind a Pickup/Destination tab: the GPS status,

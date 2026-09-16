@@ -24,6 +24,7 @@ import { ETA_SECONDS_PER_LEG, useRides } from '../context/RideContext'
 import { useSession } from '../context/SessionContext'
 import { StatusBadge } from '../components/StatusBadge'
 import { RealLiveMap, preloadNavMap, type MapPoint } from '../components/RealLiveMap'
+import { TripDetailsBar } from '../components/TripDetailsBar'
 import { LocationPermissionRow } from '../components/LocationPermissionRow'
 import { DriverAuthGate } from '../components/DriverAuthGate'
 import { alongTheWayFit, isSpecialTrip, seatsLeft } from '../lib/alongTheWay'
@@ -1846,32 +1847,30 @@ function ActiveTripCard({
   // its own phase check. Trip is the odd one out: tripRoute is always
   // pickup→dropoff, so its total stays fixed across both phases instead of
   // shrinking as the current leg does.
+  const legSeconds = remaining ? remaining.seconds : leg.etaSeconds
   const tripDetailsBar = (
-    <div className="grid grid-cols-6 gap-1.5 text-[11px]">
-      <div className="min-w-0">
-        <p className="text-slate-500">Fare</p>
-        <p className="truncate font-bold text-slate-800">₱{cod ? cod.fee : ride.fareEstimate}</p>
-      </div>
-      <div className="min-w-0">
-        <p className="text-slate-500">Arrives</p>
-        <p className="truncate font-bold text-brand-700">{formatArrivalClock(remaining ? remaining.seconds : leg.etaSeconds)}</p>
-      </div>
-      <div className="min-w-0">
-        <p className="text-slate-500">Distance</p>
-        <p className="truncate font-bold text-brand-700">{remaining ? formatKm(remaining.meters) : '—'}</p>
-      </div>
-      <div className="min-w-0">
-        <p className="text-slate-500">Time</p>
-        <p className="truncate font-bold text-slate-800">
-          {(remaining ? remaining.seconds : leg.etaSeconds) <= 45 ? 'Now' : formatEta(remaining ? remaining.seconds : leg.etaSeconds)}
+    <TripDetailsBar
+      fare={`₱${cod ? cod.fee : ride.fareEstimate}`}
+      arrives={formatArrivalClock(legSeconds)}
+      distance={remaining ? formatKm(remaining.meters) : '—'}
+      time={legSeconds <= 45 ? 'Now' : formatEta(legSeconds)}
+      trip={`${tripRoute ? formatKm(tripRoute.distanceMeters) : '—'} · ~${Math.max(1, Math.round(tripDurationSeconds / 60))} min`}
+    />
+  )
+  const tripDetailsCard = (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+      <p className="mb-1 text-[11px] font-medium text-slate-500">
+        🛺 {ride.status === 'driver_arriving' ? 'To pickup' : 'To destination'}
+        {ride.passengerCount > 1 && <span className="ml-2">· 👥 {ride.passengerCount} passengers</span>}
+      </p>
+      {tripDetailsBar}
+      {(ride.pabiliTip > 0 || ride.tipOffer > 0) && (
+        <p className="mt-1 text-[11px] text-slate-500">
+          {ride.pabiliTip > 0 && <span>+₱{ride.pabiliTip} tip</span>}
+          {ride.pabiliTip > 0 && ride.tipOffer > 0 && <span> · </span>}
+          {ride.tipOffer > 0 && <span className="font-medium text-emerald-600">+₱{ride.tipOffer} tip offer</span>}
         </p>
-      </div>
-      <div className="col-span-2 min-w-0">
-        <p className="text-slate-500">Trip</p>
-        <p className="truncate font-bold text-slate-800">
-          {tripRoute ? formatKm(tripRoute.distanceMeters) : '—'} · ~{Math.max(1, Math.round(tripDurationSeconds / 60))} min
-        </p>
-      </div>
+      )}
     </div>
   )
   // True whenever the tricycle has anyone aboard — not just when this card's
@@ -2177,23 +2176,9 @@ function ActiveTripCard({
           </div>
         </div>
       )}
-      {/* Same figures as tripDetailsBar above — kept as one JSX value (not
-          duplicated) so full screen's copy of this row can never drift out
-          of sync with the one shown here normally. */}
-      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-        <p className="mb-1 text-[11px] font-medium text-slate-500">
-          🛺 {ride.status === 'driver_arriving' ? 'To pickup' : 'To destination'}
-          {ride.passengerCount > 1 && <span className="ml-2">· 👥 {ride.passengerCount} passengers</span>}
-        </p>
-        {tripDetailsBar}
-        {(ride.pabiliTip > 0 || ride.tipOffer > 0) && (
-          <p className="mt-1 text-[11px] text-slate-500">
-            {ride.pabiliTip > 0 && <span>+₱{ride.pabiliTip} tip</span>}
-            {ride.pabiliTip > 0 && ride.tipOffer > 0 && <span> · </span>}
-            {ride.tipOffer > 0 && <span className="font-medium text-emerald-600">+₱{ride.tipOffer} tip offer</span>}
-          </p>
-        )}
-      </div>
+      {/* A card with no map of its own (a second passenger aboard) keeps the
+          figures here; a card with a map shows them under it instead. */}
+      {!showMap && tripDetailsCard}
 
       {ride.pickupGps && ride.status === 'driver_arriving' && (
         <a
@@ -2272,6 +2257,9 @@ function ActiveTripCard({
           />
         </div>
       )}
+      {/* Under the map in normal view; full screen carries the same row
+          above the map instead (detailsBar). */}
+      {showMap && tripDetailsCard}
       {/* Map-visible mode carries this on the map itself now (see
           overlayTop above) — only the map-less list view still needs it
           written out below. */}

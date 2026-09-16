@@ -40,6 +40,7 @@ export function LocationMapPicker({
   sheetNote,
   mapFooter,
   sheetExtras,
+  detailsBar,
   underMapAction,
   // Rendered directly beneath the Pickup / Destination tabs, so an
   // address form opens under the tab that asks for it rather than in a
@@ -142,6 +143,10 @@ export function LocationMapPicker({
   // caller has that is optional belongs here rather than above the button
   // that sends the booking.
   sheetExtras?: ReactNode
+  // The Fare/Arrives/Distance/Time/Trip row, handed to the map so full screen
+  // shows it above the map. Normal view draws it under the map from the
+  // caller's side.
+  detailsBar?: ReactNode
   // Sits to the right of the submit in that same under-map row — for the one
   // control that belongs with the booking action rather than in the form
   // below it: how many people are riding.
@@ -529,6 +534,7 @@ export function LocationMapPicker({
       onFullscreenChange={setMapFullscreen}
       onScanQr={onScanQr}
       toolbarAction={toolbarAction}
+      detailsBar={detailsBar}
       // Handed to the map, which draws it as a row above itself, under its
       // toolbar: outside the map so no road is hidden under it, and still
       // inside the frame that fills the phone in full screen.

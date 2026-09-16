@@ -14,6 +14,7 @@ import { RealLiveMap, preloadNavMap, type MapPoint } from './RealLiveMap'
 import { AlertBanner } from './AlertBanner'
 import { PhotoCaptureButton } from './PhotoCaptureButton'
 import { PhotoGallery } from './PhotoGallery'
+import { TripDetailsBar } from './TripDetailsBar'
 import { buildTimeline, driverPickupOverdue, formatArrivalClock, formatEta, getDispatchWindow, getLegInfo, getPassengerMapGps, primaryAboardRide, sharedDriverMapGps, tripMapFraming } from '../lib/tracking'
 import { formatKm, haversineDistanceMeters } from '../lib/geo'
 import { remainingLeg } from '../lib/legRemaining'
@@ -704,43 +705,16 @@ export function TripMonitor({
   // its own beyond the label. Trip is the one figure that is NOT
   // leg-relative: tripRoute is always pickup→dropoff, so it stays the same
   // total across both phases instead of shrinking as the current leg does.
+  const legSeconds = remaining ? remaining.seconds : leg.etaSeconds
   const tripDetailsBar = (
-    <div className="grid grid-cols-6 gap-1.5 text-[11px]">
-      <div className="min-w-0">
-        <p className="text-slate-500">Fare</p>
-        <p className="truncate font-bold text-slate-800">₱{ride.fareEstimate}</p>
-      </div>
-      <div className="min-w-0">
-        <p className="text-slate-500">{ride.status === 'driver_arriving' ? 'Driver arrives' : 'Arrives'}</p>
-        <p className="truncate font-bold text-brand-700">
-          {hasDriver
-            ? remaining
-              ? formatArrivalClock(remaining.seconds)
-              : formatArrivalClock(leg.etaSeconds)
-            : '—'}
-        </p>
-      </div>
-      <div className="min-w-0">
-        <p className="text-slate-500">Distance</p>
-        <p className="truncate font-bold text-slate-800">{remaining ? formatKm(remaining.meters) : '—'}</p>
-      </div>
-      <div className="min-w-0">
-        <p className="text-slate-500">Time</p>
-        <p className="truncate font-bold text-slate-800">
-          {hasDriver
-            ? (remaining ? remaining.seconds : leg.etaSeconds) <= 45
-              ? 'Now'
-              : formatEta(remaining ? remaining.seconds : leg.etaSeconds)
-            : '—'}
-        </p>
-      </div>
-      <div className="col-span-2 min-w-0">
-        <p className="text-slate-500">Trip</p>
-        <p className="truncate font-bold text-slate-800">
-          {tripRoute ? formatKm(tripRoute.distanceMeters) : '—'} · ~{Math.max(1, Math.round(tripDurationSeconds / 60))} min
-        </p>
-      </div>
-    </div>
+    <TripDetailsBar
+      fare={`₱${ride.fareEstimate}`}
+      arrivesLabel={ride.status === 'driver_arriving' ? 'Driver arrives' : 'Arrives'}
+      arrives={hasDriver ? formatArrivalClock(legSeconds) : '—'}
+      distance={remaining ? formatKm(remaining.meters) : '—'}
+      time={hasDriver ? (legSeconds <= 45 ? 'Now' : formatEta(legSeconds)) : '—'}
+      trip={`${tripRoute ? formatKm(tripRoute.distanceMeters) : '—'} · ~${Math.max(1, Math.round(tripDurationSeconds / 60))} min`}
+    />
   )
 
   // Same reasoning, same fix. Withdrawn once arrival is already confirmed —
@@ -1339,9 +1313,6 @@ export function TripMonitor({
               />
             </>
           )}
-          {hasDriver && (
-            <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">{tripDetailsBar}</div>
-          )}
           <RealLiveMap
             points={mapPoints}
             routeLine={routeLine}
@@ -1407,6 +1378,9 @@ export function TripMonitor({
             // reader a tap on the palm icon before they could look closer.
             alwaysInteractive
           />
+          {/* Under the map here; full screen carries the same row above the
+              map instead (detailsBar). */}
+          <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">{tripDetailsBar}</div>
           {/* A trip nobody booked needs to say out loud that it exists.
               The passenger got into a tricycle off the street and the app
               recorded it without being asked, so the one thing it owes them

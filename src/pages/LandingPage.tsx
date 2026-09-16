@@ -84,13 +84,6 @@ export function LandingPage() {
               Transport &amp; Opportunity Digital Access
             </p>
           </div>
-          {/* The Rotary partnership card — off unless Super Admin has
-              switched it on. Its navy field is cut away so it sits on the
-              cover gradient itself, same as the combined graphic it was
-              cropped from. */}
-          {partnerBannerEnabled && (
-            <img src="/partner-banner-rotary.png" alt="Rotary Club partnership" className="mx-auto w-full max-w-sm" />
-          )}
           {/* Which build this actually is — see BuildLabel. Right under the
               logo/partner artwork so it's the first thing a screenshot of a
               bug report captures, rather than something found by scrolling
@@ -126,6 +119,14 @@ export function LandingPage() {
           <div className="mt-6 flex w-full flex-col items-center">
             <AppLoginForm />
           </div>
+          {/* The Rotary Community Economic Development Initiative card — off
+              unless Super Admin has switched it on. Below the login form's
+              "Prototype · simulated data" line rather than under the logo,
+              so it does not push the form down. Its navy field is cut away so
+              it sits on the cover gradient itself. */}
+          {partnerBannerEnabled && (
+            <img src="/partner-banner-rotary.png" alt="Rotary Club partnership" className="mx-auto mt-4 w-full max-w-sm" />
+          )}
         </div>
 
         {/* Tells the reader there's more below — without it a page that ends

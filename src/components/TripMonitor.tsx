@@ -14,7 +14,7 @@ import { RealLiveMap, preloadNavMap, type MapPoint } from './RealLiveMap'
 import { AlertBanner } from './AlertBanner'
 import { PhotoCaptureButton } from './PhotoCaptureButton'
 import { PhotoGallery } from './PhotoGallery'
-import { buildTimeline, driverPickupOverdue, formatArrives, formatEta, getDispatchWindow, getLegInfo, getPassengerMapGps, primaryAboardRide, sharedDriverMapGps, tripMapFraming } from '../lib/tracking'
+import { buildTimeline, driverPickupOverdue, formatArrivalClock, formatEta, getDispatchWindow, getLegInfo, getPassengerMapGps, primaryAboardRide, sharedDriverMapGps, tripMapFraming } from '../lib/tracking'
 import { formatKm, haversineDistanceMeters } from '../lib/geo'
 import { remainingLeg } from '../lib/legRemaining'
 import { reverseGeocodeToPhAddress } from '../lib/customLocation'
@@ -672,17 +672,7 @@ export function TripMonitor({
             {Math.max(1, Math.round(route.durationSeconds / 60))} min drive
           </p>
         )}
-        {hasDriver ? (
-          <p className="flex flex-wrap items-center justify-center gap-x-2 text-xs font-medium text-brand-700">
-            <span>
-              🛺 {ride.status === 'driver_arriving' ? 'Driver arriving: ' : 'To destination: '}
-              {remaining ? `${formatArrives(remaining.seconds, true)} · Distance ${formatKm(remaining.meters)}` : formatEta(leg.etaSeconds)}
-            </span>
-            <span className="text-[11px] font-medium text-slate-500">
-              🏁 ~{Math.max(1, Math.round(tripDurationSeconds / 60))} min trip
-            </span>
-          </p>
-        ) : (
+        {!hasDriver && (
           <p className="text-xs font-medium text-slate-400">
             Map will show your driver's live position once someone accepts.
           </p>
@@ -705,12 +695,17 @@ export function TripMonitor({
     </div>
   )
 
-  // Fare/Arrives/Trip, for RealLiveMap's detailsBar — the row full screen
-  // shows above even the Close button (see RealLiveMap.tsx). Reuses the
-  // same remaining/leg/tripDurationSeconds photoRouteSosRow already reads;
-  // this just adds the fare, which that row never carried.
+  // Fare/Arrives/Distance/Time/Trip, for RealLiveMap's detailsBar — the row
+  // full screen shows above even the Close button (see RealLiveMap.tsx).
+  // Arrives and Time both read from `remaining`, which is already keyed to
+  // whichever leg is actually current — the pickup while a driver is still
+  // arriving, the destination once the trip is ongoing (see
+  // routeLineDestinationForRoute above) — so this needs no phase check of
+  // its own beyond the label. Trip is the one figure that is NOT
+  // leg-relative: tripRoute is always pickup→dropoff, so it stays the same
+  // total across both phases instead of shrinking as the current leg does.
   const tripDetailsBar = (
-    <div className="grid grid-cols-3 gap-2 text-xs">
+    <div className="grid grid-cols-6 gap-1.5 text-[11px]">
       <div className="min-w-0">
         <p className="text-slate-500">Fare</p>
         <p className="truncate font-bold text-slate-800">₱{ride.fareEstimate}</p>
@@ -720,14 +715,30 @@ export function TripMonitor({
         <p className="truncate font-bold text-brand-700">
           {hasDriver
             ? remaining
-              ? formatArrives(remaining.seconds, true)
-              : formatEta(leg.etaSeconds)
+              ? formatArrivalClock(remaining.seconds)
+              : formatArrivalClock(leg.etaSeconds)
             : '—'}
         </p>
       </div>
       <div className="min-w-0">
+        <p className="text-slate-500">Distance</p>
+        <p className="truncate font-bold text-slate-800">{remaining ? formatKm(remaining.meters) : '—'}</p>
+      </div>
+      <div className="min-w-0">
+        <p className="text-slate-500">Time</p>
+        <p className="truncate font-bold text-slate-800">
+          {hasDriver
+            ? (remaining ? remaining.seconds : leg.etaSeconds) <= 45
+              ? 'Now'
+              : formatEta(remaining ? remaining.seconds : leg.etaSeconds)
+            : '—'}
+        </p>
+      </div>
+      <div className="col-span-2 min-w-0">
         <p className="text-slate-500">Trip</p>
-        <p className="truncate font-bold text-slate-800">~{Math.max(1, Math.round(tripDurationSeconds / 60))} min</p>
+        <p className="truncate font-bold text-slate-800">
+          {tripRoute ? formatKm(tripRoute.distanceMeters) : '—'} · ~{Math.max(1, Math.round(tripDurationSeconds / 60))} min
+        </p>
       </div>
     </div>
   )
@@ -1328,6 +1339,9 @@ export function TripMonitor({
               />
             </>
           )}
+          {hasDriver && (
+            <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">{tripDetailsBar}</div>
+          )}
           <RealLiveMap
             points={mapPoints}
             routeLine={routeLine}
@@ -1459,7 +1473,7 @@ export function TripMonitor({
           <button
             type="button"
             onClick={onFinishTrip}
-            className="mt-2 w-full rounded-lg border border-slate-400 bg-white py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="mt-2 w-full animate-blink-yellow rounded-lg border-2 border-gold-500 py-2 text-xs font-bold text-slate-800"
           >
             Tapusin ang biyahe
           </button>

@@ -149,6 +149,17 @@ export default {
           900: '#b71c1c',
         },
       },
+      // A soft yellow wash that fades in and out on a button the rider is
+      // being asked to press — noticeable without the alarm of the SOS pulse.
+      keyframes: {
+        'blink-yellow': {
+          '0%, 100%': { backgroundColor: '#fffbeb', boxShadow: '0 0 0 0 rgba(250, 204, 21, 0)' },
+          '50%': { backgroundColor: '#fde68a', boxShadow: '0 0 0 4px rgba(250, 204, 21, 0.35)' },
+        },
+      },
+      animation: {
+        'blink-yellow': 'blink-yellow 1.6s ease-in-out infinite',
+      },
     },
   },
   plugins: [],

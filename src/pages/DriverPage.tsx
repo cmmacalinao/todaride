@@ -32,6 +32,7 @@ import { EmergencyNumbersButton, EmergencyNumbersPanel } from '../components/Eme
 import { getActiveTodaCommission, DRIVER_BASE_GPS, estimateOutOfAreaBreakdown, getTerminalGps, getTodaQueue, nearestTerminal, PAYMENT_METHODS, terminalsForOrg } from '../mock/data'
 import {
   primaryAboardRide,
+  formatArrivalClock,
   formatEta,
   getDispatchWindow,
   getDriverMapGps,
@@ -1835,29 +1836,41 @@ function ActiveTripCard({
     destination: routeLineDestination ?? null,
     legProgress: ride.legProgress,
   })
-  // Same Fare/Arrives/Distance/Trip figures as the card below — pulled out
-  // as a value so RealLiveMap's detailsBar (the row full screen shows above
-  // even the Close button) can carry them too, instead of a driver having
-  // to back out of full screen to see what they're actually driving toward.
+  // Same Fare/Arrives/Distance/Time/Trip figures as the card below — pulled
+  // out as a value so RealLiveMap's detailsBar (the row full screen shows
+  // above even the Close button) can carry them too, instead of a driver
+  // having to back out of full screen to see what they're actually driving
+  // toward. Arrives and Time both read `remaining`, which the leg it is
+  // measured against — the pickup while still arriving, the destination
+  // once the trip is ongoing (see leg/remaining above) — so neither needs
+  // its own phase check. Trip is the odd one out: tripRoute is always
+  // pickup→dropoff, so its total stays fixed across both phases instead of
+  // shrinking as the current leg does.
   const tripDetailsBar = (
-    <div className="grid grid-cols-4 gap-2 text-xs">
+    <div className="grid grid-cols-6 gap-1.5 text-[11px]">
       <div className="min-w-0">
         <p className="text-slate-500">Fare</p>
         <p className="truncate font-bold text-slate-800">₱{cod ? cod.fee : ride.fareEstimate}</p>
       </div>
       <div className="min-w-0">
         <p className="text-slate-500">Arrives</p>
-        <p className="truncate font-bold text-brand-700">
-          {(remaining ? remaining.seconds : leg.etaSeconds) <= 45 ? 'Now' : formatEta(remaining ? remaining.seconds : leg.etaSeconds)}
-        </p>
+        <p className="truncate font-bold text-brand-700">{formatArrivalClock(remaining ? remaining.seconds : leg.etaSeconds)}</p>
       </div>
       <div className="min-w-0">
         <p className="text-slate-500">Distance</p>
         <p className="truncate font-bold text-brand-700">{remaining ? formatKm(remaining.meters) : '—'}</p>
       </div>
       <div className="min-w-0">
+        <p className="text-slate-500">Time</p>
+        <p className="truncate font-bold text-slate-800">
+          {(remaining ? remaining.seconds : leg.etaSeconds) <= 45 ? 'Now' : formatEta(remaining ? remaining.seconds : leg.etaSeconds)}
+        </p>
+      </div>
+      <div className="col-span-2 min-w-0">
         <p className="text-slate-500">Trip</p>
-        <p className="truncate font-bold text-slate-800">~{Math.max(1, Math.round(tripDurationSeconds / 60))} min</p>
+        <p className="truncate font-bold text-slate-800">
+          {tripRoute ? formatKm(tripRoute.distanceMeters) : '—'} · ~{Math.max(1, Math.round(tripDurationSeconds / 60))} min
+        </p>
       </div>
     </div>
   )

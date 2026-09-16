@@ -911,13 +911,20 @@ export function VectorLiveMap({
           turns with the map, which is the only way a rotated view can still
           be related to the world outside the phone. */}
       <div className="pointer-events-none absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-white/85 shadow-sm backdrop-blur-sm">
-        <span
+        <svg
+          viewBox="0 0 24 24"
+          className="h-7 w-7"
           aria-label={`North is ${Math.round(normalizeDegrees(-camera.bearing))} degrees from the top of the map`}
-          className="text-[13px] leading-none"
           style={{ transform: `rotate(${-camera.bearing}deg)`, transition: 'transform .3s linear' }}
         >
-          ⬆️
-        </span>
+          {/* A compass needle, not an arrow borrowed from somewhere else: the
+              red half always points at true north, the grey half is only
+              there so the red one reads as a needle rather than a flag. One
+              full diamond rather than two thin slivers — those disappeared
+              at this size instead of reading as a needle. */}
+          <path d="M12 2 L16 12 L12 10 L8 12 Z" fill="#dc2626" stroke="#7f1d1d" strokeWidth="0.5" strokeLinejoin="round" />
+          <path d="M12 22 L8 12 L12 14 L16 12 Z" fill="#94a3b8" stroke="#475569" strokeWidth="0.5" strokeLinejoin="round" />
+        </svg>
       </div>
     </div>
   )

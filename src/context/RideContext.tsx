@@ -6222,8 +6222,8 @@ interface RideContextValue extends RideState {
   acknowledgeRidePayment: (rideId: string, method: PaymentMethod, referenceNo?: string | null) => void
   updateDriverLiveGps: (rideId: string, gps: GeoCoords | null) => void
   updatePassengerLiveGps: (rideId: string, gps: GeoCoords | null) => void
-  triggerSos: (rideId: string, triggeredBy: string) => void
-  triggerDriverSos: (driverId: string, location: GeoCoords | null, notes?: string | null) => void
+  triggerSos: (rideId: string, triggeredBy: string, source?: SosTriggerSource, location?: GeoCoords | null) => void
+  triggerDriverSos: (driverId: string, location: GeoCoords | null, notes?: string | null, source?: SosTriggerSource) => void
   triggerPassengerSos: (passengerId: string, location: GeoCoords | null, notes?: string | null) => void
   resolveAlert: (alertId: string, actorName?: string, actorRole?: SosEvent['actorRole'], notes?: string | null) => void
   acknowledgeAlert: (alertId: string, actorName: string, actorRole: SosEvent['actorRole']) => void
@@ -7187,6 +7187,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           pilotTodaName: state.pilotTodaName,
           simulateMovementEnabled: state.simulateMovementEnabled,
           emergencyHotlines: state.emergencyHotlines,
+          safetySettings: state.safetySettings,
       } as unknown) as StoredState
       // Local first (instant, survives a dead signal), then the shared
       // tables if a backend is configured. lastSavedRef lets the adapter see
@@ -7294,6 +7295,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     state.pilotTodaName,
     state.simulateMovementEnabled,
     state.emergencyHotlines,
+    state.safetySettings,
   ])
 
   useEffect(() => {
@@ -7406,11 +7408,11 @@ export function RideProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'ACKNOWLEDGE_RIDE_PAYMENT', rideId, method, referenceNo }),
     updateDriverLiveGps: (rideId, gps) => dispatch({ type: 'UPDATE_DRIVER_LIVE_GPS', rideId, gps }),
     updatePassengerLiveGps: (rideId, gps) => dispatch({ type: 'UPDATE_PASSENGER_LIVE_GPS', rideId, gps }),
-    triggerSos: (rideId, triggeredBy) => dispatch({ type: 'TRIGGER_SOS', rideId, triggeredBy }),
+    triggerSos: (rideId, triggeredBy, source, location) => dispatch({ type: 'TRIGGER_SOS', rideId, triggeredBy, source, location }),
     triggerPassengerSos: (passengerId, location, notes = null) =>
       dispatch({ type: 'TRIGGER_PASSENGER_SOS', passengerId, location, notes }),
-    triggerDriverSos: (driverId, location, notes = null) =>
-      dispatch({ type: 'TRIGGER_DRIVER_SOS', driverId, location, notes }),
+    triggerDriverSos: (driverId, location, notes = null, source) =>
+      dispatch({ type: 'TRIGGER_DRIVER_SOS', driverId, location, notes, source }),
     resolveAlert: (alertId, actorName, actorRole, notes) => dispatch({ type: 'RESOLVE_ALERT', alertId, actorName, actorRole, notes }),
     acknowledgeAlert: (alertId, actorName, actorRole) => dispatch({ type: 'ACKNOWLEDGE_ALERT', alertId, actorName, actorRole }),
     setAlertResponding: (alertId, actorName, actorRole) => dispatch({ type: 'SET_ALERT_RESPONDING', alertId, actorName, actorRole }),

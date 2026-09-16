@@ -1,6 +1,8 @@
 import { formatAddressLine } from '../lib/addressFormat'
 import { isActiveAlert, passengerEmergencyContacts } from '../lib/safety'
 import { EmergencySheet } from './EmergencySheet'
+import { CrashPromptModal } from './CrashPromptModal'
+import { useCrashDetection } from '../lib/crashDetection'
 import { rideServiceTag } from '../lib/vendorOrders'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -89,6 +91,7 @@ export function TripMonitor({
     cancelAlert,
     logAlertEvent,
     safetySettings,
+    logPossibleCrash,
     passengers,
     addSafetyPhoto,
     updatePassengerLiveGps,
@@ -112,6 +115,12 @@ export function TripMonitor({
   // The emergency screen (see EmergencySheet): SOS with its countdown,
   // Call 911, the contacts on file. Opened from the SOS button.
   const [emergencyOpen, setEmergencyOpen] = useState(false)
+  // "Possible accident detected. Are you OK?" — see lib/crashDetection and
+  // CrashPromptModal. Only while this trip is actually under way, and only
+  // when Super Admin has turned the detector on.
+  const [crashPromptOpen, setCrashPromptOpen] = useState(false)
+  const crashDetectionActive = safetySettings.crashDetectionEnabled && ride.status === 'ongoing'
+  useCrashDetection(crashDetectionActive, safetySettings.crashSensitivity, () => setCrashPromptOpen(true))
   // A driver waiting on an answer is a driver not moving, and the card that
   // asks for it can arrive while the passenger is scrolled somewhere else on
   // the page. It brings itself into view when it appears.
@@ -1451,6 +1460,25 @@ export function TripMonitor({
             Open emergency screen
           </button>
         </div>
+      )}
+
+      {crashPromptOpen && (
+        <CrashPromptModal
+          timeoutSeconds={safetySettings.crashTimeoutSeconds}
+          onOk={() => {
+            logPossibleCrash({ actorId: sosActorId, role: 'passenger', rideId: ride.id, location: livePassengerGps ?? driverGpsInfo?.gps ?? null, outcome: 'ok' })
+            setCrashPromptOpen(false)
+          }}
+          onSendSos={() => {
+            setCrashPromptOpen(false)
+            triggerSos(ride.id, sosActorId)
+          }}
+          onTimeout={() => {
+            logPossibleCrash({ actorId: sosActorId, role: 'passenger', rideId: ride.id, location: livePassengerGps ?? driverGpsInfo?.gps ?? null, outcome: 'timeout' })
+            setCrashPromptOpen(false)
+            triggerSos(ride.id, sosActorId, 'automatic_crash_detection', livePassengerGps ?? driverGpsInfo?.gps ?? null)
+          }}
+        />
       )}
 
       {emergencyOpen && (

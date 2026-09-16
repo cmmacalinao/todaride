@@ -1,6 +1,8 @@
 import { formatAddressLine } from '../lib/addressFormat'
 import { isActiveAlert } from '../lib/safety'
 import { EmergencySheet } from '../components/EmergencySheet'
+import { CrashPromptModal } from '../components/CrashPromptModal'
+import { useCrashDetection } from '../lib/crashDetection'
 import { formatTripRoute } from '../lib/addressFormat'
 import { codBreakdown, isVendorDeliveryRide, rideServiceTag } from '../lib/vendorOrders'
 import { showInMiddle, showInMiddleWhenSettled, scrollViewToTop } from '../lib/showInMiddle'
@@ -122,6 +124,7 @@ export function DriverPage() {
     triggerDriverSos,
     cancelAlert,
     logAlertEvent,
+    logPossibleCrash,
     safetySettings,
     reportDriverGps,
     medsOrders,
@@ -184,6 +187,10 @@ export function DriverPage() {
     return () => clearInterval(id)
   }, [loggedInDriverId])
   const [queueNotice, setQueueNotice] = useState<{ title: string; body: string } | null>(null)
+  // "Possible accident detected. Are you OK?" — see lib/crashDetection and
+  // CrashPromptModal. Only while actually on a trip, and only when Super
+  // Admin has turned the detector on.
+  const [crashPromptOpen, setCrashPromptOpen] = useState(false)
   const [checkingLocation, setCheckingLocation] = useState(false)
   const [showHotlines, setShowHotlines] = useState(false)
   const [showRequests, setShowRequests] = useState(false)
@@ -720,6 +727,9 @@ export function DriverPage() {
   // no way to call for help outside a trip. Best-effort GPS: if location
   // fails/is denied, the alert still fires with location: null — TODA admin
   // and fellow members can still see it and call the driver directly.
+  const driverOnTripNow = myActiveRides.some((r) => r.status === 'ongoing' || r.status === 'driver_arriving')
+  useCrashDetection(safetySettings.crashDetectionEnabled && driverOnTripNow, safetySettings.crashSensitivity, () => setCrashPromptOpen(true))
+
   async function handleTriggerSos() {
     let position = null
     try {
@@ -1497,6 +1507,24 @@ export function DriverPage() {
               />
             )
           })()}
+          {crashPromptOpen && (
+            <CrashPromptModal
+              timeoutSeconds={safetySettings.crashTimeoutSeconds}
+              onOk={() => {
+                logPossibleCrash({ actorId: driver.id, role: 'driver', rideId: myActiveRide?.id ?? null, location: watchedGps ?? driver.lastKnownGps ?? null, outcome: 'ok' })
+                setCrashPromptOpen(false)
+              }}
+              onSendSos={() => {
+                setCrashPromptOpen(false)
+                void handleTriggerSos()
+              }}
+              onTimeout={() => {
+                logPossibleCrash({ actorId: driver.id, role: 'driver', rideId: myActiveRide?.id ?? null, location: watchedGps ?? driver.lastKnownGps ?? null, outcome: 'timeout' })
+                setCrashPromptOpen(false)
+                triggerDriverSos(driver.id, watchedGps ?? driver.lastKnownGps ?? null, null, 'automatic_crash_detection')
+              }}
+            />
+          )}
           <section className="rounded-xl border border-danger-200 bg-danger-50 p-4 shadow-sm">
             {fellowOpenAlerts.length > 0 && (
               <div className="mt-3 space-y-1.5 border-t border-danger-200 pt-3">

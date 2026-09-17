@@ -29,7 +29,7 @@ import { GpsDiagnosticLine } from './GpsDiagnosticLine'
 import { EmergencyHotlines } from './EmergencyHotlines'
 import { SosPeopleLocations } from './SosPeopleLocations'
 import { RIDE_CANCELLATION_REASON_LABELS } from '../types'
-import type { GeoCoords, Ride } from '../types'
+import type { EmergencyContact, GeoCoords, Ride } from '../types'
 
 interface CallContact {
   label: string
@@ -229,7 +229,37 @@ export function TripMonitor({
     sosActorId === ride.passengerId
       ? ride.passengerName
       : parents.find((p) => p.id === sosActorId)?.name ?? passengers.find((p) => p.id === sosActorId)?.name ?? 'Passenger'
-  const sosContacts = sosPassenger ? passengerEmergencyContacts(sosPassenger) : []
+  // The rider's own people: a consented parent/guardian account first, then
+  // the guardian number and emergency contacts on their profile. A parent
+  // watching is not offered their own number.
+  const riderParentLink = parentLinks.find((l) => l.studentPassengerId === ride.passengerId && l.consentGiven)
+  const riderParent = riderParentLink ? parents.find((p) => p.id === riderParentLink.parentId) ?? null : null
+  const sosContacts: EmergencyContact[] = (() => {
+    const out: EmergencyContact[] = []
+    const seen = new Set<string>()
+    const push = (c: EmergencyContact) => {
+      const key = c.phone.replace(/D/g, '')
+      if (!key || seen.has(key)) return
+      seen.add(key)
+      out.push(c)
+    }
+    const rider = sosPassenger
+    if (watching && (rider?.phone || ride.passengerPhone)) {
+      push({ id: `rider-${ride.passengerId}`, name: rider?.name ?? ride.passengerName, phone: (rider?.phone || ride.passengerPhone)!, relationship: 'On this trip', smsEnabled: false })
+    }
+    if (!watching && riderParent?.phone) {
+      push({ id: `parent-${riderParent.id}`, name: riderParent.name, phone: riderParent.phone, relationship: riderParentLink?.relationship || 'Parent', smsEnabled: false })
+    }
+    for (const c of sosPassenger ? passengerEmergencyContacts(sosPassenger) : []) push(c)
+    return out
+  })()
+  // One tap to family, on the trip card itself rather than only behind SOS:
+  // the parent following a trip calls the child; the child calls their
+  // parent, guardian or emergency contact.
+  const familyCalls: CallContact[] = sosContacts.map((c) => ({
+    label: watching ? `Call ${c.name}` : `Call ${c.name} (${c.relationship})`,
+    phone: c.phone,
+  }))
   const sosDriver = ride.driverId ? drivers.find((d) => d.id === ride.driverId) ?? null : null
   const sosToda = sosDriver?.todaOrgId ? todaOrganizations.find((o) => o.id === sosDriver.todaOrgId) ?? null : null
   // A driver-raised SOS on this trip is told to the passenger in that seat.
@@ -1624,20 +1654,21 @@ export function TripMonitor({
                 <SosPeopleLocations alert={openSos} ride={ride} passengerName="You" driverLabel={tricycleLabel ?? "Tricycle"} forPassenger />
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                {openSos.guardianNotifiedPhone && (
-                  <a
-                    href={`tel:${openSos.guardianNotifiedPhone}`}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-danger-500 bg-white px-3 py-1.5 text-xs font-semibold text-danger-800 hover:bg-danger-50"
-                  >
-                    📞 Call guardian {openSos.guardianNotifiedPhone}
-                  </a>
-                )}
                 <a
                   href="tel:911"
                   className="inline-flex items-center gap-1.5 rounded-lg border border-danger-600 bg-danger-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-danger-700"
                 >
                   🚑 Call 911
                 </a>
+                {familyCalls.map((c) => (
+                  <a
+                    key={c.phone}
+                    href={`tel:${c.phone}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-danger-500 bg-white px-3 py-1.5 text-xs font-semibold text-danger-800 hover:bg-danger-50"
+                  >
+                    📞 {c.label}
+                  </a>
+                ))}
               </div>
               {(openSos.status === 'open' || openSos.status === 'acknowledged') && (
                 <button

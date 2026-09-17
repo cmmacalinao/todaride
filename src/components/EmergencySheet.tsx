@@ -154,27 +154,32 @@ export function EmergencySheet({
         that, use the phone:
       </p>
 
-      <a
-        href="tel:911"
-        onClick={() => logCall('call_911', `${actorName} tapped Call 911`)}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-danger-600 bg-white py-3 text-base font-extrabold text-danger-800 hover:bg-danger-50"
-      >
-        🚑 CALL 911
-      </a>
+      {/* 911 and the people on file side by side — family is the call most
+          people actually make first, so it sits right beside 911 rather
+          than a scroll further down. */}
+      <div className="grid grid-cols-2 gap-2">
+        <a
+          href="tel:911"
+          onClick={() => logCall('call_911', `${actorName} tapped Call 911`)}
+          className="flex items-center justify-center gap-2 rounded-xl border-2 border-danger-600 bg-white py-3 text-base font-extrabold text-danger-800 hover:bg-danger-50"
+        >
+          🚑 CALL 911
+        </a>
+        {contacts.map((c) => (
+          <a
+            key={c.id}
+            href={`tel:${c.phone}`}
+            onClick={() => logCall('call_contact', `${actorName} called ${c.name} (${c.relationship})`)}
+            className="flex min-w-0 flex-col items-center justify-center rounded-xl border-2 border-brand-500 bg-white px-2 py-1.5 text-center text-sm font-bold text-brand-800 hover:bg-brand-50"
+          >
+            <span className="w-full truncate">📞 Call {c.name}</span>
+            <span className="text-[10px] font-medium text-slate-500">{c.relationship}</span>
+          </a>
+        ))}
+      </div>
 
-      {(contacts.length > 0 || counterpart || toda) && (
+      {(counterpart || toda) && (
         <div className="space-y-1.5">
-          {contacts.map((c) => (
-            <a
-              key={c.id}
-              href={`tel:${c.phone}`}
-              onClick={() => logCall('call_contact', `${actorName} called ${c.name} (${c.relationship})`)}
-              className="flex w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-            >
-              <span className="truncate">📞 Call {c.name}</span>
-              <span className="shrink-0 text-[11px] font-medium text-slate-500">{c.relationship}</span>
-            </a>
-          ))}
           {counterpart && (
             <a
               href={`tel:${counterpart.phone}`}

@@ -2379,6 +2379,7 @@ function ActiveTripCard({
             // Drawn by the map as a row above itself, under its toolbar —
             // outside the map, so no road is hidden under it, yet still
             // inside the frame that goes full screen, so it comes along.
+            overlayTopInline
             overlayTop={
               <div className="space-y-1.5">
                 <div className="space-y-0.5 text-[11px] leading-tight">

@@ -1356,6 +1356,7 @@ export function TripMonitor({
             // inside the frame that goes full screen, so it comes along.
             // Matches the same header on the driver's own map: the same
             // trip, read the same way from either seat.
+            overlayTopInline
             overlayTop={
               <div className="space-y-0.5 text-[11px] leading-tight">
                 <p className="truncate">

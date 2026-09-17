@@ -24,6 +24,7 @@ import { AnnouncementFeed } from '../components/AnnouncementFeed'
 import { EmergencyHotlines } from '../components/EmergencyHotlines'
 import { DailyBarChart } from '../components/charts/DailyBarChart'
 import { amountsByPeriod, REPORT_PERIOD_DEFAULT_COUNT, REPORT_PERIOD_LABELS, type ReportPeriod } from '../lib/insights'
+import { TodaMarketingRewardCard } from '../components/TodaMarketingRewardCard'
 import type { Driver, DuesType, MembershipRequestType, Operator, Ride, TodaExpenseCategory, TodaOrganization } from '../types'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -211,6 +212,8 @@ export function TodaAdminPage({
       />
 
       <DriverInviteSection orgId={org.id} orgName={org.name} />
+
+      <TodaMarketingRewardCard orgId={org.id} />
 
       <div ref={membersSectionRef}>
         <MembersSection

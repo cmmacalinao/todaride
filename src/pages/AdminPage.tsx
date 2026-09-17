@@ -2,6 +2,7 @@ import { formatTripRoute } from '../lib/addressFormat'
 import { SafetyDashboard } from '../components/SafetyDashboard'
 import { rideServiceTag } from '../lib/vendorOrders'
 import { useState, type ReactNode } from 'react'
+import { registeredMemberCount } from '../lib/marketingProgram'
 import { useNavigate } from 'react-router-dom'
 import { AdminSectionTabs, useAdminTab } from '../components/AdminSectionTabs'
 import { PilotTestChecklist } from '../components/PilotTestChecklist'
@@ -43,6 +44,47 @@ const TAAS_STATUS_STYLES: Record<string, string> = {
   approved: 'bg-brand-100 text-brand-700',
   pending: 'bg-amber-100 text-amber-800',
   rejected: 'bg-amber-100 text-amber-800',
+}
+
+// A TODA's official member count, for the Driver Marketing Promotion
+// Program's "all members registered" requirement.
+function OfficialMemberCountRow({
+  org,
+  registered,
+  onSave,
+}: {
+  org: TodaOrganization
+  registered: number
+  onSave: (count: number | null) => void
+}) {
+  const [draft, setDraft] = useState(org.officialMemberCount ? String(org.officialMemberCount) : '')
+  const official = org.officialMemberCount ?? null
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <span className="text-slate-500">Official members</span>
+      <input
+        type="number"
+        min={1}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder="e.g. 45"
+        className="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+      />
+      <span className={official && registered >= official ? 'text-emerald-700' : 'text-slate-400'}>
+        {registered} registered{official ? (registered >= official ? ' · earning rewards' : ` of ${official}`) : ''}
+      </span>
+      <button
+        type="button"
+        onClick={() => {
+          const n = Number(draft)
+          onSave(Number.isFinite(n) && n > 0 ? n : null)
+        }}
+        className="ml-auto rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+      >
+        Save
+      </button>
+    </div>
+  )
 }
 
 function StatTile({ label, value }: { label: string; value: string }) {
@@ -158,6 +200,7 @@ export function AdminPage() {
     setTodaOrgPendingNote,
     setTodaSaasPlan,
     setTodaOperator,
+    setTodaOfficialMemberCount,
     setTariffSettings,
     cityTariffs,
     todaTariffs,
@@ -264,6 +307,14 @@ export function AdminPage() {
   const completedRides = rides.filter((r) => r.status === 'completed')
   const grossFares = completedRides.reduce((sum, r) => sum + (r.payment?.amount ?? 0), 0)
   const platformRevenue = completedRides.reduce((sum, r) => sum + (r.payment?.platformFee ?? 0), 0)
+  // Driver Marketing Promotion Program payouts, paid out of that platform fee.
+  const marketingPayouts =
+    Math.round(
+      completedRides.reduce(
+        (sum, r) => sum + (r.payment?.partnerCommission ?? 0) + (r.payment?.todaReferralReward ?? 0),
+        0,
+      ) * 100,
+    ) / 100
   const driverPayouts = completedRides.reduce((sum, r) => sum + (r.payment?.driverPayout ?? 0), 0)
   const ridesToday = rides.filter(
     (r) => new Date(r.requestedAt).toDateString() === new Date().toDateString(),
@@ -640,6 +691,8 @@ export function AdminPage() {
           <StatTile label="Active drivers" value={String(activeDrivers)} />
           <StatTile label="Platform revenue" value={`₱${platformRevenue}`} />
           <StatTile label="Driver payouts" value={`₱${driverPayouts}`} />
+          <StatTile label="Marketing program payouts" value={`₱${marketingPayouts.toFixed(2)}`} />
+          <StatTile label="Platform revenue (net)" value={`₱${(platformRevenue - marketingPayouts).toFixed(2)}`} />
         </div>
       </section>
 
@@ -1542,6 +1595,25 @@ export function AdminPage() {
                       ))}
                   </select>
                 </div>
+                {/* Driver Marketing Promotion Program: the TODA's ₱0.30
+                    per recruit ride starts once this many members are
+                    registered (see lib/marketingProgram.ts). */}
+                <OfficialMemberCountRow
+                  org={org}
+                  registered={registeredMemberCount(org.id, drivers)}
+                  onSave={(count) => {
+                    setTodaOfficialMemberCount(org.id, count)
+                    logActivity({
+                      actorRole: 'admin',
+                      actorName: 'Admin',
+                      todaOrgId: org.id,
+                      action: 'Set official member count',
+                      summary: count
+                        ? `Official member count for "${org.name}" set to ${count}.`
+                        : `Official member count for "${org.name}" cleared.`,
+                    })
+                  }}
+                />
               </div>
             ))}
           {todaOrganizations.every((o) => o.verificationStatus !== 'approved') && (

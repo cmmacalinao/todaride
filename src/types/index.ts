@@ -205,6 +205,12 @@ export interface TodaOrganization {
   // Level-2 Operator this TODA reports to, if any; null = reports directly
   // to HQ (the default — most TODAs never move past Level 1).
   operatorId: string | null
+  // How many members this TODA officially has, set by Admin. The Driver
+  // Marketing Promotion Program's ₱0.30-per-ride TODA reward only applies
+  // once this many of its drivers are registered in the app (see
+  // lib/marketingProgram.ts). Unset = not yet eligible. Optional so older
+  // orgs parse.
+  officialMemberCount?: number | null
 }
 
 // Boundaries are drawn on the map and kept as records of their own, because
@@ -784,6 +790,15 @@ export interface Driver {
   // earnings are counted from every trip regardless. Optional so existing
   // drivers parse.
   tripHistoryClearedAt?: string | null
+  // Driver Marketing Promotion Program (see lib/marketingProgram.ts). A
+  // partner's own referral code, set the moment they join; null = not a
+  // partner. And, for a driver who signed up with someone's code, who
+  // recruited them and when — rides earn for that partner for a year from
+  // then. All optional so existing drivers parse.
+  partnerCode?: string | null
+  partnerJoinedAt?: string | null
+  referredByDriverId?: string | null
+  referredAt?: string | null
   // Which of the TODA's terminals this driver works out of. A TODA with one
   // terminal never needs it; CLSU has three, and a driver waiting at the
   // Second Gate is not in the same line as one at the Main Gate. Optional so
@@ -1204,6 +1219,15 @@ export interface Payment {
   // driver in full, not subject to platform fee or TODA commission.
   tip: number
   paidAt: string
+  // Driver Marketing Promotion Program payouts on this ride, taken out of
+  // platformFee (not out of driverPayout): ₱0.70 to the driver who recruited
+  // this ride's driver, and ₱0.30 to the driver's TODA once all its members
+  // are registered. Zero/null when the ride did not qualify. Optional so
+  // older payments parse.
+  partnerDriverId?: string | null
+  partnerCommission?: number
+  todaReferralOrgId?: string | null
+  todaReferralReward?: number
 }
 
 export type QueueOfferOutcome = 'declined' | 'timeout' | 'released_by_passenger'

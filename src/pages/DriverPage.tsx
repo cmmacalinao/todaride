@@ -26,6 +26,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { RealLiveMap, preloadNavMap, type MapPoint } from '../components/RealLiveMap'
 import { TripDetailsBar } from '../components/TripDetailsBar'
 import { ClearHistoryControl, isClearedFromHistory } from '../components/ClearHistoryControl'
+import { MarketingPartnerCard } from '../components/MarketingPartnerCard'
 import { LocationPermissionRow } from '../components/LocationPermissionRow'
 import { DriverAuthGate } from '../components/DriverAuthGate'
 import { alongTheWayFit, isSpecialTrip, seatsLeft } from '../lib/alongTheWay'
@@ -1093,6 +1094,7 @@ export function DriverPage() {
             <h1 className="min-w-0 flex-1 truncate text-sm font-bold text-slate-800">💰 Earnings</h1>
           </div>
           {earningsSection}
+          <MarketingPartnerCard driver={driver} />
           <TricycleQrPanel driver={driver} />
           <DriverWalletPanel
             driverName={driver.name}
@@ -1712,6 +1714,7 @@ export function DriverPage() {
           the day's takings when they have a moment. Same section, rendered
           twice -- one definition, so the two can never disagree. */}
       {earningsSection}
+      <MarketingPartnerCard driver={driver} />
 
       <section ref={tripHistorySectionRef}>
         <button

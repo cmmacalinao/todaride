@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode, useRef } from 'react'
 import { BANNER_AD_SLOT_COUNT, MAX_VENDOR_POSTS } from '../types'
 import { mergeById, mergeIncomingRides, mergeVendorPosts } from '../lib/rideMerge'
+import { findPartnerByCode, generatePartnerCode, marketingSplit } from '../lib/marketingProgram'
 import { PILOT_ORIGIN } from '../lib/pilotOrigin'
 import type { RecoveryKind } from '../lib/unifiedLogin'
 import type { RidePhoto } from '../types'
@@ -1116,7 +1117,11 @@ type RideAction =
       email: string | null
       facebook: string | null
       inviteId: string | null
+      // A marketing partner's code, if the new driver was recruited.
+      referralCode?: string | null
     }
+  | { type: 'JOIN_MARKETING_PARTNER'; driverId: string }
+  | { type: 'SET_TODA_OFFICIAL_MEMBER_COUNT'; orgId: string; count: number | null }
   | {
       type: 'CREATE_DRIVER_INVITE'
       id: string
@@ -3277,6 +3282,16 @@ function reducer(state: RideState, action: RideAction): RideState {
       )
       const totalTip = ride.pabiliTip + (ride.tipOffer || 0)
       const driverPayout = Math.max(0, earnedFare - platformFee - todaCommission) + totalTip
+      // Driver Marketing Promotion Program: paid out of platformFee, so the
+      // driver's payout above is unchanged by it. Fixed on the payment now,
+      // so a later change to the TODA's registration or the partner's status
+      // never rewrites what an old ride paid.
+      const marketing = marketingSplit({
+        recruit: drivingDriver,
+        drivers: state.drivers,
+        orgs: state.todaOrganizations,
+        platformFee,
+      })
       return {
         ...state,
         rides: state.rides.map((r) =>
@@ -3298,6 +3313,10 @@ function reducer(state: RideState, action: RideAction): RideState {
                   todaCommission,
                   tip: totalTip,
                   paidAt: new Date().toISOString(),
+                  partnerDriverId: marketing.partnerDriverId,
+                  partnerCommission: marketing.partnerCommission,
+                  todaReferralOrgId: marketing.todaReferralOrgId,
+                  todaReferralReward: marketing.todaReferralReward,
                 },
               }
             : r,
@@ -5237,6 +5256,14 @@ function reducer(state: RideState, action: RideAction): RideState {
         appealMessage: null,
         appealedAt: null,
       }
+      // Signed up with a marketing partner's code: this driver's rides earn
+      // for that partner for a year from now (see lib/marketingProgram.ts).
+      // An unknown code is simply ignored — it never blocks a sign-up.
+      const recruiter = findPartnerByCode(state.drivers, action.referralCode)
+      if (recruiter) {
+        driver.referredByDriverId = recruiter.id
+        driver.referredAt = new Date().toISOString()
+      }
       // A rider a vendor pre-registered (see DriverInvite.pharmacyId) is
       // that vendor's trusted rider from the moment they finish signing up
       // — the vendor should not have to find them in the list afterwards.
@@ -5259,6 +5286,29 @@ function reducer(state: RideState, action: RideAction): RideState {
           : state.pharmacies,
       }
     }
+    // Joining is automatic: the driver gets their referral code on the spot.
+    case 'JOIN_MARKETING_PARTNER': {
+      const driver = state.drivers.find((d) => d.id === action.driverId)
+      if (!driver || driver.partnerCode) return state
+      const code = generatePartnerCode(state.drivers.map((d) => d.partnerCode ?? '').filter(Boolean))
+      return {
+        ...state,
+        drivers: state.drivers.map((d) =>
+          d.id === action.driverId ? { ...d, partnerCode: code, partnerJoinedAt: new Date().toISOString() } : d,
+        ),
+      }
+    }
+    // Admin sets how many members a TODA officially has — what "all members
+    // registered" is measured against for the program's TODA reward.
+    case 'SET_TODA_OFFICIAL_MEMBER_COUNT':
+      return {
+        ...state,
+        todaOrganizations: state.todaOrganizations.map((o) =>
+          o.id === action.orgId
+            ? { ...o, officialMemberCount: action.count && action.count > 0 ? Math.floor(action.count) : null }
+            : o,
+        ),
+      }
     case 'CREATE_DRIVER_INVITE': {
       const invite: DriverInvite = {
         id: action.id,
@@ -6962,7 +7012,11 @@ interface RideContextValue extends RideState {
     email: string | null
     facebook: string | null
     inviteId?: string | null
+    referralCode?: string | null
   }) => void
+  // Driver Marketing Promotion Program — see lib/marketingProgram.ts.
+  joinMarketingPartner: (driverId: string) => void
+  setTodaOfficialMemberCount: (orgId: string, count: number | null) => void
   createDriverInvite: (args: {
     todaOrgId: string | null
     name: string
@@ -8020,6 +8074,8 @@ export function RideProvider({ children }: { children: ReactNode }) {
       return id
     },
     registerDriver: (args) => dispatch({ type: 'REGISTER_DRIVER', inviteId: null, ...args }),
+    joinMarketingPartner: (driverId) => dispatch({ type: 'JOIN_MARKETING_PARTNER', driverId }),
+    setTodaOfficialMemberCount: (orgId, count) => dispatch({ type: 'SET_TODA_OFFICIAL_MEMBER_COUNT', orgId, count }),
     createDriverInvite: (args) => {
       const id = `invite-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`.toUpperCase()
       dispatch({ type: 'CREATE_DRIVER_INVITE', id, ...args })

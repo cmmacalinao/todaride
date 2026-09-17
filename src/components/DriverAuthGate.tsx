@@ -13,6 +13,7 @@ import {
 import { IdentifierLoginForm } from './IdentifierLoginForm'
 import { EMPTY_PH_ADDRESS, PhAddressFields, type PhAddressValue } from './PhAddressFields'
 import { RegistrationOtpStep } from './RegistrationOtpStep'
+import { findPartnerByCode } from '../lib/marketingProgram'
 import type { DriverDocuments, DriverInvite, GeoCoords, TodaOfficer } from '../types'
 
 const EMPTY_DOCUMENTS: DriverDocuments = {
@@ -654,7 +655,7 @@ function RegisterForm({
   invite: DriverInvite | null
   inviteTodaOrgId: string | null
 }) {
-  const { todaOrganizations, pharmacies, addUnregisteredToda, openDriverSignup } = useRides()
+  const { todaOrganizations, pharmacies, addUnregisteredToda, openDriverSignup, drivers } = useRides()
   // An invite already identifies who this is and which TODA vouched for
   // them, so it skips the OTP identity-verification step entirely and goes
   // straight to filling in the rest (plate/license/address/PIN/documents).
@@ -675,6 +676,10 @@ function RegisterForm({
   const [phone, setPhone] = useState(invite?.phone ?? '')
   const [email, setEmail] = useState(invite?.email ?? '')
   const [facebook, setFacebook] = useState('')
+  // A marketing partner's code (see lib/marketingProgram.ts). Checked as it
+  // is typed so the driver knows before submitting whether it was right.
+  const [referralCode, setReferralCode] = useState('')
+  const referralPartner = findPartnerByCode(drivers, referralCode)
   const [pin, setPin] = useState('')
   const [documents, setDocuments] = useState<DriverDocuments>(EMPTY_DOCUMENTS)
   const [error, setError] = useState('')
@@ -764,6 +769,7 @@ function RegisterForm({
       email: email.trim() || null,
       facebook: facebook.trim() || null,
       inviteId: invite?.id ?? null,
+      referralCode: referralPartner ? referralCode.trim() : null,
     })
     setError('')
     setSubmitted(true)
@@ -860,6 +866,27 @@ function RegisterForm({
         />
         <p className="mt-1 text-[11px] text-slate-400">
           Optional — helps riders and your TODA recognize you informally, alongside your license documents.
+        </p>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-500">Referral code (optional)</label>
+        <input
+          value={referralCode}
+          onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+          placeholder="TR-XXXXX"
+          autoCapitalize="characters"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm uppercase"
+        />
+        <p
+          className={`mt-1 text-[11px] ${
+            referralCode.trim() && !referralPartner ? 'text-amber-700' : referralPartner ? 'text-emerald-700' : 'text-slate-400'
+          }`}
+        >
+          {!referralCode.trim()
+            ? 'Optional — the code of the driver who invited you.'
+            : referralPartner
+              ? `✓ Invited by ${referralPartner.name}.`
+              : 'No driver has this code. Check it, or leave it blank — you can still sign up.'}
         </p>
       </div>
       <div id="signup-plate">

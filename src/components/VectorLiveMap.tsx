@@ -177,10 +177,8 @@ export function VectorLiveMap({
   const [everMoved, setEverMoved] = useState(false)
   const [ready, setReady] = useState(false)
   const [camera, setCamera] = useState<NavCameraState>({ bearing: 0, pitch: 0, headingUp: false })
-  // Off by default: a trip opens flat and north-up, the same view every other
-  // screen has, and the rider asks for the tilted heading-up view themselves
-  // (see the 3D toggle button) rather than having it forced on them the
-  // moment a trip starts.
+  // Off by default: a trip opens flat. It still turns to face the road either
+  // way — the 3D toggle button only adds the tilt.
   const [navTiltEnabled, setNavTiltEnabled] = useState(false)
 
   // Callbacks live in refs so the listeners below can be attached once, on the
@@ -382,10 +380,12 @@ export function VectorLiveMap({
       heading: nav.heading,
       speedMps: nav.speedMps,
       previousBearing: bearingRef.current,
-      enabled: navTiltEnabled,
+      enabled: true,
     })
     bearingRef.current = next.headingUp ? next.bearing : null
-    setCamera(next)
+    // Always turned to face the road during a trip; 2D keeps it flat, 3D
+    // adds the tilt.
+    setCamera(navTiltEnabled ? next : { ...next, pitch: 0 })
   }, [nav, nav?.heading, nav?.speedMps, navTiltEnabled])
 
   // Whether the camera was already following on the last render. The first
@@ -839,11 +839,9 @@ export function VectorLiveMap({
         </button>
       )}
 
-      {/* Only while the camera is driving AND tilted. Flat and north-up is
-          this map's default now (see navTiltEnabled) — showing "waiting for
-          direction" over a view nobody asked to be oriented would read as a
-          stuck loading state rather than the rider's own choice. */}
-      {nav && navTiltEnabled && (
+      {/* Only while the camera is driving. On an ordinary north-up map this
+          would be a piece of furniture explaining nothing. */}
+      {nav && (
         <div className={`pointer-events-none absolute left-[48px] ${showRecenter ? 'top-[46px]' : 'top-2'} rounded-lg bg-white/92 px-2 py-1 text-[10px] font-semibold text-slate-700 shadow-sm`}>
           {camera.headingUp ? '🧭 Facing your direction' : '🧭 Waiting for direction…'}
         </div>
@@ -885,10 +883,9 @@ export function VectorLiveMap({
       )}
 
       {/* Tilt, rider's choice. A trip opens flat (see navTiltEnabled's
-          default) so nobody gets a 3D view forced on them the moment they
-          board; this is the only way to ask for the heading-up, angled one.
-          Only while a trip actually has a camera to tilt — offering it on a
-          plain browsing map would toggle nothing. */}
+          default); the map faces the road in both views, and this only adds
+          the angle. Only while a trip actually has a camera to tilt —
+          offering it on a plain browsing map would toggle nothing. */}
       {nav && (
         <button
           type="button"

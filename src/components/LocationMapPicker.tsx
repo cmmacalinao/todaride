@@ -466,7 +466,6 @@ export function LocationMapPicker({
           counter leaves empty, directly above the map it captions. */}
       {(!mapFirst || leadingAction || underMapAction) && (
         <div className="flex items-center justify-end gap-2">
-          {!mapFirst && <div className="min-w-0 flex-1">{summary}</div>}
           {mapFirst && leadingAction && <div className="min-w-0 flex-1">{leadingAction}</div>}
           {underMapAction && <div className="shrink-0">{underMapAction}</div>}
         </div>
@@ -538,6 +537,9 @@ export function LocationMapPicker({
       // Handed to the map, which draws it as a row above itself, under its
       // toolbar: outside the map so no road is hidden under it, and still
       // inside the frame that fills the phone in full screen.
+      // Beside Full screen when the sheet is above the map, rather than a row
+      // of its own over it (see RealLiveMap's overlayTopInline).
+      overlayTopInline={!mapFirst}
       overlayTop={
         mapFirst ? (
           // Stacked under the address summary rather than beside it — the
@@ -548,7 +550,9 @@ export function LocationMapPicker({
             {summary}
             {sheetNote}
           </div>
-        ) : undefined
+        ) : (
+          summary
+        )
       }
       overlayBottom={mapFooter ? () => mapFooter : undefined}
       // Draggable exactly when drawn — the same conditions the two points

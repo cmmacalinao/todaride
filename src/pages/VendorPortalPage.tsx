@@ -15,6 +15,8 @@ import { VendorFooterNav, VendorSidebarNav, type VendorTab } from '../components
 import { TrustedRiderSelect, VendorTrustedRiders } from '../components/VendorTrustedRiders'
 import { RealLiveMap, type MapPoint } from '../components/RealLiveMap'
 import { OrderStatusStrip } from '../components/OrderStatusStrip'
+import { ClearHistoryControl, isClearedFromHistory } from '../components/ClearHistoryControl'
+import { isWithinRetentionDays } from '../lib/tracking'
 import { distanceKm } from '../lib/vendorOrders'
 import { VendorFeedComposer, VendorFeedList } from '../components/VendorFeed'
 import { resolveVendorAccent } from '../components/VendorStorefront'
@@ -49,6 +51,8 @@ export function VendorPortalPage() {
     sendMedsOrderMessage,
     addVendorSampleOrder,
     removeVendorPost,
+    tripHistoryRetentionDays,
+    clearMerchantOrderHistory,
   } = useRides()
   const { setVendorBannerThumb, setVendorPostSharePhoto } = useRides()
   const location = useLocation()
@@ -202,8 +206,20 @@ export function VendorPortalPage() {
     return !!ride && ACTIVE_RIDE_STATUSES.has(ride.status)
   })
   const activeIds = new Set(outForDelivery.map((o) => o.id))
+  // Same window as trip history (Admin's "Trip history retention"), and the
+  // merchant's own "Clear history" — both only shorten this list; sales,
+  // payouts and dues still count every order.
   const pastOrders = ownOrders.filter(
-    (o) => o.status !== 'pending_confirmation' && o.status !== 'quoted' && o.status !== 'confirmed' && !activeIds.has(o.id),
+    (o) =>
+      o.status !== 'pending_confirmation' &&
+      o.status !== 'quoted' &&
+      o.status !== 'confirmed' &&
+      !activeIds.has(o.id) &&
+      isWithinRetentionDays(o.requestedAt, tripHistoryRetentionDays) &&
+      !(
+        (o.status === 'delivered' || o.status === 'cancelled' || o.status === 'rejected' || o.status === 'dispatched') &&
+        isClearedFromHistory(o.requestedAt, vendor.orderHistoryClearedAt)
+      ),
   )
   const historyLabel = (o: MedsOrder) => {
     const ride = o.status === 'dispatched' ? linkedRide(o) : undefined
@@ -509,6 +525,12 @@ export function VendorPortalPage() {
             <h2 className="mb-2 text-sm font-semibold text-slate-700">Order history</h2>
             {pastOrders.length === 0 && <p className="text-sm text-slate-400">No past orders yet.</p>}
             <div className="space-y-2">
+              {pastOrders.length > 0 && (
+                <ClearHistoryControl
+                  message="Clear your order history? Past orders disappear from this list only. Your sales, payouts and dues stay exactly the same, and support can still see every order."
+                  onClear={() => clearMerchantOrderHistory(vendor.id)}
+                />
+              )}
               {pastOrders.map((order) => (
                 <div key={order.id} className="rounded-lg border border-slate-200 p-2.5 text-sm">
                   <div className="flex items-center justify-between">

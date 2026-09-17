@@ -6,6 +6,8 @@ import { useSession } from '../context/SessionContext'
 import { DocumentUploadField } from '../components/DocumentUploadField'
 import { OrderChat } from '../components/OrderChat'
 import { ContactSheet } from '../components/ContactSheet'
+import { ClearHistoryControl, isClearedFromHistory } from '../components/ClearHistoryControl'
+import { isWithinRetentionDays } from '../lib/tracking'
 import type { MedicineCategory, MedsOrder, MedsOrderItem, MedsOrderStatus, PaymentAccountDetails } from '../types'
 
 const CATEGORY_LABELS: Record<MedicineCategory, string> = {
@@ -60,6 +62,8 @@ export function PharmacyPortalPage() {
     addMedicineProduct,
     updatePharmacyPaymentAccount,
     sendMedsOrderMessage,
+    tripHistoryRetentionDays,
+    clearMerchantOrderHistory,
   } = useRides()
   const location = useLocation()
   const navigate = useNavigate()
@@ -144,8 +148,19 @@ export function PharmacyPortalPage() {
   const needsQuoteOrders = ownOrders.filter((o) => o.status === 'pending_confirmation')
   const awaitingCustomerOrders = ownOrders.filter((o) => o.status === 'quoted')
   const readyToProcessOrders = ownOrders.filter((o) => o.status === 'confirmed')
+  // Same window as trip history (Admin's "Trip history retention"), and the
+  // store's own "Clear history". Both only shorten this list — and never hide
+  // an order still being prepared or on its way.
   const pastOrders = ownOrders.filter(
-    (o) => o.status !== 'pending_confirmation' && o.status !== 'quoted' && o.status !== 'confirmed',
+    (o) =>
+      o.status !== 'pending_confirmation' &&
+      o.status !== 'quoted' &&
+      o.status !== 'confirmed' &&
+      isWithinRetentionDays(o.requestedAt, tripHistoryRetentionDays) &&
+      !(
+        (o.status === 'delivered' || o.status === 'cancelled' || o.status === 'rejected') &&
+        isClearedFromHistory(o.requestedAt, pharmacy.orderHistoryClearedAt)
+      ),
   )
   const ownProducts = medicineProducts.filter((p) => p.pharmacyId === pharmacy.id)
 
@@ -318,6 +333,12 @@ export function PharmacyPortalPage() {
         <h2 className="mb-2 text-sm font-semibold text-slate-700">Order history</h2>
         {pastOrders.length === 0 && <p className="text-sm text-slate-400">No past orders yet.</p>}
         <div className="space-y-2">
+          {pastOrders.length > 0 && (
+            <ClearHistoryControl
+              message="Clear your order history? Past orders disappear from this list only. Your sales, payouts and dues stay exactly the same, support can still see every order, and orders still on their way stay."
+              onClear={() => clearMerchantOrderHistory(pharmacy.id)}
+            />
+          )}
           {pastOrders.map((order) => (
             <div key={order.id} className="rounded-lg border border-slate-200 p-2.5 text-sm">
               <div className="flex items-center justify-between">

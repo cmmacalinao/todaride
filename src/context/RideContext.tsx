@@ -653,6 +653,7 @@ type RideAction =
   | { type: 'SET_DRIVER_ONLINE'; driverId: string; online: boolean }
   | { type: 'CLEAR_PASSENGER_TRIP_HISTORY'; passengerId: string }
   | { type: 'CLEAR_DRIVER_TRIP_HISTORY'; driverId: string }
+  | { type: 'CLEAR_MERCHANT_ORDER_HISTORY'; pharmacyId: string }
   | {
       type: 'UPDATE_PASSENGER_PROFILE'
       passengerId: string
@@ -4188,6 +4189,14 @@ function reducer(state: RideState, action: RideAction): RideState {
           d.id === action.driverId ? { ...d, tripHistoryClearedAt: new Date().toISOString() } : d,
         ),
       }
+    // And a merchant's own Order history — see Pharmacy.orderHistoryClearedAt.
+    case 'CLEAR_MERCHANT_ORDER_HISTORY':
+      return {
+        ...state,
+        pharmacies: state.pharmacies.map((p) =>
+          p.id === action.pharmacyId ? { ...p, orderHistoryClearedAt: new Date().toISOString() } : p,
+        ),
+      }
     case 'UPDATE_PASSENGER_PROFILE':
       return {
         ...state,
@@ -6535,6 +6544,7 @@ interface RideContextValue extends RideState {
   setDriverOnline: (driverId: string, online: boolean) => void
   clearPassengerTripHistory: (passengerId: string) => void
   clearDriverTripHistory: (driverId: string) => void
+  clearMerchantOrderHistory: (pharmacyId: string) => void
   updatePassengerProfile: (
     passengerId: string,
     updates: {
@@ -7790,6 +7800,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setDriverOnline: (driverId, online) => dispatch({ type: 'SET_DRIVER_ONLINE', driverId, online }),
     clearPassengerTripHistory: (passengerId) => dispatch({ type: 'CLEAR_PASSENGER_TRIP_HISTORY', passengerId }),
     clearDriverTripHistory: (driverId) => dispatch({ type: 'CLEAR_DRIVER_TRIP_HISTORY', driverId }),
+    clearMerchantOrderHistory: (pharmacyId) => dispatch({ type: 'CLEAR_MERCHANT_ORDER_HISTORY', pharmacyId }),
     updatePassengerProfile: (passengerId, updates) =>
       dispatch({ type: 'UPDATE_PASSENGER_PROFILE', passengerId, ...updates }),
     updateDriverProfile: (driverId, updates) => dispatch({ type: 'UPDATE_DRIVER_PROFILE', driverId, ...updates }),

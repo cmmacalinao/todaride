@@ -469,6 +469,11 @@ export interface Pharmacy {
   id: string
   name: string
   businessType: BusinessType
+  // "Clear history" on the merchant's own Order history: finished orders
+  // placed before this moment are hidden from that list. Nothing is deleted —
+  // sales, payouts and dues still count every order. Optional so existing
+  // stores parse.
+  orderHistoryClearedAt?: string | null
   // Null until the pharmacy/store fills these in from its own portal — see
   // PharmacyPortalPage.tsx's "Payment accounts" section. Customers only see
   // one of these (and its QR/account info) when they pick GCash/Maya as

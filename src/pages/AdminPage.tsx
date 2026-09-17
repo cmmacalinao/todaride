@@ -1582,8 +1582,9 @@ export function AdminPage() {
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="mb-1 text-sm font-semibold text-slate-700">Trip history retention</h2>
         <p className="mb-3 text-xs text-slate-500">
-          How many days back the "Trip history" list shows on the Passenger and Driver apps. Older rides aren't
-          deleted — they still count toward earnings and admin reports — they just drop out of that list.
+          How many days back the "Trip history" list shows on the Passenger and Driver apps, and the "Order history"
+          list on merchant portals. Older rides and orders aren't deleted — they still count toward earnings, sales
+          and admin reports — they just drop out of those lists.
         </p>
         <div className="flex items-center gap-2">
           <input

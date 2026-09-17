@@ -10,6 +10,7 @@ import { useSession } from '../context/SessionContext'
 import { StatusBadge } from '../components/StatusBadge'
 import { AlertBanner } from '../components/AlertBanner'
 import { ReceiptCard } from '../components/ReceiptCard'
+import { PhotoGallery } from '../components/PhotoGallery'
 import { TripMonitor } from '../components/TripMonitor'
 import { ParentRegisterForm } from '../components/ParentRegisterForm'
 import { QuickBookingForm, type KnownRider } from '../components/QuickBookingForm'
@@ -269,7 +270,7 @@ function ParentSelfBooking({
   bookingRemountKey: number
   desiredServiceType: ServiceType
 }) {
-  const { tripHistoryRetentionDays, cancelRide, setParentFavoriteDriver, alerts, parentLinks } = useRides()
+  const { tripHistoryRetentionDays, cancelRide, setParentFavoriteDriver, alerts, parentLinks, removeSafetyPhoto } = useRides()
   // Any SOS raised on a trip taken by a student this parent watches, whoever
   // pressed the button — a guardian only finding out afterwards is the exact
   // failure this is here to prevent.
@@ -343,6 +344,15 @@ function ParentSelfBooking({
                   ₱{r.fareEstimate} · {new Date(r.requestedAt).toLocaleString()}
                 </div>
                 {r.payment && <ReceiptCard payment={r.payment} />}
+                {(r.safetyPhotos ?? []).length > 0 && (
+                  <div className="mt-2">
+                    <PhotoGallery
+                      photos={r.safetyPhotos}
+                      canDelete={(p) => p.takenBy === parent.id}
+                      onDelete={(p) => removeSafetyPhoto(r.id, p.id, parent.id)}
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -365,7 +375,7 @@ function StudentMonitor({
   parentId: string
   rides: Ride[]
 }) {
-  const { tripHistoryRetentionDays, cancelRide, setFavoriteDriver } = useRides()
+  const { tripHistoryRetentionDays, cancelRide, setFavoriteDriver, removeSafetyPhoto } = useRides()
   const studentRides = rides.filter((r) => r.passengerId === student.id)
   // See ParentSelfBooking's identical exclusion above — a dispatched MEDS
   // delivery is tracked by QuickBookingForm's own MedsBooking instead.
@@ -440,6 +450,15 @@ function StudentMonitor({
                 </div>
               )}
               {r.payment && <ReceiptCard payment={r.payment} />}
+              {(r.safetyPhotos ?? []).length > 0 && (
+                <div className="mt-2">
+                  <PhotoGallery
+                    photos={r.safetyPhotos}
+                    canDelete={() => true}
+                    onDelete={(p) => removeSafetyPhoto(r.id, p.id, parentId)}
+                  />
+                </div>
+              )}
             </div>
           ))}
         </div>

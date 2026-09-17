@@ -132,10 +132,34 @@ function isNewer(a: string | null | undefined, b: string | null | undefined): bo
   return new Date(a).getTime() > new Date(b).getTime()
 }
 
+// Safety photos from both copies of a trip, by id.
+//
+// A photo is taken on one phone; every other phone saving its older copy of
+// the ride would otherwise drop it. And a photo deleted on one phone must stay
+// deleted when an older copy that still has the picture arrives. So: every
+// photo either side knows about, and deleted if either side deleted it.
+function mergeSafetyPhotos(result: Ride, ours: Ride | undefined, theirs: Ride): Ride {
+  if (!ours) return result
+  const byId = new Map<string, Ride['safetyPhotos'][number]>()
+  for (const p of [...(ours.safetyPhotos ?? []), ...(theirs.safetyPhotos ?? [])]) {
+    const seen = byId.get(p.id)
+    if (!seen) {
+      byId.set(p.id, p)
+    } else if (p.removedAt || seen.removedAt) {
+      byId.set(p.id, { ...seen, dataUrl: '', removedAt: seen.removedAt ?? p.removedAt })
+    }
+  }
+  const safetyPhotos = [...byId.values()].sort((a, b) => a.takenAt.localeCompare(b.takenAt))
+  return { ...result, safetyPhotos }
+}
+
 export function mergeIncomingRides(local: Ride[], incoming: Ride[]): Ride[] {
   const mine = new Map(local.map((r) => [r.id, r]))
-  return incoming.map((theirs) => {
-    const ours = mine.get(theirs.id)
+  return incoming.map((theirs) => mergeSafetyPhotos(pickRide(mine.get(theirs.id), theirs), mine.get(theirs.id), theirs))
+}
+
+function pickRide(ours: Ride | undefined, theirs: Ride): Ride {
+  {
     if (!ours) return theirs
     // The one sanctioned step backwards: a passenger letting a far-away
     // driver go puts the ride back to 'requested' (see
@@ -211,5 +235,5 @@ export function mergeIncomingRides(local: Ride[], incoming: Ride[]): Ride[] {
       return { ...next, paymentAcknowledged: true, paymentMethod: ours.paymentMethod, payment: ours.payment ?? next.payment }
     }
     return next
-  })
+  }
 }

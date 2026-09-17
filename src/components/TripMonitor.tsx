@@ -107,6 +107,7 @@ export function TripMonitor({
     logPossibleCrash,
     passengers,
     addSafetyPhoto,
+    removeSafetyPhoto,
     updatePassengerLiveGps,
     addTipOffer,
     acknowledgeRidePayment,
@@ -1782,7 +1783,15 @@ export function TripMonitor({
         </div>
       )}
 
-      {hasDriver && <PhotoGallery photos={ride.safetyPhotos} />}
+      {hasDriver && (
+        <PhotoGallery
+          photos={ride.safetyPhotos}
+          // The person who took it; a parent watching may delete any photo on
+          // their child's trip (checked again when it is applied).
+          canDelete={(p) => watching || p.takenBy === sosActorId}
+          onDelete={(p) => removeSafetyPhoto(ride.id, p.id, sosActorId)}
+        />
+      )}
 
       <div className="space-y-1 rounded-lg bg-white p-3">
         <p className="mb-1 text-xs font-semibold text-slate-600">Notifications</p>

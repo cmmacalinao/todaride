@@ -1213,9 +1213,15 @@ export interface SosAlert {
 
 export interface RidePhoto {
   id: string
+  // Emptied when the photo is deleted — the picture itself goes; see
+  // removedAt.
   dataUrl: string
   takenBy: string
   takenAt: string
+  // Set when the person who took it deleted it. The entry is kept (without
+  // the picture) so a phone still holding an older copy of the trip cannot
+  // bring the photo back. Optional: photos saved before this existed.
+  removedAt?: string | null
 }
 
 export type PaymentMethod = 'cash' | 'gcash' | 'maya' | 'card'

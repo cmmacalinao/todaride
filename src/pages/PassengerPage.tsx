@@ -43,6 +43,7 @@ import {
 } from '../lib/customLocation'
 import { StatusBadge } from '../components/StatusBadge'
 import { ReceiptCard } from '../components/ReceiptCard'
+import { PhotoGallery } from '../components/PhotoGallery'
 import { StarRating } from '../components/StarRating'
 import { TripMonitor } from '../components/TripMonitor'
 import { TripDetailsBar } from '../components/TripDetailsBar'
@@ -112,6 +113,7 @@ export function PassengerPage() {
     cancelAlert,
     logAlertEvent,
     safetySettings,
+    removeSafetyPhoto,
   } = useRides()
   // The "no booking app fee" promise, only where it is still true.
   const { currentPassengerId, setCurrentPassengerId, authedAccount } = useSession()
@@ -2928,6 +2930,17 @@ export function PassengerPage() {
                   <p className="mt-1 rounded-lg bg-slate-50 p-2 text-xs text-slate-600">📦 {r.packageNote}</p>
                 )}
                 {r.payment && <ReceiptCard payment={r.payment} />}
+                {/* Kept after the trip, where the receipt is — the photo of a
+                    plate is most wanted after the ride, not during it. */}
+                {(r.safetyPhotos ?? []).length > 0 && (
+                  <div className="mt-2">
+                    <PhotoGallery
+                      photos={r.safetyPhotos}
+                      canDelete={(p) => p.takenBy === r.passengerId}
+                      onDelete={(p) => removeSafetyPhoto(r.id, p.id, r.passengerId)}
+                    />
+                  </div>
+                )}
                 <div className="mt-2 flex flex-wrap items-start gap-1.5">
                   {r.status === 'completed' && driver && (
                     <RateRideSection ride={r} driverName={driver.name} todaName={toda?.name ?? null} />

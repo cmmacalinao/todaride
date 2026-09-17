@@ -189,3 +189,39 @@ describe('a passenger letting a far-away driver go', () => {
     expect(merged[0].status).toBe('cancelled')
   })
 })
+
+describe('safety photos across two copies of a trip', () => {
+  const photo = (id: string, extra: Partial<Ride['safetyPhotos'][number]> = {}) => ({
+    id,
+    dataUrl: 'data:image/jpeg;base64,AAA',
+    takenBy: 'pax-1',
+    takenAt: `2026-09-17T10:00:0${id.slice(-1)}.000Z`,
+    ...extra,
+  })
+
+  it('keeps a photo taken on this phone when an older copy without it arrives', () => {
+    const merged = mergeIncomingRides(
+      [ride('r1', 'ongoing', { safetyPhotos: [photo('p1')] })],
+      [ride('r1', 'ongoing', { safetyPhotos: [] })],
+    )
+    expect(merged[0].safetyPhotos.map((p) => p.id)).toEqual(['p1'])
+  })
+
+  it('does not bring back a photo deleted on another phone', () => {
+    const merged = mergeIncomingRides(
+      [ride('r1', 'ongoing', { safetyPhotos: [photo('p1')] })],
+      [ride('r1', 'ongoing', { safetyPhotos: [photo('p1', { dataUrl: '', removedAt: '2026-09-17T10:05:00.000Z' })] })],
+    )
+    expect(merged[0].safetyPhotos[0].removedAt).toBeTruthy()
+    expect(merged[0].safetyPhotos[0].dataUrl).toBe('')
+  })
+
+  it('keeps a deletion made here when an older copy still holding the picture arrives', () => {
+    const merged = mergeIncomingRides(
+      [ride('r1', 'completed', { safetyPhotos: [photo('p1', { dataUrl: '', removedAt: '2026-09-17T10:05:00.000Z' })] })],
+      [ride('r1', 'completed', { safetyPhotos: [photo('p1'), photo('p2')] })],
+    )
+    expect(merged[0].safetyPhotos.find((p) => p.id === 'p1')?.dataUrl).toBe('')
+    expect(merged[0].safetyPhotos.find((p) => p.id === 'p2')?.dataUrl).not.toBe('')
+  })
+})

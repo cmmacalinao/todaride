@@ -1,5 +1,6 @@
 import { formatTripRoute } from '../lib/addressFormat'
 import { SafetyDashboard } from '../components/SafetyDashboard'
+import { PhotoGallery } from '../components/PhotoGallery'
 import { rideServiceTag } from '../lib/vendorOrders'
 import { useState, type ReactNode } from 'react'
 import { registeredMemberCount } from '../lib/marketingProgram'
@@ -1983,6 +1984,16 @@ export function AdminPage() {
               </div>
               <p className="mb-1 text-slate-500">Reported by {r.passengerName}</p>
               {r.details && <p className="mb-2 text-slate-600">{r.details}</p>}
+              {/* The trip's safety photos, so a report arrives with the
+                  picture of the tricycle and plate the passenger took. */}
+              {(() => {
+                const photos = rides.find((ride) => ride.id === r.rideId)?.safetyPhotos ?? []
+                return photos.length > 0 ? (
+                  <div className="mb-2">
+                    <PhotoGallery photos={photos} title="Photos from this trip" />
+                  </div>
+                ) : null
+              })()}
               <button
                 onClick={() => {
                   resolveDriverReport(r.id)

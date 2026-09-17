@@ -575,6 +575,7 @@ type RideAction =
   | { type: 'APPEAL_DRIVER_REJECTION'; driverId: string; message: string }
   | { type: 'RESUBMIT_DRIVER_DOCUMENT'; driverId: string; docType: DocumentType; dataUrl: string }
   | { type: 'ADD_SAFETY_PHOTO'; rideId: string; dataUrl: string; takenBy: string }
+  | { type: 'REMOVE_SAFETY_PHOTO'; rideId: string; photoId: string; by: string }
   | { type: 'HYDRATE'; state: RideState }
   // A stray or duplicate store, purged for good — see HYDRATE's tombstone
   // handling for why this has to be an explicit id list rather than just
@@ -5221,6 +5222,28 @@ function reducer(state: RideState, action: RideAction): RideState {
           r.id === action.reportId ? { ...r, status: 'reviewed' } : r,
         ),
       }
+    case 'REMOVE_SAFETY_PHOTO':
+      return {
+        ...state,
+        rides: state.rides.map((r) =>
+          r.id === action.rideId
+            ? {
+                ...r,
+                safetyPhotos: r.safetyPhotos.map((p) =>
+                  // The person who took it, or a parent who has consented to
+                  // watching this child's trips.
+                  p.id === action.photoId &&
+                  (p.takenBy === action.by ||
+                    state.parentLinks.some(
+                      (l) => l.parentId === action.by && l.studentPassengerId === r.passengerId && l.consentGiven,
+                    ))
+                    ? { ...p, dataUrl: '', removedAt: new Date().toISOString() }
+                    : p,
+                ),
+              }
+            : r,
+        ),
+      }
     case 'ADD_SAFETY_PHOTO': {
       const photo = {
         id: `photo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -6528,6 +6551,7 @@ interface RideContextValue extends RideState {
   appealDriverRejection: (driverId: string, message: string) => void
   resubmitDriverDocument: (driverId: string, docType: DocumentType, dataUrl: string) => void
   addSafetyPhoto: (rideId: string, dataUrl: string, takenBy: string) => void
+  removeSafetyPhoto: (rideId: string, photoId: string, by: string) => void
   setCommission: (amount: number) => void
   resetAccountPin: (kind: RecoveryKind, id: string, pin: string) => void
   suspendAccount: (input: { kind: AccountKind; accountId: string; accountName: string; reason: string; days: number }) => void
@@ -7758,6 +7782,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     resubmitDriverDocument: (driverId, docType, dataUrl) =>
       dispatch({ type: 'RESUBMIT_DRIVER_DOCUMENT', driverId, docType, dataUrl }),
     addSafetyPhoto: (rideId, dataUrl, takenBy) => dispatch({ type: 'ADD_SAFETY_PHOTO', rideId, dataUrl, takenBy }),
+    removeSafetyPhoto: (rideId, photoId, by) => dispatch({ type: 'REMOVE_SAFETY_PHOTO', rideId, photoId, by }),
     setCommission: (amount) => dispatch({ type: 'SET_COMMISSION', amount }),
     resetAccountPin: (kind, id, pin) => dispatch({ type: 'RESET_ACCOUNT_PIN', kind, id, pin }),
     suspendAccount: ({ kind, accountId, accountName, reason, days }) => {

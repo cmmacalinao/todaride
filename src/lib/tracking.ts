@@ -272,6 +272,13 @@ export function buildTimeline(ride: Ride): { label: string; ts: string }[] {
   const events: { label: string; ts: string }[] = [{ label: 'Ride booked', ts: ride.requestedAt }]
   if (ride.acceptedAt) events.push({ label: `Driver assigned: ${ride.driverName}`, ts: ride.acceptedAt })
   if (ride.startedAt) events.push({ label: 'Ride started', ts: ride.startedAt })
+  // Each safety photo is news to anyone following the trip — a parent sees
+  // the line, and the photo sits in the gallery just below.
+  for (const p of ride.safetyPhotos ?? []) {
+    if (p.removedAt) continue
+    const who = p.takenBy === ride.passengerId ? ride.passengerName : 'Someone on this trip'
+    events.push({ label: `📷 ${who} sent a safety photo`, ts: p.takenAt })
+  }
   if (ride.riderSafeConfirmedAt) {
     events.push({ label: `✅ ${ride.passengerName} confirmed they are safe`, ts: ride.riderSafeConfirmedAt })
   }

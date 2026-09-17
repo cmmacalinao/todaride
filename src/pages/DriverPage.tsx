@@ -1639,6 +1639,9 @@ export function DriverPage() {
               }}
             />
           )}
+          {/* Only when there is an alert to show — with SOS alerts off (Phase 1)
+              or nothing open, an empty pink box sat under the call buttons. */}
+          {safetySettings.sosAlertsEnabled && (fellowOpenAlerts.length > 0 || nearbyAssistAlerts.length > 0) && (
           <section className="rounded-xl border border-danger-200 bg-danger-50 p-4 shadow-sm">
             {safetySettings.sosAlertsEnabled && fellowOpenAlerts.length > 0 && (
               <div className="mt-3 space-y-1.5 border-t border-danger-200 pt-3">
@@ -1677,6 +1680,7 @@ export function DriverPage() {
               </div>
             )}
           </section>
+          )}
         </EmergencyNumbersPanel>
       )}
 

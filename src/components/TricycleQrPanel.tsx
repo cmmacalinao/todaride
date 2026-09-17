@@ -27,7 +27,7 @@ export function TricycleQrPanel({ driver }: TricycleQrPanelProps) {
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <h2 className="text-sm font-semibold text-slate-700">
-        Record mo ang Biyahe <span className="font-normal text-slate-500">— for your safe ride</span>
+        Track your Trip <span className="font-normal text-slate-500">— for your safe ride</span>
       </h2>
       <p className="mt-0.5 text-[11px] text-slate-500">
         Print this and stick it inside your tricycle. A passenger who gets in at the terminal scans it and their
@@ -82,7 +82,7 @@ export function TricycleQrPanel({ driver }: TricycleQrPanelProps) {
           {/* Big, white, and nothing else on it — this is held up for a
               passenger's camera, sometimes at night. */}
           <div className="w-full max-w-xs rounded-xl bg-white p-5 text-center shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <p className="text-base font-bold text-navy-900">Record mo ang Biyahe</p>
+            <p className="text-base font-bold text-navy-900">Track your Trip</p>
             <p className="text-[11px] font-semibold text-slate-500">for your safe ride</p>
             <div className="mt-3 flex justify-center">
               <QRCodeSVG value={scanUrl} size={220} level="M" marginSize={2} />

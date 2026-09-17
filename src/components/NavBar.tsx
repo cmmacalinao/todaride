@@ -186,6 +186,7 @@ export function NavBar() {
           emergencyContact: currentPassenger.guardianPhone,
           emergencyContacts: currentPassenger.emergencyContacts ?? [],
           smsAvailable: safetySettings.channels.sms,
+          sosAlertsEnabled: safetySettings.sosAlertsEnabled,
           hasActiveRide,
         }
       : authedAccount?.role === 'parent' && currentParent

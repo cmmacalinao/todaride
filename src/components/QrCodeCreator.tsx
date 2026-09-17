@@ -42,7 +42,7 @@ export function QrCodeCreator() {
       case 'driver': {
         const d = bookable.find((x) => x.id === driverId)
         return d
-          ? { url: `${base}/scan/${d.id}`, caption: `Record mo ang Biyahe — ${d.name} · ${d.plateNumber}` }
+          ? { url: `${base}/scan/${d.id}`, caption: `Track your Trip — ${d.name} · ${d.plateNumber}` }
           : { url: '', caption: '' }
       }
       case 'terminal': {

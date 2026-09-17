@@ -886,7 +886,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayTopInline = false
             says — kept short so the row stays one line on a phone screen. */}
         {onScanQr && (
           <button type="button" onClick={onScanQr} className="ml-auto whitespace-nowrap rounded-md border border-brand-300 bg-brand-50 px-2 py-1 text-[11px] font-semibold text-brand-700 transition hover:bg-brand-100">
-            📷 Record my Trip
+            📷 Track my Trip
           </button>
         )}
       </div>

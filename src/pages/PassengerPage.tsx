@@ -58,6 +58,7 @@ import { MedsBooking } from '../components/MedsBooking'
 import { VendorMenuBooking, type VendorMenuBookingHandle } from '../components/VendorMenuBooking'
 import { EmergencyHotlines } from '../components/EmergencyHotlines'
 import { EmergencySheet } from '../components/EmergencySheet'
+import { useWatchPosition } from '../lib/liveTracking'
 import { isActiveAlert, passengerEmergencyContacts } from '../lib/safety'
 import { makeGuestPassengerId, useGuestRider } from '../components/GuestRiderFields'
 import { PassengerRewardsCard } from '../components/PassengerRewardsCard'
@@ -149,6 +150,10 @@ export function PassengerPage() {
   const [passengerCount, setPassengerCount] = useState(1)
   const [showRegister, setShowRegister] = useState(false)
   const [pageTab, setPageTab] = useState<'book' | 'rewards' | 'emergency'>('book')
+  // Where this phone is, for the emergency screen — without a trip there is no
+  // shared position to show, and "Location not available" is the last thing
+  // someone reading coordinates to 911 needs to see.
+  const { position: emergencyGps } = useWatchPosition(pageTab === 'emergency')
   const serviceTabsRef = useRef<HTMLDivElement>(null)
   const addressSectionRef = useRef<HTMLElement>(null)
 
@@ -2533,7 +2538,7 @@ export function PassengerPage() {
                 role="passenger"
                 ride={emergencyRide}
                 actorName={passenger.name}
-                location={emergencyRide?.passengerLiveGps ?? emergencyRide?.driverLiveGps ?? null}
+                location={emergencyRide?.passengerLiveGps ?? emergencyGps ?? emergencyRide?.driverLiveGps ?? null}
                 contacts={passengerEmergencyContacts(passenger)}
                 counterpart={emergencyDriver?.phone ? { label: emergencyDriver.name, phone: emergencyDriver.phone } : null}
                 toda={emergencyToda?.contactPhone ? { name: emergencyToda.name, phone: emergencyToda.contactPhone } : null}

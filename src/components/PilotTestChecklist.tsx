@@ -233,7 +233,7 @@ const RUNS: Run[] = [
   },
   {
     id: 'record',
-    title: 'Record mo ang Biyahe',
+    title: 'Track your Trip',
     who: 'Passenger · flagging one down, no booking',
     steps: [
       {

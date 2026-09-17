@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { isActiveAlert } from '../lib/safety'
+import { isActiveAlert, passengerEmergencyContacts } from '../lib/safety'
+import { EmergencySheet } from './EmergencySheet'
 import { useRides } from '../context/RideContext'
 import { useSession } from '../context/SessionContext'
 import { useWatchPosition } from '../lib/liveTracking'
@@ -39,7 +40,17 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
     triggerPassengerSos,
     completeRide,
     alerts,
+    safetySettings,
+    parentLinks,
+    parents,
+    cancelAlert,
+    logAlertEvent,
   } = useRides()
+  // The Help/SOS button before boarding opens the same emergency screen a
+  // trip has — calls always, SEND SOS only when alerts are on (Phase 2). It
+  // used to send an alert directly, which in Phase 1 is refused, so the
+  // button did nothing at all for someone who pressed it.
+  const [emergencyOpen, setEmergencyOpen] = useState(false)
   const feeFree = terminalRideIsFree(terminalQrFeeWaived, commissionPerRide)
   const { currentPassengerId } = useSession()
   const {
@@ -222,7 +233,10 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
     if (!currentPassengerId || !position) return
     // The pickup is simply where they are. No barangay dropdown, no map tap —
     // the phone already knows, and asking would be theatre.
-    const pickup: MockLocation = createCustomLocation('FROM', position)
+    // Named for the passenger's own record: "FROM" (a map button's label)
+    // used to be saved here and shown to the driver as both ends of the trip.
+    const pickup: MockLocation = createCustomLocation(`Where you boarded (${position.lat.toFixed(5)}, ${position.lng.toFixed(5)})`, position)
+    const dropoff: MockLocation = { ...createCustomLocation('Destination not set yet', position) }
     // Only a registered driver can be "requested" — an unregistered plate
     // has no account to point at.
     if (driver) setRequestedDriver(currentPassengerId, driver.id)
@@ -232,7 +246,7 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
       pickup,
       // Stands in until the passenger says where they are going. The fare is
       // re-priced the moment they do (see SET_RIDE_DESTINATION).
-      dropoff: pickup,
+      dropoff,
       paymentMethod: 'cash',
       isStudentRide: false,
       isPwdSeniorRide: false,
@@ -371,7 +385,7 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
         <div className="rounded-lg border-2 border-slate-200 bg-white/95 px-3 py-2 shadow-lg">
           <p className="flex items-center gap-1.5 text-xs font-extrabold text-slate-700">
             <span aria-hidden className="text-sm leading-none opacity-40">🔴</span>
-            Record your Trip
+            Track your Trip
           </p>
           <p className="mt-1 text-[11px] leading-snug text-slate-600">{recordingStatus}</p>
         </div>
@@ -425,7 +439,7 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
           Nasa tricycle ka na?
         </p>
         <div className="px-3 py-2.5">
-          <p className="text-sm font-extrabold leading-tight text-white">Record mo ang Biyahe</p>
+          <p className="text-sm font-extrabold leading-tight text-white">Track your Trip</p>
           <p className="text-[11px] text-blue-100">
             Kusang mare-record ito kapag umandar na kayo — hindi mo na kailangang pindutin. Ang destination na
             lang ang itatanong, para sa safety. Libre ito, walang app fee.
@@ -464,9 +478,9 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
         </p>
         <button
           type="button"
-          onClick={() => currentPassengerId && triggerPassengerSos(currentPassengerId, watched ?? null)}
-          disabled={!currentPassengerId || !!openSosForMe}
-          aria-label="SOS"
+          onClick={() => setEmergencyOpen(true)}
+          disabled={!currentPassengerId}
+          aria-label={safetySettings.sosAlertsEnabled ? 'SOS' : 'Help'}
           className={`flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 transition disabled:cursor-not-allowed ${
             openSosForMe
               ? 'animate-pulse border-danger-700 bg-danger-600 text-white'
@@ -474,9 +488,34 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
           }`}
         >
           <span className="text-base leading-none">🆘</span>
-          <span className="text-[11px] font-semibold">{openSosForMe ? 'Sent' : 'SOS'}</span>
+          <span className="text-[11px] font-semibold">{openSosForMe ? 'Sent' : safetySettings.sosAlertsEnabled ? 'SOS' : 'Help'}</span>
         </button>
       </div>
+      {emergencyOpen && currentPassengerId && (() => {
+        const me = passengers.find((p) => p.id === currentPassengerId) ?? null
+        const link = parentLinks.find((l) => l.studentPassengerId === currentPassengerId && l.consentGiven)
+        const parent = link ? parents.find((p) => p.id === link.parentId) ?? null : null
+        const contacts = [
+          ...(parent?.phone ? [{ id: `parent-${parent.id}`, name: parent.name, phone: parent.phone, relationship: link?.relationship || 'Parent', smsEnabled: false }] : []),
+          ...(me ? passengerEmergencyContacts(me) : []).filter((c) => !parent || c.phone.replace(/\D/g, '') !== parent.phone.replace(/\D/g, '')),
+        ]
+        return (
+          <EmergencySheet
+            role="passenger"
+            ride={null}
+            actorName={me?.name ?? 'Passenger'}
+            location={watched ?? null}
+            contacts={contacts}
+            activeAlert={openSosForMe ?? null}
+            countdownSeconds={safetySettings.sosCountdownSeconds}
+            sosEnabled={safetySettings.sosAlertsEnabled}
+            onSendSos={() => triggerPassengerSos(currentPassengerId, watched ?? null)}
+            onCancelSos={(id) => cancelAlert(id, me?.name ?? 'Passenger', 'passenger')}
+            onLogEvent={(id, kind, summary) => logAlertEvent(id, kind, summary, me?.name ?? 'Passenger', 'passenger')}
+            onClose={() => setEmergencyOpen(false)}
+          />
+        )
+      })()}
 
       {/* A way back, not just a refusal.
           This used to be a sentence telling the passenger they already had a
@@ -604,7 +643,7 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
 
       <p className="text-[11px] leading-snug text-slate-400">
         {feeFree ? 'Walang booking app fee sa biyaheng ito. ' : ''}Naka-record ang pangalan at plaka ng driver,
-        kita ng pamilya mo kung nasaan ka, at may SOS kung kailangan.
+        kita ng pamilya mo kung nasaan ka, at isang tap para tumawag sa 911 o sa pamilya.
       </p>
     </section>
   )

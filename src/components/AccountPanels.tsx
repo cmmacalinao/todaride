@@ -66,6 +66,9 @@ export interface AccountPanelInfo {
   // checkbox itself only decides who gets asked, never sends anything (a
   // human still has to tap Send on the safety desk).
   smsAvailable?: boolean
+  // Super Admin's Phase 1 switch (see SafetySettings.sosAlertsEnabled) — the
+  // safety wording has to match what the emergency screen actually does.
+  sosAlertsEnabled?: boolean
   // Driver-only — undefined otherwise.
   rating?: number
   ratingCount?: number
@@ -451,13 +454,20 @@ export function AccountPanels({
             choose to share it.
           </p>
           <p>Drivers on this platform are verified by their TODA organization before they can accept rides.</p>
-          <p>
-            You can trigger SOS at any time during an active trip — it alerts your registered emergency contact and
-            flags the trip for review.
-          </p>
+          {info.sosAlertsEnabled ? (
+            <p>
+              You can trigger SOS at any time during an active trip — it alerts your registered emergency contact and
+              flags the trip for review.
+            </p>
+          ) : (
+            <p>
+              The 🆘 button calls 911, your family or local hotlines in one tap, with or without a trip. Your trips are
+              recorded with the driver's name and plate, and your family can follow them live.
+            </p>
+          )}
           <p className="rounded-lg bg-danger-50 p-2.5 text-danger-800">
-            In a life-threatening emergency, always call 911 (or your local emergency line) first — SOS in this app
-            is a safety record and alert, not a replacement for emergency services.
+            In a life-threatening emergency, always call 911 (or your local emergency line) first
+            {info.sosAlertsEnabled ? ' — SOS in this app is a safety record and alert, not a replacement for emergency services.' : '.'}
           </p>
         </div>
       </Shell>
@@ -471,18 +481,49 @@ export function AccountPanels({
   return (
     <Shell title="Emergency / Safety" onClose={onClose}>
       <div className="space-y-2.5 text-sm">
-        {info.hasActiveRide ? (
-          <p className="text-slate-600">
-            You have a trip in progress — open it to use the SOS button on your tracking screen.
-          </p>
-        ) : (
-          <p className="text-slate-600">SOS is available on your tracking screen once a ride is in progress.</p>
-        )}
-        <div className="rounded-lg border border-slate-100 px-3">
-          <Row label="Emergency contact on file" value={info.emergencyContact ?? 'Not set'} />
+        {/* The numbers themselves, one tap each — this screen is reached by
+            someone looking for help, and it used to only describe where help
+            would be once a trip existed. */}
+        <div className="grid grid-cols-2 gap-2">
+          <a
+            href="tel:911"
+            className="flex items-center justify-center gap-2 rounded-xl border-2 border-danger-600 bg-white py-3 text-base font-extrabold text-danger-800 hover:bg-danger-50"
+          >
+            🚑 CALL 911
+          </a>
+          {info.emergencyContact ? (
+            <a
+              href={`tel:${info.emergencyContact}`}
+              className="flex min-w-0 flex-col items-center justify-center rounded-xl border-2 border-brand-500 bg-white px-2 py-1.5 text-center text-sm font-bold text-brand-800 hover:bg-brand-50"
+            >
+              <span className="w-full truncate">📞 Call {info.emergencyContactName || 'emergency contact'}</span>
+              <span className="text-[10px] font-medium text-slate-500">{info.emergencyContact}</span>
+            </a>
+          ) : (
+            <p className="flex items-center justify-center rounded-xl border border-dashed border-slate-300 p-2 text-center text-[11px] text-slate-500">
+              No emergency contact yet — add one in My Profile.
+            </p>
+          )}
         </div>
-        <p className="rounded-lg bg-danger-50 p-2.5 text-xs text-danger-800">
-          In a life-threatening emergency right now, call 911 (or your local emergency line) first.
+        {(info.emergencyContacts ?? []).length > 0 && (
+          <div className="space-y-1.5">
+            {(info.emergencyContacts ?? []).map((c) => (
+              <a
+                key={c.id}
+                href={`tel:${c.phone}`}
+                className="flex w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+              >
+                <span className="truncate">📞 Call {c.name}</span>
+                <span className="shrink-0 text-[11px] font-medium text-slate-500">{c.relationship}</span>
+              </a>
+            ))}
+          </div>
+        )}
+        <p className="text-[11px] text-slate-500">
+          {info.hasActiveRide
+            ? 'You have a trip in progress — the 🆘 button on your trip screen also shows where you and the tricycle are.'
+            : 'The 🆘 button at the bottom of the screen also lists the police, fire and rescue hotlines for your city.'}
+          {info.sosAlertsEnabled ? ' During a trip it can also send an SOS to the safety desk.' : ''}
         </p>
       </div>
     </Shell>

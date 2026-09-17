@@ -15,7 +15,7 @@ export function PilaBannerAdmin() {
   return (
     <div className="space-y-2">
       <p className="text-xs text-slate-500">
-        Shown at the top of <span className="font-medium text-slate-700">Record mo ang Biyahe</span>, the page a
+        Shown at the top of <span className="font-medium text-slate-700">Track your Trip</span>, the page a
         passenger opens when they are already sitting in a tricycle. Changing it here changes only that page —
         the four banner-ad slots and every other screen are untouched.
       </p>

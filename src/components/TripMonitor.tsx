@@ -23,10 +23,9 @@ import { remainingLeg } from '../lib/legRemaining'
 import { reverseGeocodeToPhAddress } from '../lib/customLocation'
 import { useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { useRoute } from '../lib/routing'
-import { nextRerouteDecision } from '../lib/reroute'
+import { FAR_OFF_ROUTE_START, metersFromRoute, nextFarOffRouteDecision, nextRerouteDecision, type FarOffRouteState } from '../lib/reroute'
 import { isApart, nextSeparationDecision, positionAt, type SeparationState } from '../lib/separation'
 import { GpsDiagnosticLine } from './GpsDiagnosticLine'
-import { EmergencyHotlines } from './EmergencyHotlines'
 import { SosPeopleLocations } from './SosPeopleLocations'
 import { RIDE_CANCELLATION_REASON_LABELS } from '../types'
 import type { EmergencyContact, GeoCoords, Ride } from '../types'
@@ -88,10 +87,8 @@ export function TripMonitor({
   onCancel,
   onFinishTrip,
   onDismiss,
-  extraContacts,
   allowLiveGpsToggle,
   allowGotOffCheck,
-  showGuardianContact,
   askAboutFarDriver,
   watching = false,
 }: TripMonitorProps) {
@@ -299,15 +296,6 @@ export function TripMonitor({
   // link exists as a pending request, not a working relationship — calling
   // someone who never agreed to be a passenger's guardian is not a safety
   // feature, it's a stranger's phone ringing.
-  const guardianLink = showGuardianContact
-    ? parentLinks.find((l) => l.studentPassengerId === ride.passengerId && l.consentGiven)
-    : null
-  const guardian = guardianLink ? parents.find((p) => p.id === guardianLink.parentId) : null
-  const contacts: CallContact[] = [
-    ...(hasDriver && driver?.phone ? [{ label: `Call ${driver.name}`, phone: driver.phone }] : []),
-    ...(hasDriver ? (extraContacts ?? []).filter((c) => c.phone) : []),
-    ...(guardian?.phone ? [{ label: `Call ${guardian.name} (guardian)`, phone: guardian.phone }] : []),
-  ]
 
   const isOngoingLeg = ride.status === 'ongoing'
   // DRIVER_BASE_GPS only makes sense as a route endpoint once a driver is
@@ -688,7 +676,6 @@ export function TripMonitor({
   // line — a new way is already being found — so a full directory of numbers
   // sitting open by default would make the one time it is actually needed
   // look like every other time it fires.
-  const [offRouteNumbersOpen, setOffRouteNumbersOpen] = useState(false)
   useEffect(() => {
     if (ride.status !== 'ongoing' && ride.status !== 'driver_arriving') return
     const decision = nextRerouteDecision(followedGps ?? null, route?.points, strayRef.current)
@@ -698,6 +685,31 @@ export function TripMonitor({
       setOffRouteMeters(Math.round(decision.metersOff))
     }
   }, [followedGps, route, ride.status])
+
+  // The detour that is not a detour — see nextFarOffRouteDecision. Measured
+  // against the road planned when the trip started, kept here because the
+  // drawn route is replaced at every re-route and would always look close.
+  const plannedRouteRef = useRef<GeoCoords[] | null>(null)
+  const farOffRef = useRef<FarOffRouteState>(FAR_OFF_ROUTE_START)
+  const [farOffRoute, setFarOffRoute] = useState<{ reason: 'far' | 'away'; meters: number } | null>(null)
+  useEffect(() => {
+    if (ride.status === 'ongoing' && !rerouteFrom && !plannedRouteRef.current && route && route.points.length > 1) {
+      plannedRouteRef.current = route.points
+    }
+  }, [route, rerouteFrom, ride.status])
+  useEffect(() => {
+    if (ride.status !== 'ongoing' || !followedGps) return
+    const planned = plannedRouteRef.current
+    const metersOffPlanned = planned ? metersFromRoute(followedGps, planned) : null
+    const metersToDestination = ride.dropoff.gps ? haversineDistanceMeters(followedGps, ride.dropoff.gps) : null
+    const decision = nextFarOffRouteDecision(farOffRef.current, { metersOffPlanned, metersToDestination, now: Date.now() })
+    farOffRef.current = { closestToDestination: decision.closestToDestination, closestAt: decision.closestAt, asked: decision.asked }
+    if (decision.ask && decision.reason) {
+      setFarOffRoute({ reason: decision.reason, meters: Math.round(metersOffPlanned ?? 0) })
+      setOffRouteMeters(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [followedGps, ride.status])
 
   // Noticing that you have got out.
   //
@@ -758,7 +770,9 @@ export function TripMonitor({
   useEffect(() => {
     setRerouteFrom(null)
     setOffRouteMeters(null)
-    setOffRouteNumbersOpen(false)
+    setFarOffRoute(null)
+    plannedRouteRef.current = null
+    farOffRef.current = FAR_OFF_ROUTE_START
     strayRef.current = { strayCount: 0 }
   }, [ride.status, ride.dropoff.gps?.lat, ride.dropoff.gps?.lng])
 
@@ -972,7 +986,58 @@ export function TripMonitor({
           different costumes. The got-off check is the more direct one:
           it is asking about the passenger's own safety, not the road's, so
           it wins. */}
-      {offRouteMeters !== null && !gotOffAsked && !openSos && (
+      {/* Far off route: the rider is asked, once, whether they are okay.
+          Everyday detours never reach this — see nextFarOffRouteDecision. A
+          parent watching gets the same news as a note, since only the rider
+          can answer for themselves. */}
+      {farOffRoute && !watching && !gotOffAsked && !openSos && !emergencyOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-3 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Far off route"
+        >
+          <div className="w-full max-w-sm rounded-xl border border-amber-400 bg-white shadow-xl">
+            <div className="border-b border-amber-200 bg-amber-50 px-4 py-2.5">
+              <p className="text-sm font-bold text-amber-900">🚧 Your trip has gone far off route</p>
+              <p className="mt-0.5 text-[11px] leading-snug text-amber-800">
+                {farOffRoute.reason === 'far'
+                  ? `${tricycleLabel ?? 'The tricycle'} is about ${formatKm(farOffRoute.meters)} from the road planned to ${formatAddressLine(ride.dropoff.label)}.`
+                  : `${tricycleLabel ?? 'The tricycle'} has been moving away from ${formatAddressLine(ride.dropoff.label)} for a few minutes.`}{' '}
+                Are you okay?
+              </p>
+            </div>
+            <div className="space-y-2 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => {
+                  confirmRiderSafe(ride.id)
+                  setFarOffRoute(null)
+                }}
+                className="w-full rounded-lg border-2 border-emerald-500 bg-emerald-50 py-2.5 text-sm font-bold text-emerald-800 hover:bg-emerald-100"
+              >
+                ✅ I'm okay
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFarOffRoute(null)
+                  setEmergencyCountdown(sosEnabled)
+                  setEmergencyOpen(true)
+                }}
+                className="w-full rounded-lg border border-danger-500 bg-danger-600 py-2.5 text-sm font-bold text-white hover:bg-danger-700"
+              >
+                {sosEnabled ? '🆘 I need help' : '📞 I need help'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* An everyday detour: said, not asked. The note closes with OK; help
+          stays where it always is — the Help/SOS button on the trip screen —
+          rather than a red button under a thumb on every wrong turn. */}
+      {(offRouteMeters !== null || (farOffRoute && watching)) && !(farOffRoute && !watching) && !gotOffAsked && !openSos && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-3 sm:items-center"
           role="dialog"
@@ -981,10 +1046,13 @@ export function TripMonitor({
         >
           <div className="max-h-[85vh] w-full max-w-sm overflow-y-auto rounded-xl border border-amber-300 bg-white shadow-xl">
             <div className="border-b border-amber-200 bg-amber-50 px-4 py-2.5">
-              <p className="text-sm font-bold text-amber-900">🚧 OFF WAY</p>
+              <p className="text-sm font-bold text-amber-900">{farOffRoute && watching ? '🚧 FAR OFF ROUTE' : '🚧 OFF WAY'}</p>
               <p className="mt-0.5 text-[11px] leading-snug text-amber-800">
-                {tricycleLabel ?? 'The tricycle'} is now {offRouteMeters}m off the planned road. A new way to{' '}
-                {formatAddressLine(ride.dropoff.label)} is already being found.
+                {farOffRoute && watching
+                  ? farOffRoute.reason === 'far'
+                    ? `${tricycleLabel ?? 'The tricycle'} is about ${formatKm(farOffRoute.meters)} from the road planned to ${formatAddressLine(ride.dropoff.label)}. ${ride.passengerName} has been asked if they are okay.`
+                    : `${tricycleLabel ?? 'The tricycle'} has been moving away from ${formatAddressLine(ride.dropoff.label)} for a few minutes. ${ride.passengerName} has been asked if they are okay.`
+                  : `${tricycleLabel ?? 'The tricycle'} is now ${offRouteMeters}m off the planned road. A new way to ${formatAddressLine(ride.dropoff.label)} is already being found.`}
               </p>
             </div>
 
@@ -993,64 +1061,15 @@ export function TripMonitor({
                 type="button"
                 onClick={() => {
                   setOffRouteMeters(null)
-                  setOffRouteNumbersOpen(false)
+                  if (watching) setFarOffRoute(null)
                 }}
                 className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-bold text-white transition hover:bg-brand-700"
               >
-                ✅ Proceed — this is expected
+                ✅ OK
               </button>
-              {sosEnabled && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOffRouteMeters(null)
-                    setEmergencyCountdown(true)
-                    setEmergencyOpen(true)
-                  }}
-                  disabled={!!openSos}
-                  className="w-full rounded-lg border border-danger-500 bg-danger-600 py-2.5 text-sm font-bold text-white transition hover:bg-danger-700 disabled:cursor-not-allowed disabled:border-danger-300 disabled:bg-danger-300"
-                >
-                  {openSos ? '🆘 SOS sent' : '🆘 Send SOS'}
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setOffRouteNumbersOpen((v) => !v)}
-                aria-expanded={offRouteNumbersOpen}
-                className="w-full rounded-lg border border-slate-300 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
-              >
-                {offRouteNumbersOpen ? '▼' : '▶'} 📞 Contact numbers
-              </button>
-
-              {offRouteNumbersOpen && (
-                <div className="space-y-2">
-                  {contacts.length > 0 && (
-                    <div className="space-y-1.5">
-                      {contacts.map((c) => (
-                        <a
-                          key={c.phone}
-                          href={`tel:${c.phone}`}
-                          className="flex items-center justify-between gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs font-semibold text-brand-800 hover:bg-brand-100"
-                        >
-                          <span className="truncate">📞 {c.label}</span>
-                          <span className="shrink-0 text-brand-600">{c.phone}</span>
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                  {/* The full directory, scoped to where this trip is — a
-                      guardian and the driver are two numbers; a genuine
-                      emergency may need police, fire or medical instead, and
-                      those live here rather than being invented on this
-                      screen. */}
-                  <EmergencyHotlines
-                    province={ride.pickup.province}
-                    city={ride.pickup.city}
-                    title="SOS numbers"
-                  />
-                </div>
-              )}
+              <p className="text-center text-[11px] text-slate-500">
+                If something feels wrong, tap 🆘 {sosEnabled ? 'SOS' : 'Help'} on the trip screen.
+              </p>
             </div>
           </div>
         </div>

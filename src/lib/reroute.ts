@@ -83,6 +83,67 @@ export interface RerouteDecision extends RerouteState {
   metersOff: number
 }
 
+// When a detour stops being a detour.
+//
+// Most trips that leave the planned road are fine — a closed street, traffic,
+// a shortcut, another passenger picked up along the way — and those only get
+// a note (see TripMonitor). A passenger is asked "are you okay?" only when
+// the trip looks like it is going somewhere else entirely: far from the road
+// it was meant to take, or getting further from the destination for minutes
+// on end. Asked once per trip; an answer is not asked for again.
+
+// Further than this from the route planned at the start of the trip.
+export const FAR_OFF_ROUTE_METERS = 500
+
+// Getting further from the destination for this long…
+export const MOVING_AWAY_MS = 120_000
+// …by at least this much beyond the closest it had come. Sitting in traffic
+// is not moving away; neither is a loop around a block.
+export const MOVING_AWAY_MARGIN_METERS = 150
+
+export interface FarOffRouteState {
+  closestToDestination: number | null
+  closestAt: number | null
+  asked: boolean
+}
+
+export const FAR_OFF_ROUTE_START: FarOffRouteState = { closestToDestination: null, closestAt: null, asked: false }
+
+export interface FarOffRouteDecision extends FarOffRouteState {
+  ask: boolean
+  reason: 'far' | 'away' | null
+}
+
+export function nextFarOffRouteDecision(
+  state: FarOffRouteState,
+  input: { metersOffPlanned: number | null; metersToDestination: number | null; now: number },
+): FarOffRouteDecision {
+  let { closestToDestination, closestAt } = state
+  const d = input.metersToDestination
+  if (d !== null) {
+    if (closestToDestination === null || d < closestToDestination) {
+      closestToDestination = d
+      closestAt = input.now
+    }
+  }
+  const next = { closestToDestination, closestAt, asked: state.asked }
+  if (state.asked) return { ...next, ask: false, reason: null }
+
+  if (input.metersOffPlanned !== null && input.metersOffPlanned > FAR_OFF_ROUTE_METERS) {
+    return { ...next, asked: true, ask: true, reason: 'far' }
+  }
+  if (
+    d !== null &&
+    closestToDestination !== null &&
+    closestAt !== null &&
+    input.now - closestAt >= MOVING_AWAY_MS &&
+    d > closestToDestination + MOVING_AWAY_MARGIN_METERS
+  ) {
+    return { ...next, asked: true, ask: true, reason: 'away' }
+  }
+  return { ...next, ask: false, reason: null }
+}
+
 // Given where the vehicle is, the route it is meant to be on, and how many
 // readings have already strayed, decide whether to ask for a new route.
 export function nextRerouteDecision(

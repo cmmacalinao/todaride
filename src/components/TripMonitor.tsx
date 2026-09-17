@@ -24,7 +24,7 @@ import { reverseGeocodeToPhAddress } from '../lib/customLocation'
 import { useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { useRoute } from '../lib/routing'
 import { nextRerouteDecision } from '../lib/reroute'
-import { isApart, nextSeparationDecision, type SeparationState } from '../lib/separation'
+import { isApart, nextSeparationDecision, positionAt, type SeparationState } from '../lib/separation'
 import { GpsDiagnosticLine } from './GpsDiagnosticLine'
 import { EmergencyHotlines } from './EmergencyHotlines'
 import { SosPeopleLocations } from './SosPeopleLocations'
@@ -71,6 +71,12 @@ interface TripMonitorProps {
   // far away, or let them go and find someone nearer. Only on the booker's
   // own screen — not a guardian watching, and not a delivery already bought.
   askAboutFarDriver?: boolean
+  // Someone following another person's trip from elsewhere — a parent at
+  // home. This phone is not in the tricycle, so its own GPS is neither the
+  // rider's position nor anything to share: the rider's dot, the facing
+  // camera and the "have they parted" check all come from what the rider's
+  // and the driver's phones publish on the ride instead.
+  watching?: boolean
 }
 
 export function TripMonitor({
@@ -87,6 +93,7 @@ export function TripMonitor({
   allowGotOffCheck,
   showGuardianContact,
   askAboutFarDriver,
+  watching = false,
 }: TripMonitorProps) {
   const navigate = useNavigate()
   const {
@@ -131,7 +138,7 @@ export function TripMonitor({
   // CrashPromptModal. Only while this trip is actually under way, and only
   // when Super Admin has turned the detector on.
   const [crashPromptOpen, setCrashPromptOpen] = useState(false)
-  const crashDetectionActive = safetySettings.crashDetectionEnabled && ride.status === 'ongoing'
+  const crashDetectionActive = !watching && safetySettings.crashDetectionEnabled && ride.status === 'ongoing'
   useCrashDetection(crashDetectionActive, safetySettings.crashSensitivity, () => setCrashPromptOpen(true))
   // A driver waiting on an answer is a driver not moving, and the card that
   // asks for it can arrive while the passenger is scrolled somewhere else on
@@ -150,14 +157,21 @@ export function TripMonitor({
   const [gotOffHelpOpen, setGotOffHelpOpen] = useState(false)
   const [customTipInput, setCustomTipInput] = useState('')
   const {
-    position: livePassengerGps,
-    error: liveGpsError,
-    accuracy: livePassengerAccuracy,
+    position: ownGps,
+    error: ownGpsError,
+    accuracy: ownAccuracy,
     // The passenger's own phone is in the tricycle once they are aboard, so
     // its heading is the tricycle's heading — see navCamera below.
-    headingDegrees: livePassengerHeading,
-    speedMps: livePassengerSpeed,
-  } = useWatchPosition(liveGpsEnabled || shareLiveGps)
+    headingDegrees: ownHeading,
+    speedMps: ownSpeed,
+  } = useWatchPosition(!watching && (liveGpsEnabled || shareLiveGps))
+  // The rider's position: this phone's own when it is the rider's phone,
+  // otherwise whatever the rider's phone last shared (see watching).
+  const livePassengerGps = watching ? (ride.passengerLiveGps ?? null) : ownGps
+  const liveGpsError = watching ? null : ownGpsError
+  const livePassengerAccuracy = watching ? null : ownAccuracy
+  const livePassengerHeading = watching ? null : ownHeading
+  const livePassengerSpeed = watching ? null : ownSpeed
 
   // Publish this phone's position — often while the driver is still coming,
   // sparingly once the trip is under way.
@@ -182,6 +196,9 @@ export function TripMonitor({
   const ONGOING_PUBLISH_MS = 10000
   const lastPublishedAtRef = useRef(0)
   useEffect(() => {
+    // A watcher's phone never writes the rider's position — it would put the
+    // parent's own location on the map as the child's.
+    if (watching) return
     if (!shareLiveGps) {
       updatePassengerLiveGps(ride.id, null)
       return
@@ -522,6 +539,11 @@ export function TripMonitor({
             // carrying the plate, since that is what gets checked against the
             // sidecar. The name stays on the marker for the legend and the
             // Names toggle; it just stops floating.
+            // Floats its own callout once the rider and the tricycle have
+            // parted: the tricycle's stops naming them (see its label), so
+            // the name moves to where they actually are.
+            callout: seatsApart,
+            alwaysLabel: seatsApart,
             pulse: true,
             icon: 'me' as const,
           },
@@ -541,7 +563,12 @@ export function TripMonitor({
     const ageSeconds = (iso: string | null | undefined) =>
       iso ? Math.max(0, Math.round((tripTick - new Date(iso).getTime()) / 1000)) : null
     const driverAge = ageSeconds(legRide.driverLiveGpsAt)
-    const meState = liveGpsError
+    const riderAge = ageSeconds(legRide.passengerLiveGpsAt)
+    const meState = watching
+      ? livePassengerGps
+        ? { tone: 'text-emerald-700', text: riderAge === null ? 'live' : `live ${riderAge}s ago` }
+        : { tone: 'text-amber-700', text: 'no GPS from rider' }
+      : liveGpsError
       ? { tone: 'text-rose-700', text: 'no GPS' }
       : livePassengerGps
         ? { tone: 'text-emerald-700', text: 'live' }
@@ -639,6 +666,14 @@ export function TripMonitor({
   // separation.ts for why it takes three readings and not one.
   const separationRef = useRef<SeparationState>({ apartCount: 0, asked: false })
   const [apartMeters, setApartMeters] = useState<number | null>(null)
+  const tricycleTrailRef = useRef<{ at: number; gps: GeoCoords }[]>([])
+  const watchedRiderAtRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!driverGpsInfo?.isLive) return
+    const at = ride.driverLiveGpsAt ? new Date(ride.driverLiveGpsAt).getTime() : Date.now()
+    tricycleTrailRef.current = [...tricycleTrailRef.current.filter((h) => at - h.at < 60000), { at, gps: driverGpsInfo.gps }]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [driverGpsInfo?.gps.lat, driverGpsInfo?.gps.lng])
   useEffect(() => {
     if (ride.status !== 'ongoing') {
       separationRef.current = { apartCount: 0, asked: false }
@@ -648,7 +683,18 @@ export function TripMonitor({
     // Only against a real published position. The interpolated one is drawn
     // from legProgress and would part from this phone the moment the
     // simulation and the road disagree, which is not the passenger leaving.
-    const tricycleGps = driverGpsInfo?.isLive ? driverGpsInfo.gps : null
+    const tricycleNow = driverGpsInfo?.isLive ? driverGpsInfo.gps : null
+    // Watching, both positions arrive from elsewhere, the rider's up to ten
+    // seconds late — so the rider's reading is compared once, when it comes
+    // in, with where the tricycle was at that moment (see positionAt).
+    if (watching) {
+      if (!livePassengerGps || !ride.passengerLiveGpsAt) return
+      if (watchedRiderAtRef.current === ride.passengerLiveGpsAt) return
+      watchedRiderAtRef.current = ride.passengerLiveGpsAt
+    }
+    const tricycleGps = watching
+      ? positionAt(tricycleTrailRef.current, new Date(ride.passengerLiveGpsAt!).getTime())
+      : tricycleNow
     const decision = nextSeparationDecision(livePassengerGps, tricycleGps, separationRef.current)
     separationRef.current = { apartCount: decision.apartCount, asked: decision.asked }
     if (decision.metersApart !== null) setSeatsApart(isApart(separationRef.current))
@@ -658,7 +704,7 @@ export function TripMonitor({
       setGotOffHelpOpen(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [livePassengerGps, driverGpsInfo?.gps.lat, driverGpsInfo?.gps.lng, ride.status])
+  }, [livePassengerGps, driverGpsInfo?.gps.lat, driverGpsInfo?.gps.lng, ride.status, ride.passengerLiveGpsAt])
 
   // A new leg is a new route. Without this the origin stays pinned to
   // wherever the last re-route happened, and arriving at the pickup would
@@ -675,7 +721,15 @@ export function TripMonitor({
   // centred on the phone, the tricycle drove off the screen as it neared
   // the drop-off. On a real ride the phone in the tricycle is the better
   // fix and stays in use.
-  const navCenter = simulateMovementEnabled && driverGpsInfo ? driverGpsInfo.gps : livePassengerGps
+  // Watching from home there is no phone in the tricycle to centre on: follow
+  // the tricycle while the rider is in it, and the rider once they have parted.
+  const navCenter = watching
+    ? seatsApart
+      ? livePassengerGps
+      : driverGpsInfo?.gps ?? livePassengerGps
+    : simulateMovementEnabled && driverGpsInfo
+      ? driverGpsInfo.gps
+      : livePassengerGps
   // The phone's own direction first; otherwise the direction the followed
   // point is actually moving on screen (see useMotionFromPositions).
   const centerMotion = useMotionFromPositions(ride.status === 'ongoing' ? navCenter : null)

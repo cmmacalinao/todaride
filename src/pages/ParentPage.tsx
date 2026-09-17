@@ -389,6 +389,7 @@ function StudentMonitor({
           ride={activeRide}
           sosActorId={parentId}
           sosLabel="SOS — Alert me now"
+          watching
           extraContacts={student.phone ? [{ label: `Call ${student.name}`, phone: student.phone }] : []}
           showCancel
           onCancel={() => cancelRide(activeRide.id)}

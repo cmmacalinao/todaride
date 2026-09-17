@@ -182,8 +182,8 @@ const RUNS: Run[] = [
         expect: 'Distance in km, and a wait that never reads "0 min".',
       },
       {
-        do: 'Take a photo from the trip screen, then press SOS.',
-        expect: 'The photo attaches to the trip; the SOS reaches Admin and the TODA.',
+        do: 'Take a photo from the trip screen, then press Help.',
+        expect: 'The photo attaches to the trip; Help shows Call 911, family and local hotlines (SOS alerts are off in Phase 1).',
       },
       {
         do: 'Count how often the tricycle marker jumps forward.',

@@ -230,7 +230,7 @@ export function ScanSafeRideBanner({ feeFree, variant = 'card' }: { feeFree: boo
         <ul className="mt-2 space-y-0.5 text-[11px] leading-snug text-white/60">
           <li>• Naka-record ang biyahe mo — name and plate of your driver.</li>
           <li>• Your family can see where you are and that you arrived.</li>
-          <li>• One SOS reaches your TODA and your emergency contact.</li>
+          <li>• One tap to call 911, your family, or local hotlines.</li>
         </ul>
       </div>
     )
@@ -251,7 +251,7 @@ export function ScanSafeRideBanner({ feeFree, variant = 'card' }: { feeFree: boo
           <ul className="mt-2 space-y-0.5 text-[11px] leading-snug text-blue-100">
             <li>• Naka-record ang biyahe mo — name and plate of your driver.</li>
             <li>• Your family can see where you are and that you arrived.</li>
-            <li>• One SOS reaches your TODA and your emergency contact.</li>
+            <li>• One tap to call 911, your family, or local hotlines.</li>
           </ul>
         </div>
       </div>

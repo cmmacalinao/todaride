@@ -224,6 +224,24 @@ export function EmergencySheet({
         </p>
       )}
 
+      {/* The way out for a screen opened by mistake — a stray tap on Help, or
+          "I need help" pressed on the got-off check by someone who is fine.
+          Stops a countdown that has started, and says so in words a person
+          checks before tapping, rather than a plain Cancel. An SOS already
+          sent has its own cancel above. */}
+      {!inline && !alertLive && (
+        <button
+          type="button"
+          onClick={() => {
+            setCountdown(null)
+            onClose()
+          }}
+          className="w-full rounded-lg border-2 border-emerald-500 bg-emerald-50 py-2.5 text-sm font-bold text-emerald-800 hover:bg-emerald-100"
+        >
+          ✅ False alarm — I am safe
+        </button>
+      )}
+
       <div className="flex gap-2">
         {onMoreNumbers && (
           <button

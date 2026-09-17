@@ -114,6 +114,7 @@ export function DriverPage() {
     todaOrganizations,
     terminals,
     tripHistoryRetentionDays,
+    clearDriverTripHistory,
     declineRide,
     driverProposeAccept,
     todaRadiusKm,
@@ -242,6 +243,7 @@ export function DriverPage() {
   // Starts collapsed, same as the passenger app's own "Trip history" — a
   // long, low-priority list that shouldn't push the active-trip card down.
   const [showTripHistory, setShowTripHistory] = useState(false)
+  const [confirmClearHistory, setConfirmClearHistory] = useState(false)
   const [earningsFilter, setEarningsFilter] = useState<EarningsFilter>('all')
   // The total is the answer a driver opens this for; the trip-by-trip list is
   // what they check occasionally. Folded, the section stays two lines instead
@@ -479,9 +481,21 @@ export function DriverPage() {
   const hiddenCount = allRequested.length - incoming.length
   // Admin-configurable — see AdminPage's "Trip history retention" setting.
   // Older rides aren't lost, they just drop out of this list (earnings
-  // totals below still see the full history regardless).
+  // totals below still see the full history regardless). "Clear history"
+  // hides finished trips booked before it was pressed the same way — this
+  // list only; a trip under way always shows.
+  const historyClearedAt = driver.tripHistoryClearedAt ?? null
   const myRides = rides
-    .filter((r) => r.driverId === currentDriverId && isWithinRetentionDays(r.requestedAt, tripHistoryRetentionDays))
+    .filter(
+      (r) =>
+        r.driverId === currentDriverId &&
+        isWithinRetentionDays(r.requestedAt, tripHistoryRetentionDays) &&
+        !(
+          historyClearedAt &&
+          (r.status === 'completed' || r.status === 'cancelled' || r.status === 'declined') &&
+          (r.requestedAt ?? '') <= historyClearedAt
+        ),
+    )
     .slice()
     .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
   const myCompletedRides = rides.filter((r) => r.driverId === currentDriverId && r.status === 'completed')
@@ -1712,6 +1726,44 @@ export function DriverPage() {
         </button>
         {showTripHistory && (
         <div className="space-y-2">
+          {myRides.length > 0 &&
+            (confirmClearHistory ? (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                <p>
+                  Clear your trip history? Past trips disappear from this list only. Your earnings stay exactly the
+                  same, your TODA and support can still see every trip, and a trip under way stays.
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearDriverTripHistory(driver.id)
+                      setConfirmClearHistory(false)
+                    }}
+                    className="flex-1 rounded-lg bg-amber-600 py-1.5 font-bold text-white hover:bg-amber-700"
+                  >
+                    Clear history
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmClearHistory(false)}
+                    className="flex-1 rounded-lg border border-slate-300 bg-white py-1.5 font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setConfirmClearHistory(true)}
+                  className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  🗑️ Clear history
+                </button>
+              </div>
+            ))}
           {myRides.length === 0 && <p className="text-sm text-slate-400">No trips yet.</p>}
           {myRides.map((r) => (
             <div key={r.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">

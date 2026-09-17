@@ -774,6 +774,11 @@ export interface Driver {
   // ascending (first to join is first offered a ride). Irrelevant for
   // freelance drivers (todaOrgId === null) — they have no terminal queue.
   queueJoinedAt: string | null
+  // "Clear history" on the driver's own Trip history: finished trips booked
+  // before this moment are hidden from that list. Nothing is deleted, and
+  // earnings are counted from every trip regardless. Optional so existing
+  // drivers parse.
+  tripHistoryClearedAt?: string | null
   // Which of the TODA's terminals this driver works out of. A TODA with one
   // terminal never needs it; CLSU has three, and a driver waiting at the
   // Second Gate is not in the same line as one at the Main Gate. Optional so

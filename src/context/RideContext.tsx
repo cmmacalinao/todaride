@@ -650,6 +650,7 @@ type RideAction =
   | { type: 'SET_DRIVER_PABILI_PRIORITY'; driverId: string; enabled: boolean }
   | { type: 'SET_DRIVER_ONLINE'; driverId: string; online: boolean }
   | { type: 'CLEAR_PASSENGER_TRIP_HISTORY'; passengerId: string }
+  | { type: 'CLEAR_DRIVER_TRIP_HISTORY'; driverId: string }
   | {
       type: 'UPDATE_PASSENGER_PROFILE'
       passengerId: string
@@ -4177,6 +4178,14 @@ function reducer(state: RideState, action: RideAction): RideState {
           p.id === action.passengerId ? { ...p, tripHistoryClearedAt: new Date().toISOString() } : p,
         ),
       }
+    // Same for a driver's own Trip history — see Driver.tripHistoryClearedAt.
+    case 'CLEAR_DRIVER_TRIP_HISTORY':
+      return {
+        ...state,
+        drivers: state.drivers.map((d) =>
+          d.id === action.driverId ? { ...d, tripHistoryClearedAt: new Date().toISOString() } : d,
+        ),
+      }
     case 'UPDATE_PASSENGER_PROFILE':
       return {
         ...state,
@@ -6523,6 +6532,7 @@ interface RideContextValue extends RideState {
   setDriverPabiliPriority: (driverId: string, enabled: boolean) => void
   setDriverOnline: (driverId: string, online: boolean) => void
   clearPassengerTripHistory: (passengerId: string) => void
+  clearDriverTripHistory: (driverId: string) => void
   updatePassengerProfile: (
     passengerId: string,
     updates: {
@@ -7777,6 +7787,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setDriverPabiliPriority: (driverId, enabled) => dispatch({ type: 'SET_DRIVER_PABILI_PRIORITY', driverId, enabled }),
     setDriverOnline: (driverId, online) => dispatch({ type: 'SET_DRIVER_ONLINE', driverId, online }),
     clearPassengerTripHistory: (passengerId) => dispatch({ type: 'CLEAR_PASSENGER_TRIP_HISTORY', passengerId }),
+    clearDriverTripHistory: (driverId) => dispatch({ type: 'CLEAR_DRIVER_TRIP_HISTORY', driverId }),
     updatePassengerProfile: (passengerId, updates) =>
       dispatch({ type: 'UPDATE_PASSENGER_PROFILE', passengerId, ...updates }),
     updateDriverProfile: (driverId, updates) => dispatch({ type: 'UPDATE_DRIVER_PROFILE', driverId, ...updates }),

@@ -477,7 +477,9 @@ export function TripMonitor({
             // your name on a marker driving away from you is the one thing on
             // the map that is not true.
             label: `${driver?.plateNumber?.match(/\d+/)?.[0] ?? driver?.plateNumber ?? 'Tricycle'}${
-              seatsApart ? '' : `-${ride.passengerName?.trim().split(/\s+/)[0] ?? 'You'}`
+              // Watching from home, the rider is only on the tricycle once the trip
+              // has started — before pickup it is on its way to them.
+              seatsApart || (watching && !onBoard) ? '' : `-${ride.passengerName?.trim().split(/\s+/)[0] ?? 'You'}`
             }${onBoard && sharingWith > 0 ? ` · +${sharingWith}` : ''}`,
             // Named without waiting for the Names toggle, and named from the
             // moment a driver is assigned rather than only once aboard.
@@ -1659,7 +1661,7 @@ export function TripMonitor({
 
       {farDriver && (
         <FarDriverDialog
-          title="Your driver is far away"
+          title={watching ? `${ride.passengerName?.trim().split(/\s+/)[0] ?? 'The rider'}'s driver is far away` : 'Your driver is far away'}
           who={`${ride.driverName ?? 'Your driver'} is`}
           meters={farDriver.meters}
           minutes={farDriver.minutes}
@@ -1667,7 +1669,7 @@ export function TripMonitor({
             farPickupQuote && farPickupQuote.fee > 0 ? (
               <>
                 Keeping this driver adds <span className="font-bold">₱{farPickupQuote.fee}</span> for the{' '}
-                {farPickupQuote.km} km drive to you. New fare:{' '}
+                {farPickupQuote.km} km drive to {watching ? 'the pickup' : 'you'}. New fare:{' '}
                 <span className="font-bold">₱{ride.fareEstimate + farPickupQuote.fee}</span>.
               </>
             ) : undefined

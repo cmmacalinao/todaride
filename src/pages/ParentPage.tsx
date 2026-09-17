@@ -401,6 +401,9 @@ function StudentMonitor({
           sosActorId={parentId}
           sosLabel="SOS — Alert me now"
           watching
+          // The parent booked it and is the one who decides — see TripMonitor's
+          // far-driver dialog. A child without the app has nobody else to ask.
+          askAboutFarDriver
           extraContacts={student.phone ? [{ label: `Call ${student.name}`, phone: student.phone }] : []}
           showCancel
           onCancel={() => cancelRide(activeRide.id)}

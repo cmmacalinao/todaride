@@ -89,3 +89,31 @@ describe('what is wrong with a driver signup', () => {
     expect(findDriverSignupProblems(draft({ documents: none, documentsRequired: false }))).toEqual([])
   })
 })
+
+describe('emergency contact', () => {
+  const base = {
+    plateNumber: 'UTS-9',
+    licenseNo: 'N01',
+    confirmLicenseNo: 'N01',
+    licenseExpiry: '2030-01-01',
+    address: { province: 'Nueva Ecija', city: 'San Jose City', barangay: 'Abar 1st', addressDetail: 'Purok 2' },
+    pin: '1234',
+    documents: {} as never,
+    documentsRequired: false,
+    now: Date.parse('2026-01-01'),
+  }
+  const fields = (ec: { name: string; phone: string; driverPhone: string }) =>
+    findDriverSignupProblems({ ...base, emergencyContact: ec }).map((p) => p.field)
+
+  it('asks for a name and a number', () => {
+    expect(fields({ name: '', phone: '', driverPhone: '0917-111-1111' })).toContain('emergencyContact')
+  })
+
+  it("will not take the driver's own number", () => {
+    expect(fields({ name: 'Rosa', phone: '09171111111', driverPhone: '0917-111-1111' })).toContain('emergencyContact')
+  })
+
+  it('accepts someone else with a real number', () => {
+    expect(fields({ name: 'Rosa', phone: '0918-222-2222', driverPhone: '0917-111-1111' })).not.toContain('emergencyContact')
+  })
+})

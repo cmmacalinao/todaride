@@ -1120,6 +1120,9 @@ type RideAction =
       inviteId: string | null
       // A marketing partner's code, if the new driver was recruited.
       referralCode?: string | null
+      emergencyContactName?: string | null
+      emergencyContactPhone?: string | null
+      emergencyContactRelationship?: string | null
     }
   | { type: 'JOIN_MARKETING_PARTNER'; driverId: string }
   | { type: 'SET_TODA_OFFICIAL_MEMBER_COUNT'; orgId: string; count: number | null }
@@ -5257,6 +5260,9 @@ function reducer(state: RideState, action: RideAction): RideState {
         phone: action.phone,
         email: action.email,
         facebook: action.facebook,
+        emergencyContact: action.emergencyContactPhone ?? null,
+        emergencyContactName: action.emergencyContactName ?? null,
+        emergencyContactRelationship: action.emergencyContactRelationship ?? null,
         queueJoinedAt: null,
         accessStatus: 'active',
         accessNote: null,
@@ -7025,6 +7031,9 @@ interface RideContextValue extends RideState {
     facebook: string | null
     inviteId?: string | null
     referralCode?: string | null
+    emergencyContactName?: string | null
+    emergencyContactPhone?: string | null
+    emergencyContactRelationship?: string | null
   }) => void
   // Driver Marketing Promotion Program — see lib/marketingProgram.ts.
   joinMarketingPartner: (driverId: string) => void

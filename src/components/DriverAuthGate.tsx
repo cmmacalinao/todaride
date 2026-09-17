@@ -676,6 +676,11 @@ function RegisterForm({
   const [phone, setPhone] = useState(invite?.phone ?? '')
   const [email, setEmail] = useState(invite?.email ?? '')
   const [facebook, setFacebook] = useState('')
+  // Who to call if something happens to this driver on the road — shown on
+  // their own emergency screen as a call button.
+  const [ecName, setEcName] = useState('')
+  const [ecPhone, setEcPhone] = useState('')
+  const [ecRelationship, setEcRelationship] = useState('')
   // A marketing partner's code (see lib/marketingProgram.ts). Checked as it
   // is typed so the driver knows before submitting whether it was right.
   const [referralCode, setReferralCode] = useState('')
@@ -732,6 +737,7 @@ function RegisterForm({
       confirmLicenseNo,
       licenseExpiry,
       address,
+      emergencyContact: { name: ecName, phone: ecPhone, driverPhone: phone },
       pin,
       documents,
       documentsRequired: !openDriverSignup,
@@ -770,6 +776,9 @@ function RegisterForm({
       facebook: facebook.trim() || null,
       inviteId: invite?.id ?? null,
       referralCode: referralPartner ? referralCode.trim() : null,
+      emergencyContactName: ecName.trim(),
+      emergencyContactPhone: ecPhone.trim(),
+      emergencyContactRelationship: ecRelationship.trim() || null,
     })
     setError('')
     setSubmitted(true)
@@ -939,6 +948,36 @@ function RegisterForm({
           onChange={setAddress}
           addressDetailLabel="Detailed home address (zone, street, house no., notes)"
           addressDetailPlaceholder="e.g. Purok 2, near the barangay hall"
+        />
+      </div>
+      <div
+        id="signup-emergencyContact"
+        className={`space-y-2 rounded-lg border border-danger-200 bg-danger-50/40 p-2.5 ${wrong('emergencyContact') ? 'ring-2 ring-rose-200' : ''}`}
+      >
+        <p className="text-xs font-semibold text-slate-700">🆘 Emergency contact</p>
+        <p className="text-[11px] text-slate-500">
+          Someone we can call if something happens to you on the road — family, not a fellow driver. They appear as a
+          call button on your emergency screen.
+        </p>
+        <input
+          value={ecName}
+          onChange={(e) => setEcName(e.target.value)}
+          placeholder="Name — e.g. Rosa Santos"
+          className={`w-full rounded-lg border px-3 py-2 text-sm ${ring('emergencyContact')}`}
+        />
+        <input
+          type="tel"
+          inputMode="tel"
+          value={ecPhone}
+          onChange={(e) => setEcPhone(e.target.value)}
+          placeholder="Phone — e.g. 0917-123-4567"
+          className={`w-full rounded-lg border px-3 py-2 text-sm ${ring('emergencyContact')}`}
+        />
+        <input
+          value={ecRelationship}
+          onChange={(e) => setEcRelationship(e.target.value)}
+          placeholder="Relationship (optional) — e.g. Wife, Brother"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
       </div>
       <div>

@@ -1608,7 +1608,19 @@ export function DriverPage() {
                 ride={sosRide}
                 actorName={driver.name}
                 location={watchedGps ?? driver.lastKnownGps ?? null}
-                contacts={driver.emergencyContact ? [{ id: 'driver-ec', name: driver.emergencyContact, phone: driver.emergencyContact, relationship: 'Emergency contact', smsEnabled: false }] : []}
+                contacts={
+                  driver.emergencyContact
+                    ? [
+                        {
+                          id: 'driver-ec',
+                          name: driver.emergencyContactName?.trim() || 'Emergency contact',
+                          phone: driver.emergencyContact,
+                          relationship: driver.emergencyContactRelationship?.trim() || (driver.emergencyContactName ? 'Emergency contact' : driver.emergencyContact),
+                          smsEnabled: false,
+                        },
+                      ]
+                    : []
+                }
                 counterpart={sosRide && sosPassengerPhone ? { label: sosRide.passengerName, phone: sosPassengerPhone } : null}
                 toda={homeToda?.contactPhone ? { name: homeToda.name, phone: homeToda.contactPhone } : null}
                 activeAlert={myOpenSos ?? null}

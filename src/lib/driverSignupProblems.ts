@@ -16,7 +16,7 @@ export type ProblemField =
   // Declared in the order the fields appear on screen. That is the order they
   // are listed back, and the order the first problem is picked from — a list
   // that jumps around the form is a list nobody reads twice.
-  'plate' | 'license' | 'confirmLicense' | 'expiry' | 'address' | 'pin' | 'documents'
+  'plate' | 'license' | 'confirmLicense' | 'expiry' | 'address' | 'emergencyContact' | 'pin' | 'documents'
 
 export interface Problem {
   field: ProblemField
@@ -29,6 +29,9 @@ export interface DriverSignupDraft {
   confirmLicenseNo: string
   licenseExpiry: string
   address: { province: string; city: string; barangay: string; addressDetail: string }
+  // Someone to call if something happens to the driver on the road. Checked
+  // when given; the registration form always gives it.
+  emergencyContact?: { name: string; phone: string; driverPhone: string }
   pin: string
   documents: DriverDocuments
   // When open signup is on, documents are deferred rather than demanded —
@@ -77,6 +80,20 @@ export function findDriverSignupProblems(draft: DriverSignupDraft): Problem[] {
       field: 'address',
       message: `Home address still needs your ${missingAddress.join(', ')}.`,
     })
+  }
+
+  if (draft.emergencyContact) {
+    const digits = (v: string) => v.replace(/\D/g, '')
+    const { name, phone, driverPhone } = draft.emergencyContact
+    const missing = [!name.trim() && 'name', !phone.trim() && 'phone number'].filter(Boolean)
+    if (missing.length > 0) {
+      found.push({ field: 'emergencyContact', message: `Emergency contact still needs a ${missing.join(' and ')}.` })
+    } else if (digits(phone).length < 7) {
+      found.push({ field: 'emergencyContact', message: "The emergency contact's number looks too short." })
+    } else if (digits(driverPhone) && digits(phone) === digits(driverPhone)) {
+      // The one number that is no use when the driver cannot answer.
+      found.push({ field: 'emergencyContact', message: 'The emergency contact must be someone else — that is your own number.' })
+    }
   }
 
   if (draft.pin.length !== 4) {

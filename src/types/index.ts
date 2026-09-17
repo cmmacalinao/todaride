@@ -865,8 +865,13 @@ export interface Driver {
   password?: string | null
   // A driver has no guardian/parent account backing an emergency contact
   // the way a Passenger's guardianPhone does — this is the driver-side
-  // equivalent, editable from My Profile.
+  // equivalent, editable from My Profile. The phone number.
   emergencyContact?: string | null
+  // Who that number reaches, asked for at registration so the driver's own
+  // emergency screen can say "Call Aling Rosa (Wife)" rather than a bare
+  // number. Optional: drivers registered before this have neither.
+  emergencyContactName?: string | null
+  emergencyContactRelationship?: string | null
 }
 
 // A fixed, single-slot-per-label set of quick-pick places — saving a new

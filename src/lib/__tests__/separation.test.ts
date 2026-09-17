@@ -87,19 +87,30 @@ describe('nextSeparationDecision', () => {
 describe('positionAt', () => {
   const a = { lat: 15.73, lng: 120.93 }
   const b = { lat: 15.731, lng: 120.93 }
-  const history = [
+  // Too far apart in time to draw a line between.
+  const sparse = [
     { at: 1000, gps: a },
-    { at: 11000, gps: b },
+    { at: 21000, gps: b },
   ]
 
-  it('picks the kept position nearest the moment asked about', () => {
-    expect(positionAt(history, 2000)).toEqual(a)
-    expect(positionAt(history, 10500)).toEqual(b)
+  it('picks the kept position nearest the moment asked about when the gap is too long to join', () => {
+    expect(positionAt(sparse, 2000)).toEqual(a)
+    expect(positionAt(sparse, 20500)).toEqual(b)
   })
 
   it('says nothing when no kept position is close enough in time', () => {
-    expect(positionAt(history, 6000)).toBeNull()
+    expect(positionAt(sparse, 11000)).toBeNull()
     expect(positionAt([], 1000)).toBeNull()
+  })
+
+  it('places the phone on the line between two readings a few seconds apart', () => {
+    const every3s = [
+      { at: 0, gps: a },
+      { at: 3000, gps: b },
+    ]
+    const mid = positionAt(every3s, 1500)!
+    expect(mid.lat).toBeCloseTo(15.7305, 6)
+    expect(mid.lng).toBeCloseTo(120.93, 6)
   })
 })
 

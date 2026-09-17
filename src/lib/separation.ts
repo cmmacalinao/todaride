@@ -107,10 +107,33 @@ export function isApart(state: SeparationState): boolean {
 // which callers treat as "cannot tell", never as "apart".
 export const MATCH_WITHIN_MS = 3000
 
+// Two kept positions this far apart in time or less can be joined by a
+// straight line to say where the phone was in between.
+//
+// Both phones share every few seconds (LIVE_GPS_PUBLISH_MS), so a reading
+// from one almost never lands on a reading from the other; the nearest one
+// can be two seconds away — twelve metres at tricycle speed, past the
+// separation threshold on its own. Between two fixes a few seconds apart a
+// tricycle is, near enough, on the line joining them.
+export const INTERPOLATE_WITHIN_MS = 10000
+
 export function positionAt(history: { at: number; gps: GeoCoords }[], at: number): GeoCoords | null {
-  let best: { at: number; gps: GeoCoords } | null = null
+  let before: { at: number; gps: GeoCoords } | null = null
+  let after: { at: number; gps: GeoCoords } | null = null
   for (const h of history) {
-    if (!best || Math.abs(h.at - at) < Math.abs(best.at - at)) best = h
+    if (h.at <= at && (!before || h.at > before.at)) before = h
+    if (h.at >= at && (!after || h.at < after.at)) after = h
   }
-  return best && Math.abs(best.at - at) <= MATCH_WITHIN_MS ? best.gps : null
+  if (before && after && after.at - before.at <= INTERPOLATE_WITHIN_MS) {
+    if (after.at === before.at) return before.gps
+    const f = (at - before.at) / (after.at - before.at)
+    return {
+      lat: before.gps.lat + (after.gps.lat - before.gps.lat) * f,
+      lng: before.gps.lng + (after.gps.lng - before.gps.lng) * f,
+    }
+  }
+  const nearest = [before, after]
+    .filter((h): h is { at: number; gps: GeoCoords } => h !== null)
+    .sort((a, b) => Math.abs(a.at - at) - Math.abs(b.at - at))[0]
+  return nearest && Math.abs(nearest.at - at) <= MATCH_WITHIN_MS ? nearest.gps : null
 }

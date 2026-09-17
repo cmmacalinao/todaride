@@ -18,6 +18,20 @@ import type { GeoCoords } from '../types'
 // larger and a person walking to the corner never sees the dot leave.
 const MIN_MOVE_METERS = 3
 
+// How often each phone on a trip shares its position — the driver's and the
+// passenger's alike.
+//
+// The two used to share at different paces (the driver on every fix, the
+// passenger every ten seconds once aboard), so anyone watching from a third
+// screen — a parent at home — saw the tricycle glide and the child jump, the
+// same trip moving at two speeds. One pace for both keeps the two dots in
+// step. Three seconds is smooth enough to follow on a map and keeps the total
+// writes per trip about where they were. The old reason for the slow
+// passenger pace — the two phones overwriting each other's newest position —
+// no longer applies: each position now carries its own time and the newer
+// one wins when copies meet (see rideMerge).
+export const LIVE_GPS_PUBLISH_MS = 3000
+
 // Above this, a reading is not a position — it is a glitch.
 //
 // 40 m/s is about 144 km/h, far beyond anything a tricycle does and beyond

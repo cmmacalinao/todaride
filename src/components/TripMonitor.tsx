@@ -21,7 +21,7 @@ import { buildTimeline, driverPickupOverdue, formatArrivalClock, formatEta, getD
 import { formatKm, haversineDistanceMeters } from '../lib/geo'
 import { remainingLeg } from '../lib/legRemaining'
 import { reverseGeocodeToPhAddress } from '../lib/customLocation'
-import { useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
+import { LIVE_GPS_PUBLISH_MS, useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { useRoute } from '../lib/routing'
 import { FAR_OFF_ROUTE_START, metersFromRoute, nextFarOffRouteDecision, nextRerouteDecision, type FarOffRouteState } from '../lib/reroute'
 import { isApart, nextSeparationDecision, positionAt, type SeparationState } from '../lib/separation'
@@ -179,27 +179,8 @@ export function TripMonitor({
   const livePassengerHeading = watching ? null : ownHeading
   const livePassengerSpeed = watching ? null : ownSpeed
 
-  // Publish this phone's position — often while the driver is still coming,
-  // sparingly once the trip is under way.
-  //
-  // Both phones write the same ride row and each write replaces it whole. At
-  // roughly a fix a second from each device, the driver's write carries this
-  // phone's last-known passenger position and this phone's write carries the
-  // driver's last-known position, so the two spend the trip reverting each
-  // other's newest coordinate to a stale copy. The tricycle marker is the
-  // visible casualty: it flips between where the driver is and where the
-  // driver was, which looks a great deal like a marker that has stopped.
-  //
-  // While the driver is still on their way, this position is how they find
-  // the passenger, so it goes out at full rate; the tricycle marker is
-  // interpolated then anyway, so there is little to lose.
-  //
-  // Once aboard, it goes out every ten seconds instead. Nothing draws it —
-  // the passenger's dot comes from this phone directly — but the driver's
-  // screen needs it to notice the two phones parting at the kerb (see
-  // separation.ts), and that question is asked in tens of seconds, not tenths.
-  // One write per ten driver writes is a collision the marker survives.
-  const ONGOING_PUBLISH_MS = 10000
+  // Publish this phone's position at the same pace the driver's phone does —
+  // see LIVE_GPS_PUBLISH_MS for why the two must match.
   const lastPublishedAtRef = useRef(0)
   useEffect(() => {
     // A watcher's phone never writes the rider's position — it would put the
@@ -209,11 +190,9 @@ export function TripMonitor({
       updatePassengerLiveGps(ride.id, null)
       return
     }
-    if (ride.status === 'ongoing') {
-      const now = Date.now()
-      if (now - lastPublishedAtRef.current < ONGOING_PUBLISH_MS) return
-      lastPublishedAtRef.current = now
-    }
+    const now = Date.now()
+    if (now - lastPublishedAtRef.current < LIVE_GPS_PUBLISH_MS) return
+    lastPublishedAtRef.current = now
     updatePassengerLiveGps(ride.id, livePassengerGps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [livePassengerGps, shareLiveGps, ride.status, ride.id])
@@ -551,7 +530,7 @@ export function TripMonitor({
     // it was.
     //
     // Watching from elsewhere, though, the rider's position is up to ten
-    // seconds old (see ONGOING_PUBLISH_MS), and drawn on its own it trails the
+    // seconds old (see LIVE_GPS_PUBLISH_MS), and drawn on its own it trails the
     // tricycle and jumps back to it — a child who looks left behind and then
     // runs to catch up. While the two are together the tricycle, labelled
     // with the rider's name, is where the rider is; their own dot appears only
@@ -726,6 +705,17 @@ export function TripMonitor({
   const [apartMeters, setApartMeters] = useState<number | null>(null)
   const tricycleTrailRef = useRef<{ at: number; gps: GeoCoords }[]>([])
   const watchedRiderAtRef = useRef<string | null>(null)
+  const pendingRiderRef = useRef<{ at: number; gps: GeoCoords }[]>([])
+  // This phone's own recent positions, so the tricycle's shared position —
+  // a few seconds old when it arrives — is compared with where this phone was
+  // at that same moment, not where it is now (see positionAt).
+  const ownTrailRef = useRef<{ at: number; gps: GeoCoords }[]>([])
+  const seenTricycleAtRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (watching || !livePassengerGps) return
+    const now = Date.now()
+    ownTrailRef.current = [...ownTrailRef.current.filter((h) => now - h.at < 60000), { at: now, gps: livePassengerGps }]
+  }, [livePassengerGps, watching])
   useEffect(() => {
     if (!driverGpsInfo?.isLive) return
     const at = ride.driverLiveGpsAt ? new Date(ride.driverLiveGpsAt).getTime() : Date.now()
@@ -742,27 +732,46 @@ export function TripMonitor({
     // from legProgress and would part from this phone the moment the
     // simulation and the road disagree, which is not the passenger leaving.
     const tricycleNow = driverGpsInfo?.isLive ? driverGpsInfo.gps : null
-    // Watching, both positions arrive from elsewhere, the rider's up to ten
-    // seconds late — so the rider's reading is compared once, when it comes
-    // in, with where the tricycle was at that moment (see positionAt).
+    const judge = (riderGps: GeoCoords | null, tricycleGps: GeoCoords | null) => {
+      const decision = nextSeparationDecision(riderGps, tricycleGps, separationRef.current)
+      separationRef.current = { apartCount: decision.apartCount, asked: decision.asked }
+      if (decision.metersApart !== null) setSeatsApart(isApart(separationRef.current))
+      if (decision.separated) {
+        setApartMeters(Math.round(decision.metersApart ?? 0))
+        setGotOffAsked(true)
+        setGotOffHelpOpen(false)
+      }
+    }
     if (watching) {
-      if (!livePassengerGps || !ride.passengerLiveGpsAt) return
-      if (watchedRiderAtRef.current === ride.passengerLiveGpsAt) return
-      watchedRiderAtRef.current = ride.passengerLiveGpsAt
+      // Watching, both positions arrive from elsewhere, a few seconds apart
+      // and out of step. A rider reading is held until the tricycle has
+      // reported from a moment after it too, so there are positions on both
+      // sides to place the tricycle exactly then (see positionAt) — judged on
+      // the nearest one instead, a tricycle two seconds further up the road
+      // read as a child left behind. A reading nothing arrives after for
+      // a while is judged on what there is.
+      if (livePassengerGps && ride.passengerLiveGpsAt && watchedRiderAtRef.current !== ride.passengerLiveGpsAt) {
+        watchedRiderAtRef.current = ride.passengerLiveGpsAt
+        pendingRiderRef.current.push({ at: new Date(ride.passengerLiveGpsAt).getTime(), gps: livePassengerGps })
+      }
+      const latestTricycleAt = tricycleTrailRef.current.reduce((m, h) => Math.max(m, h.at), 0)
+      while (pendingRiderRef.current.length > 0) {
+        const reading = pendingRiderRef.current[0]
+        const tricycleCaughtUp = latestTricycleAt >= reading.at
+        if (!tricycleCaughtUp && Date.now() - reading.at < 8000) break
+        pendingRiderRef.current.shift()
+        judge(reading.gps, positionAt(tricycleTrailRef.current, reading.at))
+      }
+      return
     }
-    const tricycleGps = watching
-      ? positionAt(tricycleTrailRef.current, new Date(ride.passengerLiveGpsAt!).getTime())
-      : tricycleNow
-    const decision = nextSeparationDecision(livePassengerGps, tricycleGps, separationRef.current)
-    separationRef.current = { apartCount: decision.apartCount, asked: decision.asked }
-    if (decision.metersApart !== null) setSeatsApart(isApart(separationRef.current))
-    if (decision.separated) {
-      setApartMeters(Math.round(decision.metersApart ?? 0))
-      setGotOffAsked(true)
-      setGotOffHelpOpen(false)
-    }
+    // The rider's own phone: judged once per tricycle position received,
+    // against where this phone was at that moment.
+    if (!tricycleNow || !ride.driverLiveGpsAt) return
+    if (seenTricycleAtRef.current === ride.driverLiveGpsAt) return
+    seenTricycleAtRef.current = ride.driverLiveGpsAt
+    judge(positionAt(ownTrailRef.current, new Date(ride.driverLiveGpsAt).getTime()), tricycleNow)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [livePassengerGps, driverGpsInfo?.gps.lat, driverGpsInfo?.gps.lng, ride.status, ride.passengerLiveGpsAt])
+  }, [livePassengerGps, driverGpsInfo?.gps.lat, driverGpsInfo?.gps.lng, ride.status, ride.passengerLiveGpsAt, ride.driverLiveGpsAt])
 
   // A new leg is a new route. Without this the origin stays pinned to
   // wherever the last re-route happened, and arriving at the pickup would

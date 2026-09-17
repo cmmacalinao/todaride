@@ -57,7 +57,7 @@ import {
   getCurrentGeoPosition,
   haversineDistanceMeters,
 } from '../lib/geo'
-import { useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
+import { LIVE_GPS_PUBLISH_MS, useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { useRoute } from '../lib/routing'
 import { isApart, nextSeparationDecision, positionAt, type SeparationState } from '../lib/separation'
 import { TodaAdminPage } from './TodaAdminPage'
@@ -1909,9 +1909,19 @@ function ActiveTripCard({
   const tripRoute = useRoute(ride?.pickup.gps ?? null, ride?.dropoff.gps ?? null)
   const tripDurationSeconds = tripRoute?.durationSeconds ?? ETA_SECONDS_PER_LEG
 
+  // Shared at the same pace as the passenger's phone — see
+  // LIVE_GPS_PUBLISH_MS. Turning sharing off goes out at once.
+  const lastDriverPublishRef = useRef(0)
   useEffect(() => {
     if (!ride) return
-    updateDriverLiveGps(ride.id, effectiveShareGps ? liveDriverGps : null)
+    if (!effectiveShareGps || !liveDriverGps) {
+      updateDriverLiveGps(ride.id, null)
+      return
+    }
+    const now = Date.now()
+    if (now - lastDriverPublishRef.current < LIVE_GPS_PUBLISH_MS) return
+    lastDriverPublishRef.current = now
+    updateDriverLiveGps(ride.id, liveDriverGps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveDriverGps, effectiveShareGps, ride?.id])
 

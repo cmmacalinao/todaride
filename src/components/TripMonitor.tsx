@@ -114,6 +114,7 @@ export function TripMonitor({
     addTipOffer,
     acknowledgeRidePayment,
     confirmPassengerArrival,
+    confirmRiderSafe,
     approveProposedFare,
     declineProposedFare,
     releaseDriver,
@@ -137,6 +138,9 @@ export function TripMonitor({
   // Opened by "I need help" on the got-off or off-route check: the sheet
   // starts its countdown rather than those buttons sending on one tap.
   const [emergencyCountdown, setEmergencyCountdown] = useState(false)
+  // Opened from "Did you get off safely? → No": "I am safe" there is the Yes
+  // they did not press, so it closes the trip the same way.
+  const [emergencyFromGotOff, setEmergencyFromGotOff] = useState(false)
   // "Possible accident detected. Are you OK?" — see lib/crashDetection and
   // CrashPromptModal. Only while this trip is actually under way, and only
   // when Super Admin has turned the detector on.
@@ -903,6 +907,7 @@ export function TripMonitor({
                 type="button"
                 onClick={() => {
                   setEmergencyCountdown(true)
+                  setEmergencyFromGotOff(true)
                   setEmergencyOpen(true)
                   setGotOffAsked(false)
                   setApartMeters(null)
@@ -916,6 +921,7 @@ export function TripMonitor({
                 type="button"
                 onClick={() => {
                   setEmergencyCountdown(false)
+                  setEmergencyFromGotOff(true)
                   setEmergencyOpen(true)
                   setGotOffAsked(false)
                   setApartMeters(null)
@@ -1676,6 +1682,20 @@ export function TripMonitor({
           onClose={() => {
             setEmergencyOpen(false)
             setEmergencyCountdown(false)
+            setEmergencyFromGotOff(false)
+          }}
+          // The rider saying they are safe is recorded on the trip, where a
+          // parent following it reads it; a parent closing their own screen
+          // records nothing.
+          safeLabel={watching ? '✅ All okay — close' : sosEnabled ? '✅ False alarm — I am safe' : '✅ I am safe — close'}
+          onSafe={() => {
+            if (!watching) {
+              confirmRiderSafe(ride.id)
+              if (emergencyFromGotOff) void confirmArrivalHere()
+            }
+            setEmergencyOpen(false)
+            setEmergencyCountdown(false)
+            setEmergencyFromGotOff(false)
           }}
         />
       )}

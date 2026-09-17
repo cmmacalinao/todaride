@@ -1301,6 +1301,10 @@ export interface Ride {
   // actually handed over, so a passenger cannot close a ride they have not
   // paid for. Optional so rides saved before this existed still parse.
   passengerArrivedAt?: string | null
+  // When the rider last told the app they are safe, from the emergency
+  // screen. Shown in the trip's updates, so a parent following along sees
+  // it. Optional so rides saved before this existed still parse.
+  riderSafeConfirmedAt?: string | null
   // Where the passenger actually got out, when that is not the destination
   // they booked — someone asking to stop early is ordinary, and the trip
   // record should say where the ride ended rather than where it was meant

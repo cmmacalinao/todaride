@@ -535,6 +535,7 @@ type RideAction =
       driverGps?: GeoCoords | null
     }
   | { type: 'PASSENGER_CONFIRM_ARRIVAL'; rideId: string; actualDropoff?: Ride['actualDropoff'] }
+  | { type: 'RIDER_CONFIRM_SAFE'; rideId: string }
   | { type: 'CLEAR_ALL_RIDES' }
   | { type: 'COMPLETE_RIDE'; rideId: string; paidMethod?: PaymentMethod }
   | { type: 'CANCEL_RIDE'; rideId: string }
@@ -3222,6 +3223,11 @@ function reducer(state: RideState, action: RideAction): RideState {
       // else a demo depends on stay exactly as they are — this is a reset of
       // the run, not of the app.
       return { ...state, rides: [], alerts: [] }
+    case 'RIDER_CONFIRM_SAFE':
+      return {
+        ...state,
+        rides: state.rides.map((r) => (r.id === action.rideId ? { ...r, riderSafeConfirmedAt: new Date().toISOString() } : r)),
+      }
     case 'PASSENGER_CONFIRM_ARRIVAL':
       return {
         ...state,
@@ -6481,6 +6487,7 @@ interface RideContextValue extends RideState {
   // The passenger saying they are off — hands the ride to the driver for
   // payment confirmation rather than completing it.
   confirmPassengerArrival: (rideId: string, actualDropoff?: Ride['actualDropoff']) => void
+  confirmRiderSafe: (rideId: string) => void
   clearAllRides: () => void
   completeRide: (rideId: string, paidMethod?: PaymentMethod) => void
   cancelRide: (rideId: string) => void
@@ -7688,6 +7695,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     startRide: (rideId, driverGps) => dispatch({ type: 'START_RIDE', rideId, driverGps }),
     confirmPassengerArrival: (rideId, actualDropoff) =>
       dispatch({ type: 'PASSENGER_CONFIRM_ARRIVAL', rideId, actualDropoff }),
+    confirmRiderSafe: (rideId) => dispatch({ type: 'RIDER_CONFIRM_SAFE', rideId }),
     clearAllRides: () => dispatch({ type: 'CLEAR_ALL_RIDES' }),
     completeRide: (rideId, paidMethod) => dispatch({ type: 'COMPLETE_RIDE', rideId, paidMethod }),
     cancelRide: (rideId) => dispatch({ type: 'CANCEL_RIDE', rideId }),

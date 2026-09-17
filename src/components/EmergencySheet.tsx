@@ -36,6 +36,11 @@ interface EmergencySheetProps {
   // off-route checks): the countdown starts at once, and can still be
   // cancelled — the same protection against a stray tap SEND SOS has.
   autoStartCountdown?: boolean
+  // The one way to close the sheet when no SOS is out. Says what it means —
+  // "I am safe" — and the caller decides what that records (see TripMonitor).
+  // Falls back to onClose.
+  onSafe?: () => void
+  safeLabel?: string
 }
 
 export function EmergencySheet({
@@ -56,6 +61,8 @@ export function EmergencySheet({
   inline = false,
   sosEnabled = true,
   autoStartCountdown = false,
+  onSafe,
+  safeLabel = '✅ I am safe — close',
 }: EmergencySheetProps) {
   // null: idle. A number: seconds left before the SOS goes out.
   const [countdown, setCountdown] = useState<number | null>(null)
@@ -224,21 +231,20 @@ export function EmergencySheet({
         </p>
       )}
 
-      {/* The way out for a screen opened by mistake — a stray tap on Help, or
-          "I need help" pressed on the got-off check by someone who is fine.
-          Stops a countdown that has started, and says so in words a person
-          checks before tapping, rather than a plain Cancel. An SOS already
-          sent has its own cancel above. */}
+      {/* The way out when no SOS is out — replaces a plain Cancel, so there
+          is one exit, not two. Stops a countdown that has started. An SOS
+          already sent has its own cancel above, and "Back to the trip" below. */}
       {!inline && !alertLive && (
         <button
           type="button"
           onClick={() => {
             setCountdown(null)
-            onClose()
+            if (onSafe) onSafe()
+            else onClose()
           }}
           className="w-full rounded-lg border-2 border-emerald-500 bg-emerald-50 py-2.5 text-sm font-bold text-emerald-800 hover:bg-emerald-100"
         >
-          ✅ False alarm — I am safe
+          {safeLabel}
         </button>
       )}
 
@@ -252,13 +258,13 @@ export function EmergencySheet({
             📞 More emergency numbers
           </button>
         )}
-        {!inline && (
+        {!inline && alertLive && (
           <button
             type="button"
             onClick={onClose}
             className="flex-1 rounded-lg border border-slate-300 bg-white py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
           >
-            {alertLive ? 'Back to the trip' : 'Cancel'}
+            Back to the trip
           </button>
         )}
       </div>

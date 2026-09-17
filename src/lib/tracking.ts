@@ -272,8 +272,11 @@ export function buildTimeline(ride: Ride): { label: string; ts: string }[] {
   const events: { label: string; ts: string }[] = [{ label: 'Ride booked', ts: ride.requestedAt }]
   if (ride.acceptedAt) events.push({ label: `Driver assigned: ${ride.driverName}`, ts: ride.acceptedAt })
   if (ride.startedAt) events.push({ label: 'Ride started', ts: ride.startedAt })
+  if (ride.riderSafeConfirmedAt) {
+    events.push({ label: `✅ ${ride.passengerName} confirmed they are safe`, ts: ride.riderSafeConfirmedAt })
+  }
   if (ride.completedAt) events.push({ label: 'Ride completed', ts: ride.completedAt })
-  return events
+  return events.sort((a, b) => a.ts.localeCompare(b.ts))
 }
 
 // Priority TODA dispatch: the ride's own TODA terminal queue gets first

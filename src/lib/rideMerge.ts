@@ -202,6 +202,11 @@ export function mergeIncomingRides(local: Ride[], incoming: Ride[]): Ride[] {
     // "Paid" on theirs. Without this, that stale copy lands right after the
     // acknowledgment and silently un-pays a fare that was already settled,
     // reopening "Trip complete — time to pay" on a trip that is done.
+    // "I am safe" is what a parent is waiting to read; a phone still saving
+    // an older copy must not take it back off their screen.
+    if (ours.riderSafeConfirmedAt && (!next.riderSafeConfirmedAt || next.riderSafeConfirmedAt < ours.riderSafeConfirmedAt)) {
+      next = { ...next, riderSafeConfirmedAt: ours.riderSafeConfirmedAt }
+    }
     if (ours.paymentAcknowledged && !next.paymentAcknowledged) {
       return { ...next, paymentAcknowledged: true, paymentMethod: ours.paymentMethod, payment: ours.payment ?? next.payment }
     }

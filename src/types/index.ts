@@ -893,6 +893,11 @@ export interface Passenger {
   // normal terminal-queue order.
   favoriteDriverId: string | null
   savedLocations: SavedLocation[]
+  // "Clear history" on the passenger's own Trip history: finished trips booked
+  // before this moment are hidden from that list. Nothing is deleted — the
+  // rides still count for driver earnings, TODA dues, safety records and
+  // admin reports. Optional so existing passengers parse.
+  tripHistoryClearedAt?: string | null
   // Freeform note of a preferred payment account (e.g. a GCash/Maya number)
   // shown on My Profile — a saved reference only, not read by checkout,
   // which still asks the payment method fresh on every booking. Optional so

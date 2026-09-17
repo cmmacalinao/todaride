@@ -88,6 +88,7 @@ export function PassengerPage() {
     pabiliFixedFare,
     specialPickupEscalationMs,
     tripHistoryRetentionDays,
+    clearPassengerTripHistory,
     requestRide,
     requestGroupRide,
     cancelRide,
@@ -1343,7 +1344,19 @@ export function PassengerPage() {
   // Admin-configurable — see AdminPage's "Trip history retention" setting.
   // Older rides aren't lost, they just drop out of this list (earnings
   // totals, ratings, and admin reports all still see the full history).
-  const visibleTripHistory = myRides.filter((r) => isWithinRetentionDays(r.requestedAt, tripHistoryRetentionDays))
+  // "Clear history" hides finished trips booked before it was pressed, the
+  // same way: gone from this list only. A trip still under way always shows.
+  const historyClearedAt = passenger.tripHistoryClearedAt ?? null
+  const visibleTripHistory = myRides.filter(
+    (r) =>
+      isWithinRetentionDays(r.requestedAt, tripHistoryRetentionDays) &&
+      !(
+        historyClearedAt &&
+        (r.status === 'completed' || r.status === 'cancelled' || r.status === 'declined') &&
+        (r.requestedAt ?? '') <= historyClearedAt
+      ),
+  )
+  const [confirmClearHistory, setConfirmClearHistory] = useState(false)
 
   // The saved-place row. Rendered against whichever end of the trip means
   // "where I am": the pickup on a ride, the delivery address on an errand.
@@ -2885,6 +2898,44 @@ export function PassengerPage() {
         </button>
         {showTripHistory && (
         <div className="space-y-2">
+          {visibleTripHistory.length > 0 &&
+            (confirmClearHistory ? (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                <p>
+                  Clear your trip history? Past trips disappear from this list. Your drivers, your TODA and support
+                  can still see them, and a trip under way stays.
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearPassengerTripHistory(passenger.id)
+                      setConfirmClearHistory(false)
+                    }}
+                    className="flex-1 rounded-lg bg-amber-600 py-1.5 font-bold text-white hover:bg-amber-700"
+                  >
+                    Clear history
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmClearHistory(false)}
+                    className="flex-1 rounded-lg border border-slate-300 bg-white py-1.5 font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setConfirmClearHistory(true)}
+                  className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  🗑️ Clear history
+                </button>
+              </div>
+            ))}
           {visibleTripHistory.length === 0 && <p className="text-sm text-slate-400">No trips yet.</p>}
           {visibleTripHistory.map((r) => {
             const driver = r.driverId ? drivers.find((d) => d.id === r.driverId) : null

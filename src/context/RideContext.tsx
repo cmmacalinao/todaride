@@ -649,6 +649,7 @@ type RideAction =
   | { type: 'SET_DRIVER_ACCESS'; driverId: string; accessStatus: DriverAccessStatus; accessNote: string | null }
   | { type: 'SET_DRIVER_PABILI_PRIORITY'; driverId: string; enabled: boolean }
   | { type: 'SET_DRIVER_ONLINE'; driverId: string; online: boolean }
+  | { type: 'CLEAR_PASSENGER_TRIP_HISTORY'; passengerId: string }
   | {
       type: 'UPDATE_PASSENGER_PROFILE'
       passengerId: string
@@ -4167,6 +4168,15 @@ function reducer(state: RideState, action: RideAction): RideState {
             : d,
         ),
       }
+    // Hides this passenger's finished trips from their own Trip history —
+    // see Passenger.tripHistoryClearedAt. The rides themselves are untouched.
+    case 'CLEAR_PASSENGER_TRIP_HISTORY':
+      return {
+        ...state,
+        passengers: state.passengers.map((p) =>
+          p.id === action.passengerId ? { ...p, tripHistoryClearedAt: new Date().toISOString() } : p,
+        ),
+      }
     case 'UPDATE_PASSENGER_PROFILE':
       return {
         ...state,
@@ -6512,6 +6522,7 @@ interface RideContextValue extends RideState {
   setDriverAccess: (driverId: string, accessStatus: DriverAccessStatus, accessNote: string | null) => void
   setDriverPabiliPriority: (driverId: string, enabled: boolean) => void
   setDriverOnline: (driverId: string, online: boolean) => void
+  clearPassengerTripHistory: (passengerId: string) => void
   updatePassengerProfile: (
     passengerId: string,
     updates: {
@@ -7765,6 +7776,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'SET_DRIVER_ACCESS', driverId, accessStatus, accessNote }),
     setDriverPabiliPriority: (driverId, enabled) => dispatch({ type: 'SET_DRIVER_PABILI_PRIORITY', driverId, enabled }),
     setDriverOnline: (driverId, online) => dispatch({ type: 'SET_DRIVER_ONLINE', driverId, online }),
+    clearPassengerTripHistory: (passengerId) => dispatch({ type: 'CLEAR_PASSENGER_TRIP_HISTORY', passengerId }),
     updatePassengerProfile: (passengerId, updates) =>
       dispatch({ type: 'UPDATE_PASSENGER_PROFILE', passengerId, ...updates }),
     updateDriverProfile: (driverId, updates) => dispatch({ type: 'UPDATE_DRIVER_PROFILE', driverId, ...updates }),

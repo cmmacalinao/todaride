@@ -15,11 +15,17 @@ const FEATURES = [
   { icon: '🛡️', title: 'Safety First', body: 'Verified drivers & secure rides' },
   { icon: '📍', title: 'On-Time', body: 'Real-time tracking & quick pickup' },
   { icon: '👍', title: 'Reliable', body: 'Trusted by our community' },
-  { icon: '🎧', title: '24/7 Support', body: "We're here for you" },
+  // Not "24/7 Support": nobody staffs a line around the clock in the pilot,
+  // and a safety promise the service cannot keep is worse than none. Say
+  // what every ride really gets.
+  { icon: '🧾', title: 'Trip Records', body: 'Driver name and plate saved on every ride' },
 ]
 
 const MORE_FEATURES = [
-  { icon: '🚨', title: 'Emergency Assistance', body: 'One-tap SOS, and local hotlines for your city.' },
+  // Not "One-tap SOS": SOS alerts are off in Phase 1 (see
+  // SafetySettings.sosAlertsEnabled) — the emergency screen is calls. Update
+  // this line when they are switched on.
+  { icon: '🚨', title: 'Emergency Assistance', body: 'Call 911, your family, or local hotlines in one tap.' },
   { icon: '💰', title: 'Transparent Fare', body: 'Know your fare before you ride.' },
   { icon: '⭐', title: 'Driver Ratings', body: 'Passenger feedback keeps service safe and accountable.' },
   { icon: '👨‍👩‍👧', title: 'Parents Can Watch', body: "Track your child's trip from your own phone." },

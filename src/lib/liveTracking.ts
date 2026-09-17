@@ -55,6 +55,43 @@ export function derivedMotion(
 // Continuously watches the device's real GPS while enabled — the driver/
 // passenger opt-in toggles this on, at which point their actual movement
 // (not a simulation) drives their marker on the real map.
+// Direction and speed of whatever the trip camera is following, worked out
+// from how its position changes on screen. The fallback for when no phone
+// supplies them — most importantly a simulated ride, whose tricycle moves
+// along the route with no GPS behind it, so the camera could never learn
+// which way to face.
+export function useMotionFromPositions(position: GeoCoords | null): {
+  headingDegrees: number | null
+  speedMps: number | null
+} {
+  const anchorRef = useRef<{ position: GeoCoords; at: number } | null>(null)
+  const [motion, setMotion] = useState<{ headingDegrees: number | null; speedMps: number | null }>({
+    headingDegrees: null,
+    speedMps: null,
+  })
+  const lat = position?.lat
+  const lng = position?.lng
+  useEffect(() => {
+    if (lat == null || lng == null) {
+      anchorRef.current = null
+      return
+    }
+    const now = Date.now()
+    const next = { lat, lng }
+    const anchor = anchorRef.current
+    if (!anchor) {
+      anchorRef.current = { position: next, at: now }
+      return
+    }
+    const derived = derivedMotion(anchor.position, anchor.at, next, now, null, null)
+    if (derived.headingDegrees != null) {
+      anchorRef.current = { position: next, at: now }
+      setMotion(derived)
+    }
+  }, [lat, lng])
+  return motion
+}
+
 export function useWatchPosition(enabled: boolean): {
   position: GeoCoords | null
   error: string | null

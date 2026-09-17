@@ -57,7 +57,7 @@ import {
   getCurrentGeoPosition,
   haversineDistanceMeters,
 } from '../lib/geo'
-import { useNow, useWatchPosition } from '../lib/liveTracking'
+import { useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { useRoute } from '../lib/routing'
 import { nextSeparationDecision, type SeparationState } from '../lib/separation'
 import { TodaAdminPage } from './TodaAdminPage'
@@ -2065,12 +2065,15 @@ function ActiveTripCard({
   // tricycle marker is the thing moving, so the camera follows it rather
   // than this phone.
   const navCenter = simulateMovementEnabled && driverGpsInfo ? driverGpsInfo.gps : liveDriverGps
+  // The phone's own direction first; otherwise the direction the tricycle is
+  // actually moving on screen (see useMotionFromPositions).
+  const centerMotion = useMotionFromPositions(ride.status === 'ongoing' ? navCenter : null)
   const navCamera =
     ride.status === 'ongoing' && navCenter
       ? {
           center: navCenter,
-          heading: liveDriverHeading,
-          speedMps: liveDriverSpeed,
+          heading: liveDriverHeading ?? centerMotion.headingDegrees,
+          speedMps: liveDriverSpeed ?? centerMotion.speedMps,
           rotatePointId: 'driver',
         }
       : null

@@ -21,7 +21,7 @@ import { buildTimeline, driverPickupOverdue, formatArrivalClock, formatEta, getD
 import { formatKm, haversineDistanceMeters } from '../lib/geo'
 import { remainingLeg } from '../lib/legRemaining'
 import { reverseGeocodeToPhAddress } from '../lib/customLocation'
-import { useNow, useWatchPosition } from '../lib/liveTracking'
+import { useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { useRoute } from '../lib/routing'
 import { nextRerouteDecision } from '../lib/reroute'
 import { nextSeparationDecision, type SeparationState } from '../lib/separation'
@@ -667,12 +667,15 @@ export function TripMonitor({
   // the drop-off. On a real ride the phone in the tricycle is the better
   // fix and stays in use.
   const navCenter = simulateMovementEnabled && driverGpsInfo ? driverGpsInfo.gps : livePassengerGps
+  // The phone's own direction first; otherwise the direction the followed
+  // point is actually moving on screen (see useMotionFromPositions).
+  const centerMotion = useMotionFromPositions(ride.status === 'ongoing' ? navCenter : null)
   const navCamera =
     ride.status === 'ongoing' && onBoard && navCenter
       ? {
           center: navCenter,
-          heading: livePassengerHeading,
-          speedMps: livePassengerSpeed,
+          heading: livePassengerHeading ?? centerMotion.headingDegrees,
+          speedMps: livePassengerSpeed ?? centerMotion.speedMps,
           rotatePointId: 'driver',
         }
       : null

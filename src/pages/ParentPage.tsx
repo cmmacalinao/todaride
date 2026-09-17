@@ -77,6 +77,15 @@ export function ParentPage() {
   const inProgress = (id: string) =>
     rides.some((r) => r.passengerId === id && !['completed', 'declined', 'cancelled'].includes(r.status))
   const parentHasActiveRide = parent ? inProgress(parent.id) : false
+  // Where the hotlines should be for: a child's trip under way is where an
+  // emergency would be, not the parent's home city.
+  const watchedTrip = rides.find(
+    (r) => students.some((s) => s.student.id === r.passengerId) && (r.status === 'driver_arriving' || r.status === 'ongoing'),
+  )
+  const hotlineArea = {
+    province: watchedTrip?.pickup.province ?? parent?.province ?? '',
+    city: watchedTrip?.pickup.city ?? parent?.city ?? '',
+  }
 
   // Land on a child's trip instead of "Myself" the moment one is booked —
   // otherwise the red dot on their tab is the only sign anything is
@@ -223,19 +232,21 @@ export function ParentPage() {
       {parent && (
         <div className="flex items-center gap-2 rounded-xl border border-danger-200 bg-danger-50 px-3 py-2">
           <EmergencyNumbersButton onClick={() => setShowHotlines(true)} />
-          <span className="min-w-0 flex-1">
+          {/* The words are part of the button too — "Tap for 911" is where
+              people tap, and it used to do nothing. */}
+          <button type="button" onClick={() => setShowHotlines(true)} className="min-w-0 flex-1 text-left">
             <span className="block text-xs font-bold text-danger-900">Emergency</span>
             <span className="block text-[11px] text-danger-700">
-              Tap for 911 and the hotlines for {parent.city}.
+              Tap for 911 and the hotlines for {hotlineArea.city}.
             </span>
-          </span>
+          </button>
         </div>
       )}
 
       {showHotlines && parent && (
         <EmergencyNumbersPanel
-          province={parent.province}
-          city={parent.city}
+          province={hotlineArea.province}
+          city={hotlineArea.city}
           onClose={() => setShowHotlines(false)}
         />
       )}

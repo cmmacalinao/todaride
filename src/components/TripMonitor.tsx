@@ -134,11 +134,16 @@ export function TripMonitor({
   // The emergency screen (see EmergencySheet): SOS with its countdown,
   // Call 911, the contacts on file. Opened from the SOS button.
   const [emergencyOpen, setEmergencyOpen] = useState(false)
+  // Opened by "I need help" on the got-off or off-route check: the sheet
+  // starts its countdown rather than those buttons sending on one tap.
+  const [emergencyCountdown, setEmergencyCountdown] = useState(false)
   // "Possible accident detected. Are you OK?" — see lib/crashDetection and
   // CrashPromptModal. Only while this trip is actually under way, and only
   // when Super Admin has turned the detector on.
   const [crashPromptOpen, setCrashPromptOpen] = useState(false)
-  const crashDetectionActive = !watching && safetySettings.crashDetectionEnabled && ride.status === 'ongoing'
+  // Phase 1 switch — see SafetySettings.sosAlertsEnabled.
+  const sosEnabled = safetySettings.sosAlertsEnabled
+  const crashDetectionActive = sosEnabled && !watching && safetySettings.crashDetectionEnabled && ride.status === 'ongoing'
   useCrashDetection(crashDetectionActive, safetySettings.crashSensitivity, () => setCrashPromptOpen(true))
   // A driver waiting on an answer is a driver not moving, and the card that
   // asks for it can arrive while the passenger is scrolled somewhere else on
@@ -238,7 +243,7 @@ export function TripMonitor({
     const out: EmergencyContact[] = []
     const seen = new Set<string>()
     const push = (c: EmergencyContact) => {
-      const key = c.phone.replace(/D/g, '')
+      const key = c.phone.replace(/\D/g, '')
       if (!key || seen.has(key)) return
       seen.add(key)
       out.push(c)
@@ -799,7 +804,10 @@ export function TripMonitor({
       </div>
       <button
         type="button"
-        onClick={() => setEmergencyOpen(true)}
+        onClick={() => {
+          setEmergencyCountdown(false)
+          setEmergencyOpen(true)
+        }}
         aria-label={sosLabel}
         title={sosLabel}
         className={`flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 transition ${
@@ -809,7 +817,7 @@ export function TripMonitor({
         }`}
       >
         <span className="text-base leading-none">🆘</span>
-        <span className="text-[11px] font-semibold">{openSos ? 'Sent' : 'SOS'}</span>
+        <span className="text-[11px] font-semibold">{openSos ? 'Sent' : sosEnabled ? 'SOS' : 'Help'}</span>
       </button>
     </div>
   )
@@ -890,17 +898,33 @@ export function TripMonitor({
             >
               ✅ Yes — I arrived safely
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                triggerSos(ride.id, sosActorId, undefined, livePassengerGps)
-                setGotOffAsked(false)
-                setApartMeters(null)
-              }}
-              className="w-full rounded-lg border border-danger-500 bg-danger-600 py-2 text-xs font-semibold text-white hover:bg-danger-700"
-            >
-              🆘 No — I need help, send SOS now
-            </button>
+            {sosEnabled ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setEmergencyCountdown(true)
+                  setEmergencyOpen(true)
+                  setGotOffAsked(false)
+                  setApartMeters(null)
+                }}
+                className="w-full rounded-lg border border-danger-500 bg-danger-600 py-2 text-xs font-semibold text-white hover:bg-danger-700"
+              >
+                🆘 No — I need help, send SOS
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setEmergencyCountdown(false)
+                  setEmergencyOpen(true)
+                  setGotOffAsked(false)
+                  setApartMeters(null)
+                }}
+                className="w-full rounded-lg border border-danger-500 bg-danger-600 py-2 text-xs font-semibold text-white hover:bg-danger-700"
+              >
+                📞 No — I need help, call someone
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -962,14 +986,20 @@ export function TripMonitor({
               >
                 ✅ Proceed — this is expected
               </button>
-              <button
-                type="button"
-                onClick={() => triggerSos(ride.id, sosActorId, undefined, livePassengerGps)}
-                disabled={!!openSos}
-                className="w-full rounded-lg border border-danger-500 bg-danger-600 py-2.5 text-sm font-bold text-white transition hover:bg-danger-700 disabled:cursor-not-allowed disabled:border-danger-300 disabled:bg-danger-300"
-              >
-                {openSos ? '🆘 SOS sent' : '🆘 Send SOS'}
-              </button>
+              {sosEnabled && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOffRouteMeters(null)
+                    setEmergencyCountdown(true)
+                    setEmergencyOpen(true)
+                  }}
+                  disabled={!!openSos}
+                  className="w-full rounded-lg border border-danger-500 bg-danger-600 py-2.5 text-sm font-bold text-white transition hover:bg-danger-700 disabled:cursor-not-allowed disabled:border-danger-300 disabled:bg-danger-300"
+                >
+                  {openSos ? '🆘 SOS sent' : '🆘 Send SOS'}
+                </button>
+              )}
 
               <button
                 type="button"
@@ -1638,10 +1668,15 @@ export function TripMonitor({
           toda={sosToda?.contactPhone ? { name: sosToda.name, phone: sosToda.contactPhone } : null}
           activeAlert={openSos ?? null}
           countdownSeconds={safetySettings.sosCountdownSeconds}
+          sosEnabled={sosEnabled}
+          autoStartCountdown={emergencyCountdown}
           onSendSos={() => triggerSos(ride.id, sosActorId, undefined, livePassengerGps)}
           onCancelSos={(id) => cancelAlert(id, sosActorName, 'passenger')}
           onLogEvent={(id, kind, summary) => logAlertEvent(id, kind, summary, sosActorName, 'passenger')}
-          onClose={() => setEmergencyOpen(false)}
+          onClose={() => {
+            setEmergencyOpen(false)
+            setEmergencyCountdown(false)
+          }}
         />
       )}
 

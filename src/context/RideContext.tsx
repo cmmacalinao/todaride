@@ -3526,6 +3526,9 @@ function reducer(state: RideState, action: RideAction): RideState {
         ),
       }
     case 'TRIGGER_SOS': {
+      // Phase 1: nothing can raise an alert nobody is there to answer — a
+      // stray button anywhere, or an old screen still open, included.
+      if (!state.safetySettings.sosAlertsEnabled) return state
       const ride = state.rides.find((r) => r.id === action.rideId)
       if (!ride) return state
       // No linked parent account to alert in-app? Fall back to whatever
@@ -3572,6 +3575,7 @@ function reducer(state: RideState, action: RideAction): RideState {
       }
     }
     case 'TRIGGER_PASSENGER_SOS': {
+      if (!state.safetySettings.sosAlertsEnabled) return state
       const pax = state.passengers.find((p) => p.id === action.passengerId)
       if (!pax) return state
       const notes = action.notes?.trim() || `${pax.name} triggered an emergency SOS before boarding.`
@@ -3614,6 +3618,7 @@ function reducer(state: RideState, action: RideAction): RideState {
       }
     }
     case 'TRIGGER_DRIVER_SOS': {
+      if (!state.safetySettings.sosAlertsEnabled) return state
       const driver = state.drivers.find((d) => d.id === action.driverId)
       if (!driver) return state
       const notes = action.notes?.trim() || `${driver.name} (${driver.plateNumber}) triggered an emergency SOS.`
@@ -5411,7 +5416,7 @@ function reducer(state: RideState, action: RideAction): RideState {
       // that a passenger can add several children in one sign-up: without
       // it, three children produced three parents with the same name and
       // number, and each child's trips answered to a different one.
-      const sameDigits = (a: string, b: string) => a.replace(/D/g, '') === b.replace(/D/g, '')
+      const sameDigits = (a: string, b: string) => a.replace(/\D/g, '') === b.replace(/\D/g, '')
       const existingParent = state.parents.find((p) => sameDigits(p.phone, action.parentPhone))
       const parentId = existingParent?.id ?? action.parentId
       const parent: Parent = {

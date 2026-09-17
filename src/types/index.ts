@@ -1099,6 +1099,12 @@ export interface EmergencyContact {
 // Super Admin's dials for the whole safety system. Defaults live in
 // lib/safety.ts (SAFETY_DEFAULTS); a stored copy is merged over them.
 export interface SafetySettings {
+  // The Phase 1 switch. Off: SOS alerts cannot be raised at all — no SEND SOS,
+  // no "send SOS" answers on the got-off and off-route checks, no crash
+  // detector, no safety desk — because nobody is staffing a desk to answer
+  // them. Every call button (911, family, driver, TODA) stays. On: the full
+  // alert system as built.
+  sosAlertsEnabled: boolean
   sosCountdownSeconds: number
   notifyTodaOn: { passengerSos: boolean; driverSos: boolean; possibleCrash: boolean }
   notifyGuardian: boolean

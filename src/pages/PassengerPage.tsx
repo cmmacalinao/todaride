@@ -2537,6 +2537,7 @@ export function PassengerPage() {
                 toda={emergencyToda?.contactPhone ? { name: emergencyToda.name, phone: emergencyToda.contactPhone } : null}
                 activeAlert={emergencyAlert}
                 countdownSeconds={safetySettings.sosCountdownSeconds}
+                sosEnabled={safetySettings.sosAlertsEnabled}
                 onSendSos={() => (emergencyRide ? triggerSos(emergencyRide.id, passenger.id) : triggerPassengerSos(passenger.id, null))}
                 onCancelSos={(id) => cancelAlert(id, passenger.name, 'passenger')}
                 onLogEvent={(id, kind, summary) => logAlertEvent(id, kind, summary, passenger.name, 'passenger')}

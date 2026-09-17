@@ -32,6 +32,9 @@ import type {
 import { haversineDistanceMeters } from './geo'
 
 export const SAFETY_DEFAULTS: SafetySettings = {
+  // Phase 1: off until the safety desk has a responder and hours. A stored
+  // settings object from before this existed reads as off too.
+  sosAlertsEnabled: false,
   // Long enough to stop a stray thumb, short enough not to matter in a real
   // emergency. Zero would make SOS instant again.
   sosCountdownSeconds: 3,

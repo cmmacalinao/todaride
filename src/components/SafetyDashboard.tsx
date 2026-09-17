@@ -37,7 +37,7 @@ const FILTERS: { key: Filter; label: string }[] = [
 ]
 
 export function SafetyDashboard({ alerts, actor, canAct, onActed, title = '🆘 Safety desk' }: SafetyDashboardProps) {
-  const { rides, drivers, passengers, todaOrganizations, acknowledgeAlert, setAlertResponding, resolveAlert, cancelAlert, logAlertEvent, sendContactSms } = useRides()
+  const { rides, drivers, passengers, todaOrganizations, acknowledgeAlert, setAlertResponding, resolveAlert, cancelAlert, logAlertEvent, sendContactSms, safetySettings } = useRides()
   const [filter, setFilter] = useState<Filter>('active')
   const [search, setSearch] = useState('')
   const [todaFilter, setTodaFilter] = useState<string>('all')
@@ -105,6 +105,20 @@ export function SafetyDashboard({ alerts, actor, canAct, onActed, title = '🆘 
 
   function acted(summary: string) {
     onActed?.(summary)
+  }
+
+  // Phase 1: no alerts can come in, so the desk is a one-line note — unless
+  // something is still open from before the switch went off, which still
+  // needs closing.
+  if (!safetySettings.sosAlertsEnabled && active.length === 0) {
+    return (
+      <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
+        <p className="mt-0.5 text-[11px] text-slate-500">
+          SOS alerts are off for Phase 1 — riders get call buttons only. Super Admin → Safety settings turns them on.
+        </p>
+      </section>
+    )
   }
 
   return (

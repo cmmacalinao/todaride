@@ -29,6 +29,13 @@ interface EmergencySheetProps {
   onMoreNumbers?: () => void
   // Drawn in the page instead of as a modal (the Emergency tab).
   inline?: boolean
+  // False in Phase 1 (see SafetySettings.sosAlertsEnabled): the sheet is the
+  // call buttons only.
+  sosEnabled?: boolean
+  // Opened by an answer that already means "I need help" (the got-off and
+  // off-route checks): the countdown starts at once, and can still be
+  // cancelled — the same protection against a stray tap SEND SOS has.
+  autoStartCountdown?: boolean
 }
 
 export function EmergencySheet({
@@ -47,6 +54,8 @@ export function EmergencySheet({
   onClose,
   onMoreNumbers,
   inline = false,
+  sosEnabled = true,
+  autoStartCountdown = false,
 }: EmergencySheetProps) {
   // null: idle. A number: seconds left before the SOS goes out.
   const [countdown, setCountdown] = useState<number | null>(null)
@@ -72,6 +81,12 @@ export function EmergencySheet({
     }
     setCountdown(countdownSeconds)
   }
+
+  useEffect(() => {
+    if (sosEnabled && autoStartCountdown && !alertLive) startSos()
+    // Once, on opening.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function logCall(kind: SosEventKind, summary: string) {
     if (alertLive) onLogEvent(alertLive.id, kind, summary)
@@ -139,7 +154,7 @@ export function EmergencySheet({
             Cancel — don&apos;t send
           </button>
         </div>
-      ) : (
+      ) : !sosEnabled ? null : (
         <button
           type="button"
           onClick={startSos}
@@ -150,8 +165,9 @@ export function EmergencySheet({
       )}
 
       <p className="text-[11px] text-slate-500">
-        SOS tells TODARide Mobility and your TODA through the app. It does not call the police or an ambulance — for
-        that, use the phone:
+        {sosEnabled
+          ? 'SOS tells TODARide Mobility and your TODA through the app. It does not call the police or an ambulance — for that, use the phone:'
+          : 'Call for help straight from your phone:'}
       </p>
 
       {/* 911 and the people on file side by side — family is the call most

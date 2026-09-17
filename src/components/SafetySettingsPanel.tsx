@@ -88,6 +88,13 @@ export function SafetySettingsPanel({ value, onChange }: { value: SafetySettings
         </p>
       </div>
 
+      <ToggleRow
+        label="SOS alerts (Phase 2)"
+        description="Off for Phase 1: passengers, parents and drivers get Call 911, family, driver and TODA buttons, but no SEND SOS, no crash detection and no safety desk. Turn on once the safety desk has an assigned responder and hours."
+        enabled={value.sosAlertsEnabled}
+        onChange={(enabled) => onChange({ sosAlertsEnabled: enabled })}
+      />
+
       <NumberRow
         label="SOS confirmation countdown"
         description="How long SEND SOS counts down before it actually sends, with a cancel — stops a stray tap from raising a real alert. 0 sends instantly."

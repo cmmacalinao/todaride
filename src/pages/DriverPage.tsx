@@ -778,7 +778,7 @@ export function DriverPage() {
   // fails/is denied, the alert still fires with location: null — TODA admin
   // and fellow members can still see it and call the driver directly.
   const driverOnTripNow = myActiveRides.some((r) => r.status === 'ongoing' || r.status === 'driver_arriving')
-  useCrashDetection(safetySettings.crashDetectionEnabled && driverOnTripNow, safetySettings.crashSensitivity, () => setCrashPromptOpen(true))
+  useCrashDetection(safetySettings.sosAlertsEnabled && safetySettings.crashDetectionEnabled && driverOnTripNow, safetySettings.crashSensitivity, () => setCrashPromptOpen(true))
 
   async function handleTriggerSos() {
     let position = null
@@ -1613,6 +1613,7 @@ export function DriverPage() {
                 toda={homeToda?.contactPhone ? { name: homeToda.name, phone: homeToda.contactPhone } : null}
                 activeAlert={myOpenSos ?? null}
                 countdownSeconds={safetySettings.sosCountdownSeconds}
+                sosEnabled={safetySettings.sosAlertsEnabled}
                 onSendSos={() => void handleTriggerSos()}
                 onCancelSos={(id) => cancelAlert(id, driver.name, 'driver')}
                 onLogEvent={(id, kind, summary) => logAlertEvent(id, kind, summary, driver.name, 'driver')}
@@ -1639,7 +1640,7 @@ export function DriverPage() {
             />
           )}
           <section className="rounded-xl border border-danger-200 bg-danger-50 p-4 shadow-sm">
-            {fellowOpenAlerts.length > 0 && (
+            {safetySettings.sosAlertsEnabled && fellowOpenAlerts.length > 0 && (
               <div className="mt-3 space-y-1.5 border-t border-danger-200 pt-3">
                 <p className="text-[11px] font-semibold text-danger-800">Fellow member alerts — {homeToda?.name}</p>
                 {fellowOpenAlerts.map(({ alert, driver: d }) => (
@@ -1654,7 +1655,7 @@ export function DriverPage() {
                 ))}
               </div>
             )}
-            {nearbyAssistAlerts.length > 0 && (
+            {safetySettings.sosAlertsEnabled && nearbyAssistAlerts.length > 0 && (
               <div className="mt-3 space-y-1.5 border-t border-amber-200 pt-3">
                 <p className="text-[11px] font-semibold text-amber-800">📢 Safety alert — nearby</p>
                 {nearbyAssistAlerts.map((a) => (

@@ -2220,7 +2220,11 @@ function ActiveTripCard({
           },
         ]
       : []),
-    ...(passengerGpsInfo
+    // Before pickup the passenger's dot is how the driver finds them. Once
+    // aboard it is the passenger's phone reporting every ten seconds, trailing
+    // the tricycle it is sitting in — so it is folded into the tricycle's
+    // label ("2001 · 🧍 Miguel") and only drawn again once they have parted.
+    ...(passengerGpsInfo && !(ride.status === 'ongoing' && !passengerApart)
       ? [
           {
             id: 'passenger',

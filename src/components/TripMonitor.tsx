@@ -561,7 +561,14 @@ export function TripMonitor({
     // Reading your position from the phone in your hand is both more accurate
     // and more honest: it is where YOU are, not where the tricycle last said
     // it was.
-    ...(onBoard && livePassengerGps
+    //
+    // Watching from elsewhere, though, the rider's position is up to ten
+    // seconds old (see ONGOING_PUBLISH_MS), and drawn on its own it trails the
+    // tricycle and jumps back to it — a child who looks left behind and then
+    // runs to catch up. While the two are together the tricycle, labelled
+    // with the rider's name, is where the rider is; their own dot appears only
+    // once they have actually parted (seatsApart).
+    ...(onBoard && livePassengerGps && !(watching && !seatsApart)
       ? [
           {
             id: 'me',

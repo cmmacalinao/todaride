@@ -2,6 +2,7 @@ import type { GeoCoords, Ride, SosAlert } from '../types'
 import { formatKm, haversineDistanceMeters } from '../lib/geo'
 import { isActiveAlert } from '../lib/safety'
 import { useNow } from '../lib/liveTracking'
+import { bearingDegrees } from '../lib/rideTogether'
 import { RealLiveMap, type MapPoint } from './RealLiveMap'
 
 // Where the passenger is and where the tricycle is, side by side.
@@ -29,6 +30,12 @@ function spotFor(active: boolean, liveGps: GeoCoords | null | undefined, liveAt:
   return null
 }
 
+const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west']
+
+function compassWord(degrees: number): string {
+  return COMPASS[Math.round((((degrees % 360) + 360) % 360) / 45) % 8]
+}
+
 function age(at: string | null, now: number): string {
   if (!at) return ''
   const s = Math.max(0, Math.round((now - new Date(at).getTime()) / 1000))
@@ -45,14 +52,19 @@ interface SosPeopleLocationsProps {
   // The trip screens already draw both people on their own map, right above;
   // the safety desk has no map of its own, so it asks for one here.
   showMap?: boolean
+  // The passenger who raised the alert. They are told, in words, where the
+  // tricycle is from them — which way to keep away from, or to hide from,
+  // without having to read a map while frightened.
+  forPassenger?: boolean
 }
 
-export function SosPeopleLocations({ alert, ride, passengerName, driverLabel, showMap = false }: SosPeopleLocationsProps) {
+export function SosPeopleLocations({ alert, ride, passengerName, driverLabel, showMap = false, forPassenger = false }: SosPeopleLocationsProps) {
   const active = isActiveAlert(alert)
   const now = useNow(5000, active)
   const passenger = spotFor(active, ride?.passengerLiveGps, ride?.passengerLiveGpsAt, alert.passengerLocation, alert.createdAt)
   const driver = spotFor(active, ride?.driverLiveGps, ride?.driverLiveGpsAt, alert.driverLocation, alert.createdAt)
   const apart = passenger && driver ? haversineDistanceMeters(passenger.gps, driver.gps) : null
+  const bearing = passenger && driver ? bearingDegrees(passenger.gps, driver.gps) : null
 
   const row = (icon: string, name: string, spot: Spot | null) => (
     <p className="flex flex-wrap items-baseline gap-x-1.5">
@@ -91,6 +103,12 @@ export function SosPeopleLocations({ alert, ride, passengerName, driverLabel, sh
   return (
     <div className="space-y-1.5 rounded-lg border border-danger-200 bg-white p-2 text-[11px] text-slate-700">
       <p className="text-[11px] font-bold text-danger-900">📍 Where they are</p>
+      {forPassenger && apart !== null && (
+        <p className="rounded-md bg-danger-50 px-2 py-1.5 text-xs font-bold text-danger-900">
+          🛺 The tricycle is {apart < 15 ? 'right beside you' : `${formatKm(apart)} ${bearing !== null ? `to the ${compassWord(bearing)} of you` : 'from you'}`}
+          {driver && !driver.live ? ' (last known)' : ''}
+        </p>
+      )}
       {row('🧍', passengerName, passenger)}
       {row('🛺', driverLabel, driver)}
       {apart !== null && (

@@ -125,7 +125,7 @@ export function SafetySettingsPanel({ value, onChange }: { value: SafetySettings
       />
       <ToggleRow
         label="Notify the other seat on the trip"
-        description="A driver's SOS is shown to the passenger with them, and a passenger's SOS is shown to the driver."
+        description="A driver's SOS is shown to the passenger with them, and a possible crash to both. A passenger's own SOS is never shown to the driver — they may be the danger."
         enabled={value.notifyCounterpart}
         onChange={(enabled) => onChange({ notifyCounterpart: enabled })}
       />

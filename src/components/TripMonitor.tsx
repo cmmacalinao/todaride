@@ -979,21 +979,10 @@ export function TripMonitor({
             </div>
           </div>
         )}
-      {tricycleLabel && ride.status !== 'requested' && (
-        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2">
-          <span aria-hidden className="text-lg leading-none">🛺</span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-extrabold text-slate-800">{tricycleLabel}</span>
-            <span className="block text-[10px] text-slate-500">Naka-record ang biyahe mo sa tricycle na ito.</span>
-          </span>
-        </div>
-      )}
-
       {/* The destination is asked for once, in the strip under the map. It
           used to be asked here as well, and in a modal over the whole screen
           — three places for one answer. */}
 
-      <p className="text-sm font-bold text-slate-800">Fare: ₱{ride.fareEstimate}</p>
       {(ride.pabiliTip > 0 || ride.tipOffer > 0 || ride.passengerCount > 1) && (
         <p className="text-xs text-slate-500">
           {[
@@ -1577,7 +1566,7 @@ export function TripMonitor({
           <div className="px-3 pb-3 pt-1">
               <p className="text-xs text-danger-800">{openSos.notes}</p>
               <div className="mt-2">
-                <SosPeopleLocations alert={openSos} ride={ride} passengerName="You" driverLabel={tricycleLabel ?? "Tricycle"} />
+                <SosPeopleLocations alert={openSos} ride={ride} passengerName="You" driverLabel={tricycleLabel ?? "Tricycle"} forPassenger />
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {openSos.guardianNotifiedPhone && (

@@ -228,8 +228,16 @@ export function buildIncident(ctx: IncidentContext): SosAlert {
   }
 
   // The other seat on the same trip.
+  //
+  // Never the driver when the passenger raised it. A passenger pressing SOS
+  // in a tricycle may be pressing it about the person driving it, and telling
+  // that driver is telling the one person who must not know — they could take
+  // the phone, or drive somewhere else. The safety desk, the TODA and the
+  // guardian are told; the driver is not. A possible crash detected on the
+  // passenger's phone is different — it happened to both of them — so the
+  // driver still hears about that.
   if (settings.notifyCounterpart && ride) {
-    if (source !== 'driver' && ride.driverId) {
+    if (source === 'automatic_crash_detection' && ride.driverId) {
       note({ recipientKind: 'counterpart', recipientId: ride.driverId, recipientName: rideDriver?.name ?? 'Driver', channel: 'in_app', status: 'delivered' })
     } else if (source === 'driver' && ride.passengerId) {
       note({ recipientKind: 'counterpart', recipientId: ride.passengerId, recipientName: ride.passengerName, channel: 'in_app', status: 'delivered' })

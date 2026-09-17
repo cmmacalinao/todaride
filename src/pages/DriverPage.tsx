@@ -713,9 +713,13 @@ export function DriverPage() {
   // ride. Only TODA Admin can resolve these (see TodaAdminPage.tsx); this is
   // read-only visibility, same "each level sees, but doesn't manage, one
   // another's stuff" boundary used everywhere else in this hierarchy.
+  //
+  // A fellow member's own alert only. A passenger's SOS belongs to the TODA
+  // too, but shown here it would reach every driver in the TODA — including
+  // the one it may be about.
   const fellowOpenAlerts = (driver.todaOrgId
     ? alertsForToda(alerts, driver.todaOrgId, rides, drivers).filter(
-        (a) => isActiveAlert(a) && a.triggeredBy !== driver.id,
+        (a) => isActiveAlert(a) && a.triggeredByRole === 'driver' && a.triggeredBy !== driver.id,
       )
     : []
   ).map((a) => ({ alert: a, driver: drivers.find((d) => d.id === a.triggeredBy) }))
@@ -1915,7 +1919,10 @@ function ActiveTripCard({
   const leg = getLegInfo(ride)
   const passenger = passengers.find((p) => p.id === ride.passengerId)
   // A live passenger SOS on this very ride.
-  const passengerSosOnRide = alerts.find((a) => a.rideId === ride.id && a.type === 'sos' && a.triggeredByRole !== 'driver' && isActiveAlert(a)) ?? null
+  // A possible crash picked up on the passenger's phone — it happened to both
+  // of them, so the driver is told. Never the passenger's own SOS: they may be
+  // raising it about this driver (see buildIncident's counterpart rule).
+  const passengerSosOnRide = alerts.find((a) => a.rideId === ride.id && a.type === 'sos' && a.triggeredByRole !== 'driver' && a.triggerSource === 'automatic_crash_detection' && isActiveAlert(a)) ?? null
   const driverName = drivers.find((d) => d.id === ride.driverId)?.name ?? 'Driver'
   const parentLink = parentLinks.find((l) => l.studentPassengerId === ride.passengerId)
   const parent = parentLink ? parents.find((p) => p.id === parentLink.parentId) : null
@@ -2288,7 +2295,7 @@ function ActiveTripCard({
         )}
       {passengerSosOnRide && (
         <div className="rounded-lg border-2 border-danger-600 bg-danger-100 p-3">
-          <p className="text-xs font-bold text-danger-900">🚨 {ride.passengerName} raised an emergency SOS on this trip</p>
+          <p className="text-xs font-bold text-danger-900">🚨 Possible crash detected on {ride.passengerName}'s phone</p>
           <p className="mt-0.5 text-[11px] text-danger-800">
             TODARide Mobility{passengerSosOnRide.todaNotified ? ' and the TODA have' : ' has'} been told. Pull over somewhere safe and check on them.
           </p>

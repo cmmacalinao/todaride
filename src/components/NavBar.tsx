@@ -214,6 +214,8 @@ export function NavBar() {
               barangay: currentDriver.barangay,
               paymentDetail: currentDriver.paymentDetail ?? null,
               emergencyContact: currentDriver.emergencyContact ?? null,
+              emergencyContactName: currentDriver.emergencyContactName ?? null,
+              emergencyContactRelationship: currentDriver.emergencyContactRelationship ?? null,
               rating: currentDriver.rating,
               ratingCount: currentDriver.ratingCount,
               verificationStatus: currentDriver.verificationStatus,
@@ -314,6 +316,8 @@ export function NavBar() {
         paymentDetail: values.paymentDetail,
         password: values.newPassword ?? currentDriver.password ?? null,
         emergencyContact: values.emergencyContact,
+        emergencyContactName: values.emergencyContactName ?? null,
+        emergencyContactRelationship: values.emergencyContactRelationship ?? null,
       })
     } else if (authedAccount?.role === 'pharmacy' && currentPharmacy) {
       updatePharmacyProfile(currentPharmacy.id, {

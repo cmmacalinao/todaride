@@ -12,6 +12,10 @@ export interface ProfileSaveValues {
   email: string | null
   paymentDetail: string | null
   emergencyContact: string | null
+  // Drivers only: who that number reaches (see Driver.emergencyContactName).
+  // Undefined for every other role.
+  emergencyContactName?: string | null
+  emergencyContactRelationship?: string | null
   // Passengers only: the people to call in an emergency (see
   // EmergencyContactsEditor). Undefined for every other role.
   emergencyContacts?: EmergencyContact[]
@@ -53,6 +57,9 @@ export interface AccountPanelInfo {
   barangay: string
   paymentDetail: string | null
   emergencyContact: string | null
+  // Driver-only — see ProfileSaveValues.
+  emergencyContactName?: string | null
+  emergencyContactRelationship?: string | null
   emergencyContacts?: EmergencyContact[]
   // Super Admin's live channels.sms setting — passenger-only, undefined
   // otherwise. Gates the SMS checkbox in EmergencyContactsEditor; the
@@ -146,6 +153,8 @@ function ProfilePanel({
   const [email, setEmail] = useState(info.email ?? '')
   const [paymentDetail, setPaymentDetail] = useState(info.paymentDetail ?? '')
   const [emergencyContact, setEmergencyContact] = useState(info.emergencyContact ?? '')
+  const [ecName, setEcName] = useState(info.emergencyContactName ?? '')
+  const [ecRelationship, setEcRelationship] = useState(info.emergencyContactRelationship ?? '')
   const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>(info.emergencyContacts ?? [])
   const [newPin, setNewPin] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -158,6 +167,8 @@ function ProfilePanel({
       email: email.trim() || null,
       paymentDetail: paymentDetail.trim() || null,
       emergencyContact: emergencyContact.trim() || null,
+      emergencyContactName: info.role === 'driver' ? ecName.trim() || null : undefined,
+      emergencyContactRelationship: info.role === 'driver' ? ecRelationship.trim() || null : undefined,
       emergencyContacts:
         info.role === 'passenger'
           ? emergencyContacts
@@ -180,6 +191,8 @@ function ProfilePanel({
     setEmail(info.email ?? '')
     setPaymentDetail(info.paymentDetail ?? '')
     setEmergencyContact(info.emergencyContact ?? '')
+    setEcName(info.emergencyContactName ?? '')
+    setEcRelationship(info.emergencyContactRelationship ?? '')
     setEmergencyContacts(info.emergencyContacts ?? [])
     setNewPin('')
     setNewPassword('')
@@ -221,7 +234,16 @@ function ProfilePanel({
               <Row label="Phone" value={info.phone} />
               <Row label="Email" value={info.email ?? 'Not set'} />
               <Row label="Payment detail" value={info.paymentDetail ?? 'Not set'} />
-              <Row label="Emergency contact" value={info.emergencyContact ?? 'Not set'} />
+              <Row
+                label="Emergency contact"
+                value={
+                  info.role === 'driver' && info.emergencyContact
+                    ? [info.emergencyContactName, info.emergencyContactRelationship && `(${info.emergencyContactRelationship})`, info.emergencyContact]
+                        .filter(Boolean)
+                        .join(' ')
+                    : info.emergencyContact ?? 'Not set'
+                }
+              />
               {info.role === 'passenger' && (
                 <Row
                   label="More contacts"
@@ -254,12 +276,24 @@ function ProfilePanel({
                 onChange={setPaymentDetail}
                 placeholder="e.g. GCash 0917-XXX-XXXX"
               />
-              <Field
-                label="Emergency Contact"
-                value={emergencyContact}
-                onChange={setEmergencyContact}
-                placeholder="Name and/or phone number"
-              />
+              {info.role === 'driver' ? (
+                // A driver's contact is a call button on their emergency
+                // screen, so it is kept in its three parts: who, the
+                // number, and how they are related.
+                <div className="space-y-2 rounded-lg border border-danger-200 bg-danger-50/40 p-2.5">
+                  <p className="text-xs font-semibold text-slate-700">🆘 Emergency contact</p>
+                  <Field label="Name" value={ecName} onChange={setEcName} placeholder="e.g. Rosa Santos" />
+                  <Field label="Phone Number" value={emergencyContact} onChange={setEmergencyContact} placeholder="e.g. 0917-123-4567" />
+                  <Field label="Relationship" value={ecRelationship} onChange={setEcRelationship} placeholder="e.g. Wife, Brother" />
+                </div>
+              ) : (
+                <Field
+                  label="Emergency Contact"
+                  value={emergencyContact}
+                  onChange={setEmergencyContact}
+                  placeholder="Name and/or phone number"
+                />
+              )}
             </div>
             {info.role === 'passenger' && (
               <EmergencyContactsEditor value={emergencyContacts} onChange={setEmergencyContacts} smsAvailable={info.smsAvailable} />

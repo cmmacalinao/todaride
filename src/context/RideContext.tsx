@@ -677,6 +677,8 @@ type RideAction =
       paymentDetail: string | null
       password: string | null
       emergencyContact: string | null
+      emergencyContactName?: string | null
+      emergencyContactRelationship?: string | null
     }
   | {
       type: 'UPDATE_PARENT_PROFILE'
@@ -4262,6 +4264,8 @@ function reducer(state: RideState, action: RideAction): RideState {
                 paymentDetail: action.paymentDetail,
                 password: action.password,
                 emergencyContact: action.emergencyContact,
+                emergencyContactName: action.emergencyContactName !== undefined ? action.emergencyContactName : d.emergencyContactName ?? null,
+                emergencyContactRelationship: action.emergencyContactRelationship !== undefined ? action.emergencyContactRelationship : d.emergencyContactRelationship ?? null,
               }
             : d,
         ),
@@ -6635,6 +6639,8 @@ interface RideContextValue extends RideState {
       paymentDetail: string | null
       password: string | null
       emergencyContact: string | null
+      emergencyContactName?: string | null
+      emergencyContactRelationship?: string | null
     },
   ) => void
   updateParentProfile: (

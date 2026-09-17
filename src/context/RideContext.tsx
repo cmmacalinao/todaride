@@ -194,7 +194,9 @@ const DEFAULT_DUES_GRACE_PERIOD_DAYS = 7
 // older rides stay in state (earnings totals, admin reports, ratings all
 // still see them) but drop out of that list. Admin-adjustable via
 // SET_TRIP_HISTORY_RETENTION_DAYS; this is only the starting default.
-const DEFAULT_TRIP_HISTORY_RETENTION_DAYS = 3
+// 90 days: long enough that a fare dispute or a month of earnings and TODA
+// dues can still be checked against the trips behind it.
+const DEFAULT_TRIP_HISTORY_RETENTION_DAYS = 90
 // Compressed from the real 2-minute TODA-priority window to match the rest
 // of this app's sped-up simulation (rides already complete in ~12s/leg).
 // Admin-adjustable at runtime via SET_TODA_QUEUE_WINDOW; this is only the

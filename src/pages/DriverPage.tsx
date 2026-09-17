@@ -447,8 +447,12 @@ export function DriverPage() {
   // Paused/terminated drivers can still log in to see why and finish a trip
   // already in progress, but get no dashboard beyond that — no new
   // requests, no queue. Only the App Admin can lift this.
-  if (driver.accessStatus !== 'active' && !myActiveRide) {
-    return (
+  //
+  // Built here, returned below once every hook on this page has run: returning
+  // at this point skipped the hooks after it, so restoring a driver while their
+  // screen was open changed the hook count between renders and crashed the app.
+  const accessBlockedScreen =
+    driver.accessStatus !== 'active' && !myActiveRide ? (
       <div className="mx-auto max-w-lg space-y-3 px-4 py-6">
         <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center shadow-sm">
           <p className="text-sm font-semibold text-amber-900">
@@ -469,8 +473,7 @@ export function DriverPage() {
           </button>
         </section>
       </div>
-    )
-  }
+    ) : null
 
   const allRequested = rides.filter((r) => r.status === 'requested')
   const incoming = allRequested.filter(
@@ -779,6 +782,8 @@ export function DriverPage() {
   // and fellow members can still see it and call the driver directly.
   const driverOnTripNow = myActiveRides.some((r) => r.status === 'ongoing' || r.status === 'driver_arriving')
   useCrashDetection(safetySettings.sosAlertsEnabled && safetySettings.crashDetectionEnabled && driverOnTripNow, safetySettings.crashSensitivity, () => setCrashPromptOpen(true))
+
+  if (accessBlockedScreen) return accessBlockedScreen
 
   async function handleTriggerSos() {
     let position = null

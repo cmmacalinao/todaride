@@ -59,12 +59,13 @@ import {
 } from '../lib/geo'
 import { useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { useRoute } from '../lib/routing'
-import { nextSeparationDecision, type SeparationState } from '../lib/separation'
+import { isApart, nextSeparationDecision, positionAt, type SeparationState } from '../lib/separation'
 import { TodaAdminPage } from './TodaAdminPage'
 import { alertsForToda } from '../lib/alertRouting'
 import { AnnouncementFeed } from '../components/AnnouncementFeed'
 import { FarDriverDialog } from '../components/FarDriverDialog'
 import { farDriverGap } from '../lib/farDriver'
+import { SosPeopleLocations } from '../components/SosPeopleLocations'
 import { RIDE_CANCELLATION_REASON_LABELS } from '../types'
 import type { GeoCoords, PaymentMethod, Ride, RideCancellationReason } from '../types'
 
@@ -2015,11 +2016,6 @@ function ActiveTripCard({
       metersShort,
     })
   }
-  // One tricycle, one marker — so it names everybody in it, not just the
-  // passenger whose card this happens to be.
-  const aboardNames = aboardLabel(
-    rides.filter((r) => r.driverId === ride.driverId && r.status === 'ongoing').map((r) => r.passengerName),
-  )
   // "Start trip" means the passenger is now on board, so it should not be
   // pressable from across town — a driver tapping it early starts the fare
   // clock on someone who is still waiting on the kerb.
@@ -2128,20 +2124,40 @@ function ActiveTripCard({
   // trip arrives every ten seconds (see TripMonitor), so this settles within
   // about half a minute of them walking away rather than instantly. See
   // separation.ts for why it waits for three readings and not one.
+  //
+  // Each passenger reading is compared once, when it arrives, against where
+  // the tricycle was at the moment it was taken — see positionAt. Compared
+  // against where the tricycle is now, a passenger sitting in the sidecar
+  // read as tens of metres behind it and "Passenger left" came up on every
+  // trip once it got moving.
   const separationRef = useRef<SeparationState>({ apartCount: 0, asked: false })
   const [passengerLeftMeters, setPassengerLeftMeters] = useState<number | null>(null)
   const [passengerLeftDismissed, setPassengerLeftDismissed] = useState(false)
+  // Whether they are apart right now — the tricycle's label stops naming a
+  // passenger who is no longer in it.
+  const [passengerApart, setPassengerApart] = useState(false)
   const passengerLiveGps = ride?.passengerLiveGps ?? null
+  const passengerLiveGpsAt = ride?.passengerLiveGpsAt ?? null
+  const ownTrailRef = useRef<{ at: number; gps: GeoCoords }[]>([])
+  useEffect(() => {
+    if (!driverGpsForPickup) return
+    const now = Date.now()
+    ownTrailRef.current = [...ownTrailRef.current.filter((h) => now - h.at < 60000), { at: now, gps: driverGpsForPickup }]
+  }, [driverGpsForPickup])
   useEffect(() => {
     if (!ride || ride.status !== 'ongoing') {
       separationRef.current = { apartCount: 0, asked: false }
+      setPassengerApart(false)
       return
     }
-    const decision = nextSeparationDecision(driverGpsForPickup, passengerLiveGps, separationRef.current)
+    if (!passengerLiveGps || !passengerLiveGpsAt) return
+    const tricycleThen = positionAt(ownTrailRef.current, new Date(passengerLiveGpsAt).getTime())
+    const decision = nextSeparationDecision(tricycleThen, passengerLiveGps, separationRef.current)
     separationRef.current = { apartCount: decision.apartCount, asked: decision.asked }
+    if (decision.metersApart !== null) setPassengerApart(isApart(separationRef.current))
     if (decision.separated) setPassengerLeftMeters(Math.round(decision.metersApart ?? 0))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [driverGpsForPickup, passengerLiveGps, ride?.status])
+  }, [passengerLiveGpsAt, ride?.status])
   const passengerLeft = passengerLeftMeters !== null && !passengerLeftDismissed
 
   const autoStartRef = useRef<string | null>(null)
@@ -2159,6 +2175,16 @@ function ActiveTripCard({
     // fix is the truest pickup there is.
     onStart(driverGpsForPickup)
   }, [ride, metersFromPassenger, shoppingDone, onStart, driverGpsForPickup])
+  // One tricycle, one marker — so it names everybody in it, not just the
+  // passenger whose card this happens to be. Less this card's passenger once
+  // the two phones have parted: a label still naming someone left standing
+  // on the kerb says the opposite of what the map shows.
+  const aboardNames = aboardLabel(
+    rides
+      .filter((r) => r.driverId === ride.driverId && r.status === 'ongoing')
+      .filter((r) => !(passengerApart && r.id === ride.id))
+      .map((r) => r.passengerName),
+  )
   // Defensive: a MockLocation from before `gps` existed (stale localStorage)
   // has no real coordinate to plot — skip that point rather than crash.
   const mapPoints: MapPoint[] = [
@@ -2174,7 +2200,7 @@ function ActiveTripCard({
             // sidecar, pinned open the way it is on their phone — the driver
             // carrying two trips needs to see at a glance which one this
             // moving dot is, not just that it is them.
-            label: onBoard ? `${cardPlate} · 🧍 ${aboardNames}` : `You · ${cardPlate}`,
+            label: onBoard && aboardNames ? `${cardPlate} · 🧍 ${aboardNames}` : `You · ${cardPlate}`,
             // Named from the moment there is a trip, not only once somebody is
             // aboard. Two moving dots on one map with only one of them
             // labelled reads as a bug: whichever is unnamed is the one you
@@ -2266,6 +2292,9 @@ function ActiveTripCard({
           <p className="mt-0.5 text-[11px] text-danger-800">
             TODARide Mobility{passengerSosOnRide.todaNotified ? ' and the TODA have' : ' has'} been told. Pull over somewhere safe and check on them.
           </p>
+          <div className="mt-2">
+            <SosPeopleLocations alert={passengerSosOnRide} ride={ride} passengerName={ride.passengerName} driverLabel="You" />
+          </div>
           <div className="mt-2 flex gap-2">
             {(passenger?.phone ?? ride.passengerPhone) && (
               <a

@@ -179,6 +179,10 @@ export function buildIncident(ctx: IncidentContext): SosAlert {
   const vehicle = (driver ?? rideDriver)?.plateNumber ?? null
   const todaOrgId = base.todaOrgId ?? (driver ?? rideDriver)?.todaOrgId ?? null
   const location = base.location ?? ride?.driverLiveGps ?? ride?.passengerLiveGps ?? null
+  // The phone that raised the alert is the freshest fix for its own seat;
+  // the other seat is whatever that phone last published on the ride.
+  const passengerLocation = base.passengerLocation ?? (source === 'passenger' ? base.location : null) ?? ride?.passengerLiveGps ?? null
+  const driverLocation = base.driverLocation ?? (source === 'driver' ? base.location : null) ?? ride?.driverLiveGps ?? null
 
   const events: SosEvent[] = [
     makeEvent('triggered', `${TRIGGER_SOURCE_LABEL[source]} — raised by ${raisedBy}`, raisedBy, actorRole, now),
@@ -261,6 +265,8 @@ export function buildIncident(ctx: IncidentContext): SosAlert {
     destination: ride?.dropoff.label ?? null,
     tripStatus: ride?.status ?? null,
     location,
+    passengerLocation,
+    driverLocation,
     events,
     notifications,
     emergencyContactsNotified: delivered.some((n) => n.recipientKind === 'contact' || n.recipientKind === 'guardian'),

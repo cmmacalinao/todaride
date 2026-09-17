@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Driver, Passenger, Ride, SosAlert, SosEvent, TodaOrganization } from '../types'
 import { INCIDENT_STATUS_LABEL, TRIGGER_SOURCE_LABEL, isActiveAlert, responseSeconds, resolutionSeconds } from '../lib/safety'
 import { formatTripRoute } from '../lib/addressFormat'
+import { SosPeopleLocations } from './SosPeopleLocations'
 
 // One incident, everything a responder needs, and the actions the incident
 // workflow allows from its current state. Used by the App Admin safety
@@ -109,6 +110,9 @@ export function SafetyIncidentCard({
   const delivered = (alert.notifications ?? []).filter((n) => n.status === 'delivered')
   const pendingSms = (alert.notifications ?? []).filter((n) => n.channel === 'sms' && n.status === 'pending')
   const skipped = (alert.notifications ?? []).filter((n) => n.status !== 'delivered' && n.status !== 'pending')
+  // A trip has two people on it, and an SOS raised after they part needs both
+  // of them found — see SosPeopleLocations.
+  const hasTwoSeats = !!(ride || alert.passengerLocation || alert.driverLocation)
   const mapsUrl = alert.location ? `https://www.google.com/maps?q=${alert.location.lat},${alert.location.lng}` : null
 
   return (
@@ -135,6 +139,7 @@ export function SafetyIncidentCard({
         <p>🛺 {driver ? `${driver.name} · ${driver.plateNumber}` : '—'}</p>
         <p>🏢 {toda?.name ?? 'No TODA'}</p>
         <p>📋 {alert.tripStatus ?? ride?.status ?? 'no trip'}</p>
+        {!hasTwoSeats && (
         <p className="col-span-2">
           📍{' '}
           {alert.location ? (
@@ -145,7 +150,19 @@ export function SafetyIncidentCard({
             'location not captured'
           )}
         </p>
+        )}
       </div>
+      {hasTwoSeats && (
+        <div className="mt-2">
+          <SosPeopleLocations
+            alert={alert}
+            ride={ride}
+            passengerName={passenger?.name ?? ride?.passengerName ?? 'Passenger'}
+            driverLabel={driver ? `${driver.name} · ${driver.plateNumber}` : 'Tricycle'}
+            showMap
+          />
+        </div>
+      )}
 
       {alert.notes && <p className="mt-1.5 text-slate-700">{alert.notes}</p>}
 

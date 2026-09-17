@@ -1162,6 +1162,13 @@ export interface SosAlert {
   triggeredByRole?: SosTriggeredByRole
   todaOrgId?: string | null
   location?: GeoCoords | null
+  // Where each of the two people on the trip was when the alert went up.
+  // An SOS raised after the passenger and the tricycle have parted has two
+  // places that matter, not one: where the person asking for help is, and
+  // where the vehicle they were in has gone. Either is null when that phone
+  // was not reporting.
+  passengerLocation?: GeoCoords | null
+  driverLocation?: GeoCoords | null
   // ---- The incident record (see lib/safety.ts). All optional so every
   // alert stored before this existed still reads; buildIncident fills them
   // for new ones. Trip details are copied here at the moment of the alert,

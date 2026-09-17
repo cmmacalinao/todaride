@@ -24,9 +24,10 @@ import { reverseGeocodeToPhAddress } from '../lib/customLocation'
 import { useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { useRoute } from '../lib/routing'
 import { nextRerouteDecision } from '../lib/reroute'
-import { nextSeparationDecision, type SeparationState } from '../lib/separation'
+import { isApart, nextSeparationDecision, type SeparationState } from '../lib/separation'
 import { GpsDiagnosticLine } from './GpsDiagnosticLine'
 import { EmergencyHotlines } from './EmergencyHotlines'
+import { SosPeopleLocations } from './SosPeopleLocations'
 import { RIDE_CANCELLATION_REASON_LABELS } from '../types'
 import type { GeoCoords, Ride } from '../types'
 
@@ -140,6 +141,9 @@ export function TripMonitor({
   // Set when the rider taps "I've gotten off" — opens the safety check
   // asking whether they got out where they meant to, or need help.
   const [gotOffAsked, setGotOffAsked] = useState(false)
+  // This phone and the tricycle are apart right now (see separation.ts'
+  // isApart) — the tricycle's label stops naming you once you are not in it.
+  const [seatsApart, setSeatsApart] = useState(false)
   // The safety wording is four lines of text above the two buttons that
   // actually answer the question. Behind a ⓘ it stays one tap away for
   // whoever needs it, without standing between everyone else and the answer.
@@ -446,8 +450,11 @@ export function TripMonitor({
             // own name here, not the driver's: the callout is answering
             // "which tricycle is mine", and the fastest check against the
             // plate bolted to the sidecar is the digits, not the letters.
-            label: `${driver?.plateNumber?.match(/\d+/)?.[0] ?? driver?.plateNumber ?? 'Tricycle'}-${
-              ride.passengerName?.trim().split(/\s+/)[0] ?? 'You'
+            // Once you and the tricycle have parted it is just the tricycle:
+            // your name on a marker driving away from you is the one thing on
+            // the map that is not true.
+            label: `${driver?.plateNumber?.match(/\d+/)?.[0] ?? driver?.plateNumber ?? 'Tricycle'}${
+              seatsApart ? '' : `-${ride.passengerName?.trim().split(/\s+/)[0] ?? 'You'}`
             }${onBoard && sharingWith > 0 ? ` · +${sharingWith}` : ''}`,
             // Named without waiting for the Names toggle, and named from the
             // moment a driver is assigned rather than only once aboard.
@@ -635,6 +642,7 @@ export function TripMonitor({
   useEffect(() => {
     if (ride.status !== 'ongoing') {
       separationRef.current = { apartCount: 0, asked: false }
+      setSeatsApart(false)
       return
     }
     // Only against a real published position. The interpolated one is drawn
@@ -643,6 +651,7 @@ export function TripMonitor({
     const tricycleGps = driverGpsInfo?.isLive ? driverGpsInfo.gps : null
     const decision = nextSeparationDecision(livePassengerGps, tricycleGps, separationRef.current)
     separationRef.current = { apartCount: decision.apartCount, asked: decision.asked }
+    if (decision.metersApart !== null) setSeatsApart(isApart(separationRef.current))
     if (decision.separated) {
       setApartMeters(Math.round(decision.metersApart ?? 0))
       setGotOffAsked(true)
@@ -800,7 +809,7 @@ export function TripMonitor({
             <button
               type="button"
               onClick={() => {
-                triggerSos(ride.id, sosActorId)
+                triggerSos(ride.id, sosActorId, undefined, livePassengerGps)
                 setGotOffAsked(false)
                 setApartMeters(null)
               }}
@@ -871,7 +880,7 @@ export function TripMonitor({
               </button>
               <button
                 type="button"
-                onClick={() => triggerSos(ride.id, sosActorId)}
+                onClick={() => triggerSos(ride.id, sosActorId, undefined, livePassengerGps)}
                 disabled={!!openSos}
                 className="w-full rounded-lg border border-danger-500 bg-danger-600 py-2.5 text-sm font-bold text-white transition hover:bg-danger-700 disabled:cursor-not-allowed disabled:border-danger-300 disabled:bg-danger-300"
               >
@@ -1534,7 +1543,7 @@ export function TripMonitor({
           }}
           onSendSos={() => {
             setCrashPromptOpen(false)
-            triggerSos(ride.id, sosActorId)
+            triggerSos(ride.id, sosActorId, undefined, livePassengerGps)
           }}
           onTimeout={() => {
             logPossibleCrash({ actorId: sosActorId, role: 'passenger', rideId: ride.id, location: livePassengerGps ?? driverGpsInfo?.gps ?? null, outcome: 'timeout' })
@@ -1555,7 +1564,7 @@ export function TripMonitor({
           toda={sosToda?.contactPhone ? { name: sosToda.name, phone: sosToda.contactPhone } : null}
           activeAlert={openSos ?? null}
           countdownSeconds={safetySettings.sosCountdownSeconds}
-          onSendSos={() => triggerSos(ride.id, sosActorId)}
+          onSendSos={() => triggerSos(ride.id, sosActorId, undefined, livePassengerGps)}
           onCancelSos={(id) => cancelAlert(id, sosActorName, 'passenger')}
           onLogEvent={(id, kind, summary) => logAlertEvent(id, kind, summary, sosActorName, 'passenger')}
           onClose={() => setEmergencyOpen(false)}
@@ -1567,6 +1576,9 @@ export function TripMonitor({
           <p className="animate-pulse px-3 pt-2 text-xs font-bold text-danger-900">🚨 EMERGENCY — SOS sent</p>
           <div className="px-3 pb-3 pt-1">
               <p className="text-xs text-danger-800">{openSos.notes}</p>
+              <div className="mt-2">
+                <SosPeopleLocations alert={openSos} ride={ride} passengerName="You" driverLabel={tricycleLabel ?? "Tricycle"} />
+              </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {openSos.guardianNotifiedPhone && (
                   <a

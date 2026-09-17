@@ -84,3 +84,33 @@ export function nextSeparationDecision(
     metersApart,
   }
 }
+
+// Whether the two are apart right now, as opposed to the one-off "they have
+// just parted" moment the decision flags. Held from the reading that crossed
+// the streak until one reading brings them back together — the same rule as
+// the prompt, so a map label and the question it pairs with never disagree.
+export function isApart(state: SeparationState): boolean {
+  return state.apartCount >= SEPARATION_STREAK
+}
+
+// Where this phone was at a given moment, from the positions it has kept.
+//
+// The other phone's position arrives late — a passenger aboard publishes
+// every ten seconds — and comparing that against where the tricycle is now
+// measures how far the tricycle has driven since, not how far apart the two
+// are. At 20 km/h ten seconds is 55 metres: every trip "separated" within a
+// minute of setting off, with the passenger sitting in the sidecar. Compared
+// against where the tricycle was when that reading was taken, two phones in
+// the same vehicle agree again.
+//
+// Null when nothing kept is close enough in time to stand for that moment,
+// which callers treat as "cannot tell", never as "apart".
+export const MATCH_WITHIN_MS = 3000
+
+export function positionAt(history: { at: number; gps: GeoCoords }[], at: number): GeoCoords | null {
+  let best: { at: number; gps: GeoCoords } | null = null
+  for (const h of history) {
+    if (!best || Math.abs(h.at - at) < Math.abs(best.at - at)) best = h
+  }
+  return best && Math.abs(best.at - at) <= MATCH_WITHIN_MS ? best.gps : null
+}

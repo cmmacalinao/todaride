@@ -3,6 +3,8 @@ import {
   REUNION_METERS,
   SEPARATION_METERS,
   SEPARATION_STREAK,
+  isApart,
+  positionAt,
   nextSeparationDecision,
   type SeparationState,
 } from '../separation'
@@ -79,5 +81,32 @@ describe('nextSeparationDecision', () => {
     const d = nextSeparationDecision(HERE, north(HERE, 50), fresh)
     expect(d.metersApart).toBeGreaterThan(45)
     expect(d.metersApart).toBeLessThan(55)
+  })
+})
+
+describe('positionAt', () => {
+  const a = { lat: 15.73, lng: 120.93 }
+  const b = { lat: 15.731, lng: 120.93 }
+  const history = [
+    { at: 1000, gps: a },
+    { at: 11000, gps: b },
+  ]
+
+  it('picks the kept position nearest the moment asked about', () => {
+    expect(positionAt(history, 2000)).toEqual(a)
+    expect(positionAt(history, 10500)).toEqual(b)
+  })
+
+  it('says nothing when no kept position is close enough in time', () => {
+    expect(positionAt(history, 6000)).toBeNull()
+    expect(positionAt([], 1000)).toBeNull()
+  })
+})
+
+describe('isApart', () => {
+  it('holds from the streak until they come back together', () => {
+    expect(isApart({ apartCount: 2, asked: false })).toBe(false)
+    expect(isApart({ apartCount: 3, asked: true })).toBe(true)
+    expect(isApart({ apartCount: 0, asked: true })).toBe(false)
   })
 })

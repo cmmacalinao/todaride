@@ -66,6 +66,7 @@ import { AnnouncementFeed } from '../components/AnnouncementFeed'
 import { FarDriverDialog } from '../components/FarDriverDialog'
 import { farDriverGap } from '../lib/farDriver'
 import { SosPeopleLocations } from '../components/SosPeopleLocations'
+import { DriverAccessThread } from '../components/DriverAccessThread'
 import { RIDE_CANCELLATION_REASON_LABELS } from '../types'
 import type { GeoCoords, PaymentMethod, Ride, RideCancellationReason } from '../types'
 
@@ -138,6 +139,8 @@ export function DriverPage() {
     logPossibleCrash,
     safetySettings,
     reportDriverGps,
+    sendDriverAccessMessage,
+    seenDriverAccessNotice,
     medsOrders,
   } = useRides()
   const { loggedInDriverId, setLoggedInDriverId, loggedInTodaAdminOrgId, setLoggedInTodaAdminOrgId } = useSession()
@@ -198,6 +201,8 @@ export function DriverPage() {
     return () => clearInterval(id)
   }, [loggedInDriverId])
   const [queueNotice, setQueueNotice] = useState<{ title: string; body: string } | null>(null)
+  // The paused-account panel: the reason, and the conversation with Admin.
+  const [pausedPanelOpen, setPausedPanelOpen] = useState(false)
   // "Possible accident detected. Are you OK?" — see lib/crashDetection and
   // CrashPromptModal. Only while actually on a trip, and only when Super
   // Admin has turned the detector on.
@@ -392,6 +397,10 @@ export function DriverPage() {
   // drive, nor leave a passenger waiting on a driver who never meant to come.
   function acceptRequest(ride: Ride | undefined, after?: () => void) {
     if (!ride || !driver) return
+    if (driver.accessStatus !== 'active') {
+      setPausedPanelOpen(true)
+      return
+    }
     const origin = originGpsForRide(ride)
     const gap = farDriverGap(origin, ride.pickup.gps ?? null)
     if (gap) {
@@ -451,8 +460,12 @@ export function DriverPage() {
   // Built here, returned below once every hook on this page has run: returning
   // at this point skipped the hooks after it, so restoring a driver while their
   // screen was open changed the hook count between renders and crashed the app.
+  // Only termination locks the app now. A paused driver keeps it — earnings,
+  // history, profile, documents, and a way to talk to Admin — and simply
+  // cannot take rides (see pausedBar and the ACCEPT_RIDE / JOIN_TERMINAL_QUEUE
+  // guards).
   const accessBlockedScreen =
-    driver.accessStatus !== 'active' && !myActiveRide ? (
+    driver.accessStatus === 'terminated' && !myActiveRide ? (
       <div className="mx-auto max-w-lg space-y-3 px-4 py-6">
         <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center shadow-sm">
           <p className="text-sm font-semibold text-amber-900">
@@ -462,8 +475,7 @@ export function DriverPage() {
             {driver.accessNote ?? 'Contact your TODA or Admin for details.'}
           </p>
           <p className="mt-3 text-xs text-slate-500">
-            Only the App Admin can restore your access — once any outstanding issue is resolved, ask them to
-            reinstate your account.
+            Please contact your TODA office for details.
           </p>
           <button
             onClick={() => setLoggedInDriverId(null)}
@@ -738,6 +750,13 @@ export function DriverPage() {
   )
 
   async function handleJoinQueue() {
+    if (driver?.accessStatus === 'paused') {
+      setQueueNotice({
+        title: 'Account paused',
+        body: 'You can’t join the Pila while your account is paused. Open “Message Admin” to sort it out.',
+      })
+      return
+    }
     if (!homeToda) return
     setQueueNotice(null)
     const orgTerminals = terminalsForOrg(terminals, homeToda.id)
@@ -1006,8 +1025,85 @@ export function DriverPage() {
 
   // Rendered with the footer, which every driver screen already includes, so
   // the far-request check and the released notice work from any of them.
+  // Paused: a bar above the footer on every screen, the reason one tap away,
+  // and a notice the first time the driver opens the app after it changed —
+  // paused, or active again.
+  const isPaused = driver.accessStatus === 'paused'
+  const accessNoticeDue =
+    !!driver.accessChangedAt && (!driver.accessNoticeSeenAt || driver.accessNoticeSeenAt < driver.accessChangedAt)
+  const pausedBar = (
+    <>
+      {isPaused && (
+        <div className="fixed inset-x-0 z-[64] px-3" style={{ bottom: `calc(env(safe-area-inset-bottom) + ${DRIVER_FOOTER_INSET} + 0.25rem)` }}>
+          <button
+            type="button"
+            onClick={() => setPausedPanelOpen(true)}
+            className="mx-auto flex w-full max-w-lg items-center gap-2 rounded-xl border-2 border-danger-500 bg-danger-50 px-3 py-2 text-left shadow-lg"
+          >
+            <span aria-hidden className="text-lg leading-none">⏸️</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-extrabold text-danger-900">Your account is temporarily paused</span>
+              <span className="block truncate text-[11px] text-danger-800">{driver.accessNote ?? 'Paused by Admin.'}</span>
+            </span>
+            <span className="shrink-0 rounded-lg bg-danger-600 px-2 py-1 text-[11px] font-bold text-white">💬 Message Admin</span>
+          </button>
+        </div>
+      )}
+      {(pausedPanelOpen || (accessNoticeDue && driver.accessStatus !== 'terminated')) && (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-900/60 p-3 sm:items-center" role="dialog" aria-modal="true" aria-label="Account status">
+          <div className="max-h-[85vh] w-full max-w-sm space-y-3 overflow-y-auto rounded-xl bg-white p-4 shadow-xl">
+            {isPaused ? (
+              <>
+                <div>
+                  <p className="text-sm font-extrabold text-danger-900">⏸️ Your account is temporarily paused</p>
+                  {driver.accessChangedAt && (
+                    <p className="text-[11px] text-slate-500">Since {new Date(driver.accessChangedAt).toLocaleString()}</p>
+                  )}
+                  <p className="mt-1 rounded-lg bg-danger-50 p-2 text-xs text-danger-900">
+                    <span className="font-semibold">Reason: </span>
+                    {driver.accessNote ?? 'Paused by Admin.'}
+                  </p>
+                  <p className="mt-1.5 text-[11px] text-slate-600">
+                    You can still see your earnings, trips and profile, and upload documents. You can’t go online, join
+                    the Pila or take rides until Admin restores your account.
+                  </p>
+                </div>
+                <div className="rounded-lg border border-slate-200 p-2.5">
+                  <p className="mb-1.5 text-xs font-semibold text-slate-700">💬 Message Admin</p>
+                  <DriverAccessThread
+                    messages={driver.accessMessages ?? []}
+                    viewer="driver"
+                    placeholder="Tell Admin how it’s been resolved — e.g. “Nabayaran ko na ang dues kahapon.”"
+                    onSend={(text, photo) => sendDriverAccessMessage(driver.id, 'driver', text, photo)}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="text-center">
+                <p className="text-3xl">✅</p>
+                <p className="text-sm font-extrabold text-emerald-800">Your account is active again</p>
+                <p className="mt-1 text-xs text-slate-600">You can go online, join the Pila and take rides.</p>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setPausedPanelOpen(false)
+                if (accessNoticeDue) seenDriverAccessNotice(driver.id)
+              }}
+              className="w-full rounded-lg border border-slate-300 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              {isPaused ? 'Close' : 'OK'}
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  )
+
   const footerBar = (
     <>
+      {pausedBar}
       <DriverFooterNav
         active={footerSection}
         onNavigate={goToSection}
@@ -1072,6 +1168,11 @@ export function DriverPage() {
             Sorted by how far you are from the pickup. Take the one that is worth the drive — the fare, the tip and
             what you keep are on every card.
           </p>
+          {isPaused && (
+            <p className="rounded-lg border border-danger-300 bg-danger-50 p-2.5 text-xs font-semibold text-danger-900">
+              ⏸️ Your account is paused — you can’t take rides until Admin restores it.
+            </p>
+          )}
           <NearbyRequestsBoard
             requests={nearbyRequests}
             onAccept={(rideId) => acceptRequest(rides.find((r) => r.id === rideId), () => goToSection('current'))}

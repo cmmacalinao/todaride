@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode, useRef } from 'react'
 import { BANNER_AD_SLOT_COUNT, MAX_VENDOR_POSTS } from '../types'
-import { mergeById, mergeIncomingRides, mergeVendorPosts } from '../lib/rideMerge'
+import { mergeById, mergeDriverAccessMessages, mergeIncomingRides, mergeVendorPosts } from '../lib/rideMerge'
 import { findPartnerByCode, generatePartnerCode, marketingSplit } from '../lib/marketingProgram'
 import { PILOT_ORIGIN } from '../lib/pilotOrigin'
 import type { RecoveryKind } from '../lib/unifiedLogin'
@@ -652,6 +652,8 @@ type RideAction =
     }
   | { type: 'RESOLVE_MEMBERSHIP_REQUEST'; requestId: string; approve: boolean }
   | { type: 'SET_DRIVER_ACCESS'; driverId: string; accessStatus: DriverAccessStatus; accessNote: string | null }
+  | { type: 'SEND_DRIVER_ACCESS_MESSAGE'; driverId: string; from: 'driver' | 'admin'; text: string; photoDataUrl: string | null }
+  | { type: 'SEEN_DRIVER_ACCESS_NOTICE'; driverId: string }
   | { type: 'SET_DRIVER_PABILI_PRIORITY'; driverId: string; enabled: boolean }
   | { type: 'SET_DRIVER_ONLINE'; driverId: string; online: boolean }
   | { type: 'CLEAR_PASSENGER_TRIP_HISTORY'; passengerId: string }
@@ -3046,6 +3048,9 @@ function reducer(state: RideState, action: RideAction): RideState {
       }
     case 'ACCEPT_RIDE': {
       const driver = state.drivers.find((d) => d.id === action.driverId)
+      // A paused or terminated driver can still open the app; they cannot
+      // take a ride, whatever screen the request came from.
+      if (driver && driver.accessStatus !== 'active') return state
       return {
         ...state,
         rides: state.rides.map((r) =>
@@ -3842,6 +3847,7 @@ function reducer(state: RideState, action: RideAction): RideState {
         return {
           ...action.state,
           rides: mergeIncomingRides(state.rides, action.state.rides),
+          drivers: mergeDriverAccessMessages(state.drivers, action.state.drivers),
           passengers: mergeById(state.passengers, action.state.passengers),
           parents: mergeById(state.parents, action.state.parents),
           pharmacies: mergeVendorPosts(state.pharmacies, action.state.pharmacies).filter((p) => !removedSet.has(p.id)),
@@ -3956,6 +3962,7 @@ function reducer(state: RideState, action: RideAction): RideState {
       return { ...state, pilotTodaName: action.name.trim() }
     case 'JOIN_TERMINAL_QUEUE': {
       const joiningDriver = state.drivers.find((d) => d.id === action.driverId)
+      if (joiningDriver && joiningDriver.accessStatus !== 'active') return state
       const joiningOrg = joiningDriver?.todaOrgId
         ? state.todaOrganizations.find((o) => o.id === joiningDriver.todaOrgId)
         : null
@@ -4154,6 +4161,8 @@ function reducer(state: RideState, action: RideAction): RideState {
               ? {
                   ...d,
                   accessStatus: (request.requestType === 'terminate' ? 'terminated' : 'paused') as DriverAccessStatus,
+                  accessChangedAt: new Date().toISOString(),
+                  online: false,
                   accessNote: `${request.requestType === 'terminate' ? 'Terminated' : 'Held'} at the request of your TODA: ${request.reason}`,
                   queueJoinedAt: null,
                 }
@@ -4180,9 +4189,40 @@ function reducer(state: RideState, action: RideAction): RideState {
                 accessStatus: action.accessStatus,
                 accessNote: action.accessNote,
                 queueJoinedAt: action.accessStatus === 'active' ? d.queueJoinedAt : null,
+                // Stamped only on a real change, so the driver's notice is
+                // about something that happened.
+                accessChangedAt: d.accessStatus !== action.accessStatus ? new Date().toISOString() : d.accessChangedAt ?? null,
+                // Paused or terminated drivers are not online for anyone.
+                online: action.accessStatus === 'active' ? d.online : false,
               }
             : d,
         ),
+      }
+    case 'SEND_DRIVER_ACCESS_MESSAGE':
+      return {
+        ...state,
+        drivers: state.drivers.map((d) =>
+          d.id === action.driverId
+            ? {
+                ...d,
+                accessMessages: [
+                  ...(d.accessMessages ?? []),
+                  {
+                    id: `accmsg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                    from: action.from,
+                    text: action.text,
+                    photoDataUrl: action.photoDataUrl,
+                    at: new Date().toISOString(),
+                  },
+                ],
+              }
+            : d,
+        ),
+      }
+    case 'SEEN_DRIVER_ACCESS_NOTICE':
+      return {
+        ...state,
+        drivers: state.drivers.map((d) => (d.id === action.driverId ? { ...d, accessNoticeSeenAt: new Date().toISOString() } : d)),
       }
     case 'SET_DRIVER_PABILI_PRIORITY':
       return {
@@ -4192,6 +4232,8 @@ function reducer(state: RideState, action: RideAction): RideState {
         ),
       }
     case 'SET_DRIVER_ONLINE':
+      // Going online is taking work; a paused driver cannot.
+      if (action.online && state.drivers.find((d) => d.id === action.driverId)?.accessStatus !== 'active') return state
       return {
         ...state,
         drivers: state.drivers.map((d) =>
@@ -6636,6 +6678,8 @@ interface RideContextValue extends RideState {
   }) => void
   resolveMembershipRequest: (requestId: string, approve: boolean) => void
   setDriverAccess: (driverId: string, accessStatus: DriverAccessStatus, accessNote: string | null) => void
+  sendDriverAccessMessage: (driverId: string, from: 'driver' | 'admin', text: string, photoDataUrl: string | null) => void
+  seenDriverAccessNotice: (driverId: string) => void
   setDriverPabiliPriority: (driverId: string, enabled: boolean) => void
   setDriverOnline: (driverId: string, online: boolean) => void
   clearPassengerTripHistory: (passengerId: string) => void
@@ -7903,6 +7947,9 @@ export function RideProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'RESOLVE_MEMBERSHIP_REQUEST', requestId, approve }),
     setDriverAccess: (driverId, accessStatus, accessNote) =>
       dispatch({ type: 'SET_DRIVER_ACCESS', driverId, accessStatus, accessNote }),
+    sendDriverAccessMessage: (driverId, from, text, photoDataUrl) =>
+      dispatch({ type: 'SEND_DRIVER_ACCESS_MESSAGE', driverId, from, text, photoDataUrl }),
+    seenDriverAccessNotice: (driverId) => dispatch({ type: 'SEEN_DRIVER_ACCESS_NOTICE', driverId }),
     setDriverPabiliPriority: (driverId, enabled) => dispatch({ type: 'SET_DRIVER_PABILI_PRIORITY', driverId, enabled }),
     setDriverOnline: (driverId, online) => dispatch({ type: 'SET_DRIVER_ONLINE', driverId, online }),
     clearPassengerTripHistory: (passengerId) => dispatch({ type: 'CLEAR_PASSENGER_TRIP_HISTORY', passengerId }),

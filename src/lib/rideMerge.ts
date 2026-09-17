@@ -44,6 +44,30 @@ export function isFinishedRide(status: RideStatus): boolean {
 //
 // This is a stopgap. The real fix is a row per account, the way rides
 // already work; see supabase/migrations/0003_accounts_own_rows.sql.
+// A paused driver's conversation with Admin, from both copies of the driver
+// list. The driver writes from their phone and Admin from theirs; each saves
+// the whole list, so taking either copy whole would drop the other side's
+// newest message. Everything else about the driver follows the incoming copy.
+export function mergeDriverAccessMessages<T extends { id: string; accessMessages?: { id: string; at: string }[]; accessNoticeSeenAt?: string | null }>(
+  local: T[],
+  incoming: T[],
+): T[] {
+  const mine = new Map(local.map((d) => [d.id, d]))
+  return incoming.map((theirs) => {
+    const ours = mine.get(theirs.id)
+    if (!ours) return theirs
+    const byId = new Map<string, NonNullable<T['accessMessages']>[number]>()
+    for (const m of [...(ours.accessMessages ?? []), ...(theirs.accessMessages ?? [])]) byId.set(m.id, m)
+    const messages = [...byId.values()].sort((a, b) => a.at.localeCompare(b.at))
+    const seen = [ours.accessNoticeSeenAt, theirs.accessNoticeSeenAt].filter(Boolean).sort().pop() ?? null
+    return {
+      ...theirs,
+      ...(messages.length > 0 ? { accessMessages: messages } : {}),
+      ...(seen ? { accessNoticeSeenAt: seen } : {}),
+    }
+  })
+}
+
 export function mergeById<T extends { id: string }>(local: T[], incoming: T[]): T[] {
   const merged = new Map(local.map((item) => [item.id, item]))
   // Incoming wins on conflict: it is the newer edit of a record both

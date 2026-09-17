@@ -4,6 +4,7 @@ import { useRides } from '../context/RideContext'
 import { DriverDetailModal } from './AccountDetailModals'
 import { activeSuspension } from '../lib/accountOps'
 import { StatusBadge } from './StatusBadge'
+import { DriverAccessThread } from './DriverAccessThread'
 
 const STATUS_STYLES: Record<string, string> = {
   approved: 'bg-brand-100 text-brand-700',
@@ -28,6 +29,7 @@ export function AdminDriverDirectory() {
     duesRecords,
     duesGracePeriodDays,
     setDriverAccess,
+    sendDriverAccessMessage,
     logActivity,
     accountSuspensions,
   } = useRides()
@@ -77,8 +79,23 @@ export function AdminDriverDirectory() {
     )
   })
 
+  // Drivers whose last word to Admin has not been answered.
+  const awaitingReply = drivers.filter((d) => {
+    const last = (d.accessMessages ?? [])[(d.accessMessages ?? []).length - 1]
+    return last?.from === 'driver'
+  })
+
   return (
     <section>
+      {awaitingReply.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpandedId(awaitingReply[0].id)}
+          className="mb-2 w-full rounded-lg border border-danger-300 bg-danger-50 px-3 py-2 text-left text-xs font-semibold text-danger-900"
+        >
+          💬 {awaitingReply.length} message{awaitingReply.length === 1 ? '' : 's'} from paused drivers — {awaitingReply.map((d) => d.name).join(', ')}
+        </button>
+      )}
       <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-slate-700">Driver directory</h2>
         <select
@@ -151,6 +168,9 @@ export function AdminDriverDirectory() {
                       {d.accessStatus}
                     </span>
                   )}
+                  {awaitingReply.some((x) => x.id === d.id) && (
+                    <span className="rounded-full bg-danger-600 px-2 py-0.5 text-[11px] font-bold text-white">💬 new message</span>
+                  )}
                 </div>
               </button>
 
@@ -211,6 +231,21 @@ export function AdminDriverDirectory() {
                       </button>
                     )}
                   </div>
+
+                  {(d.accessStatus !== 'active' || (d.accessMessages ?? []).length > 0) && (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                      <p className="mb-1.5 text-xs font-semibold text-slate-700">💬 Messages with {d.name}</p>
+                      {(d.accessMessages ?? []).length === 0 && (
+                        <p className="mb-1.5 text-[11px] text-slate-500">No messages yet.</p>
+                      )}
+                      <DriverAccessThread
+                        messages={d.accessMessages ?? []}
+                        viewer="admin"
+                        placeholder={`Reply to ${d.name}…`}
+                        onSend={(text, photo) => sendDriverAccessMessage(d.id, 'admin', text, photo)}
+                      />
+                    </div>
+                  )}
 
                   {driverRides.length === 0 && <p className="text-xs text-slate-400">No rides yet.</p>}
                   {driverRides.map((r) => (

@@ -835,6 +835,15 @@ export interface Driver {
   // terminal queue or receive ride offers.
   accessStatus: DriverAccessStatus
   accessNote: string | null
+  // When Admin last changed accessStatus — what the driver's "your account
+  // was paused / is active again" notice is keyed on. Optional: drivers whose
+  // access never changed have none.
+  accessChangedAt?: string | null
+  // When the driver last saw that notice.
+  accessNoticeSeenAt?: string | null
+  // A paused driver and the App Admin, talking about the pause. Kept on the
+  // record after it is lifted.
+  accessMessages?: DriverAccessMessage[]
   // Admin's note on a still-pending application, shown to the applicant on
   // their login screen (e.g. "resubmit a clearer LTO OR/CR photo").
   pendingNote: string | null
@@ -1209,6 +1218,14 @@ export interface SosAlert {
   call911Requested?: boolean
   possibleCrashDetected?: boolean
   automaticDetection?: boolean
+}
+
+export interface DriverAccessMessage {
+  id: string
+  from: 'driver' | 'admin'
+  text: string
+  photoDataUrl?: string | null
+  at: string
 }
 
 export interface RidePhoto {

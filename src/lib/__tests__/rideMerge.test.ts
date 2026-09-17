@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isFinishedRide, mergeById, mergeIncomingRides } from '../rideMerge'
+import { isFinishedRide, mergeById, mergeDriverAccessMessages, mergeIncomingRides } from '../rideMerge'
 import type { Ride, RideStatus } from '../../types'
 
 const ride = (id: string, status: RideStatus, extra: Partial<Ride> = {}): Ride =>
@@ -223,5 +223,27 @@ describe('safety photos across two copies of a trip', () => {
     )
     expect(merged[0].safetyPhotos.find((p) => p.id === 'p1')?.dataUrl).toBe('')
     expect(merged[0].safetyPhotos.find((p) => p.id === 'p2')?.dataUrl).not.toBe('')
+  })
+})
+
+describe('a paused driver talking to Admin', () => {
+  const drv = (msgs: { id: string; at: string }[], extra: Record<string, unknown> = {}) =>
+    ({ id: 'd1', accessMessages: msgs.map((m) => ({ ...m, from: 'driver', text: m.id })), ...extra }) as never
+
+  it("keeps the driver's new message when Admin's older copy of the list arrives", () => {
+    const merged = mergeDriverAccessMessages(
+      [drv([{ id: 'm1', at: '2026-09-18T01:00:00Z' }, { id: 'm2', at: '2026-09-18T01:05:00Z' }])],
+      [drv([{ id: 'm1', at: '2026-09-18T01:00:00Z' }])],
+    ) as { accessMessages: { id: string }[] }[]
+    expect(merged[0].accessMessages.map((m) => m.id)).toEqual(['m1', 'm2'])
+  })
+
+  it("keeps Admin's reply when the driver's older copy arrives", () => {
+    const merged = mergeDriverAccessMessages(
+      [drv([{ id: 'm1', at: '2026-09-18T01:00:00Z' }, { id: 'r1', at: '2026-09-18T01:10:00Z' }])],
+      [drv([{ id: 'm1', at: '2026-09-18T01:00:00Z' }], { accessStatus: 'active' })],
+    ) as { accessMessages: { id: string }[]; accessStatus: string }[]
+    expect(merged[0].accessMessages.map((m) => m.id)).toEqual(['m1', 'r1'])
+    expect(merged[0].accessStatus).toBe('active')
   })
 })

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { Geolocation } from '@capacitor/geolocation'
 import { haversineDistanceMeters } from './geo'
+import { bearingDegrees } from './rideTogether'
 import type { GeoCoords } from '../types'
 
 // A device standing perfectly still keeps reporting coordinates that wander a
@@ -26,6 +27,30 @@ const MIN_MOVE_METERS = 3
 // trip, the distance shown to the passenger, and the boarding rule that
 // decides which tricycle they are sitting in.
 const MAX_PLAUSIBLE_SPEED_MPS = 40
+
+// The shortest stretch a direction is worked out over when the phone gives
+// none. Two fixes a few metres apart can point almost any way; a dozen metres
+// of real travel points along the road.
+const DERIVED_HEADING_MIN_METERS = 12
+
+// Direction and speed between two accepted fixes — null for either when the
+// stretch is too short (or less than the two readings' combined error) to
+// say which way anything went.
+export function derivedMotion(
+  last: GeoCoords | null,
+  lastAt: number | null,
+  next: GeoCoords,
+  now: number,
+  lastAccuracy: number | null,
+  nextAccuracy: number | null,
+): { headingDegrees: number | null; speedMps: number | null } {
+  if (!last || lastAt == null) return { headingDegrees: null, speedMps: null }
+  const moved = haversineDistanceMeters(last, next)
+  const elapsed = (now - lastAt) / 1000
+  const needed = Math.max(DERIVED_HEADING_MIN_METERS, (lastAccuracy ?? 0) + (nextAccuracy ?? 0))
+  if (elapsed <= 0 || moved < needed) return { headingDegrees: null, speedMps: null }
+  return { headingDegrees: bearingDegrees(last, next), speedMps: moved / elapsed }
+}
 
 // Continuously watches the device's real GPS while enabled — the driver/
 // passenger opt-in toggles this on, at which point their actual movement
@@ -62,6 +87,8 @@ export function useWatchPosition(enabled: boolean): {
   // comparison below reads the latest accepted value without re-subscribing
   // the watch on every reading.
   const acceptedRef = useRef<GeoCoords | null>(null)
+  // Where the last worked-out direction was measured from — see derivedMotion.
+  const headingAnchorRef = useRef<{ position: GeoCoords; at: number; accuracy: number | null } | null>(null)
 
   useEffect(() => {
     if (!enabled) {
@@ -72,6 +99,7 @@ export function useWatchPosition(enabled: boolean): {
       acceptedRef.current = null
       accuracyRef.current = null
       acceptedAtRef.current = null
+      headingAnchorRef.current = null
       return
     }
     setError(null)
@@ -133,6 +161,24 @@ export function useWatchPosition(enabled: boolean): {
         }
       }
 
+      // Direction and speed worked out from this fix and the last one, for
+      // when the phone does not report its own — which a browser on Android
+      // does routinely, and a laptop always. Without it the trip map never
+      // learned which way the tricycle was going and never turned to face
+      // the road. Only over a stretch long enough to beat the two readings'
+      // own error, so the direction is real movement rather than GPS wander.
+      // Measured from an anchor that only moves once a direction has been
+      // worked out, not from the previous fix: at tricycle speed a phone
+      // reporting once a second moves only a few metres per fix, never far
+      // enough on its own to trust a direction from.
+      const anchor = headingAnchorRef.current
+      const derived = anchor
+        ? derivedMotion(anchor.position, anchor.at, next, now, anchor.accuracy, nextAccuracy)
+        : { headingDegrees: null, speedMps: null }
+      if (!anchor || derived.headingDegrees != null) {
+        headingAnchorRef.current = { position: next, at: now, accuracy: nextAccuracy }
+      }
+
       acceptedRef.current = next
       accuracyRef.current = nextAccuracy
       acceptedAtRef.current = now
@@ -140,8 +186,10 @@ export function useWatchPosition(enabled: boolean): {
       setAccuracy(nextAccuracy)
       // Negative means "not available" in the browser API; null is the honest
       // representation of that, and stops a caller reading -1 as reversing.
-      setSpeedMps(coords.speed != null && coords.speed >= 0 ? coords.speed : null)
-      setHeadingDegrees(coords.heading != null && coords.heading >= 0 ? coords.heading : null)
+      // The phone's own figures come first (steadier, from the GNSS chip);
+      // the derived ones only fill in when it gives none.
+      setSpeedMps(coords.speed != null && coords.speed >= 0 ? coords.speed : derived.speedMps)
+      setHeadingDegrees(coords.heading != null && coords.heading >= 0 ? coords.heading : derived.headingDegrees)
     }
 
     // Inside the installed app, go through Capacitor rather than the

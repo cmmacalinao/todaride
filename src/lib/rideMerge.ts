@@ -126,6 +126,12 @@ const LIFECYCLE_RANK: Record<RideStatus, number> = {
   cancelled: 4,
 }
 
+function isNewer(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (!a) return false
+  if (!b) return true
+  return new Date(a).getTime() > new Date(b).getTime()
+}
+
 export function mergeIncomingRides(local: Ride[], incoming: Ride[]): Ride[] {
   const mine = new Map(local.map((r) => [r.id, r]))
   return incoming.map((theirs) => {
@@ -157,6 +163,30 @@ export function mergeIncomingRides(local: Ride[], incoming: Ride[]): Ride[] {
     // extra charge on their phone, and a driver's phone still resaving its
     // pre-agreement copy of the ride must not take the charge back off.
     let next = theirs
+    // Live positions, field by field, newest wins.
+    //
+    // The driver's phone and the passenger's phone both save this same ride
+    // whole, and each only ever moves its own position. So every save from
+    // the passenger's phone also carries its old copy of where the driver
+    // was — and a passenger sharing GPS saves on every fix. Taking that copy
+    // whole put the driver back at the start on the passenger's screen and
+    // kept them there, while the driver's own screen (which sets its own
+    // position locally) showed both moving. Each position has its own
+    // timestamp; the newer one is the truth whichever copy it arrived in.
+    if (ours.status === theirs.status) {
+      if (isNewer(ours.driverLiveGpsAt, theirs.driverLiveGpsAt)) {
+        next = { ...next, driverLiveGps: ours.driverLiveGps, driverLiveGpsAt: ours.driverLiveGpsAt }
+      }
+      if (isNewer(ours.passengerLiveGpsAt, theirs.passengerLiveGpsAt)) {
+        next = { ...next, passengerLiveGps: ours.passengerLiveGps, passengerLiveGpsAt: ours.passengerLiveGpsAt }
+      }
+      // How far along the current leg the tricycle is only grows within a
+      // status (START_RIDE resets it as the status moves on), so a copy
+      // behind ours is simply stale — the same staleness as above.
+      if ((ours.legProgress ?? 0) > (next.legProgress ?? 0)) {
+        next = { ...next, legProgress: ours.legProgress }
+      }
+    }
     if (ours.farPickupKeptAt && !theirs.farPickupKeptAt && theirs.driverId === ours.driverId) {
       next = {
         ...theirs,

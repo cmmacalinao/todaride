@@ -120,6 +120,33 @@ describe('a ride never travels backwards', () => {
   })
 })
 
+describe('live positions from two phones saving the same ride', () => {
+  const fresh = { lat: 15.79, lng: 120.99 }
+  const start = { lat: 15.73, lng: 120.93 }
+
+  it("keeps the driver's newer position when the passenger's phone sends an old copy", () => {
+    const merged = mergeIncomingRides(
+      [ride('r1', 'ongoing', { driverLiveGps: fresh, driverLiveGpsAt: '2026-09-17T01:00:10Z' })],
+      [ride('r1', 'ongoing', { driverLiveGps: start, driverLiveGpsAt: '2026-09-17T01:00:00Z', passengerLiveGps: fresh, passengerLiveGpsAt: '2026-09-17T01:00:12Z' })],
+    )
+    expect(merged[0].driverLiveGps).toEqual(fresh)
+    expect(merged[0].passengerLiveGps).toEqual(fresh)
+  })
+
+  it("adopts the driver's position when it is the newer one arriving", () => {
+    const merged = mergeIncomingRides(
+      [ride('r1', 'ongoing', { driverLiveGps: start, driverLiveGpsAt: '2026-09-17T01:00:00Z' })],
+      [ride('r1', 'ongoing', { driverLiveGps: fresh, driverLiveGpsAt: '2026-09-17T01:00:10Z' })],
+    )
+    expect(merged[0].driverLiveGps).toEqual(fresh)
+  })
+
+  it('never lets a stale copy move the tricycle backwards along the leg', () => {
+    const merged = mergeIncomingRides([ride('r1', 'ongoing', { legProgress: 0.6 })], [ride('r1', 'ongoing', { legProgress: 0.2 })])
+    expect(merged[0].legProgress).toBe(0.6)
+  })
+})
+
 describe('a passenger letting a far-away driver go', () => {
   const released = [{ driverId: 'drv-1', driverName: 'Mang Ramon', at: '2026-09-17T00:00:00Z' }]
 

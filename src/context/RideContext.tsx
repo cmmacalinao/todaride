@@ -1950,6 +1950,14 @@ const STORAGE_BACKUP_KEY = `${STORAGE_KEY}.unreadable`
 // the hotlines: deleting one of these from the live data does not stick.
 const LATE_SEED_VENDOR_IDS = new Set(['vendor-3', 'vendor-4', 'vendor-5', 'vendor-6', 'vendor-7', 'vendor-8'])
 
+// Stores the seeds hand a starting menu to — a real, registered store, not a
+// seeded one, so the store itself is never touched, only an empty menu filled.
+// Aling Nena's Carinderia: her dishes lived on the duplicate seed store that
+// was deleted on 2026-09-13, which left her listed in Food Express with
+// nothing to order. See withLateSeedVendorMenus for why "empty" and not "by
+// id" is the test.
+const STARTER_MENU_VENDOR_IDS = new Set(['pharm-1788670912139'])
+
 // Landmarks are entirely seed-controlled for now (no admin add/edit screen
 // yet), so unlike vendors this backfills every field, not just the ones a
 // person might have customized — a stored landmark missing `city` (from
@@ -2046,7 +2054,16 @@ function withLateSeedVendorMenus(stored: MedicineProduct[] | undefined): Medicin
   if (!stored) return [...MOCK_MEDICINE_PRODUCTS, ...MOCK_VENDOR_MENU_ITEMS]
   const seen = new Set(stored.map((p) => p.id))
   const missing = MOCK_VENDOR_MENU_ITEMS.filter((p) => LATE_SEED_VENDOR_IDS.has(p.pharmacyId) && !seen.has(p.id))
-  return missing.length > 0 ? [...stored, ...missing] : stored
+  // A starter menu goes in only while that store has no items of its own —
+  // unlike the rule above, which restores a seed item by id. The difference
+  // matters once a store is a real one somebody runs: matching by id would
+  // bring a dish back every time she took it off the menu, and there is no
+  // way to tell that from "the seed never arrived". An empty menu is a safe
+  // thing to fill; a menu with anything in it is hers.
+  const stocked = new Set(stored.map((p) => p.pharmacyId))
+  const starters = MOCK_VENDOR_MENU_ITEMS.filter((p) => STARTER_MENU_VENDOR_IDS.has(p.pharmacyId) && !stocked.has(p.pharmacyId))
+  const add = [...missing, ...starters]
+  return add.length > 0 ? [...stored, ...add] : stored
 }
 
 // Drops anything of the wrong shape so one bad field cannot cost the whole

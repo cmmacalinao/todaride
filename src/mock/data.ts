@@ -13026,6 +13026,22 @@ export const MOCK_MEDICINE_PRODUCTS: MedicineProduct[] = [
 // 'otc' so CREATE_MEDS_ORDER's Rx-prescription check never fires on a food
 // order; `menuCategory`/`photoDataUrl` are what actually organize a menu.
 export const MOCK_VENDOR_MENU_ITEMS: MedicineProduct[] = [
+  // Aling Nena's Carinderia — the eight dishes the old seed store (vendor-1)
+  // carried as menu-1…menu-8, restored 2026-09-18 under the store the owner
+  // registered herself. Removing that duplicate seed store on 2026-09-13 took
+  // its menu with it and never moved the dishes across, so the carinderia has
+  // sat in Food Express with nothing to order ever since.
+  //
+  // Filled in only while her menu is empty — see STARTER_MENU_VENDOR_IDS.
+  { id: 'menu-an-1', pharmacyId: 'pharm-1788670912139', name: 'Chicken Adobo', genericName: null, category: 'otc', price: 90, inStock: true, menuCategory: 'Ulam', photoDataUrl: '/food-photos/001-chicken-adobo.jpg', description: 'Classic Filipino adobo, tender and flavorful.', badge: 'best_seller' },
+  { id: 'menu-an-2', pharmacyId: 'pharm-1788670912139', name: 'Beef Kaldereta', genericName: null, category: 'otc', price: 110, inStock: true, menuCategory: 'Ulam', photoDataUrl: '/food-photos/041-beef-caldereta.jpg', description: 'Rich and savory kaldereta.', badge: 'popular' },
+  { id: 'menu-an-3', pharmacyId: 'pharm-1788670912139', name: 'Pork Sinigang', genericName: null, category: 'otc', price: 100, inStock: true, menuCategory: 'Ulam', photoDataUrl: '/food-photos/021-sinigang-na-baboy.jpg', description: 'Sour and comforting.', badge: 'must_try' },
+  { id: 'menu-an-4', pharmacyId: 'pharm-1788670912139', name: 'Fried Tilapia', genericName: null, category: 'otc', price: 80, inStock: true, menuCategory: 'Ulam', photoDataUrl: '/food-photos/062-pritong-tilapia.jpg', description: 'Crispy and delicious.', badge: 'favorite' },
+  { id: 'menu-an-5', pharmacyId: 'pharm-1788670912139', name: 'Plain Rice', genericName: null, category: 'otc', price: 15, inStock: true, menuCategory: 'Rice', photoDataUrl: '/food-photos/121-plain-rice.jpg' },
+  { id: 'menu-an-6', pharmacyId: 'pharm-1788670912139', name: 'Iced Tea', genericName: null, category: 'otc', price: 20, inStock: true, menuCategory: 'Drinks', photoDataUrl: '/food-photos/199-iced-tea.jpg' },
+  { id: 'menu-an-7', pharmacyId: 'pharm-1788670912139', name: 'Buko Juice', genericName: null, category: 'otc', price: 25, inStock: true, menuCategory: 'Drinks', photoDataUrl: '/food-photos/194-buko-juice.jpg' },
+  { id: 'menu-an-8', pharmacyId: 'pharm-1788670912139', name: 'Leche Flan', genericName: null, category: 'otc', price: 35, inStock: false, menuCategory: 'Dessert', photoDataUrl: '/food-photos/182-leche-flan.jpg' },
+
   { id: 'menu-9', pharmacyId: 'vendor-2', name: 'Pork BBQ (2 sticks)', genericName: null, category: 'otc', price: 60, inStock: true, menuCategory: 'Grill', photoDataUrl: null },
   { id: 'menu-10', pharmacyId: 'vendor-2', name: 'Chicken Inasal', genericName: null, category: 'otc', price: 95, inStock: true, menuCategory: 'Grill', photoDataUrl: null },
   { id: 'menu-11', pharmacyId: 'vendor-2', name: 'Sisig Rice Bowl', genericName: null, category: 'otc', price: 85, inStock: true, menuCategory: 'Rice Bowls', photoDataUrl: null },

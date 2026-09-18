@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { nextNavCamera, normalizeDegrees, type NavCameraState } from '../lib/navCamera'
+import { nextNavCamera, normalizeDegrees, shortestTurn, type NavCameraState } from '../lib/navCamera'
 import { markerBoxSize, markerHtml } from './mapMarkerHtml'
 import type { MapPoint, RealLiveMapProps } from './RealLiveMap'
 import type { GeoCoords } from '../types'
@@ -63,6 +63,14 @@ const TAP_SLOP_PX = 12
 const TAP_MAX_MS = 700
 
 type VectorLiveMapProps = RealLiveMapProps & {
+  // How this phone is moving, for a map that has no navigation camera of its
+  // own: the dashboard map, a booking map, any map at all. It only turns the
+  // map to face the way the device is travelling — it does not take the
+  // centre or the zoom over the way `nav` does, so the map still shows
+  // whatever the page framed, only the right way round.
+  //
+  // Ignored while `nav` is running, which already faces the road.
+  faceHeading?: { headingDegrees: number | null; speedMps: number | null } | null
   panLock?: { unlocked: boolean; onToggle: () => void }
   // Whether marker names are showing. Off by default: on a phone-sized map
   // the pills cover the roads they label.
@@ -142,6 +150,7 @@ export function VectorLiveMap({
   onPointDragEnd,
   height = '320px',
   nav,
+  faceHeading,
   showLabels,
   panLock,
   onFailed,
@@ -174,7 +183,11 @@ export function VectorLiveMap({
   // of a trip on a phone that has not granted location. Recenter has to work
   // for that camera too, not only the live-GPS one.
   const fitOverriddenRef = useRef(false)
-  const [everMoved, setEverMoved] = useState(false)
+  // Whether the viewer has moved the map at all. The Recenter button used to
+  // appear only once this was true; it shows at all times now (see
+  // showRecenter), and this is kept because the same flag is what the refit
+  // paths clear when they hand the frame back.
+  const [, setEverMoved] = useState(false)
   const [ready, setReady] = useState(false)
   const [camera, setCamera] = useState<NavCameraState>({ bearing: 0, pitch: 0, headingUp: false })
   // Off by default: a trip opens flat. It still turns to face the road either
@@ -441,6 +454,41 @@ export function VectorLiveMap({
     if (navOverriddenRef.current) return
     recenterOnNav()
   }, [ready, nav, nav?.center.lat, nav?.center.lng, camera.bearing, camera.pitch])
+
+  // Facing the road on a map that has no navigation camera — the driver's
+  // dashboard, a booking map, a map on any page at all.
+  //
+  // Judged by the same rules as the trip camera (see navCamera): nothing
+  // turns below walking pace, because a phone standing still reports a
+  // heading that swings through the whole compass. What is different is how
+  // little it does — it sets the bearing and nothing else, so the frame the
+  // page asked for, and anything the rider panned to, stay exactly as they
+  // are. Only the north arrow moves.
+  const faceBearingRef = useRef<number | null>(null)
+  const [facingHeadingUp, setFacingHeadingUp] = useState(false)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!ready || !map) return
+    if (nav || !faceHeading) {
+      // The trip camera owns the bearing, or there is no reading to face.
+      // The map keeps whichever way it is pointing rather than snapping to
+      // north, for the same reason the trip camera holds a stale bearing.
+      faceBearingRef.current = null
+      setFacingHeadingUp(false)
+      return
+    }
+    const next = nextNavCamera({
+      heading: faceHeading.headingDegrees,
+      speedMps: faceHeading.speedMps,
+      previousBearing: faceBearingRef.current,
+      enabled: true,
+    })
+    if (!next.headingUp) return
+    faceBearingRef.current = next.bearing
+    setFacingHeadingUp(true)
+    if (Math.abs(shortestTurn(map.getBearing(), next.bearing)) < 0.5) return
+    map.easeTo({ bearing: next.bearing, duration: 600, essential: true })
+  }, [ready, nav, faceHeading?.headingDegrees, faceHeading?.speedMps])
 
   // A changed signal hands the viewport back for one fit. The first run is
   // skipped: opening the map already fits, and clearing a flag that is still
@@ -805,7 +853,15 @@ export function VectorLiveMap({
   // Recenter heads the control column when it is showing, so the zoom
   // buttons, the pan lock and the compass label all step down under it —
   // one column, top to bottom, rather than a pill appearing mid-stack.
-  const showRecenter = everMoved && points.some((pt) => pt.id === 'pickup' || pt.id === 'dropoff' || pt.id === 'driver')
+  //
+  // Showing at all times, on every map. It used to appear only once the
+  // viewer had dragged a trip map out of frame (everMoved), which reads as a
+  // button that is missing when you want it: on the driver's dashboard, with
+  // no trip running, there was no way to get back to your own dot at all —
+  // and a rider who has just zoomed out to look around has to remember that
+  // panning is what brings the button back. It costs one small pill, and it
+  // is the control people reach for first on any map.
+  const showRecenter = nav != null || points.length > 0 || frameCoords.length > 0
   useEffect(() => {
     const ctrl = mapRef.current?.getContainer().querySelector<HTMLElement>('.maplibregl-ctrl-top-left')
     if (ctrl) ctrl.style.top = showRecenter ? '38px' : ''
@@ -841,9 +897,9 @@ export function VectorLiveMap({
 
       {/* Only while the camera is driving. On an ordinary north-up map this
           would be a piece of furniture explaining nothing. */}
-      {nav && (
+      {(nav || facingHeadingUp) && (
         <div className={`pointer-events-none absolute left-[48px] ${showRecenter ? 'top-[46px]' : 'top-2'} rounded-lg bg-white/92 px-2 py-1 text-[10px] font-semibold text-slate-700 shadow-sm`}>
-          {camera.headingUp ? '🧭 Facing your direction' : '🧭 Waiting for direction…'}
+          {nav && !camera.headingUp ? '🧭 Waiting for direction…' : '🧭 Facing your direction'}
         </div>
       )}
 

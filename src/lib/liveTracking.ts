@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { Geolocation } from '@capacitor/geolocation'
 import { haversineDistanceMeters } from './geo'
@@ -64,6 +64,56 @@ export function derivedMotion(
   const needed = Math.max(DERIVED_HEADING_MIN_METERS, (lastAccuracy ?? 0) + (nextAccuracy ?? 0))
   if (elapsed <= 0 || moved < needed) return { headingDegrees: null, speedMps: null }
   return { headingDegrees: bearingDegrees(last, next), speedMps: moved / elapsed }
+}
+
+// The last movement this device reported, wherever it was watched from.
+//
+// Every map now turns to face the way the phone is travelling, not only the
+// trip maps that are handed a navigation camera (see RealLiveMap's nav). A
+// map cannot ask for that direction itself without opening its own GPS
+// watch — a second permission prompt on a screen that never needed one, and
+// a second drain on the battery. So whichever watch the page already has
+// running publishes here, and every map on screen reads it.
+//
+// Nothing starts a watch for this: with no watch running there is simply no
+// reading, and the map stays north-up, which is what it did before.
+export interface DeviceMotion {
+  position: GeoCoords
+  headingDegrees: number | null
+  speedMps: number | null
+  at: number
+}
+
+let deviceMotion: DeviceMotion | null = null
+const deviceMotionListeners = new Set<() => void>()
+
+// Slower than the fixes arrive. A reading a second would re-render every map
+// on the page a second, and the bearing itself is smoothed (see navCamera),
+// so nothing is lost by telling the maps a little less often.
+const DEVICE_MOTION_PUBLISH_MS = 1000
+
+export function publishDeviceMotion(next: DeviceMotion) {
+  const last = deviceMotion
+  if (last && next.at - last.at < DEVICE_MOTION_PUBLISH_MS) return
+  deviceMotion = next
+  deviceMotionListeners.forEach((listener) => listener())
+}
+
+function subscribeDeviceMotion(listener: () => void): () => void {
+  deviceMotionListeners.add(listener)
+  return () => deviceMotionListeners.delete(listener)
+}
+
+function readDeviceMotion(): DeviceMotion | null {
+  return deviceMotion
+}
+
+export function readDeviceMotionForTests(): DeviceMotion | null {
+  return deviceMotion
+}
+
+export function useDeviceMotion(): DeviceMotion | null {
+  return useSyncExternalStore(subscribeDeviceMotion, readDeviceMotion, readDeviceMotion)
 }
 
 // Continuously watches the device's real GPS while enabled — the driver/
@@ -239,8 +289,13 @@ export function useWatchPosition(enabled: boolean): {
       // representation of that, and stops a caller reading -1 as reversing.
       // The phone's own figures come first (steadier, from the GNSS chip);
       // the derived ones only fill in when it gives none.
-      setSpeedMps(coords.speed != null && coords.speed >= 0 ? coords.speed : derived.speedMps)
-      setHeadingDegrees(coords.heading != null && coords.heading >= 0 ? coords.heading : derived.headingDegrees)
+      const nextSpeed = coords.speed != null && coords.speed >= 0 ? coords.speed : derived.speedMps
+      const nextHeading = coords.heading != null && coords.heading >= 0 ? coords.heading : derived.headingDegrees
+      setSpeedMps(nextSpeed)
+      setHeadingDegrees(nextHeading)
+      // Every map on the page faces the way this phone is going — see
+      // publishDeviceMotion.
+      publishDeviceMotion({ position: next, headingDegrees: nextHeading, speedMps: nextSpeed, at: now })
     }
 
     // Inside the installed app, go through Capacitor rather than the

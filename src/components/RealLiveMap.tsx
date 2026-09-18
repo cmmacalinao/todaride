@@ -4,6 +4,7 @@ import { MapContainer, Marker, Polygon, Polyline, TileLayer, Tooltip, useMap, us
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { googleMapsApiKey } from '../lib/googleMapsLoader'
+import { useDeviceMotion } from '../lib/liveTracking'
 import { GoogleLiveMap } from './GoogleLiveMap'
 import { markerBoxSize, markerHtml, type MarkerIcon } from './mapMarkerHtml'
 import { NavMapBoundary } from './NavMapBoundary'
@@ -15,6 +16,12 @@ import type { GeoCoords } from '../types'
 // first thing anybody sees is a login form with no map on it. Splitting lets
 // that screen paint while the map arrives behind it.
 const VectorLiveMap = lazy(() => import('./VectorLiveMap').then((m) => ({ default: m.VectorLiveMap })))
+
+// How old this phone's last movement reading may be and still turn a map.
+// Past it the map holds whichever way it is pointing rather than facing a
+// direction from ten minutes ago — the reading is stale, not wrong, so
+// snapping back to north would be its own small lie.
+const STALE_HEADING_MS = 30000
 
 // Fetches that chunk ahead of time, for a screen that knows a map is coming.
 //
@@ -740,6 +747,18 @@ export function RealLiveMap({ points, fill, overlayTop, overlayTopInline = false
   const routeAhead = routeSplit ? routeSplit.remaining : routeLine
   const routeBehind = routeSplit ? routeSplit.passed : undefined
 
+  // Which way this phone is travelling, for facing the map that way — see
+  // publishDeviceMotion. Whatever GPS watch the page already has running
+  // feeds it; this map starts none of its own, so a screen with no watch
+  // simply stays north-up as it always did. A trip's own nav camera wins:
+  // it faces the road already, and from the vehicle's position rather than
+  // the phone's.
+  const deviceMotion = useDeviceMotion()
+  const faceHeading =
+    nav || !deviceMotion || Date.now() - deviceMotion.at > STALE_HEADING_MS
+      ? null
+      : { headingDegrees: deviceMotion.headingDegrees, speedMps: deviceMotion.speedMps }
+
   // If the Google script fails to load (bad key, network block, CSP), fall
   // back to the OSM/Leaflet canvas instead of showing an empty map.
   const [googleFailed, setGoogleFailed] = useState(false)
@@ -976,6 +995,7 @@ export function RealLiveMap({ points, fill, overlayTop, overlayTopInline = false
               onPointDragEnd={onPointDragEnd}
               height={fullscreen || fill ? "100%" : height}
               nav={nav}
+              faceHeading={faceHeading}
               showLabels={false}
               // Offered everywhere except map-first booking — see
               // noLockNeeded above for why full screen keeps it.

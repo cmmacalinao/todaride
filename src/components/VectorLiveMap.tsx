@@ -542,11 +542,16 @@ export function VectorLiveMap({
   function refitBounds(target: typeof points = framed) {
     const map = mapRef.current
     if (!map) return
+    // Keep whichever way the map is pointing. fitBounds turns the map back to
+    // north unless it is told otherwise, which on a map that faces the road
+    // (see faceHeading) meant every Recenter tap spun it round — the one
+    // button whose whole job is to leave the view where the rider expects it.
+    const bearing = map.getBearing()
     if (frameCoords.length > 1) {
       // A street: the whole road on screen, not just its midpoint pin.
       const lineBounds = new maplibregl.LngLatBounds()
       frameCoords.forEach((p) => lineBounds.extend([p.lng, p.lat]))
-      map.fitBounds(lineBounds, { padding: FIT_PADDING, maxZoom: 17, duration: 400 })
+      map.fitBounds(lineBounds, { padding: FIT_PADDING, maxZoom: 17, duration: 400, bearing })
       return
     }
     if (target.length === 0) return
@@ -556,7 +561,7 @@ export function VectorLiveMap({
     }
     const bounds = new maplibregl.LngLatBounds()
     target.forEach((pt) => bounds.extend([pt.gps.lng, pt.gps.lat]))
-    map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: FIT_MAX_ZOOM, duration: 400 })
+    map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: FIT_MAX_ZOOM, duration: 400, bearing })
   }
 
   useEffect(() => {

@@ -14,9 +14,10 @@ import { BUSINESS_TYPE_LABELS } from '../types'
 // there the next time they log in, and their own Menu tab's Spreadsheet
 // tool still works exactly as before if they'd rather do it themselves.
 export function AdminMerchantMenuTool() {
-  const { pharmacies, medicineProducts, addMedicineProduct } = useRides()
+  const { pharmacies, medicineProducts, addMedicineProduct, removePharmacy } = useRides()
   const [selectedId, setSelectedId] = useState('')
   const [justAdded, setJustAdded] = useState(0)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const selected = pharmacies.find((p) => p.id === selectedId) ?? null
   const menu = selected ? medicineProducts.filter((p) => p.pharmacyId === selected.id) : []
@@ -55,6 +56,7 @@ export function AdminMerchantMenuTool() {
         onChange={(e) => {
           setSelectedId(e.target.value)
           setJustAdded(0)
+          setConfirmingDelete(false)
         }}
         className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs"
       >
@@ -85,6 +87,50 @@ export function AdminMerchantMenuTool() {
             defaultCategory={categories[0] ?? null}
             onAdd={handleAdd}
           />
+
+          {/* Removing a store outright. The app gained two copies of the same
+              carinderia — one seeded, one the owner registered themselves —
+              and there was no way to get rid of either: the action existed
+              (removePharmacy) with nothing to press. Asked twice, because the
+              store stops being listed for every customer and a store that is
+              merely closed for the day is the far more common thing to want. */}
+          <div className="space-y-1.5 rounded-lg border border-danger-200 bg-danger-50 p-2">
+            {!confirmingDelete ? (
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(true)}
+                className="text-[11px] font-semibold text-danger-700 underline"
+              >
+                🗑️ Delete this store
+              </button>
+            ) : (
+              <>
+                <p className="text-xs font-semibold text-danger-900">
+                  Delete {selected.name}? It disappears from Food Express for everyone, and its {menu.length} menu
+                  item{menu.length === 1 ? '' : 's'} go with it. This cannot be undone — to close a store for the day,
+                  use its own portal instead.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    removePharmacy(selected.id)
+                    setSelectedId('')
+                    setConfirmingDelete(false)
+                  }}
+                  className="w-full rounded-lg bg-danger-600 py-1.5 text-xs font-bold text-white hover:bg-danger-700"
+                >
+                  Yes, delete {selected.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  className="w-full rounded-lg border border-slate-300 bg-white py-1.5 text-xs font-semibold text-slate-700"
+                >
+                  Keep it
+                </button>
+              </>
+            )}
+          </div>
         </>
       )}
     </section>

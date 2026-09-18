@@ -12,10 +12,11 @@
 // registrant email is verified and the domain resolves again, change this one
 // line back; nothing else needs touching.
 //
-// todaride-pilot2 (2026-09-16), not the older todasaferide-pilot2, to match
-// the TODARide Mobility name. For now it is a separate Netlify site that
-// proxies everything to todasaferide-pilot2, so APKs installed before this
-// change — which still call the old address — keep working until they update.
+// todaride-pilot2, to match the TODARide Mobility name. It began (2026-09-16)
+// as a separate Netlify site proxying everything to the older
+// todasaferide-pilot2; since 2026-09-18 it is the site the app is deployed to
+// directly, and todasaferide is not used at all. An APK installed before that
+// still calls this same address, so nothing had to change here.
 //
 // Deliberately a lib module rather than a constant exported from
 // ShareAppPanel: otpApi and mayaApi need it too, and a lib importing from a

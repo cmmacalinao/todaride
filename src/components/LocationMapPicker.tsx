@@ -6,7 +6,6 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { RealLiveMap, type MapPoint } from './RealLiveMap'
 import { createCustomLocation, reverseGeocodeToPhAddress, type PhAddressTags } from '../lib/customLocation'
-import { getCurrentGeoPosition } from '../lib/geo'
 import { STREET_PIN_NOTE, streetLinesFor } from '../lib/streetPaths'
 import type { GeoCoords, MockLocation, Terminal } from '../types'
 
@@ -61,12 +60,13 @@ export function LocationMapPicker({
   // not the reader's to change.
   onClearPickup,
   onClearDropoff,
-  showGpsFor,
+
   terminals = [],
   extraPoints = [],
   onScanQr,
   toolbarAction,
   streetGuide = true,
+  pickupAutomatic = false,
 }: {
   mapFirst?: boolean
   sheetHeader?: () => ReactNode
@@ -156,6 +156,12 @@ export function LocationMapPicker({
   // pickup), an errand on the Deliver-to tab (you are standing where it
   // should be brought). Omit it and no button appears.
   showGpsFor?: 'pickup' | 'dropoff'
+  // The pickup is not the passenger's to set here — it is where their phone
+  // says they are, booking for themselves. Only the destination is asked
+  // for: one button under the map, the pin armed on it for good, and the
+  // pickup marker drawn but not draggable. Book for someone, Group Ride and
+  // PaDeliver leave this off, since there the pickup is somewhere else.
+  pickupAutomatic?: boolean
 
   // Ride booking calls these "Pickup"/"Destination"; a Pabili/Buy Medicine
   // errand calls them "Buy near to"/"Deliver to" instead — same map, same
@@ -168,9 +174,6 @@ export function LocationMapPicker({
   extraPoints?: MapPoint[]
 }) {
   const [status, setStatus] = useState<'idle' | 'locating' | 'error'>('idle')
-  // True once the Pickup tab has been tapped this visit — gates the GPS
-  // button under it (see there). Cleared by tapping Destination.
-  const [gpsRevealed, setGpsRevealed] = useState(false)
   // Set just before a placed/dragged pin is handed up: the caller answers
   // with a new location id, which flips refitSignal and would otherwise
   // re-centre the map on the spot — yanking the view out from under the
@@ -193,27 +196,21 @@ export function LocationMapPicker({
   // Down by default - see the note on bookingSheetSnap in PassengerPage. Any
   // screen with a map opens showing the map, not a panel covering it.
   const [internalSheetSnap, setInternalSheetSnap] = useState<SheetSnap>('peek')
+  // Where the map's centre pin is pointing right now — the map reports it as
+  // it slides underneath (see RealLiveMap's centerPin). Only a candidate:
+  // nothing is chosen until the button under the map is tapped.
+  const [centerGps, setCenterGps] = useState<GeoCoords | null>(null)
   const effectiveSnap = sheetSnap ?? internalSheetSnap
   const changeSnap = onSheetSnapChange ?? setInternalSheetSnap
-
-  // Switching Pickup/Destination scrolls this whole picker (toggle, GPS
-  // button, map) to the top of the screen — the passenger just told us
-  // which pin they're about to place, so the thing they need to see (and
-  // tap) should be the thing in front of them, not still off past whatever
-  // they'd scrolled down to.
-  // Switching ends changes which pin a tap moves. It does not move the
-  // page: this used to scroll the whole picker to the top of the screen,
-  // which yanked the map out from under whoever had just reached for a tab
-  // — and on Track my trip, where the map is being read rather than
-  // answered, that is the last thing it should do.
-  function selectTarget(next: 'pickup' | 'dropoff') {
-    onTargetChange(next)
-  }
 
   // `end` defaults to whichever pin is armed, which is what a tap on the map
   // means. A drag passes its own end instead: picking a marker up already
   // says which one it is, whatever the toggle happens to be set to.
-  async function placePin(gps: GeoCoords, end: 'pickup' | 'dropoff' = target) {
+  // The end a tap on the map, or the centre pin, sets. Always the
+  // destination when the pickup is where the phone is — see pickupAutomatic.
+  const armed: 'pickup' | 'dropoff' = pickupAutomatic ? 'dropoff' : target
+
+  async function placePin(gps: GeoCoords, end: 'pickup' | 'dropoff' = armed) {
     setStatus('locating')
     try {
       const { label, guess } = await reverseGeocodeToPhAddress(gps)
@@ -222,16 +219,6 @@ export function LocationMapPicker({
       if (end === 'pickup') onPinPickup(location, guess)
       else onPinDropoff(location, guess)
       setStatus('idle')
-    } catch {
-      setStatus('error')
-    }
-  }
-
-  async function useMyGpsHere() {
-    setStatus('locating')
-    try {
-      const coords = await getCurrentGeoPosition()
-      await placePin(coords)
     } catch {
       setStatus('error')
     }
@@ -397,64 +384,11 @@ export function LocationMapPicker({
             map-first the summary is the row above the map instead (see
             overlayTop). */}
         {!mapFirst && leadingAction && <div className="min-w-0 flex-1">{leadingAction}</div>}
-        {/* Hidden on the booking screen. There is one pin to place there —
-            the destination — so a pair of tabs choosing between two ends is
-            a control with nothing to choose. Every other screen that shares
-            this picker still shows them. */}
-        {!mapFirst && (
-        <div className="flex shrink-0 gap-1 rounded-lg bg-slate-100 p-1">
-          <button
-            type="button"
-            onClick={() => {
-              selectTarget('pickup')
-              setGpsRevealed(true)
-            }}
-            className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
-              // Both tabs stay in their pin's colour at all times — the colour
-              // is identity (which pin am I moving), not selection. Selection
-              // is the ring, so an unselected tab still tells you Pickup is
-              // its colour. Themeable (see theme.css) — teal in most themes,
-              // but a monochrome concept can move it onto the brand colour.
-              target === 'pickup'
-                ? 'bg-pickup-accent text-white shadow-sm ring-2 ring-pickup-accent ring-offset-1'
-                : 'bg-pickup-accent/85 text-white'
-            }`}
-          >
-            {pickupLabel}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              selectTarget('dropoff')
-              setGpsRevealed(false)
-            }}
-            className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
-              // dest-accent, not the reserved `danger` red — an SOS has to
-              // stay the only thing wearing that colour. Themeable (see
-              // theme.css) unlike the fixed pin colour on the map itself.
-              target === 'dropoff'
-                ? 'bg-dest-accent text-white shadow-sm ring-2 ring-dest-accent ring-offset-1'
-                : 'bg-dest-accent/85 text-white'
-            }`}
-          >
-            {dropoffLabel}
-          </button>
-        </div>
-        )}
+        {/* The Pickup / Destination tabs that used to sit here are gone. The
+            buttons under the map (see setFromCenter) each name the end they
+            set, so a pair of tabs choosing which end the next action means
+            was the same question asked twice, one row apart. */}
       </div>
-      {/* Directly under the Pickup tab, and only once that tab has actually
-          been tapped — pickup is the default target, so keying this on
-          `target` alone had it standing on screen from the first render. */}
-      {!mapFirst && showGpsFor === target && gpsRevealed && (
-        <button
-          type="button"
-          onClick={() => void useMyGpsHere()}
-          disabled={status === 'locating'}
-          className="w-full rounded-lg border border-gold-400/60 bg-gold-400/20 py-1.5 text-[11px] font-semibold text-brand-700 transition hover:bg-gold-400/40 disabled:opacity-60"
-        >
-          {status === 'locating' ? '📍 Locating…' : `📍 My GPS Location — set ${target === 'pickup' ? pickupLabel : dropoffLabel}`}
-        </button>
-      )}
       {belowTabs}
       {/* Directly under the two address strips, which is where the sheet is
           answering "where from, where to, go". The location status, Group
@@ -513,6 +447,44 @@ export function LocationMapPicker({
       </p>
     ) : null
 
+  // Sets an end to whatever the centre pin is over. Two buttons rather than
+  // one that follows the armed tab: with one, a passenger who has lined the
+  // map up has to notice which end it currently means, and switch tabs first
+  // if it is the wrong one — with the map already where they want it. Each
+  // button says the end it sets, so the map is lined up once and the choice
+  // is the tap itself. Tapping one also arms that end, so the pin's colour
+  // and any following tap on the map agree with what was just set.
+  function setEndFromCenter(end: 'pickup' | 'dropoff') {
+    if (!centerGps) return
+    onTargetChange(end)
+    void placePin(centerGps, end)
+  }
+
+  const setFromCenter = (
+    <div className="mt-1.5 flex gap-1.5">
+      {!pickupAutomatic && (
+      <button
+        type="button"
+        onClick={() => setEndFromCenter('pickup')}
+        disabled={!centerGps || status === 'locating'}
+        className="flex-1 rounded-lg bg-pickup-accent py-2 text-[11px] font-bold text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-300"
+      >
+        📍 Set {pickupLabel} here
+      </button>
+      )}
+      {/* Always offered: this button is how a destination gets chosen, so
+          it cannot wait on one having been chosen already (hasDropoff). */}
+      <button
+          type="button"
+          onClick={() => setEndFromCenter('dropoff')}
+          disabled={!centerGps || status === 'locating'}
+          className="flex-1 rounded-lg bg-dest-accent py-2 text-[11px] font-bold text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          🏁 Set {dropoffLabel} here
+        </button>
+    </div>
+  )
+
   const map = (
     <>
     {streetNote}
@@ -524,6 +496,17 @@ export function LocationMapPicker({
       // two lines twice.
       hideLegend
       onMapClick={(gps) => void placePin(gps)}
+      // The map is the pointer: a pin stands at the middle of the frame and
+      // the passenger slides the place they mean under its tip, then taps
+      // the button below to set it. Tapping the map still works and still
+      // places the armed pin — this is the way that survives a thumb, which
+      // covers the very corner it is trying to choose.
+      centerPin
+      // Teal while the pickup is armed, rose once it is the destination — the
+      // same two colours the pins themselves use, so the pointer says which
+      // end it is about to set without a word.
+      centerPinColor={armed === 'pickup' ? '#0d9488' : '#e11d48'}
+      onCenterChange={setCenterGps}
       refitSignal={streetEnd ? `${refitSignal}|street:${streetEnd}` : refitSignal}
       holdFit={holdNextFitRef.current}
       // Frame the pins once on open, then leave the view alone — the
@@ -562,9 +545,14 @@ export function LocationMapPicker({
       // Dragging is the correction for a tap that landed a street out: far
       // quicker than re-arming the end and tapping again, and it says which
       // pin it means by which one the finger is on.
-      draggableIds={[...(pickup.gps ? ['pickup'] : []), ...(hasDropoff && dropoff.gps ? ['dropoff'] : [])]}
+      draggableIds={[...(pickup.gps && !pickupAutomatic ? ['pickup'] : []), ...(hasDropoff && dropoff.gps ? ['dropoff'] : [])]}
       onPointDragEnd={(id, gps) => void placePin(gps, id === 'pickup' ? 'pickup' : 'dropoff')}
     />
+    {/* Only where the map sits in the page. In map-first layout the map fills
+        its box and the booking sheet is drawn over it, so a button appended
+        underneath would land outside the frame; there it rides in the
+        sheet's own footer instead (see mapFooter). */}
+    {!mapFirst && setFromCenter}
     </>
   )
 

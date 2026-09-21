@@ -117,6 +117,22 @@ export interface RealLiveMapProps {
   // tapped coordinate instead of (or alongside) the read-only live-tracking
   // display. Absent for plain tracking views (TripMonitor).
   onMapClick?: (gps: GeoCoords) => void
+  // Turns the map itself into the pointer: a pin fixed at the middle of the
+  // frame with the map sliding underneath it, so a place is chosen by
+  // bringing it under the pin's tip rather than by hitting it with a
+  // fingertip. Kinder on a phone — a thumb covers the very spot it is aiming
+  // at, and a street corner is about as wide as the finger choosing it.
+  //
+  // The map only draws the pin and says where its tip is; what "choose"
+  // means, and the button that says so, belong to the caller.
+  centerPin?: boolean
+  // What colour that pin is drawn in — the picker passes the colour of the
+  // end it is about to set, so the pin itself says whether the next tap
+  // moves the pickup or the destination. Defaults to the pickup teal.
+  centerPinColor?: string
+  // Where the pin's tip is, as the map moves under it. Fires while dragging
+  // and again once it settles.
+  onCenterChange?: (gps: GeoCoords) => void
   // Lets a marker itself be the "pick this one" control (e.g. tapping a
   // pharmacy pin selects it, same as tapping its row in the list below) —
   // fires with that point's id. Independent of onMapClick, which fires for
@@ -737,7 +753,7 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, fill, overlayTop, overlayTopInline = false, overlayBottom, onFullscreenChange, routeLine, progressPointId, hintLine, streetLines, frameLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker, detailsBar, fullscreenBottomInset }: RealLiveMapProps) {
+export function RealLiveMap({ points, centerPin, centerPinColor, onCenterChange, fill, overlayTop, overlayTopInline = false, overlayBottom, onFullscreenChange, routeLine, progressPointId, hintLine, streetLines, frameLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker, detailsBar, fullscreenBottomInset }: RealLiveMapProps) {
   // The driven-so-far / still-ahead split of the route, if there is a
   // vehicle to measure it by. Only for a real road path: a dashed
   // straight-line placeholder has no "behind" worth drawing.
@@ -841,7 +857,13 @@ export function RealLiveMap({ points, fill, overlayTop, overlayTopInline = false
   // it — leaving it hidden made the booking map the one screen in the app
   // where full screen still had no palm, for a conflict that was no longer
   // on screen.
-  const noLockNeeded = !!fill && !fullscreen
+  //
+  // A centre-pin picker has no lock at all, and moves freely from the start.
+  // The map is how that picker is operated — the place is chosen by sliding
+  // it under the pin — so a lock that has to be undone first is a step
+  // between the passenger and the only thing the map is for, and the palm
+  // that undoes it is one more control on a map that already carries the pin.
+  const noLockNeeded = (!!fill && !fullscreen) || !!centerPin
   const locked = frozen || (!unlocked && !noLockNeeded)
   const body = (
     // relative z-0 makes this its own stacking context. Leaflet gives its
@@ -996,6 +1018,9 @@ export function RealLiveMap({ points, fill, overlayTop, overlayTopInline = false
               height={fullscreen || fill ? "100%" : height}
               nav={nav}
               faceHeading={faceHeading}
+              centerPin={centerPin}
+              centerPinColor={centerPinColor}
+              onCenterChange={onCenterChange}
               showLabels={false}
               // Offered everywhere except map-first booking — see
               // noLockNeeded above for why full screen keeps it.

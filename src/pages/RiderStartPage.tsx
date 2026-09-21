@@ -67,10 +67,10 @@ export function RiderStartPage() {
             Order/PaDeliver Store screens, which have no equivalent tile
             list of their own once you're inside them. */}
 
-        <div>
-          <h1 className="text-lg font-bold text-white">3 ways to get what you need</h1>
-          <p className="text-xs text-white/50">Pick one — you can always switch.</p>
-        </div>
+        {/* No heading over the tiles. "3 ways to get what you need" and the
+            line under it described what a passenger can already see — three
+            named tiles — and cost the screen two lines before the first
+            thing you can tap. */}
 
         {/* Book a Ride. Track Your Trip/Safety Feature used to be folded in
             right here, but that put it in front of someone who hasn't
@@ -80,88 +80,85 @@ export function RiderStartPage() {
         <button
           type="button"
           onClick={() => navigate('/book')}
-          className="flex w-full items-center gap-3 rounded-xl border-2 border-gold-400 bg-white/5 p-4 text-left shadow-sm transition hover:bg-white/10"
+          className="flex w-full items-center gap-3 rounded-xl border border-gold-400 bg-white p-4 text-left shadow-sm transition hover:bg-gold-50"
         >
-          {/* A gold backdrop, same as the tricycle's map-marker treatment
-              (see mapMarkerHtml.ts) — the icon is drawn navy-on-gold for
-              contrast against a map, and this tile's own background is
-              dark navy too, so without one it all but disappears into it. */}
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-400 p-1.5">
+          {/* The drawn tricycle, in the logo's green with the app's yellow
+              (see TricycleIcon). A crop of the logo file itself was tried
+              here first and lost: at 48px the photograph-style mark brings
+              the road swoosh and the pin in with the vehicle, and shrinking
+              it further to exclude them leaves a tricycle too small to make
+              out. A drawing keeps its shape at any size, which is the whole
+              reason icons are drawn. */}
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center">
             <TricycleIcon className="h-full w-full" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-base font-bold text-gold-400">BOOK A RIDE</span>
-            <span className="block text-xs text-white/60">
+            <span className="block text-base font-bold text-slate-900">BOOK A RIDE</span>
+            <span className="block text-xs text-slate-700">
               Set where you are and where you are going. We find you the nearest driver.
             </span>
           </span>
-          <span aria-hidden className="text-xl text-white/40">›</span>
+          <span aria-hidden className="text-xl text-slate-500">›</span>
         </button>
 
-        {/* Food Order — prepared food from a partner resto's own priced
-            menu (VendorMenuBooking, resto_food catalog). Same shape as Book
-            a Ride's tile: an icon disc, a title, a one-line explainer. */}
-        {vendorCatalogsAvailable && (
-          <button
-            type="button"
-            onClick={() => navigate('/book', { state: { section: 'food' } })}
-            className="flex w-full items-center gap-3 rounded-xl border border-white/20 bg-white/5 p-4 text-left shadow-sm transition hover:bg-white/10"
-          >
-            <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-400 text-xl leading-none">
-              🍽️
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-base font-bold text-gold-400">FOOD ORDER</span>
-              <span className="block text-xs text-white/60">
-                Order cooked meals straight from a partner resto's own menu — delivered by your driver.
+        {/* Food Order and PaDeliver share one row — two columns, not two
+            full-width bands under Book a Ride.
+            Book a Ride keeps the whole width above them: it is the service
+            this app is for, and these two are the other things it can also
+            do. Side by side they are visibly a pair, and both stay on the
+            first screen of a phone instead of the second.
+            Stacked in their own cards they each read top-to-bottom now —
+            icon, name, one line — because a name beside an icon inside half
+            a phone's width has no room left for the line that explains it. */}
+        <div className={vendorCatalogsAvailable ? 'grid grid-cols-2 items-stretch gap-2' : ''}>
+          {/* Food Order — prepared food from a partner resto's own priced
+              menu (VendorMenuBooking, resto_food catalog). */}
+          {vendorCatalogsAvailable && (
+            <button
+              type="button"
+              onClick={() => navigate('/book', { state: { section: 'food' } })}
+              className="flex h-full w-full flex-col items-start gap-1.5 rounded-xl border border-gold-400 bg-white p-3 text-left shadow-sm transition hover:bg-gold-50"
+            >
+              {/* A photograph of food, from the same catalog the menus draw
+                  their dishes from — a real plate of tapsilog rather
+                  than the plate-and-cutlery emoji, which on most phones is a
+                  grey place setting and looks like a table, not a meal. */}
+              <img
+                src="/food-photos/141-tapsilog.jpg"
+                alt=""
+                aria-hidden
+                className="h-12 w-12 shrink-0 rounded-lg object-cover"
+              />
+              <span className="block text-base font-bold text-slate-900">FOOD ORDER</span>
+              <span className="block text-xs text-slate-700">
+                Cooked meals from a partner resto's own menu — delivered by your driver.
               </span>
-            </span>
-            <span aria-hidden className="text-xl text-white/40">›</span>
-          </button>
-        )}
+            </button>
+          )}
 
-        {/* PaDeliver — goods, not people or meals: a marketplace Store
-            (priced other_commodity catalog, same VendorMenuBooking flow
-            Food Order uses, ending as its own 'vendor_order' ride) for the
-            store-to-door case, and Book a Delivery (its own 'padala' type —
-            no vendor catalog, no shopping list, just pickup -> dropoff) for
-            "I already have the item, just bring it" — see PassengerPage's
-            'goods_store'/'goods_delivery' section cases. Neither depends on
-            Pabili's freeform errand feature or its Super Admin switch;
-            Book a Delivery doesn't depend on any registered vendor either,
-            so it's offered even when Store isn't. */}
-        <div className="overflow-hidden rounded-xl border border-white/20 bg-white/5 shadow-sm">
+          {/* PaDeliver — goods, not people or meals: a marketplace Store
+              (priced other_commodity catalog, same VendorMenuBooking flow
+              Food Order uses, ending as its own 'vendor_order' ride) for the
+              store-to-door case, and Book a Delivery (its own 'padala' type —
+              no vendor catalog, no shopping list, just pickup -> dropoff) for
+              "I already have the item, just bring it" — see PassengerPage's
+              'goods_store'/'goods_delivery' section cases. Neither depends on
+              Pabili's freeform errand feature or its Super Admin switch;
+              Book a Delivery doesn't depend on any registered vendor either,
+              so it's offered even when Store isn't — and on its own it takes
+              the full width back. */}
           <button
             type="button"
             onClick={() => navigate('/book', { state: { section: 'goods_store' } })}
-            className="flex w-full items-center gap-2 border-b border-white/10 p-4 pb-3 text-left transition hover:bg-white/10"
+            className="flex h-full w-full flex-col items-start gap-1.5 rounded-xl border border-gold-400 bg-white p-3 text-left shadow-sm transition hover:bg-gold-50"
           >
-            <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-400 text-xl leading-none">
+            {/* Same treatment as Food Order's — see the note there. */}
+            <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center text-3xl leading-none">
               📦
             </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-base font-bold text-gold-400">PaDeliver</span>
-              <span className="block text-xs text-white/60">Goods — from a store's shelf, or straight from you.</span>
-            </span>
-            <span aria-hidden className="text-xl text-white/40">›</span>
+            <span className="block text-base font-bold text-slate-900">PaDeliver</span>
+            <span className="block text-xs text-slate-700">Goods — from a store's shelf, or straight from you.</span>
           </button>
-          <div className={`flex items-start gap-3 py-3 pl-14 pr-4 ${vendorCatalogsAvailable ? 'border-b border-white/10' : ''}`}>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-bold text-white">🛺 Book a Delivery</span>
-              <span className="block text-xs text-white/60">
-                Already have the package? Tell us where to pick it up and where it's going — your driver just
-                carries it, nothing to buy.
-              </span>
-            </span>
-          </div>
-          {vendorCatalogsAvailable && (
-            <div className="flex items-start gap-3 py-3 pl-14 pr-4">
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold text-white">🏬 Store Partners</span>
-                <span className="block text-xs text-white/60">Browse a partner store's own priced catalog and check out.</span>
-              </span>
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -199,7 +196,7 @@ export function TrackYourTripCard() {
           <span className="block text-sm font-bold text-white">
             for your <span className="font-extrabold italic text-gold-400">SAFE</span> ride
           </span>
-          <span className="block text-xs text-white/60">
+          <span className="block text-xs text-slate-700">
             Already at the terminal, already in a tricycle? I-track ang biyahe mo.
           </span>
         </span>

@@ -1643,6 +1643,13 @@ export function PassengerPage() {
         hasDropoff={hasDestination}
         hasPickup={pickupChosen}
         pickupIsMyLocation={!isErrand && guestRider.bookingFor === 'self'}
+        // Booking a ride for yourself, the pickup is wherever your phone is —
+        // it is filled from GPS (see the pickup effect above) and the map only
+        // asks where you are going. Booking for someone else, a Group Ride and
+        // PaDeliver all start somewhere other than here, so those keep both
+        // ends. (Food Order never reaches this map: it asks for its single
+        // "Deliver to" inside its own checkout — see VendorMenuBooking.)
+        pickupAutomatic={!isErrand && guestRider.bookingFor === 'self' && !groupRideOpen}
         // Map-first on the booking screen: the map takes the height and the
         // From/Destination card rides over it in a draggable sheet. Not while
         // the Terminal panel has borrowed this map — that screen has its own
@@ -2186,14 +2193,12 @@ export function PassengerPage() {
               Set on Map
             </button>
             </div>
-            {/* A saved Home/School/Work is a destination as much as a place
-                to remember — pulled out from inside the (collapsed by
-                default) address panel so picking one doesn't first require
-                opening it. Still saves a new one from here too when nothing
-                is saved yet under a label; the row does both jobs either
-                way, only the heading below says which this is. Shown on an
-                errand too, not only a ride — see the comment this replaced. */}
-            {quickPlaceChips('dropoff')}
+            {/* The Home / School / Work / Address form chips that sat here are
+                gone (2026-09-21). The destination is chosen on the map now —
+                slide it under the centre pin, or search it from the Where to
+                bar or the map's Find Barangay box — and a row of four more
+                ways to say the same thing, directly under the bar, was the
+                busiest strip on the screen. */}
             {/* Only while there is something to put in it — the search lives
                 in the bar and the City row above it now, so with the address
                 form collapsed this panel used to render as an empty grey

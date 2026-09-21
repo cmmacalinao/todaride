@@ -62,6 +62,10 @@ const AHEAD_BIAS = 0
 const TAP_SLOP_PX = 12
 const TAP_MAX_MS = 700
 
+// The centre pin's default: the same teal the pickup marker wears, so the
+// pointer and the pin it is about to drop are the same colour.
+const PICKUP_PIN_COLOR = '#0d9488'
+
 type VectorLiveMapProps = RealLiveMapProps & {
   // How this phone is moving, for a map that has no navigation camera of its
   // own: the dashboard map, a booking map, any map at all. It only turns the
@@ -151,6 +155,9 @@ export function VectorLiveMap({
   height = '320px',
   nav,
   faceHeading,
+  centerPin,
+  centerPinColor = PICKUP_PIN_COLOR,
+  onCenterChange,
   showLabels,
   panLock,
   onFailed,
@@ -440,6 +447,27 @@ export function VectorLiveMap({
     })
     wasNavigatingRef.current = true
   }
+
+  // Where the centre pin's tip is, reported as the map slides under it.
+  //
+  // On 'move', not only 'moveend': the caller shows the address under the
+  // pin, and a label that only catches up once the finger lifts reads as a
+  // map that has stopped listening.
+  const onCenterChangeRef = useRef(onCenterChange)
+  onCenterChangeRef.current = onCenterChange
+  useEffect(() => {
+    const map = mapRef.current
+    if (!ready || !map || !centerPin) return
+    const report = () => {
+      const c = map.getCenter()
+      onCenterChangeRef.current?.({ lat: c.lat, lng: c.lng })
+    }
+    report()
+    map.on('move', report)
+    return () => {
+      map.off('move', report)
+    }
+  }, [ready, centerPin])
 
   useEffect(() => {
     if (!ready || !nav) {
@@ -875,6 +903,37 @@ export function VectorLiveMap({
   return (
     <div className="relative" style={{ height }}>
       <div ref={holderRef} className="h-full w-full" />
+
+      {/* The pointer: a pin nailed to the middle of the frame while the map
+          slides beneath it. Its tip — not its middle — sits exactly on the
+          map's centre coordinate, which is the coordinate reported above, so
+          what the pin appears to point at is what actually gets chosen.
+          That is what translate(-50%, -100%) buys: the art is centred
+          horizontally on the point and lifted to stand entirely above it.
+          A small ring is drawn at the point itself, because a pin alone
+          leaves people guessing whether it means the tip or the bulb.
+          Nothing here takes a tap: the map underneath has to keep every
+          drag, and the button that chooses belongs to the caller. */}
+      {centerPin && (
+        <div aria-hidden className="pointer-events-none absolute inset-0 z-[5]">
+          <div
+            className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
+            style={{ backgroundColor: centerPinColor }}
+          />
+          <svg
+            viewBox="0 0 24 34"
+            className="absolute left-1/2 top-1/2 h-9 w-9 -translate-x-1/2 -translate-y-full drop-shadow-md"
+          >
+            <path
+              d="M12 33.5C12 33.5 22 20.6 22 12.3 22 6.2 17.5 1.5 12 1.5S2 6.2 2 12.3c0 8.3 10 21.2 10 21.2z"
+              fill={centerPinColor}
+              stroke="#ffffff"
+              strokeWidth="2"
+            />
+            <circle cx="12" cy="12.3" r="3.6" fill="#ffffff" />
+          </svg>
+        </div>
+      )}
 
       {panLock && (
         <button

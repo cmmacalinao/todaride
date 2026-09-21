@@ -490,7 +490,7 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
           {/* The shield, same as the footer's Safety tile: this opens the
             same screen — call 911, family, the TODA, hotlines. */}
         <span className="text-base leading-none">🛡️</span>
-          <span className="text-[11px] font-semibold">{openSosForMe ? 'Sent' : safetySettings.sosAlertsEnabled ? 'SOS' : 'Help'}</span>
+          <span className="text-[11px] font-semibold">{openSosForMe ? 'Sent' : safetySettings.sosAlertsEnabled ? 'SOS' : 'Safety'}</span>
         </button>
       </div>
       {emergencyOpen && currentPassengerId && (() => {

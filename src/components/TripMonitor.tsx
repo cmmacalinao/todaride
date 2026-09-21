@@ -856,7 +856,7 @@ export function TripMonitor({
         {/* The shield, same as the footer's Safety tile: this opens the
             same screen — call 911, family, the TODA, hotlines. */}
         <span className="text-base leading-none">🛡️</span>
-        <span className="text-[11px] font-semibold">{openSos ? 'Sent' : sosEnabled ? 'SOS' : 'Help'}</span>
+        <span className="text-[11px] font-semibold">{openSos ? 'Sent' : sosEnabled ? 'SOS' : 'Safety'}</span>
       </button>
     </div>
   )
@@ -1082,7 +1082,7 @@ export function TripMonitor({
                 ✅ OK
               </button>
               <p className="text-center text-[11px] text-slate-500">
-                If something feels wrong, tap 🆘 {sosEnabled ? 'SOS' : 'Help'} on the trip screen.
+                If something feels wrong, tap 🛡️ {sosEnabled ? 'SOS' : 'Safety'} on the trip screen.
               </p>
             </div>
           </div>

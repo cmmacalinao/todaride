@@ -2101,7 +2101,7 @@ export function PassengerPage() {
             <button
               type="button"
               onClick={() => openAddressPicker('dropoff')}
-              className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg bg-dest-fill px-3 py-1.5 text-left shadow-sm filter transition hover:brightness-95 ${
+              className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-green-500/40 bg-green-500/15 px-3 py-1.5 text-left shadow-sm filter transition hover:brightness-95 ${
                 // pr-14 clears the swap control, which only exists when both
                 // ends are shown.
                 destinationOnly ? '' : 'pr-14'
@@ -2112,11 +2112,11 @@ export function PassengerPage() {
                   weight; a bold theme can instead make this a solid fill with
                   white text — same four roles (fill/text/subtext/dot), theme
                   decides which way they lean. See theme.css. */}
-              <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-dest-dot" />
+              <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-600" />
               <span className="min-w-0 flex-1">
                 <span
                   className={`block truncate text-sm ${
-                    hasDestination ? 'font-semibold text-dest-text' : 'font-normal text-dest-subtext/70'
+                    hasDestination ? 'font-semibold text-green-900' : 'font-normal text-green-800/70'
                   }`}
                 >
                   {/* The question the empty row asks stays on it once it is
@@ -2126,7 +2126,7 @@ export function PassengerPage() {
                       alone. */}
                   {hasDestination ? (
                     <>
-                      <span className="font-normal text-dest-subtext/80">
+                      <span className="font-normal text-green-800/80">
                         {isErrand ? 'Deliver to: ' : 'Where to: '}
                       </span>
                       {formatAddressLine(dropoff.label)}
@@ -2408,7 +2408,13 @@ export function PassengerPage() {
         </button>
         {[
           ...(rewardsEnabled ? [{ icon: '🎁', label: 'Rewards', tab: 'rewards' as const }] : []),
-          { icon: '🆘', label: 'Emergency', tab: 'emergency' as const },
+          // Safety, not SOS. The red SOS square read as an alarm button — the
+          // thing you press when it has already gone wrong — and an alarm is
+          // not what is behind it: the screen it opens is every way to reach
+          // help (911, family, the TODA, hotlines), which is worth opening on
+          // a calm day too. The emergency tab and everything in it is
+          // unchanged; only its door is renamed.
+          { icon: '🛡️', label: 'Safety', tab: 'emergency' as const },
         ].map((item) => (
           <button
             key={item.tab}
@@ -2417,20 +2423,30 @@ export function PassengerPage() {
               setPageTab(pageTab === item.tab ? 'book' : item.tab)
               revealFromTabs()
             }}
-            aria-label={item.label}
-            title={item.label}
+            aria-label={item.tab === 'emergency' ? 'Safety — emergency contacts' : item.label}
+            title={item.tab === 'emergency' ? 'Safety — emergency contacts' : item.label}
             aria-pressed={pageTab === item.tab}
-            // SOS is the one tile that must be hit first time in a panic, so
-            // it is a size up from the rest of the row.
-            className={`flex shrink-0 items-center justify-center rounded-lg border transition ${
-              item.tab === 'emergency' ? 'w-12 text-2xl' : 'w-9 text-base'
+            // Safety is still the one tile that must be found first time
+            // under stress, so it keeps the size up and carries its name,
+            // the same icon-over-word shape as Track your trip beside it.
+            className={`flex shrink-0 flex-col items-center justify-center rounded-lg border transition ${
+              item.tab === 'emergency' ? 'w-14 gap-0.5 py-1' : 'w-9 text-base'
             } ${
               pageTab === item.tab
                 ? 'border-gold-500 bg-gold-400 shadow-md'
                 : 'border-transparent bg-slate-100 hover:bg-slate-200'
             }`}
           >
-            {item.icon}
+            {item.tab === 'emergency' ? (
+              <>
+                <span aria-hidden className="text-[17px] leading-none">
+                  {item.icon}
+                </span>
+                <span className="text-[10px] font-bold leading-none text-slate-700">{item.label}</span>
+              </>
+            ) : (
+              item.icon
+            )}
           </button>
         ))}
       </div>

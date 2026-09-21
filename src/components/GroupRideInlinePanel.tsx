@@ -53,13 +53,12 @@ export function GroupRideInlinePanel({
   // Each rider's stop wears the same light, see-through green as Where to
   // and Set Destination here — it is a destination too, so it reads as one.
   return (
-    <section className="space-y-2 rounded-xl border border-slate-300 bg-white p-3 shadow-sm">
-      <div>
-        <p className="text-sm font-bold text-slate-800">👥 Group Ride</p>
-        <p className="text-[11px] text-slate-500">
-          One booking, everyone's own stop — pickup above is where the whole group boards.
-        </p>
-      </div>
+    // No heading of its own: it sits in the map's swipe-up sheet, whose
+    // header already says Group Ride and how many stops are set.
+    <section className="space-y-2 pt-1">
+      <p className="text-[11px] text-slate-500">
+        One booking, everyone's own stop — the whole group boards where you are.
+      </p>
 
       {hasActiveRide && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">

@@ -35,6 +35,7 @@ import { isInAppBrowser, openInBrowserHint } from '../lib/inAppBrowser'
 import { isWithinRetentionDays } from '../lib/tracking'
 import { SAVED_LOCATION_ICONS } from '../lib/savedLocations'
 import { dropOffOrder } from '../lib/groupStops'
+import { SwipePanel } from '../components/SwipePanel'
 import {
   createCustomLocation,
   resolvePhAddress,
@@ -268,6 +269,8 @@ export function PassengerPage() {
   // Whether the booking map has taken the whole screen — the Where to strip
   // moves onto it then (see destinationStrip).
   const [mapIsFullscreen, setMapIsFullscreen] = useState(false)
+  // Whether the Group Ride sheet on the map is pulled up.
+  const [groupSheetOpen, setGroupSheetOpen] = useState(true)
   const [groupRiders, setGroupRiders] = useState<GroupRiderEntry[]>([])
   const [groupPaySplit, setGroupPaySplit] = useState<'separate' | 'booker'>('separate')
   const [groupSubmitting, setGroupSubmitting] = useState(false)
@@ -1761,6 +1764,43 @@ export function PassengerPage() {
         // No centre pin or Set buttons once a ride is booked — see pinPicking.
         pinPicking={!activeRide}
         onFullscreenChange={setMapIsFullscreen}
+        mapHeight={groupRideOpen && !activeRide ? '460px' : undefined}
+        bottomPanel={
+          groupRideOpen && !activeRide
+            ? (fullscreen) => (
+                <SwipePanel
+                  open={groupSheetOpen}
+                  onOpenChange={setGroupSheetOpen}
+                  // Short enough in the page that the centre pin, halfway up
+                  // the map, is never under it.
+                  maxHeightClass={fullscreen ? 'max-h-[40vh]' : 'max-h-[170px]'}
+                  title={`👥 Group Ride · ${groupRiders.length} rider${groupRiders.length === 1 ? '' : 's'} · ${
+                    groupRiders.filter((r) => r.destination).length
+                  } of ${groupRiders.length} stops set`}
+                >
+                  <GroupRideInlinePanel
+                    riders={groupRiders}
+                    onAddRider={addGroupRider}
+                    onRemoveRider={removeGroupRider}
+                    onUpdateRider={updateGroupRider}
+                    onPickDestination={(key) => {
+                      // Out of the way of the pin while this stop is chosen.
+                      setGroupSheetOpen(false)
+                      handlePickGroupDestination(key)
+                    }}
+                    pickingForRiderKey={pickingForGroupRiderKey}
+                    stopNumbers={groupStopNumbers}
+                    paySplit={groupPaySplit}
+                    onPaySplitChange={setGroupPaySplit}
+                    fares={groupFares}
+                    totalFare={groupTotalFare}
+                    maxRiders={4}
+                    hasActiveRide={!!activeRide}
+                  />
+                </SwipePanel>
+              )
+            : undefined
+        }
         // Where to, in the map's top row beside Full screen, in place of the
         // pickup/destination lines (see whereToOnMap).
         toolbarStrip={
@@ -1768,7 +1808,9 @@ export function PassengerPage() {
         }
         // A delivery starts somewhere other than here, so its pickup is named
         // on the map too.
-        labelPickupOnMap={isErrand}
+        // Booking for someone else too: their pickup is somewhere other than
+        // this phone, so it is named on the map like the destination.
+        labelPickupOnMap={isErrand || guestRider.bookingFor === 'other'}
         // Full screen: choose the city up here, where the address lines were.
         fullscreenToolbar={cityRowFor('dropoff')}
         // Where to, at the top of the full-screen map, so a destination can
@@ -2266,24 +2308,8 @@ export function PassengerPage() {
             is Group Ride, so a button into Group Ride would be a door to
             the room you are already standing in. */}
         {addressCard(false)}
-        <GroupRideInlinePanel
-          riders={groupRiders}
-          onAddRider={addGroupRider}
-          onRemoveRider={removeGroupRider}
-          onUpdateRider={updateGroupRider}
-          onPickDestination={handlePickGroupDestination}
-          pickingForRiderKey={pickingForGroupRiderKey}
-          stopNumbers={groupStopNumbers}
-          paySplit={groupPaySplit}
-          onPaySplitChange={setGroupPaySplit}
-          fares={groupFares}
-          totalFare={groupTotalFare}
-          maxRiders={4}
-          hasActiveRide={!!activeRide}
-          canSubmit={groupCanSubmit}
-          onSubmit={submitGroupRide}
-          submitting={groupSubmitting}
-        />
+        {/* The Group Ride panel rides on the bottom of the map now, as a
+            swipe-up sheet - see bottomPanel on sharedMap. */}
         {sharedMap}
       </div>
     )

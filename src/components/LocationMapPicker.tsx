@@ -78,6 +78,8 @@ export function LocationMapPicker({
   pinPicking = true,
   labelPickupOnMap = false,
   toolbarStrip,
+  bottomPanel,
+  mapHeight,
   fullscreenToolbar,
   onFullscreenChange,
   fullscreenTop,
@@ -188,6 +190,12 @@ export function LocationMapPicker({
   // pickup/destination lines — the booking page puts its Where to strip
   // here, so the destination is asked for right where the map starts.
   toolbarStrip?: ReactNode
+  // A panel resting on the map's bottom edge (see SwipePanel) — Group Ride's
+  // riders. Told whether the map is full screen, so it can size itself.
+  bottomPanel?: (fullscreen: boolean) => ReactNode
+  // A taller map than the default, as a CSS length — Group Ride, whose
+  // sheet on the map would otherwise cover the centre pin.
+  mapHeight?: string
   // Shown in the map's top row, beside Close, while it is full screen — in
   // place of the pickup/destination lines, which the flags now carry.
   fullscreenToolbar?: ReactNode
@@ -581,6 +589,7 @@ export function LocationMapPicker({
       frameLines={streetEnd ? (streetEnd === 'dropoff' ? dropoffStreet : pickupStreet) ?? undefined : undefined}
       centerOn={myPosition}
       fill={mapFirst}
+      height={mapHeight}
       onFullscreenChange={(next) => {
         setMapFullscreen(next)
         onFullscreenChange?.(next)
@@ -616,8 +625,9 @@ export function LocationMapPicker({
       // left the centre pin with nothing to press. So in full screen they ride
       // along the bottom of the map itself.
       overlayBottom={(fullscreen) =>
-        (fullscreen && pinPicking) || mapFooter ? (
+        (fullscreen && pinPicking) || mapFooter || bottomPanel ? (
           <>
+            {bottomPanel?.(fullscreen)}
             {fullscreen && !mapFirst && pinPicking && (
               // A white card behind them: see-through buttons laid over the
               // map read the street names and the map credits through them.

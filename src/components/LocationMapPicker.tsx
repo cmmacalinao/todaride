@@ -383,7 +383,6 @@ export function LocationMapPicker({
             into the space beside the passenger counter — see below. In
             map-first the summary is the row above the map instead (see
             overlayTop). */}
-        {!mapFirst && leadingAction && <div className="min-w-0 flex-1">{leadingAction}</div>}
         {/* The Pickup / Destination tabs that used to sit here are gone. The
             buttons under the map (see setFromCenter) each name the end they
             set, so a pair of tabs choosing which end the next action means
@@ -400,9 +399,10 @@ export function LocationMapPicker({
           counter leaves empty, directly above the map it captions. */}
       {(!mapFirst || leadingAction || underMapAction) && (
         <div className="flex items-center justify-end gap-2">
-          {/* Right under Book a tricycle, beside the passenger counter — where
-              the passenger checks from/to just before booking. */}
-          {!mapFirst && <div className="min-w-0 flex-1">{summary}</div>}
+          {/* The from/to summary used to sit here, beside the passenger
+              counter. It rides in the map's own toolbar now, right of Full
+              screen (see overlayTop below), so the two addresses are read
+              where the map they describe starts. */}
           {mapFirst && leadingAction && <div className="min-w-0 flex-1">{leadingAction}</div>}
           {underMapAction && <div className="shrink-0">{underMapAction}</div>}
         </div>
@@ -533,8 +533,13 @@ export function LocationMapPicker({
             {summary}
             {sheetNote}
           </div>
-        ) : undefined
+        ) : (
+          summary
+        )
       }
+      // In the toolbar row, right of Full screen, rather than as its own row:
+      // two short lines that would otherwise spend a strip of a phone screen.
+      overlayTopInline={!mapFirst}
       overlayBottom={mapFooter ? () => mapFooter : undefined}
       // Draggable exactly when drawn — the same conditions the two points
       // above are built from, not the "has the passenger chosen one yet"
@@ -553,6 +558,10 @@ export function LocationMapPicker({
         underneath would land outside the frame; there it rides in the
         sheet's own footer instead (see mapFooter). */}
     {!mapFirst && setFromCenter}
+    {/* The booking button, straight under Set Destination here: set where
+        you are going, then go — the two steps one above the other, where the
+        thumb already is, rather than the button a whole map's height away. */}
+    {!mapFirst && leadingAction && <div className="mt-1.5">{leadingAction}</div>}
     </>
   )
 

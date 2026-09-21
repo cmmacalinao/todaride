@@ -1,7 +1,6 @@
 import { formatAddressLine } from '../lib/addressFormat'
 import { formatTripRoute } from '../lib/addressFormat'
 import { isVendorDeliveryRide, rideServiceTag } from '../lib/vendorOrders'
-import { TrackYourTripCard } from './RiderStartPage'
 import { useHeaderTabs } from '../context/HeaderSlotContext'
 import { PaDeliverSubTabs } from '../components/PaDeliverSubTabs'
 import { showInMiddle, showInMiddleWhenSettled } from '../lib/showInMiddle'
@@ -1596,6 +1595,43 @@ export function PassengerPage() {
     </details>
   )
 
+  // How many are riding. On the Where to row, beside the destination it
+  // goes with — it used to sit under Book a tricycle, a row away from the
+  // question it answers.
+  const passengerCounter = (
+      <span
+        className="flex items-center gap-1 rounded-lg bg-slate-100 px-1.5 py-1"
+        title={`Passengers riding — up to ${MAX_RIDE_PASSENGERS}${
+          tariffSettings.extraPassengerFee > 0
+            ? `, +₱${tariffSettings.extraPassengerFee} per rider beyond the first`
+            : ''
+        }`}
+      >
+        <span aria-hidden className="text-[11px]">
+          🧑
+        </span>
+        <button
+          type="button"
+          aria-label="One fewer passenger"
+          onClick={() => setPassengerCount((n) => Math.max(1, n - 1))}
+          disabled={passengerCount <= 1}
+          className="h-6 w-6 rounded-md border border-slate-300 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          −
+        </button>
+        <span className="w-4 text-center text-xs font-semibold text-slate-800">{passengerCount}</span>
+        <button
+          type="button"
+          aria-label="One more passenger"
+          onClick={() => setPassengerCount((n) => Math.min(MAX_RIDE_PASSENGERS, n + 1))}
+          disabled={passengerCount >= MAX_RIDE_PASSENGERS}
+          className="h-6 w-6 rounded-md border border-slate-300 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          +
+        </button>
+      </span>
+  )
+
   const sharedMap = (
     <div ref={bookingMapRef} className="scroll-mt-24">
       <LocationMapPicker
@@ -1639,25 +1675,12 @@ export function PassengerPage() {
         // the Terminal panel has borrowed this map — that screen has its own
         // layout and its own strip, and a sheet over it would be a second
         // panel arguing with the first.
-        // A landmark search right on the map's own button row, after Legend
-        // — the same box the Where to bar embeds, so a destination can be
-        // found from down here without scrolling back up to that bar.
         // The green street guide is for placing the pin; once Book a
         // tricycle is tapped there is a ride, and the line comes off.
         streetGuide={!activeRide}
-        toolbarAction={
-          <DestinationSearch
-            city={cityScope}
-            near={pickupGps ?? pickup.gps ?? null}
-            onSelect={handleDropoffLandmark}
-            barangayOnly
-            noMatchNote="Search for barangay and move the pin (dot) to the desired location."
-            placeholder="🔍 Find Barangay"
-            className="relative z-[80] w-36 sm:w-44"
-            resultsClassName="absolute left-0 top-full mt-1 w-72 max-h-64 overflow-y-auto"
-            inputClassName="map-toolbar-input w-full rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-600 placeholder:font-normal"
-          />
-        }
+        // No Find Barangay box in the map's toolbar any more — that spot shows
+        // the pickup and destination instead (see LocationMapPicker's
+        // overlayTop). Searching still lives in the Where to bar.
         mapFirst={mapFirstBooking}
         sheetHeader={mapFirstBooking && !tripUnderway ? () => addressCard(true, true) : undefined}
         sheetSnap={mapFirstBooking ? bookingSheetSnap : undefined}
@@ -1675,41 +1698,6 @@ export function PassengerPage() {
         terminals={terminals}
         extraPoints={groupRideOpen ? groupMapPoints : undefined}
         showGpsFor={isErrand ? 'dropoff' : 'pickup'}
-        underMapAction={
-          isErrand ? undefined : (
-            <span
-              className="flex items-center gap-1 rounded-lg bg-slate-100 px-1.5 py-1"
-              title={`Passengers riding — up to ${MAX_RIDE_PASSENGERS}${
-                tariffSettings.extraPassengerFee > 0
-                  ? `, +₱${tariffSettings.extraPassengerFee} per rider beyond the first`
-                  : ''
-              }`}
-            >
-              <span aria-hidden className="text-[11px]">
-                🧑
-              </span>
-              <button
-                type="button"
-                aria-label="One fewer passenger"
-                onClick={() => setPassengerCount((n) => Math.max(1, n - 1))}
-                disabled={passengerCount <= 1}
-                className="h-6 w-6 rounded-md border border-slate-300 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                −
-              </button>
-              <span className="w-4 text-center text-xs font-semibold text-slate-800">{passengerCount}</span>
-              <button
-                type="button"
-                aria-label="One more passenger"
-                onClick={() => setPassengerCount((n) => Math.min(MAX_RIDE_PASSENGERS, n + 1))}
-                disabled={passengerCount >= MAX_RIDE_PASSENGERS}
-                className="h-6 w-6 rounded-md border border-slate-300 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                +
-              </button>
-            </span>
-          )
-        }
         sheetNote={mapFirstBooking && !tripUnderway ? bookingDetailsBar : undefined}
         // Full screen shows the row above the map. Not while a ride is
         // active: the trip card below carries that ride's own row.
@@ -2152,6 +2140,7 @@ export function PassengerPage() {
               </span>
             </button>
             )}
+            {!isErrand && <div className="flex shrink-0 items-center">{passengerCounter}</div>}
             {/* The yellow "Set on Map" button beside Where to is gone
                 (2026-09-21): the map has a centre pin and its own Set
                 Destination button now, so arming the map from up here was a
@@ -2836,12 +2825,10 @@ export function PassengerPage() {
           )}
           </>
           )}
-          {/* Book a Ride's own safety feature — see TrackYourTripCard. Only
-              for a plain ride being booked right now: an errand/Padala/Meds
-              order has nothing to track yet, and once a ride is already
-              underway ActiveRideCard above is that tracking, so offering a
-              second way into it here would be redundant. */}
-          {serviceType === 'ride' && !tripUnderway && <TrackYourTripCard />}
+          {/* The Track Your Trip card that sat under the booking form is gone
+              (2026-09-21). The same screen stays one tap away from the
+              footer's Track your trip button, which every booking screen
+              already shows. */}
             </>
         </section>
       )}

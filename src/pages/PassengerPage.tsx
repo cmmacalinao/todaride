@@ -271,6 +271,9 @@ export function PassengerPage() {
   const [mapIsFullscreen, setMapIsFullscreen] = useState(false)
   // How far the Group Ride sheet on the map is pulled up — see SwipePanel.
   const [groupSheetLevel, setGroupSheetLevel] = useState<SwipeLevel>(1)
+  // True while the riders' stops are being set on the map one after another:
+  // the sheet is hidden entirely then, so the map and its pin are all there is.
+  const [groupSettingStops, setGroupSettingStops] = useState(false)
   const [groupRiders, setGroupRiders] = useState<GroupRiderEntry[]>([])
   const [groupPaySplit, setGroupPaySplit] = useState<'separate' | 'booker'>('separate')
   const [groupSubmitting, setGroupSubmitting] = useState(false)
@@ -914,15 +917,39 @@ export function PassengerPage() {
       gps: r.destination!.gps!,
       color: '#f97316',
       icon: 'dropoff' as const,
-      label: `${groupStopNumbers[r.key]} · ${r.name.trim() || 'Rider'}`,
+      // The stop number, whose it is, and where — the flag is the one place
+      // the rider's address is shown now.
+      label: `${groupStopNumbers[r.key]} · ${(r.name.trim() || 'Rider').split(' ')[0]} · ${formatAddressLine(r.destination!.label).split(',')[0].trim()}`,
       callout: true,
       alwaysLabel: true,
     }))
   const groupAllDestinationsSet = groupRiders.length > 0 && groupRiders.every((r) => !!r.destination)
+  // Once the last rider's stop is set, the sheet comes back up so the fares
+  // and the payment choice are in view before requesting.
+  const hadAllStopsRef = useRef(groupAllDestinationsSet)
+  useEffect(() => {
+    if (groupAllDestinationsSet && !hadAllStopsRef.current) {
+      setGroupSettingStops(false)
+      setGroupSheetLevel(1)
+    }
+    hadAllStopsRef.current = groupAllDestinationsSet
+  }, [groupAllDestinationsSet])
+  // The rider the centre pin is setting a stop for, and what to call them:
+  // their name, 'You' is their own name, and an unnamed rider is their number.
+  const groupPinRider = (() => {
+    const i = pickingForGroupRiderKey
+      ? groupRiders.findIndex((r) => r.key === pickingForGroupRiderKey)
+      : groupRiders.findIndex((r) => !r.destination)
+    if (i < 0) return null
+    const r = groupRiders[i]
+    const label = i === 0 && !r.isGuest ? r.name.trim() || 'You' : r.name.trim() || `Rider ${i + 1}`
+    return { key: r.key, label: label.split(' ')[0] }
+  })()
   const groupTotalFare = groupAllDestinationsSet ? groupFares.reduce((sum: number, f) => sum + (f ?? 0), 0) : null
-  const groupAllNamesSet = groupRiders.every((r) => r.name.trim().length > 0)
   const groupCanSubmit =
-    groupRiders.length >= 2 && groupAllDestinationsSet && groupAllNamesSet && !activeRide && !groupSubmitting
+    // Names are not required: a rider left unnamed goes on the booking as
+    // their number ("Rider 3"), the same way the map pin called them.
+    groupRiders.length >= 2 && groupAllDestinationsSet && !activeRide && !groupSubmitting
   function submitGroupRide() {
     if (!groupCanSubmit) return
     setGroupSubmitting(true)
@@ -934,7 +961,7 @@ export function PassengerPage() {
       paySplit: groupPaySplit,
       riders: [...groupRiders].sort((a, b) => (groupStopNumbers[a.key] ?? 99) - (groupStopNumbers[b.key] ?? 99)).map((r) => ({
         passengerId: r.passengerId,
-        passengerName: r.name.trim(),
+        passengerName: r.name.trim() || `Rider ${groupRiders.findIndex((x) => x.key === r.key) + 1}`,
         passengerPhone: r.isGuest ? r.phone.trim() || null : null,
         dropoff: r.destination!,
         isStudentRide: false,
@@ -1723,7 +1750,6 @@ export function PassengerPage() {
         onPinPickup={handlePinPickup}
         onPinDropoff={handlePinDropoff}
         pickupLabel={pickupLabel}
-        dropoffLabel={dropoffLabel}
         // City, pickup, destination, and (while Group Ride is open) how
         // many riders have a destination set yet — all choices that
         // should re-frame the map on the spot.
@@ -1765,8 +1791,12 @@ export function PassengerPage() {
         pinPicking={!activeRide}
         onFullscreenChange={setMapIsFullscreen}
         mapHeight={groupRideOpen && !activeRide ? '460px' : undefined}
+        // Whose stop the pin is setting: the rider picked, or else the next
+        // one still without a stop — their name, or their number if none.
+        centerPinLabel={groupRideOpen && groupPinRider ? groupPinRider.label : undefined}
+        dropoffLabel={groupRideOpen && groupPinRider ? `${groupPinRider.label}'s stop` : dropoffLabel}
         bottomPanel={
-          groupRideOpen && !activeRide
+          groupRideOpen && !activeRide && !groupSettingStops
             ? (fullscreen) => (
                 <SwipePanel
                   level={groupSheetLevel}
@@ -1792,6 +1822,12 @@ export function PassengerPage() {
                     }}
                     pickingForRiderKey={pickingForGroupRiderKey}
                     stopNumbers={groupStopNumbers}
+                    onSetStopsOnMap={() => {
+                      // From the first rider still without a stop.
+                      setPickingForGroupRiderKey(null)
+                      setMapTarget('dropoff')
+                      setGroupSettingStops(true)
+                    }}
                     paySplit={groupPaySplit}
                     onPaySplitChange={setGroupPaySplit}
                     fares={groupFares}

@@ -157,6 +157,7 @@ export function VectorLiveMap({
   faceHeading,
   centerPin,
   centerPinColor = PICKUP_PIN_COLOR,
+  centerPinLabel,
   onCenterChange,
   showLabels,
   panLock,
@@ -932,6 +933,17 @@ export function VectorLiveMap({
             />
             <circle cx="12" cy="12.3" r="3.6" fill="#ffffff" />
           </svg>
+          {/* Whose stop the pin is setting, on a pill above it — Group Ride
+              walks through the riders one at a time, and the name on the
+              pointer is what says which one the next Set is for. */}
+          {centerPinLabel && (
+            <span
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-bold text-white shadow-md"
+              style={{ backgroundColor: centerPinColor, transform: 'translate(-50%, -3.4rem)' }}
+            >
+              {centerPinLabel}
+            </span>
+          )}
         </div>
       )}
 

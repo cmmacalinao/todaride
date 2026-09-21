@@ -79,6 +79,7 @@ export function LocationMapPicker({
   labelPickupOnMap = false,
   toolbarStrip,
   bottomPanel,
+  centerPinLabel,
   mapHeight,
   fullscreenToolbar,
   onFullscreenChange,
@@ -193,6 +194,8 @@ export function LocationMapPicker({
   // A panel resting on the map's bottom edge (see SwipePanel) — Group Ride's
   // riders. Told whether the map is full screen, so it can size itself.
   bottomPanel?: (fullscreen: boolean) => ReactNode
+  // Shown on a pill above the centre pin — whose stop the next Set is for.
+  centerPinLabel?: string
   // A taller map than the default, as a CSS length — Group Ride, whose
   // sheet on the map would otherwise cover the centre pin.
   mapHeight?: string
@@ -579,6 +582,7 @@ export function LocationMapPicker({
       // under the map, so the pointer says which end it is about to set
       // without a word.
       centerPinColor={armed === 'pickup' ? '#dc2626' : '#16a34a'}
+      centerPinLabel={pinPicking ? centerPinLabel : undefined}
       onCenterChange={setCenterGps}
       refitSignal={streetEnd ? `${refitSignal}|street:${streetEnd}` : refitSignal}
       holdFit={holdNextFitRef.current}

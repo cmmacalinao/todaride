@@ -130,6 +130,8 @@ export interface RealLiveMapProps {
   // end it is about to set, so the pin itself says whether the next tap
   // moves the pickup or the destination. Defaults to the pickup teal.
   centerPinColor?: string
+  // A name shown on a pill above that pin — see VectorLiveMap.
+  centerPinLabel?: string
   // Where the pin's tip is, as the map moves under it. Fires while dragging
   // and again once it settles.
   onCenterChange?: (gps: GeoCoords) => void
@@ -762,7 +764,7 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, centerPin, centerPinColor, onCenterChange, fill, overlayTop, overlayTopInline = false, overlayBottom, onFullscreenChange, routeLine, progressPointId, hintLine, streetLines, frameLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker, detailsBar, fullscreenBottomInset, fullscreenTop, fullscreenSignal }: RealLiveMapProps) {
+export function RealLiveMap({ points, centerPin, centerPinColor, centerPinLabel, onCenterChange, fill, overlayTop, overlayTopInline = false, overlayBottom, onFullscreenChange, routeLine, progressPointId, hintLine, streetLines, frameLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker, detailsBar, fullscreenBottomInset, fullscreenTop, fullscreenSignal }: RealLiveMapProps) {
   // The driven-so-far / still-ahead split of the route, if there is a
   // vehicle to measure it by. Only for a real road path: a dashed
   // straight-line placeholder has no "behind" worth drawing.
@@ -1038,6 +1040,7 @@ export function RealLiveMap({ points, centerPin, centerPinColor, onCenterChange,
               faceHeading={faceHeading}
               centerPin={centerPin}
               centerPinColor={centerPinColor}
+              centerPinLabel={centerPinLabel}
               onCenterChange={onCenterChange}
               showLabels={false}
               // Offered everywhere except map-first booking — see

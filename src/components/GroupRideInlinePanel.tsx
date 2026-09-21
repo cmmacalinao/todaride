@@ -1,4 +1,3 @@
-import { formatAddressLine } from '../lib/addressFormat'
 import type { MockLocation } from '../types'
 
 export interface GroupRiderEntry {
@@ -21,9 +20,8 @@ export function GroupRideInlinePanel({
   onAddRider,
   onRemoveRider,
   onUpdateRider,
-  onPickDestination,
-  pickingForRiderKey,
   stopNumbers,
+  onSetStopsOnMap,
   paySplit,
   onPaySplitChange,
   fares,
@@ -35,11 +33,13 @@ export function GroupRideInlinePanel({
   onAddRider: () => void
   onRemoveRider: (key: string) => void
   onUpdateRider: (key: string, patch: Partial<GroupRiderEntry>) => void
-  onPickDestination: (key: string) => void
-  pickingForRiderKey: string | null
+  onPickDestination?: (key: string) => void
+  pickingForRiderKey?: string | null
   // Each rider's place in the drop-off order (1 = first off), for the ones
   // with a destination — see dropOffOrder.
   stopNumbers: Record<string, number>
+  // Starts setting every rider's stop on the map, one after another.
+  onSetStopsOnMap?: () => void
   paySplit: 'separate' | 'booker'
   onPaySplitChange: (split: 'separate' | 'booker') => void
   fares: (number | null)[]
@@ -56,9 +56,6 @@ export function GroupRideInlinePanel({
     // No heading of its own: it sits in the map's swipe-up sheet, whose
     // header already says Group Ride and how many stops are set.
     <section className="space-y-2 pt-1">
-      <p className="text-[11px] text-slate-500">
-        One booking, everyone's own stop — the whole group boards where you are.
-      </p>
 
       {hasActiveRide && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
@@ -108,31 +105,8 @@ export function GroupRideInlinePanel({
             ) : (
               <p className="mb-1.5 text-sm font-semibold text-slate-800">{rider.name}</p>
             )}
-            {rider.destination ? (
-              <button
-                type="button"
-                onClick={() => onPickDestination(rider.key)}
-                className="flex w-full items-center justify-between gap-2 rounded-lg border border-green-500/40 bg-green-500/15 px-2.5 py-1.5 text-left"
-              >
-                <span className="min-w-0 truncate text-sm font-semibold text-green-900">
-                  {formatAddressLine(rider.destination.label)}
-                </span>
-                <span className="shrink-0 text-[11px] text-green-800/80">Change</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onPickDestination(rider.key)}
-                aria-pressed={pickingForRiderKey === rider.key}
-                className={`w-full rounded-lg border border-dashed px-2.5 py-1.5 text-left text-sm font-medium transition ${
-                  pickingForRiderKey === rider.key
-                    ? 'border-green-500/60 bg-green-500/15 text-green-900'
-                    : 'border-green-500/60 text-green-700'
-                }`}
-              >
-                {pickingForRiderKey === rider.key ? '🏁 Move the map under the pin, then Set destination' : '🏁 Set destination'}
-              </button>
-            )}
+            {/* No stop line on the card: each rider's address is on their
+                numbered flag on the map, where the stop actually is. */}
             {fares[i] != null && (
               <p className="mt-1 text-[11px] text-slate-500">
                 {paySplit === 'booker' && rider.isGuest ? 'Covered by the booker' : `Fare: ₱${fares[i]}`}
@@ -149,6 +123,19 @@ export function GroupRideInlinePanel({
           className="w-full rounded-lg border border-dashed border-slate-300 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
         >
           + Add another rider
+        </button>
+      )}
+
+      {/* Names first, then this: the panel drops out of the way and the
+          centre pin walks through the riders, carrying each one's name (or
+          their number, if none was typed) until everyone has a stop. */}
+      {onSetStopsOnMap && riders.some((r) => !r.destination) && (
+        <button
+          type="button"
+          onClick={onSetStopsOnMap}
+          className="w-full rounded-lg border border-green-500/40 bg-green-500/15 py-2 text-sm font-bold text-green-900 transition hover:bg-green-500/25"
+        >
+          🏁 Set everyone's stop on the map
         </button>
       )}
 

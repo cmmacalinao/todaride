@@ -460,10 +460,17 @@ export function LocationMapPicker({
   // button says the end it sets, so the map is lined up once and the choice
   // is the tap itself. Tapping one also arms that end, so the pin's colour
   // and any following tap on the map agree with what was just set.
-  function setEndFromCenter(end: 'pickup' | 'dropoff') {
+  // Once an end is set, the pin moves on to the other one by itself — red
+  // for the pickup turns green for the destination, and back — so the
+  // pointer is always showing the next thing still to be chosen rather
+  // than the one just done. Only onto an end that is still empty; with both
+  // set it stays on the one just changed, ready for a correction.
+  async function setEndFromCenter(end: 'pickup' | 'dropoff') {
     if (!centerGps) return
     onTargetChange(end)
-    void placePin(centerGps, end)
+    await placePin(centerGps, end)
+    if (end === 'pickup' && !hasDropoff) onTargetChange('dropoff')
+    else if (end === 'dropoff' && !hasPickup && !pickupAutomatic) onTargetChange('pickup')
   }
 
   const setFromCenter = (
@@ -471,7 +478,7 @@ export function LocationMapPicker({
       {!pickupAutomatic && (
       <button
         type="button"
-        onClick={() => setEndFromCenter('pickup')}
+        onClick={() => void setEndFromCenter('pickup')}
         disabled={!centerGps || status === 'locating'}
         className="flex-1 rounded-lg border border-red-500/40 bg-red-500/15 py-2 text-[11px] font-bold text-red-900 shadow-sm transition hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-50"
       >
@@ -482,7 +489,7 @@ export function LocationMapPicker({
           it cannot wait on one having been chosen already (hasDropoff). */}
       <button
           type="button"
-          onClick={() => setEndFromCenter('dropoff')}
+          onClick={() => void setEndFromCenter('dropoff')}
           disabled={!centerGps || status === 'locating'}
           className="flex-1 rounded-lg border border-green-500/40 bg-green-500/15 py-2 text-[11px] font-bold text-green-900 shadow-sm transition hover:bg-green-500/25 disabled:cursor-not-allowed disabled:opacity-50"
         >

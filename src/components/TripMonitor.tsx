@@ -1,5 +1,6 @@
 import { formatAddressLine } from '../lib/addressFormat'
 import { isActiveAlert, passengerEmergencyContacts } from '../lib/safety'
+import { WaitingForDriverStrip } from './WaitingForDriverStrip'
 import { EmergencySheet } from './EmergencySheet'
 import { CrashPromptModal } from './CrashPromptModal'
 import { FarDriverDialog } from './FarDriverDialog'
@@ -1404,6 +1405,10 @@ export function TripMonitor({
           own copy of the numbers for the moment they are actually needed. */}
       {!driver && !isTerminal && ride.status === 'requested' && (
         <div className="space-y-1">
+          <WaitingForDriverStrip
+            requestedAt={ride.requestedAt}
+            offeredTo={drivers.find((d) => d.id === ride.priorityQueueOfferedDriverId)?.name ?? null}
+          />
           <p className="text-xs text-slate-500">
             Looking for a nearby driver…{' '}
             {(() => {

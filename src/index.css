@@ -129,3 +129,18 @@ body {
     font-size: 11px !important;
   }
 }
+
+/* WaitingForDriverStrip: the tricycle driving across its road, left to right,
+   again and again while a ride waits for a driver. Measured against the road
+   itself (left, not a transform percentage of the icon), so it covers the
+   whole strip on any screen width. */
+@keyframes waiting-driver-drive {
+  0% { left: -2.5rem; }
+  100% { left: 100%; }
+}
+.waiting-driver-drive {
+  animation: waiting-driver-drive 3.2s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .waiting-driver-drive { animation: none; left: 45%; }
+}

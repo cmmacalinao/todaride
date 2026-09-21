@@ -86,7 +86,7 @@ export function LandingPage() {
               under the mark that says TODA; the frame widens to fit it. */}
           <div className="flex flex-col items-center rounded-2xl border-2 border-white/25 px-4 pb-2.5 pt-3">
             <img src="/logo.png" alt="TODA Ride Mobility" className="h-20 w-auto object-contain" />
-            <p className="-mt-1 whitespace-nowrap text-center text-xs text-gold-400">
+            <p className="-mt-1 whitespace-nowrap text-center text-[18px] text-gold-400">
               Transport &amp; Opportunity Digital Access
             </p>
           </div>

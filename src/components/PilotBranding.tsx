@@ -44,7 +44,7 @@ export function PilotBranding({ name, compact, hideSubtitle }: { name: string; c
         </p>
         {!hideSubtitle && (
           <p
-            className={`mt-1 whitespace-nowrap text-center text-gold-400 ${compact ? 'text-[9px]' : 'text-xs'}`}
+            className={`mt-1 whitespace-nowrap text-center text-gold-400 ${compact ? 'text-[13.5px]' : 'text-[18px]'}`}
           >
             Transport &amp; Opportunity Digital Access
           </p>

@@ -34,6 +34,7 @@ import { getCurrentGeoPosition } from '../lib/geo'
 import { isInAppBrowser, openInBrowserHint } from '../lib/inAppBrowser'
 import { isWithinRetentionDays } from '../lib/tracking'
 import { SAVED_LOCATION_ICONS } from '../lib/savedLocations'
+import { dropOffOrder } from '../lib/groupStops'
 import {
   createCustomLocation,
   resolvePhAddress,
@@ -894,13 +895,25 @@ export function PassengerPage() {
   // passenger dots an active shared ride already shows each rider on their
   // own screen (see TripMonitor) — this is that same idea one step earlier,
   // before the ride even exists yet.
+  // The drop-off order: from the pickup, the nearest destination first, then
+  // the nearest to that — see dropOffOrder. The numbers on the map flags and
+  // on the rider cards are this order, and the riders are booked in it, so
+  // 1, 2, 3 is the route the tricycle actually takes.
+  const groupStopOrder = dropOffOrder(
+    pickupGps ?? pickup.gps ?? null,
+    groupRiders.filter((r) => r.destination?.gps).map((r) => ({ key: r.key, gps: r.destination!.gps! })),
+  )
+  const groupStopNumbers: Record<string, number> = Object.fromEntries(groupStopOrder.map((key, i) => [key, i + 1]))
   const groupMapPoints: MapPoint[] = groupRiders
     .filter((r) => r.destination?.gps)
     .map((r) => ({
       id: `group-${r.key}`,
       gps: r.destination!.gps!,
       color: '#f97316',
-      label: `${r.name || 'Rider'} — ${formatAddressLine(r.destination!.label)}`,
+      icon: 'dropoff' as const,
+      label: `${groupStopNumbers[r.key]} · ${r.name.trim() || 'Rider'}`,
+      callout: true,
+      alwaysLabel: true,
     }))
   const groupAllDestinationsSet = groupRiders.length > 0 && groupRiders.every((r) => !!r.destination)
   const groupTotalFare = groupAllDestinationsSet ? groupFares.reduce((sum: number, f) => sum + (f ?? 0), 0) : null
@@ -916,7 +929,7 @@ export function PassengerPage() {
       pickupGps,
       paymentMethod,
       paySplit: groupPaySplit,
-      riders: groupRiders.map((r) => ({
+      riders: [...groupRiders].sort((a, b) => (groupStopNumbers[a.key] ?? 99) - (groupStopNumbers[b.key] ?? 99)).map((r) => ({
         passengerId: r.passengerId,
         passengerName: r.name.trim(),
         passengerPhone: r.isGuest ? r.phone.trim() || null : null,
@@ -1187,8 +1200,13 @@ export function PassengerPage() {
     // A Group Ride rider's destination is being set on this same map —
     // route the tap into their row instead of the page's own dropoff, and
     // hand the map back to normal booking once it lands.
-    if (pickingForGroupRiderKey) {
-      const key = pickingForGroupRiderKey
+    // In Group mode with no rider picked, the map's Set destination fills
+    // the next rider still without one — so the stops can be set one after
+    // another straight from the map, in the order the riders were added.
+    const groupTarget =
+      pickingForGroupRiderKey ?? (groupRideOpen ? groupRiders.find((r) => !r.destination)?.key ?? null : null)
+    if (groupTarget) {
+      const key = groupTarget
       setGroupRiders((prev) => prev.map((r) => (r.key === key ? { ...r, destination: location } : r)))
       setPickingForGroupRiderKey(null)
       return
@@ -1606,6 +1624,11 @@ export function PassengerPage() {
     </div>
   )
 
+  // A plain ride being booked asks Where to in the map's own top row rather
+  // than in the card above it. Not on an errand (its form is different), not
+  // in Group Ride (each rider has their own stop), not once a ride is booked.
+  const whereToOnMap = !isErrand && !groupRideOpen && !activeRide
+
   // The Where to strip — tap it and it becomes the search, the way Grab and
   // Google Maps do. A function so the same strip can be drawn in the address
   // card or, while the map is full screen, at the top of the map.
@@ -1724,7 +1747,9 @@ export function PassengerPage() {
         // PaDeliver all start somewhere other than here, so those keep both
         // ends. (Food Order never reaches this map: it asks for its single
         // "Deliver to" inside its own checkout — see VendorMenuBooking.)
-        pickupAutomatic={!isErrand && guestRider.bookingFor === 'self' && !groupRideOpen}
+        // Group Ride as well: the whole group boards where the booker is, so
+        // the pickup is this phone's own position and only the stops are set.
+        pickupAutomatic={!isErrand && (guestRider.bookingFor === 'self' || groupRideOpen)}
         // Map-first on the booking screen: the map takes the height and the
         // From/Destination card rides over it in a draggable sheet. Not while
         // the Terminal panel has borrowed this map — that screen has its own
@@ -1736,6 +1761,11 @@ export function PassengerPage() {
         // No centre pin or Set buttons once a ride is booked — see pinPicking.
         pinPicking={!activeRide}
         onFullscreenChange={setMapIsFullscreen}
+        // Where to, in the map's top row beside Full screen, in place of the
+        // pickup/destination lines (see whereToOnMap).
+        toolbarStrip={
+          whereToOnMap ? <div className="flex min-w-0 flex-1 items-stretch">{destinationStrip(true)}</div> : undefined
+        }
         // A delivery starts somewhere other than here, so its pickup is named
         // on the map too.
         labelPickupOnMap={isErrand}
@@ -1744,7 +1774,7 @@ export function PassengerPage() {
         // Where to, at the top of the full-screen map, so a destination can
         // be searched without leaving it. Not once a ride is booked.
         fullscreenTop={
-          !activeRide && !isErrand ? (
+          whereToOnMap ? (
             <div className="relative flex items-stretch gap-1">{destinationStrip(true)}</div>
           ) : undefined
         }
@@ -1774,7 +1804,7 @@ export function PassengerPage() {
         detailsBar={activeRide ? undefined : bookingDetailsBar}
         sheetExtras={mapFirstBooking && !tripUnderway ? moreOptions : undefined}
         leadingAction={
-          tripUnderway ? null : (
+          tripUnderway || groupRideOpen ? null : (
             <div className="space-y-1">
               {pickupMissingNotice && (
                 <div className="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] leading-snug text-amber-800">
@@ -2116,6 +2146,14 @@ export function PassengerPage() {
                 they" first — first on its own the rest of the time, which
                 is most of the time: booking for yourself never shows the
                 row above this one. */}
+            {whereToOnMap ? (
+              // Where to lives in the map's top row now (see toolbarStrip); how
+              // many are riding keeps a small row of its own here.
+              <div className="mt-1 flex items-center justify-end gap-2">
+                <span className="text-[11px] font-medium text-slate-500">Passengers</span>
+                {passengerCounter}
+              </div>
+            ) : (
             <div className={guestRider.bookingFor === 'other' ? 'relative mt-1.5 flex items-stretch gap-1.5' : 'relative mt-1 flex items-stretch gap-1.5'}>
             {/* In full screen the strip rides at the top of the map instead
                 (see fullscreenTop) — one copy at a time, so its search box
@@ -2127,6 +2165,7 @@ export function PassengerPage() {
                 Destination button now, so arming the map from up here was a
                 second switch for something already switched on. */}
             </div>
+            )}
             {/* The Home / School / Work / Address form chips that sat here are
                 gone (2026-09-21). The destination is chosen on the map now —
                 slide it under the centre pin, or search it from the Where to
@@ -2219,6 +2258,7 @@ export function PassengerPage() {
           onUpdateRider={updateGroupRider}
           onPickDestination={handlePickGroupDestination}
           pickingForRiderKey={pickingForGroupRiderKey}
+          stopNumbers={groupStopNumbers}
           paySplit={groupPaySplit}
           onPaySplitChange={setGroupPaySplit}
           fares={groupFares}

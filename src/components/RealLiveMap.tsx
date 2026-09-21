@@ -921,7 +921,9 @@ export function RealLiveMap({ points, centerPin, centerPinColor, onCenterChange,
           wants the whole phone. The names are off by default because on a
           small map the pills cover the roads they are labelling; tapping
           shows them. */}
-      <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 bg-white px-2 py-1 text-[11px]">
+      {/* relative: a search box in this row (the booking page's Where to)
+          drops its matches the full width of the map, not just its own. */}
+      <div className="relative flex flex-wrap items-center gap-1 border-b border-slate-200 bg-white px-2 py-1 text-[11px]">
         <button
           type="button"
           onClick={() => setFullscreen((v) => !v)}

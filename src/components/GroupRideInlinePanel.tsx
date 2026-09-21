@@ -23,6 +23,7 @@ export function GroupRideInlinePanel({
   onUpdateRider,
   onPickDestination,
   pickingForRiderKey,
+  stopNumbers,
   paySplit,
   onPaySplitChange,
   fares,
@@ -39,6 +40,9 @@ export function GroupRideInlinePanel({
   onUpdateRider: (key: string, patch: Partial<GroupRiderEntry>) => void
   onPickDestination: (key: string) => void
   pickingForRiderKey: string | null
+  // Each rider's place in the drop-off order (1 = first off), for the ones
+  // with a destination — see dropOffOrder.
+  stopNumbers: Record<string, number>
   paySplit: 'separate' | 'booker'
   onPaySplitChange: (split: 'separate' | 'booker') => void
   fares: (number | null)[]
@@ -68,7 +72,16 @@ export function GroupRideInlinePanel({
         {riders.map((rider, i) => (
           <div key={rider.key} className="rounded-lg border border-slate-200 bg-slate-50/60 p-2.5">
             <div className="mb-1.5 flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold text-slate-700">{rider.isGuest ? `Rider ${i + 1}` : 'You'}</span>
+              <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
+                {/* The same number the rider's flag carries on the map: the order
+                    the tricycle drops everyone off in, nearest first. */}
+                {stopNumbers[rider.key] != null && (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-[11px] font-bold text-white">
+                    {stopNumbers[rider.key]}
+                  </span>
+                )}
+                {rider.isGuest ? `Rider ${i + 1}` : 'You'}
+              </span>
               {rider.isGuest && (
                 <button
                   type="button"
@@ -119,7 +132,7 @@ export function GroupRideInlinePanel({
                     : 'border-dest-accent text-dest-accent'
                 }`}
               >
-                {pickingForRiderKey === rider.key ? '🏁 Tap the map above to set it' : '🏁 Set destination'}
+                {pickingForRiderKey === rider.key ? '🏁 Move the map under the pin, then Set destination' : '🏁 Set destination'}
               </button>
             )}
             {fares[i] != null && (

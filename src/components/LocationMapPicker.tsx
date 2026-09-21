@@ -77,6 +77,7 @@ export function LocationMapPicker({
   pickupAutomatic = false,
   pinPicking = true,
   labelPickupOnMap = false,
+  toolbarStrip,
   fullscreenToolbar,
   onFullscreenChange,
   fullscreenTop,
@@ -183,6 +184,10 @@ export function LocationMapPicker({
   // Name the pickup on its marker as well as the destination — for a
   // delivery, where the pickup is a store or a sender somewhere else.
   labelPickupOnMap?: boolean
+  // Drawn in the map's top row, beside Full screen, in place of the
+  // pickup/destination lines — the booking page puts its Where to strip
+  // here, so the destination is asked for right where the map starts.
+  toolbarStrip?: ReactNode
   // Shown in the map's top row, beside Close, while it is full screen — in
   // place of the pickup/destination lines, which the flags now carry.
   fullscreenToolbar?: ReactNode
@@ -600,7 +605,7 @@ export function LocationMapPicker({
         ) : mapFullscreen && fullscreenToolbar ? (
           fullscreenToolbar
         ) : (
-          summary
+          toolbarStrip ?? summary
         )
       }
       // In the toolbar row, right of Full screen, rather than as its own row:

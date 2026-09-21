@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
-import { searchLandmarks } from '../lib/landmarkSearch'
+import { searchLandmarksNearCity } from '../lib/landmarkSearch'
 import { searchNearbyPlaces, resolveGooglePlaceGps, type PlaceSuggestion } from '../lib/geocode'
 import { LANDMARK_CATEGORY_ICONS } from '../types'
 import type { GeoCoords } from '../types'
@@ -91,8 +91,15 @@ export function DestinationSearch({
   // moment the box is tapped, before anything is typed.
   const [focused, setFocused] = useState(false)
   const pool = barangayOnly ? landmarks.filter((l) => l.id.startsWith('landmark-brgy-')) : landmarks
-  const scoped = city ? pool.filter((l) => l.city === city) : pool
-  const matches = searchLandmarks(query, scoped, near ?? null)
+  // The chosen city and the towns next to it — see searchLandmarksNearCity.
+  // The city's own places come first; a neighbour's follow, named with
+  // their town. A town further away needs the City picker changed first.
+  const matches = searchLandmarksNearCity(query, pool, city, near ?? null, 8, landmarks)
+  // Two results with the same name — the same barangay name in two towns is
+  // common (Poblacion, San Roque, Bagong Sikat) — are told apart by town.
+  const nameCount = new Map<string, number>()
+  for (const { landmark } of matches) nameCount.set(landmark.name, (nameCount.get(landmark.name) ?? 0) + 1)
+  const showTown = (l: { name: string; city: string }) => (!!city && l.city !== city) || (nameCount.get(l.name) ?? 0) > 1
 
   const [liveResults, setLiveResults] = useState<PlaceSuggestion[]>([])
   const [liveStatus, setLiveStatus] = useState<'idle' | 'loading' | 'done'>('idle')
@@ -177,7 +184,15 @@ export function DestinationSearch({
                 <span aria-hidden className="text-base leading-none">
                   {LANDMARK_CATEGORY_ICONS[landmark.category]}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">{landmark.name}</span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">
+                  {landmark.name}
+                  {showTown(landmark) && (
+                    <span className="font-normal text-slate-400">
+                      {landmark.id.startsWith('landmark-brgy-') ? ', ' : ' · '}
+                      {landmark.city}
+                    </span>
+                  )}
+                </span>
                 {distanceMeters != null && (
                   <span className="shrink-0 text-[11px] text-slate-400">{formatDistance(distanceMeters)}</span>
                 )}
@@ -221,12 +236,12 @@ export function DestinationSearch({
           <p className="mt-1 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-400">
             {noMatchNote ? (
               <>
-                No {barangayOnly ? 'barangay' : 'landmark'} matches "{trimmed}"{city ? ` in ${city}` : ''}
+                No {barangayOnly ? 'barangay' : 'landmark'} matches "{trimmed}"{city ? ` in ${city} or the towns next to it` : ''}
                 {shouldTryLive && liveStatus === 'done' ? ' and no nearby place found' : ''} — {noMatchNote}
               </>
             ) : (
               <>
-                No landmark matches "{trimmed}"{city ? ` in ${city}` : ''}
+                No landmark matches "{trimmed}"{city ? ` in ${city} or the towns next to it` : ''}
                 {shouldTryLive && liveStatus === 'done' ? ', and no nearby place found either' : ''} —{' '}
                 {onOpenAddressForm ? (
                   <button

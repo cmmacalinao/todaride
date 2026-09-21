@@ -93,3 +93,73 @@ export function searchLandmarks(
     .slice(0, limit)
   return scored.map(({ landmark, distanceMeters }) => ({ landmark, distanceMeters }))
 }
+
+// How far a town's centre may be from the chosen city's and still count as
+// its neighbour for searching. Town centres in Nueva Ecija sit roughly
+// 10–20 km apart, so this takes in the towns that actually border a city
+// (San Jose City: Muñoz, Lupao, Llanera, Rizal, Pantabangan, Carranglan)
+// and leaves out the ones a passenger would have to cross another town to
+// reach. Those need the City picker changed first: a search is "near here",
+// and a place two towns over sharing a name with one down the road is the
+// wrong answer far more often than the right one.
+export const NEARBY_CITY_RADIUS_METERS = 22_000
+
+// Each city's rough centre — the middle of its known landmarks. Worked out
+// from the landmarks themselves rather than kept as a second table of
+// coordinates, so a new town added to the gazetteer is placed automatically.
+const centreCache = new WeakMap<Landmark[], Map<string, GeoCoords>>()
+function cityCentres(landmarks: Landmark[]): Map<string, GeoCoords> {
+  const cached = centreCache.get(landmarks)
+  if (cached) return cached
+  const sums = new Map<string, { lat: number; lng: number; n: number }>()
+  for (const l of landmarks) {
+    if (!l.city) continue
+    const s = sums.get(l.city) ?? { lat: 0, lng: 0, n: 0 }
+    s.lat += l.gps.lat
+    s.lng += l.gps.lng
+    s.n += 1
+    sums.set(l.city, s)
+  }
+  const centres = new Map<string, GeoCoords>()
+  for (const [city, s] of sums) centres.set(city, { lat: s.lat / s.n, lng: s.lng / s.n })
+  centreCache.set(landmarks, centres)
+  return centres
+}
+
+// The towns next to `city` — see NEARBY_CITY_RADIUS_METERS. Never includes
+// the city itself.
+export function nearbyCities(city: string, landmarks: Landmark[], radiusMeters = NEARBY_CITY_RADIUS_METERS): string[] {
+  const centres = cityCentres(landmarks)
+  const home = centres.get(city)
+  if (!home) return []
+  return [...centres]
+    .filter(([other, centre]) => other !== city && haversineDistanceMeters(home, centre) <= radiusMeters)
+    .map(([other]) => other)
+}
+
+// A search across the chosen city and its neighbours: every match inside the
+// city first, then the neighbours', each group still in the order
+// searchLandmarks ranked it. A weaker match in town beats a better one a town
+// over — the city was picked for a reason.
+export function searchLandmarksNearCity(
+  query: string,
+  landmarks: Landmark[],
+  city: string | undefined,
+  near: GeoCoords | null,
+  limit = 8,
+  // Where town centres are worked out from. The full gazetteer, when the
+  // caller is searching a filtered slice of it (barangays only, say): the
+  // centres come out the same either way, and the full list is one stable
+  // array, so they are worked out once rather than on every keystroke.
+  allLandmarks: Landmark[] = landmarks,
+): LandmarkMatch[] {
+  if (!city) return searchLandmarks(query, landmarks, near, limit)
+  const scope = new Set([city, ...nearbyCities(city, allLandmarks)])
+  const ranked = searchLandmarks(
+    query,
+    landmarks.filter((l) => scope.has(l.city)),
+    near,
+    limit * 4,
+  )
+  return [...ranked.filter((m) => m.landmark.city === city), ...ranked.filter((m) => m.landmark.city !== city)].slice(0, limit)
+}

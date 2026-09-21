@@ -21,6 +21,7 @@ export type DrawerSection =
   | 'members'
   | 'dues'
   | 'report'
+  | 'map'
 
 export type DrawerRole = 'passenger' | 'parent' | 'driver' | 'pharmacy' | 'toda_admin' | 'admin' | 'operator_admin' | 'franchise_admin'
 

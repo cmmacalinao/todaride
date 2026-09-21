@@ -294,6 +294,14 @@ export function DriverPage() {
   // Which footer tab reads as current. Set by whichever route the driver
   // took — the hamburger drawer or the footer bar itself.
   const [footerSection, setFooterSection] = useState<DrawerSection | null>('home')
+  // Bumped by the footer's Map tab to open the driver's map full screen;
+  // back to 0 once it closes, so a map that mounts later does not reopen it.
+  const [mapFullscreenSignal, setMapFullscreenSignal] = useState(0)
+  const onMapFullscreenChange = (on: boolean) => {
+    if (on) return
+    setMapFullscreenSignal(0)
+    setFooterSection((s) => (s === 'map' ? 'home' : s))
+  }
 
   // One place that knows where each section lives on this page, so the
   // drawer and the bottom bar can't drift apart on where "Earnings" is.
@@ -315,6 +323,10 @@ export function DriverPage() {
       return
     }
     setDriverView('dashboard')
+    if (section === 'map') {
+      setMapFullscreenSignal(Date.now())
+      return
+    }
     switch (section) {
       case 'home':
         // With a trip live, Home is the way back to it — the footer's Trip
@@ -1119,7 +1131,7 @@ export function DriverPage() {
       <DriverFooterNav
         active={footerSection}
         onNavigate={goToSection}
-        requestCount={incoming.length}
+        requestCount={incomingJobs.length}
         showQueue={!!homeToda}
         tripActive={!!myActiveRide}
         contact={footerContact}
@@ -1618,6 +1630,8 @@ export function DriverPage() {
             onComplete={(paidMethod) => completeRide(myActiveRide.id, paidMethod)}
             extraPoints={sharedStopPoints}
             hintLine={sharedHintLine}
+            fullscreenSignal={mapFullscreenSignal}
+            onFullscreenChange={onMapFullscreenChange}
           />
         ) : (
           /* centerOn is deliberately not passed to the trip map below: while
@@ -1631,6 +1645,8 @@ export function DriverPage() {
               centerOn={myLiveGps}
               detailsBar={idleDetailsBar}
               fullscreenBottomInset={DRIVER_FOOTER_INSET}
+              fullscreenSignal={mapFullscreenSignal}
+              onFullscreenChange={onMapFullscreenChange}
             />
             {/* The same row a trip fills in, shown before there is one — it
                 does not appear and disappear as trips come and go. */}
@@ -1918,6 +1934,8 @@ function ActiveTripCard({
   extraPoints,
   hintLine,
   showMap = true,
+  fullscreenSignal,
+  onFullscreenChange,
 }: {
   rideId: string
   // Handed the driver's own fix, which becomes the pickup - see START_RIDE.
@@ -1929,6 +1947,9 @@ function ActiveTripCard({
   extraPoints?: MapPoint[]
   hintLine?: GeoCoords[]
   showMap?: boolean
+  // The footer's Map tab: opens this trip's map full screen.
+  fullscreenSignal?: number
+  onFullscreenChange?: (on: boolean) => void
 }) {
   const {
     rides,
@@ -2523,6 +2544,8 @@ function ActiveTripCard({
             nav={navCamera}
             detailsBar={tripDetailsBar}
             fullscreenBottomInset={DRIVER_FOOTER_INSET}
+            fullscreenSignal={fullscreenSignal}
+            onFullscreenChange={onFullscreenChange}
             // The map a driver is actually watching for the length of the
             // trip, not one sitting mid-page among other things to read —
             // the lock exists for that other case.

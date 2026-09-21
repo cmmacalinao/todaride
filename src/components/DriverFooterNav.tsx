@@ -15,6 +15,9 @@ import { ContactSheet } from './ContactSheet'
 // goToSection) rather than the page top.
 const DRIVER_TABS: { section: DrawerSection; icon: string; label: string }[] = [
   { section: 'home', icon: '🏠', label: 'Home' },
+  // The driver's map, straight to full screen — the trip's map while one is
+  // on, the area map between trips.
+  { section: 'map', icon: '🗺️', label: 'Map' },
   { section: 'requests', icon: '🚗', label: 'Requests' },
   { section: 'queue', icon: '🚏', label: 'Pila' },
   { section: 'earnings', icon: '💰', label: 'Earnings' },

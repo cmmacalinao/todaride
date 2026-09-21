@@ -35,7 +35,7 @@ import { isInAppBrowser, openInBrowserHint } from '../lib/inAppBrowser'
 import { isWithinRetentionDays } from '../lib/tracking'
 import { SAVED_LOCATION_ICONS } from '../lib/savedLocations'
 import { dropOffOrder } from '../lib/groupStops'
-import { SwipePanel } from '../components/SwipePanel'
+import { SwipePanel, type SwipeLevel } from '../components/SwipePanel'
 import {
   createCustomLocation,
   resolvePhAddress,
@@ -269,8 +269,8 @@ export function PassengerPage() {
   // Whether the booking map has taken the whole screen — the Where to strip
   // moves onto it then (see destinationStrip).
   const [mapIsFullscreen, setMapIsFullscreen] = useState(false)
-  // Whether the Group Ride sheet on the map is pulled up.
-  const [groupSheetOpen, setGroupSheetOpen] = useState(true)
+  // How far the Group Ride sheet on the map is pulled up — see SwipePanel.
+  const [groupSheetLevel, setGroupSheetLevel] = useState<SwipeLevel>(1)
   const [groupRiders, setGroupRiders] = useState<GroupRiderEntry[]>([])
   const [groupPaySplit, setGroupPaySplit] = useState<'separate' | 'booker'>('separate')
   const [groupSubmitting, setGroupSubmitting] = useState(false)
@@ -1769,11 +1769,13 @@ export function PassengerPage() {
           groupRideOpen && !activeRide
             ? (fullscreen) => (
                 <SwipePanel
-                  open={groupSheetOpen}
-                  onOpenChange={setGroupSheetOpen}
+                  level={groupSheetLevel}
+                  onLevelChange={setGroupSheetLevel}
                   // Short enough in the page that the centre pin, halfway up
                   // the map, is never under it.
-                  maxHeightClass={fullscreen ? 'max-h-[40vh]' : 'max-h-[170px]'}
+                  halfHeightClass={fullscreen ? 'max-h-[40vh]' : 'max-h-[170px]'}
+                  // All the way up: nearly the whole map, pin and all.
+                  fullHeightClass={fullscreen ? 'max-h-[72vh]' : 'max-h-[380px]'}
                   title={`👥 Group Ride · ${groupRiders.length} rider${groupRiders.length === 1 ? '' : 's'} · ${
                     groupRiders.filter((r) => r.destination).length
                   } of ${groupRiders.length} stops set`}
@@ -1785,7 +1787,7 @@ export function PassengerPage() {
                     onUpdateRider={updateGroupRider}
                     onPickDestination={(key) => {
                       // Out of the way of the pin while this stop is chosen.
-                      setGroupSheetOpen(false)
+                      setGroupSheetLevel(0)
                       handlePickGroupDestination(key)
                     }}
                     pickingForRiderKey={pickingForGroupRiderKey}

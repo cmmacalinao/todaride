@@ -1804,7 +1804,20 @@ export function PassengerPage() {
         detailsBar={activeRide ? undefined : bookingDetailsBar}
         sheetExtras={mapFirstBooking && !tripUnderway ? moreOptions : undefined}
         leadingAction={
-          tripUnderway || groupRideOpen ? null : (
+          tripUnderway ? null : groupRideOpen ? (
+            // Group Ride's Request button, under Set Destination here — where a
+            // single ride's Book a Ride is, in the page and in full screen alike.
+            (
+              <button
+                type="button"
+                disabled={!groupCanSubmit}
+                onClick={submitGroupRide}
+                className="w-full rounded-lg bg-brand-600 py-2 text-sm font-bold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+              >
+                Request Group Ride{groupRiders.length > 1 ? ` · ${groupRiders.length} riders` : ''}
+              </button>
+            )
+          ) : (
             <div className="space-y-1">
               {pickupMissingNotice && (
                 <div className="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] leading-snug text-amber-800">
@@ -2146,7 +2159,9 @@ export function PassengerPage() {
                 they" first — first on its own the rest of the time, which
                 is most of the time: booking for yourself never shows the
                 row above this one. */}
-            {whereToOnMap ? (
+            {/* Group Ride has no single destination — each rider has their own
+                stop in the panel below — so no Where to row at all there. */}
+            {groupRideOpen ? null : whereToOnMap ? (
               // Where to lives in the map's top row now (see toolbarStrip); how
               // many are riding keeps a small row of its own here.
               <div className="mt-1 flex items-center justify-end gap-2">

@@ -30,9 +30,6 @@ export function GroupRideInlinePanel({
   totalFare,
   maxRiders,
   hasActiveRide,
-  canSubmit,
-  onSubmit,
-  submitting,
 }: {
   riders: GroupRiderEntry[]
   onAddRider: () => void
@@ -49,10 +46,12 @@ export function GroupRideInlinePanel({
   totalFare: number | null
   maxRiders: number
   hasActiveRide: boolean
-  canSubmit: boolean
-  onSubmit: () => void
-  submitting: boolean
+  canSubmit?: boolean
+  onSubmit?: () => void
+  submitting?: boolean
 }) {
+  // Each rider's stop wears the same light, see-through green as Where to
+  // and Set Destination here — it is a destination too, so it reads as one.
   return (
     <section className="space-y-2 rounded-xl border border-slate-300 bg-white p-3 shadow-sm">
       <div>
@@ -114,12 +113,12 @@ export function GroupRideInlinePanel({
               <button
                 type="button"
                 onClick={() => onPickDestination(rider.key)}
-                className="flex w-full items-center justify-between gap-2 rounded-lg bg-dest-fill px-2.5 py-1.5 text-left"
+                className="flex w-full items-center justify-between gap-2 rounded-lg border border-green-500/40 bg-green-500/15 px-2.5 py-1.5 text-left"
               >
-                <span className="min-w-0 truncate text-sm font-semibold text-dest-text">
+                <span className="min-w-0 truncate text-sm font-semibold text-green-900">
                   {formatAddressLine(rider.destination.label)}
                 </span>
-                <span className="shrink-0 text-[11px] text-dest-subtext">Change</span>
+                <span className="shrink-0 text-[11px] text-green-800/80">Change</span>
               </button>
             ) : (
               <button
@@ -128,8 +127,8 @@ export function GroupRideInlinePanel({
                 aria-pressed={pickingForRiderKey === rider.key}
                 className={`w-full rounded-lg border border-dashed px-2.5 py-1.5 text-left text-sm font-medium transition ${
                   pickingForRiderKey === rider.key
-                    ? 'border-dest-accent bg-dest-fill text-dest-text'
-                    : 'border-dest-accent text-dest-accent'
+                    ? 'border-green-500/60 bg-green-500/15 text-green-900'
+                    : 'border-green-500/60 text-green-700'
                 }`}
               >
                 {pickingForRiderKey === rider.key ? '🏁 Move the map under the pin, then Set destination' : '🏁 Set destination'}
@@ -194,14 +193,8 @@ export function GroupRideInlinePanel({
         </div>
       </div>
 
-      <button
-        type="button"
-        disabled={!canSubmit || submitting}
-        onClick={onSubmit}
-        className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-bold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
-      >
-        Request Group Ride{riders.length > 1 ? ` · ${riders.length} riders` : ''}
-      </button>
+      {/* No Request button here: it sits under the map's Set Destination
+          here, where a single ride's Book a Ride is — see PassengerPage. */}
     </section>
   )
 }

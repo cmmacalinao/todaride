@@ -162,6 +162,19 @@ export function TripMonitor({
   // whoever needs it, without standing between everyone else and the answer.
   const [gotOffHelpOpen, setGotOffHelpOpen] = useState(false)
   const [customTipInput, setCustomTipInput] = useState('')
+  // Full screen, by itself, the moment a driver takes the ride. That is when
+  // the map starts to matter — a tricycle is now coming, and where it is is
+  // the whole question — and it is also the moment the phone is most likely
+  // in a pocket. Only on the change seen here (waiting, then accepted), not
+  // every time this screen opens on a ride already on its way, and never for
+  // someone watching (a parent at home) rather than riding.
+  const [acceptedSignal, setAcceptedSignal] = useState(0)
+  const lastStatusRef = useRef(ride.status)
+  useEffect(() => {
+    const was = lastStatusRef.current
+    lastStatusRef.current = ride.status
+    if (!watching && was === 'requested' && ride.status === 'driver_arriving') setAcceptedSignal((n) => n + 1)
+  }, [ride.status, watching])
   const {
     position: ownGps,
     error: ownGpsError,
@@ -1510,6 +1523,7 @@ export function TripMonitor({
             points={mapPoints}
             routeLine={routeLine}
             progressPointId="driver"
+            fullscreenSignal={acceptedSignal}
             // Both ends are settled on a trip screen; the pickup/destination
             // label reads them out, so no legend — it sits at the top instead.
             hideLegend

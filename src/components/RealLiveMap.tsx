@@ -269,6 +269,11 @@ export interface RealLiveMapProps {
   // screen puts its Where to strip here, so the destination can still be
   // searched once the map has covered the page it normally sits on.
   fullscreenTop?: ReactNode
+  // Opens full screen whenever this number changes to a new non-zero value —
+  // for a moment the caller knows the map is about to matter, rather than a
+  // standing "always full screen". The rider can still close it; it only
+  // reopens on the next change.
+  fullscreenSignal?: number
   // Height of a bar the page keeps pinned over the full-screen map at the
   // bottom (a CSS length, e.g. "4rem") — full screen leaves that much room.
   fullscreenBottomInset?: string
@@ -757,7 +762,7 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, centerPin, centerPinColor, onCenterChange, fill, overlayTop, overlayTopInline = false, overlayBottom, onFullscreenChange, routeLine, progressPointId, hintLine, streetLines, frameLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker, detailsBar, fullscreenBottomInset, fullscreenTop }: RealLiveMapProps) {
+export function RealLiveMap({ points, centerPin, centerPinColor, onCenterChange, fill, overlayTop, overlayTopInline = false, overlayBottom, onFullscreenChange, routeLine, progressPointId, hintLine, streetLines, frameLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker, detailsBar, fullscreenBottomInset, fullscreenTop, fullscreenSignal }: RealLiveMapProps) {
   // The driven-so-far / still-ahead split of the route, if there is a
   // vehicle to measure it by. Only for a real road path: a dashed
   // straight-line placeholder has no "behind" worth drawing.
@@ -800,6 +805,10 @@ export function RealLiveMap({ points, centerPin, centerPinColor, onCenterChange,
 
   // In an effect rather than in the button's onClick, so a caller is told
   // however the state changed.
+  useEffect(() => {
+    if (fullscreenSignal) setFullscreen(true)
+  }, [fullscreenSignal])
+
   useEffect(() => {
     onFullscreenChange?.(fullscreen)
     // eslint-disable-next-line react-hooks/exhaustive-deps

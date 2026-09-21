@@ -127,6 +127,43 @@ export function useRoute(origin: GeoCoords | null, destination: GeoCoords | null
   return route
 }
 
+// One road route through several stops in order — a Group Ride's pickup,
+// then each rider's stop in drop-off order. Built leg by leg from getRoute
+// (each leg cached on its own, so adding a fourth stop fetches one new leg,
+// not four), and joined into a single line. A leg the router cannot answer
+// is drawn straight, so the line still reaches every stop.
+export function useRouteThrough(stops: GeoCoords[]): RouteInfo | null {
+  const [route, setRoute] = useState<RouteInfo | null>(null)
+  const key = stops.map((s) => `${s.lat},${s.lng}`).join('|')
+
+  useEffect(() => {
+    if (stops.length < 2) {
+      setRoute(null)
+      return
+    }
+    let cancelled = false
+    void Promise.all(stops.slice(1).map((to, i) => getRoute(stops[i], to))).then((legs) => {
+      if (cancelled) return
+      const points: GeoCoords[] = []
+      let distanceMeters = 0
+      let durationSeconds = 0
+      legs.forEach((leg, i) => {
+        const legPoints = leg?.points ?? [stops[i], stops[i + 1]]
+        points.push(...(points.length ? legPoints.slice(1) : legPoints))
+        distanceMeters += leg?.distanceMeters ?? haversineDistanceMeters(stops[i], stops[i + 1])
+        durationSeconds += leg?.durationSeconds ?? 0
+      })
+      setRoute({ points, distanceMeters, durationSeconds })
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+
+  return route
+}
+
 // Walks a fraction t (0-1) along a multi-point route by cumulative real
 // distance rather than by point-index, so progress along a route with
 // unevenly-spaced points still reads as constant-speed travel.

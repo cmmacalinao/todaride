@@ -64,7 +64,15 @@ export function GroupRideInlinePanel({
       )}
 
       <div className="space-y-2">
-        {riders.map((rider, i) => (
+        {/* In route order: once stops are set the cards line up 1, 2, 3 —
+            the order the tricycle drops everyone off — and a rider still
+            without a stop stays after them, in the order they were added.
+            i is still the rider's own place in the list (Rider 2, their fare),
+            so sorting the cards never renames anyone. */}
+        {riders
+          .map((rider, i) => ({ rider, i }))
+          .sort((a, b) => (stopNumbers[a.rider.key] ?? 100 + a.i) - (stopNumbers[b.rider.key] ?? 100 + b.i))
+          .map(({ rider, i }) => (
           <div key={rider.key} className="rounded-lg border border-slate-200 bg-slate-50/60 p-2.5">
             <div className="mb-1.5 flex items-center justify-between gap-2">
               <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700">

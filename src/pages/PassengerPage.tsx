@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ETA_SECONDS_PER_LEG, errandBaseFare, useRides } from '../context/RideContext'
 import { AnnouncementFeed } from '../components/AnnouncementFeed'
-import { useRoute } from '../lib/routing'
+import { useRouteThrough, useRoute } from '../lib/routing'
 import { useSession } from '../context/SessionContext'
 import {
   CLSU_MAIN_GATE_LOCATION,
@@ -910,6 +910,24 @@ export function PassengerPage() {
     groupRiders.filter((r) => r.destination?.gps).map((r) => ({ key: r.key, gps: r.destination!.gps! })),
   )
   const groupStopNumbers: Record<string, number> = Object.fromEntries(groupStopOrder.map((key, i) => [key, i + 1]))
+  // The whole Group Ride on real roads: the pickup, then every stop in
+  // drop-off order — drawn on the map as the blue route line.
+  const groupRoute = useRouteThrough(
+    groupRideOpen
+      ? [
+          ...(pickupGps ?? pickup.gps ? [(pickupGps ?? pickup.gps)!] : []),
+          ...groupStopOrder.map((key) => groupRiders.find((r) => r.key === key)!.destination!.gps!),
+        ]
+      : [],
+  )
+  // What to call a rider on the pin and on their flag: their first name, or
+  // "Rider N" (their place in the list) when no name was typed — never cut
+  // down to a bare "Rider".
+  function groupRiderShortName(key: string): string {
+    const i = groupRiders.findIndex((x) => x.key === key)
+    const name = groupRiders[i]?.name.trim()
+    return name ? name.split(' ')[0] : `Rider ${i + 1}`
+  }
   const groupMapPoints: MapPoint[] = groupRiders
     .filter((r) => r.destination?.gps)
     .map((r) => ({
@@ -919,7 +937,7 @@ export function PassengerPage() {
       icon: 'dropoff' as const,
       // The stop number, whose it is, and where — the flag is the one place
       // the rider's address is shown now.
-      label: `${groupStopNumbers[r.key]} · ${(r.name.trim() || 'Rider').split(' ')[0]} · ${formatAddressLine(r.destination!.label).split(',')[0].trim()}`,
+      label: `${groupStopNumbers[r.key]} · ${groupRiderShortName(r.key)} · ${formatAddressLine(r.destination!.label).split(',')[0].trim()}`,
       callout: true,
       alwaysLabel: true,
     }))
@@ -942,8 +960,7 @@ export function PassengerPage() {
       : groupRiders.findIndex((r) => !r.destination)
     if (i < 0) return null
     const r = groupRiders[i]
-    const label = i === 0 && !r.isGuest ? r.name.trim() || 'You' : r.name.trim() || `Rider ${i + 1}`
-    return { key: r.key, label: label.split(' ')[0] }
+    return { key: r.key, label: i === 0 && !r.isGuest && !r.name.trim() ? 'You' : groupRiderShortName(r.key) }
   })()
   const groupTotalFare = groupAllDestinationsSet ? groupFares.reduce((sum: number, f) => sum + (f ?? 0), 0) : null
   const groupCanSubmit =
@@ -1654,10 +1671,11 @@ export function PassengerPage() {
     </div>
   )
 
-  // A plain ride being booked asks Where to in the map's own top row rather
-  // than in the card above it. Not on an errand (its form is different), not
-  // in Group Ride (each rider has their own stop), not once a ride is booked.
-  const whereToOnMap = !isErrand && !groupRideOpen && !activeRide
+  // A ride being booked asks Where to in the map's own top row rather than in
+  // the card above it — Group Ride too, where a place picked there fills the
+  // next rider still without a stop (see handlePinDropoff). Not on an errand
+  // (its form is different), not once a ride is booked.
+  const whereToOnMap = !isErrand && !activeRide
 
   // The Where to strip — tap it and it becomes the search, the way Grab and
   // Google Maps do. A function so the same strip can be drawn in the address
@@ -1791,6 +1809,7 @@ export function PassengerPage() {
         pinPicking={!activeRide}
         onFullscreenChange={setMapIsFullscreen}
         mapHeight={groupRideOpen && !activeRide ? '460px' : undefined}
+        routeLine={groupRideOpen && groupRoute ? groupRoute.points : undefined}
         // Whose stop the pin is setting: the rider picked, or else the next
         // one still without a stop — their name, or their number if none.
         centerPinLabel={groupRideOpen && groupPinRider ? groupPinRider.label : undefined}

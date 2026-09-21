@@ -80,6 +80,7 @@ export function LocationMapPicker({
   toolbarStrip,
   bottomPanel,
   centerPinLabel,
+  routeLine,
   mapHeight,
   fullscreenToolbar,
   onFullscreenChange,
@@ -196,6 +197,9 @@ export function LocationMapPicker({
   bottomPanel?: (fullscreen: boolean) => ReactNode
   // Shown on a pill above the centre pin — whose stop the next Set is for.
   centerPinLabel?: string
+  // A road route drawn on the map in blue — Group Ride's whole trip, from
+  // the pickup through every rider's stop in drop-off order.
+  routeLine?: GeoCoords[]
   // A taller map than the default, as a CSS length — Group Ride, whose
   // sheet on the map would otherwise cover the centre pin.
   mapHeight?: string
@@ -593,6 +597,8 @@ export function LocationMapPicker({
       frameLines={streetEnd ? (streetEnd === 'dropoff' ? dropoffStreet : pickupStreet) ?? undefined : undefined}
       centerOn={myPosition}
       fill={mapFirst}
+      routeLine={routeLine}
+      routeIsReal={!!routeLine}
       height={mapHeight}
       onFullscreenChange={(next) => {
         setMapFullscreen(next)

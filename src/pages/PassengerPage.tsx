@@ -1841,6 +1841,9 @@ export function PassengerPage() {
                     (Myself / Someone / Group) leave room for the city beside
                     them, where it used to take a line of its own under them. */}
                 <div className="flex items-center gap-1.5">
+                {/* City first: which city the trip is in comes before who it is
+                    for, and it scopes the search in the Where to bar below. */}
+                <div className="w-[42%] shrink-0">{cityRowFor('dropoff')}</div>
                 <div className="flex min-w-0 flex-1 gap-1 rounded-lg bg-slate-100 p-1">
                   <button
                     type="button"
@@ -1882,7 +1885,6 @@ export function PassengerPage() {
                     Group
                   </button>
                 </div>
-                <div className="w-[42%] shrink-0">{cityRowFor('dropoff')}</div>
                 </div>
                 {guestRider.bookingFor === 'other' && (
                   <div className="mt-1.5 grid grid-cols-2 gap-1.5">

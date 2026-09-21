@@ -41,6 +41,12 @@ export interface NearbyRequest {
   group: { count: number; names: string[]; stops: string[] } | null
 }
 
+// A rider's first name for the group card — but an unnamed rider, booked as
+// 'Rider 2', keeps the number, or three of them read 'Rider, Rider, Rider'.
+function groupRiderName(name: string): string {
+  return /^Rider \d+$/.test(name) ? name : name.split(' ')[0]
+}
+
 export function buildNearbyRequests(
   rides: Ride[],
   driver: Driver,
@@ -104,7 +110,7 @@ export function buildNearbyRequests(
                 ...card,
                 group: {
                   count: 1,
-                  names: [card.ride.passengerName.split(' ')[0]],
+                  names: [groupRiderName(card.ride.passengerName)],
                   stops: [card.ride.dropoff.label.split(',')[0].trim()],
                 },
               }
@@ -117,7 +123,7 @@ export function buildNearbyRequests(
       lead.total += card.total
       lead.takeHome += card.takeHome
       lead.group!.count += 1
-      lead.group!.names.push(card.ride.passengerName.split(' ')[0])
+      lead.group!.names.push(groupRiderName(card.ride.passengerName))
       lead.group!.stops.push(card.ride.dropoff.label.split(',')[0].trim())
       return cards
     }, [])

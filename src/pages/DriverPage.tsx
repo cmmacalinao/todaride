@@ -154,23 +154,22 @@ export function DriverPage() {
   // So the watch is still preferred, and a tapped read seeds it when the
   // watch has produced nothing. Everything downstream reads myLiveGps and
   // does not care which of the two answered.
-  const { position: watchedGps, error: myLiveGpsError, accuracy: gpsAccuracy } = useWatchPosition(true)
+  const { position: watchedGps, accuracy: gpsAccuracy } = useWatchPosition(true)
   const [tappedGps, setTappedGps] = useState<GeoCoords | null>(null)
-  const [locating, setLocating] = useState(false)
-  const [locateError, setLocateError] = useState<string | null>(null)
   const myLiveGps = watchedGps ?? tappedGps
 
-  async function locateMe() {
-    setLocating(true)
-    setLocateError(null)
-    try {
-      setTappedGps(await getCurrentGeoPosition())
-    } catch (err) {
-      setLocateError(err instanceof Error ? err.message : 'Could not get your location.')
-    } finally {
-      setLocating(false)
+  // The "Walang GPS / I-on ang GPS ko" card is gone, but its tap is what
+  // Android honours — so with no fix yet, the driver's next tap anywhere on
+  // the page asks for the location instead.
+  const hasGps = !!myLiveGps
+  useEffect(() => {
+    if (hasGps) return
+    const onTap = () => {
+      getCurrentGeoPosition().then(setTappedGps, () => {})
     }
-  }
+    window.addEventListener('pointerdown', onTap, { once: true })
+    return () => window.removeEventListener('pointerdown', onTap)
+  }, [hasGps])
 
   // Publishes where this tricycle is, on a timer, for as long as the driver
   // is signed in.
@@ -1353,30 +1352,8 @@ export function DriverPage() {
             </p>
           )}
         </div>
-      ) : (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
-          <p className="text-[11px] font-bold text-amber-900">
-            📍 Walang GPS — nakapin ka sa terminal mo, hindi sa totoong pwesto mo.
-          </p>
-          {(locateError ?? myLiveGpsError) && (
-            <p className="mt-0.5 text-[11px] leading-snug text-amber-800">{locateError ?? myLiveGpsError}</p>
-          )}
-          {/* The same tap-to-locate the passenger side has had all along.
-              A request made because a finger touched the screen is the one
-              Android reliably honours. */}
-          <button
-            type="button"
-            onClick={() => void locateMe()}
-            disabled={locating}
-            className="mt-1.5 w-full rounded-lg bg-brand-600 py-2 text-xs font-bold text-white disabled:opacity-60"
-          >
-            {locating ? 'Hinahanap…' : '📍 I-on ang GPS ko'}
-          </button>
-          <p className="mt-1 text-[11px] leading-snug text-amber-700">
-            Kung tatanungin, piliin ang <span className="font-semibold">Allow</span>.
-          </p>
-        </div>
-      )}
+      ) : null /* No GPS: the map already shows the driver at the terminal; the
+         amber Walang GPS card is gone (asked 2026-09-21). */}
 
       {justPaidRide?.payment && (
         <div

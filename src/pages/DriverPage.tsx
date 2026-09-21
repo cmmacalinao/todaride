@@ -27,7 +27,6 @@ import { RealLiveMap, preloadNavMap, type MapPoint } from '../components/RealLiv
 import { TripDetailsBar } from '../components/TripDetailsBar'
 import { ClearHistoryControl, isClearedFromHistory } from '../components/ClearHistoryControl'
 import { MarketingPartnerCard } from '../components/MarketingPartnerCard'
-import { LocationPermissionRow } from '../components/LocationPermissionRow'
 import { DriverAuthGate } from '../components/DriverAuthGate'
 import { alongTheWayFit, isSpecialTrip, seatsLeft } from '../lib/alongTheWay'
 import { aboardLabel, shortName } from '../lib/names'
@@ -1311,24 +1310,11 @@ export function DriverPage() {
   return (
     <div className="mx-auto max-w-lg space-y-3 px-4 pb-20 pt-2">
       <div ref={topSentinelRef} />
-      {/* Fixed to the driver's own membership, not location-detected like
-          the passenger-side welcome screens (see usePilotBranding) — a
-          driver already belongs to one TODA, so there's nothing to guess.
-          A freelance driver (no todaOrgId) has no org to name here. */}
-      {homeToda && (
-        <div className="flex items-center justify-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700">
-          <span aria-hidden>🏢</span> {homeToda.name}
-        </div>
-      )}
+      {/* The TODA name banner and the Location permission row used to sit
+          here; both removed on request (2026-09-21) — the header already
+          names the TODA. */}
       <AnnouncementFeed viewer="drivers" />
 
-      {/* Whether this phone is actually giving a position, said out loud.
-          Without this the page falls back to the driver's terminal in silence,
-          and a terminal is a plausible-looking coordinate — so a phone that
-          was refusing location looked exactly like a phone that was working,
-          and two drivers pinned to the same gate looked like a map bug rather
-          than two phones reporting nothing. */}
-      <LocationPermissionRow />
       {myLiveGps ? (
         <div
           className={`rounded-lg px-3 py-1.5 text-[11px] font-medium ${

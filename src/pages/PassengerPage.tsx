@@ -1806,9 +1806,36 @@ export function PassengerPage() {
                   halfHeightClass={fullscreen ? 'max-h-[40vh]' : 'max-h-[170px]'}
                   // All the way up: nearly the whole map, pin and all.
                   fullHeightClass={fullscreen ? 'max-h-[72vh]' : 'max-h-[380px]'}
-                  title={`👥 Group Ride · ${groupRiders.length} rider${groupRiders.length === 1 ? '' : 's'} · ${
-                    groupRiders.filter((r) => r.destination).length
-                  } of ${groupRiders.length} stops set`}
+                  title={`👥 Group Ride · ${groupRiders.filter((r) => r.destination).length}/${groupRiders.length} stops`}
+                  // How many are riding, right on the header: + adds a rider,
+                  // − takes the last added one off (never the booker).
+                  headerAction={
+                    <span className="flex items-center gap-1 rounded-lg bg-slate-100 px-1.5 py-1">
+                      <span aria-hidden className="text-[11px]">🧑</span>
+                      <button
+                        type="button"
+                        aria-label="One fewer rider"
+                        onClick={() => {
+                          const last = [...groupRiders].reverse().find((r) => r.isGuest)
+                          if (last) removeGroupRider(last.key)
+                        }}
+                        disabled={!groupRiders.some((r) => r.isGuest)}
+                        className="h-6 w-6 rounded-md border border-slate-300 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        −
+                      </button>
+                      <span className="w-4 text-center text-xs font-semibold text-slate-800">{groupRiders.length}</span>
+                      <button
+                        type="button"
+                        aria-label="One more rider"
+                        onClick={addGroupRider}
+                        disabled={groupRiders.length >= 4}
+                        className="h-6 w-6 rounded-md border border-slate-300 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        +
+                      </button>
+                    </span>
+                  }
                 >
                   <GroupRideInlinePanel
                     riders={groupRiders}

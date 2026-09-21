@@ -77,6 +77,12 @@ export function GroupRideInlinePanel({
                 )}
                 {rider.isGuest ? `Rider ${i + 1}` : 'You'}
               </span>
+              {/* The fare on the same row as whose it is. */}
+              {fares[i] != null && (
+                <span className="ml-auto text-[11px] font-semibold text-slate-700">
+                  {paySplit === 'booker' && rider.isGuest ? 'Covered by you' : `₱${fares[i]}`}
+                </span>
+              )}
               {rider.isGuest && (
                 <button
                   type="button"
@@ -107,11 +113,6 @@ export function GroupRideInlinePanel({
             )}
             {/* No stop line on the card: each rider's address is on their
                 numbered flag on the map, where the stop actually is. */}
-            {fares[i] != null && (
-              <p className="mt-1 text-[11px] text-slate-500">
-                {paySplit === 'booker' && rider.isGuest ? 'Covered by the booker' : `Fare: ₱${fares[i]}`}
-              </p>
-            )}
           </div>
         ))}
       </div>

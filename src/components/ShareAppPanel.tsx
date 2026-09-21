@@ -76,7 +76,7 @@ export function ShareAppPanel({ onClose }: { onClose: () => void }) {
     try {
       await navigator.share({
         title: 'TODA Ride Mobility',
-        text: 'Book a tricycle, or record the one you are already in.',
+        text: 'Book a Ride, or record the one you are already in.',
         url,
       })
     } catch {

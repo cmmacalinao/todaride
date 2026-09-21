@@ -147,7 +147,7 @@ const RUNS: Run[] = [
     who: 'Both phones · the one that matters most',
     steps: [
       {
-        do: 'Passenger sets a destination and taps Book a tricycle.',
+        do: 'Passenger sets a destination and taps Book a Ride.',
         expect: 'Within about 12 seconds the driver’s Home page lists it under "Passengers waiting nearby" — no refresh, no tapping.',
       },
       {

@@ -892,7 +892,7 @@ function ActiveOrderCard({
           onClick={onBookOwnRide}
           className="w-full rounded-lg bg-brand-600 py-2 text-sm font-semibold text-white hover:bg-brand-700"
         >
-          🛺 Book a tricycle
+          🛺 Book a Ride
         </button>
         <OrderChat
           messages={order.messages}

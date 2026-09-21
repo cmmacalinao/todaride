@@ -487,7 +487,9 @@ export function TerminalBoardingPanel({ onClose, mapSlot }: { onClose: () => voi
               : 'border-danger-300 bg-danger-50 text-danger-800 hover:bg-danger-100'
           }`}
         >
-          <span className="text-base leading-none">🆘</span>
+          {/* The shield, same as the footer's Safety tile: this opens the
+            same screen — call 911, family, the TODA, hotlines. */}
+        <span className="text-base leading-none">🛡️</span>
           <span className="text-[11px] font-semibold">{openSosForMe ? 'Sent' : safetySettings.sosAlertsEnabled ? 'SOS' : 'Help'}</span>
         </button>
       </div>

@@ -560,7 +560,12 @@ export function LocationMapPicker({
             {fullscreen && !mapFirst && pinPicking && (
               // A white card behind them: see-through buttons laid over the
               // map read the street names and the map credits through them.
-              <div className="rounded-xl bg-white/95 p-1.5 pt-0 shadow-lg">{setFromCenter}</div>
+              <div className="rounded-xl bg-white/95 p-1.5 pt-0 shadow-lg">
+                {setFromCenter}
+                {/* And the booking button under them, as in the normal view:
+                    set the place, then book, without leaving full screen. */}
+                {leadingAction && <div className="mt-1.5">{leadingAction}</div>}
+              </div>
             )}
             {mapFooter}
           </>

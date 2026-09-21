@@ -138,7 +138,7 @@ export function MedsRideBookingPage() {
         >
           ‹ Back
         </button>
-        <h1 className="text-base font-semibold text-slate-800">Book a tricycle</h1>
+        <h1 className="text-base font-semibold text-slate-800">Book a Ride</h1>
       </div>
 
       <section className="space-y-1.5 rounded-xl border border-brand-200 bg-brand-50 p-3">
@@ -294,7 +294,7 @@ export function MedsRideBookingPage() {
         disabled={!dropoff}
         className="w-full rounded-lg bg-brand-600 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
       >
-        🛺 Book a tricycle
+        🛺 Book a Ride
       </button>
     </div>
   )

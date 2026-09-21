@@ -1668,8 +1668,8 @@ export function PassengerPage() {
                         ? `Request Delivery for ${guestRider.otherName.trim() || 'them'}`
                         : 'Request Delivery'
                       : isGuestBooking
-                        ? `Book a tricycle for ${guestRider.otherName.trim() || 'them'}`
-                        : 'Book a tricycle'}
+                        ? `Book a Ride for ${guestRider.otherName.trim() || 'them'}`
+                        : 'Book a Ride'}
                 </span>
               </button>
               {/* Said, not asked.

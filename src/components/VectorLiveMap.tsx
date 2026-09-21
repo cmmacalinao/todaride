@@ -564,7 +564,11 @@ export function VectorLiveMap({
   // rider's own dot among them, which can sit well off to one side of the
   // road they are actually on.
   function tripFocusPoints(): typeof points {
-    const focus = points.filter((pt) => pt.id === 'pickup' || pt.id === 'dropoff' || pt.id === 'driver')
+    // Group Ride's stops (group-<rider>) count as well, so Recenter frames
+    // the pickup and every rider's destination at once — the whole route.
+    const focus = points.filter(
+      (pt) => pt.id === 'pickup' || pt.id === 'dropoff' || pt.id === 'driver' || pt.id.startsWith('group-'),
+    )
     return focus.length > 0 ? focus : framed
   }
 

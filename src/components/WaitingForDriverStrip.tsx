@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { TricycleIcon } from './TricycleIcon'
 
 // Shown the moment a ride is booked, until a driver takes it.
@@ -16,10 +16,13 @@ import { TricycleIcon } from './TricycleIcon'
 export function WaitingForDriverStrip({
   requestedAt,
   offeredTo,
+  children,
 }: {
   requestedAt: string
   // Whose phone it is ringing on right now, when the terminal queue says.
   offeredTo?: string | null
+  // Drawn along the bottom of the strip — the tip offer, on the ride screen.
+  children?: ReactNode
 }) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -34,10 +37,10 @@ export function WaitingForDriverStrip({
     <div
       role="status"
       aria-live="polite"
-      className="overflow-hidden rounded-xl border border-green-500/40 bg-green-500/10 p-3"
+      className="overflow-hidden rounded-xl border border-green-500/40 bg-green-500/10 px-2.5 py-2"
     >
-      <div className="flex items-center gap-3">
-        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center">
+      <div className="flex items-center gap-2">
+        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center">
           <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-green-500/30" />
           <span
             aria-hidden
@@ -47,15 +50,15 @@ export function WaitingForDriverStrip({
               🧑‍✈️ emoji, which is a pilot — an airline captain on most
               phones, and on fonts without that combination a face with an
               aeroplane beside it. */}
-          <span className="relative flex h-12 w-12 items-center justify-center rounded-full border-2 border-green-600 bg-white text-2xl shadow-sm">
+          <span className="relative flex h-9 w-9 items-center justify-center rounded-full border-2 border-green-600 bg-white text-lg shadow-sm">
             🧑
-            <span className="absolute -bottom-1 -right-1.5 flex h-5 w-6 items-center justify-center rounded-full border border-green-600 bg-white p-0.5 shadow-sm">
+            <span className="absolute -bottom-1 -right-1.5 flex h-4 w-5 items-center justify-center rounded-full border border-green-600 bg-white p-0.5 shadow-sm">
               <TricycleIcon className="h-full w-full" />
             </span>
           </span>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="flex items-baseline gap-1 text-sm font-bold text-green-900">
+          <p className="flex items-baseline gap-1 text-xs font-bold leading-tight text-green-900">
             Finding your driver
             <span aria-hidden className="inline-flex gap-0.5">
               <span className="h-1 w-1 animate-bounce rounded-full bg-green-700" />
@@ -63,7 +66,7 @@ export function WaitingForDriverStrip({
               <span className="h-1 w-1 animate-bounce rounded-full bg-green-700 [animation-delay:300ms]" />
             </span>
           </p>
-          <p className="truncate text-[11px] text-green-800/80">
+          <p className="truncate text-[10px] leading-tight text-green-800/80">
             {offeredTo ? `Asking ${offeredTo} now` : 'Asking the nearest TODA drivers'}
           </p>
         </div>
@@ -74,12 +77,13 @@ export function WaitingForDriverStrip({
 
       {/* A tricycle making its way along a road, over and over — the one
           picture everybody reads as "on its way", before anybody is. */}
-      <div aria-hidden className="relative mt-2.5 h-7">
+      <div aria-hidden className="relative mt-1 h-5">
         <div className="absolute inset-x-0 bottom-1 border-b-2 border-dashed border-green-600/40" />
-        <div className="waiting-driver-drive absolute bottom-1.5 h-6 w-9">
+        <div className="waiting-driver-drive absolute bottom-1 h-4 w-6">
           <TricycleIcon className="h-full w-full" />
         </div>
       </div>
+      {children && <div className="mt-1 border-t border-green-600/20 pt-1.5">{children}</div>}
     </div>
   )
 }

@@ -18,7 +18,7 @@ import { AlertBanner } from './AlertBanner'
 import { PhotoCaptureButton } from './PhotoCaptureButton'
 import { PhotoGallery } from './PhotoGallery'
 import { TripDetailsBar } from './TripDetailsBar'
-import { buildTimeline, driverPickupOverdue, formatArrivalClock, formatEta, getDispatchWindow, getLegInfo, getPassengerMapGps, primaryAboardRide, sharedDriverMapGps, tripMapFraming } from '../lib/tracking'
+import { buildTimeline, driverPickupOverdue, formatArrivalClock, formatEta, getLegInfo, getPassengerMapGps, primaryAboardRide, sharedDriverMapGps, tripMapFraming } from '../lib/tracking'
 import { formatKm, haversineDistanceMeters } from '../lib/geo'
 import { remainingLeg } from '../lib/legRemaining'
 import { reverseGeocodeToPhAddress } from '../lib/customLocation'
@@ -98,8 +98,6 @@ export function TripMonitor({
     alerts,
     drivers,
     todaOrganizations,
-    todaQueueWindowMs,
-    specialPickupEscalationMs,
     rides,
     triggerSos,
     cancelAlert,
@@ -822,11 +820,68 @@ export function TripMonitor({
   // the map — exactly where these two lived — is left behind the moment the
   // map takes the screen. Naming them lets the same JSX render in both
   // places instead of forking it.
+  // The tip offer, drawn at the bottom of the waiting strip — see
+  // WaitingForDriverStrip. Waiting and "add a tip to be noticed" are the same
+  // moment, so they sit in the same box rather than two boxes a map apart.
+  const tipControls = (
+    <div>
+      <p className="text-[11px] font-medium text-green-900">
+        {ride.tipOffer > 0 ? `Tip offer: ₱${ride.tipOffer}` : 'No driver yet? Add a tip to get noticed.'}
+      </p>
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        {[10, 20, 50].map((amount) => (
+          <button
+            key={amount}
+            type="button"
+            onClick={() => addTipOffer(ride.id, amount)}
+            className="rounded-full border border-brand-300 px-2.5 py-1 text-[11px] font-medium text-brand-700 hover:bg-brand-50"
+          >
+            +₱{amount}
+          </button>
+        ))}
+        <input
+          type="number"
+          min={1}
+          value={customTipInput}
+          onChange={(e) => setCustomTipInput(e.target.value)}
+          placeholder="Custom"
+          className="w-16 rounded-lg border border-slate-300 px-2 py-1 text-[11px]"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            const amount = Math.round(Number(customTipInput))
+            if (!Number.isFinite(amount) || amount <= 0) return
+            addTipOffer(ride.id, amount)
+            setCustomTipInput('')
+          }}
+          className="rounded-full border border-slate-300 px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  )
+
   const photoRouteSosRow = (
     <div className="flex items-center gap-2">
       {hasDriver && (
         <PhotoCaptureButton onCapture={(dataUrl) => addSafetyPhoto(ride.id, dataUrl, sosActorId)} />
       )}
+      {!driver && !isTerminal && ride.status === 'requested' ? (
+        // While nobody has taken the ride yet, this row is the wait itself —
+        // beside the Safety button, just under the map — in place of the
+        // route length and the note that the map will fill in later, which
+        // said the same thing in grey text.
+        <div className="min-w-0 flex-1">
+          <WaitingForDriverStrip
+            requestedAt={ride.requestedAt}
+            offeredTo={drivers.find((d) => d.id === ride.priorityQueueOfferedDriverId)?.name ?? null}
+          >
+            {tipControls}
+          </WaitingForDriverStrip>
+        </div>
+      ) : (
       <div className="min-w-0 flex-1 text-center">
         {route && (
           <p className="text-[11px] text-slate-400">
@@ -840,6 +895,7 @@ export function TripMonitor({
           </p>
         )}
       </div>
+      )}
       <button
         type="button"
         onClick={() => {
@@ -1099,10 +1155,15 @@ export function TripMonitor({
           {ride.payment?.status === 'paid' ? '✓ Done — book another ride' : 'Book another ride'}
         </button>
       )}
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-brand-800">{title}</h2>
-        <StatusBadge status={ride.status} />
-      </div>
+      {/* No 'Your ride · Waiting for driver' heading while the ride waits:
+          the waiting strip under the map says exactly that, with more in it.
+          Once a driver is on the way the heading and its status come back. */}
+      {!(ride.status === 'requested' && !driver && !isTerminal) && (
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-brand-800">{title}</h2>
+          <StatusBadge status={ride.status} />
+        </div>
+      )}
       {(() => {
         const tag = rideServiceTag(ride)
         return tag ? (
@@ -1405,25 +1466,6 @@ export function TripMonitor({
           own copy of the numbers for the moment they are actually needed. */}
       {!driver && !isTerminal && ride.status === 'requested' && (
         <div className="space-y-1">
-          <WaitingForDriverStrip
-            requestedAt={ride.requestedAt}
-            offeredTo={drivers.find((d) => d.id === ride.priorityQueueOfferedDriverId)?.name ?? null}
-          />
-          <p className="text-xs text-slate-500">
-            Looking for a nearby driver…{' '}
-            {(() => {
-              const { openToAll, remainingSeconds } = getDispatchWindow(ride, todaQueueWindowMs, specialPickupEscalationMs)
-              if (openToAll) return 'open to all nearby TODAs.'
-              const org = todaOrganizations.find((o) => o.id === ride.priorityTodaOrgId)
-              const offeredDriver = drivers.find((d) => d.id === ride.priorityQueueOfferedDriverId)
-              const escalationNote = ride.specialPickupRequested
-                ? `${Math.ceil(remainingSeconds / 60)}m left before it opens to any of ${org?.name ?? 'the TODA'}'s members and freelance drivers`
-                : `${remainingSeconds}s left before it opens to other TODAs/freelancers`
-              return `currently offered to ${offeredDriver?.name ?? 'the next driver'} at ${
-                org?.name ?? 'the nearest TODA'
-              }'s terminal Pila — ${escalationNote}.`
-            })()}
-          </p>
           {ride.priorityQueueLog.length > 0 && (
             <p className="text-[11px] text-slate-400">
               Already passed:{' '}
@@ -1433,43 +1475,6 @@ export function TripMonitor({
             </p>
           )}
 
-          <div className="rounded-lg border border-dashed border-brand-300 bg-white p-2.5">
-            <p className="text-xs font-medium text-slate-700">
-              {ride.tipOffer > 0 ? `Tip offer: ₱${ride.tipOffer}` : 'No driver yet? Add a tip to get noticed.'}
-            </p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              {[10, 20, 50].map((amount) => (
-                <button
-                  key={amount}
-                  type="button"
-                  onClick={() => addTipOffer(ride.id, amount)}
-                  className="rounded-full border border-brand-300 px-2.5 py-1 text-[11px] font-medium text-brand-700 hover:bg-brand-50"
-                >
-                  +₱{amount}
-                </button>
-              ))}
-              <input
-                type="number"
-                min={1}
-                value={customTipInput}
-                onChange={(e) => setCustomTipInput(e.target.value)}
-                placeholder="Custom"
-                className="w-16 rounded-lg border border-slate-300 px-2 py-1 text-[11px]"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  const amount = Math.round(Number(customTipInput))
-                  if (!Number.isFinite(amount) || amount <= 0) return
-                  addTipOffer(ride.id, amount)
-                  setCustomTipInput('')
-                }}
-                className="rounded-full border border-slate-300 px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
-              >
-                Add
-              </button>
-            </div>
-          </div>
         </div>
       )}
 

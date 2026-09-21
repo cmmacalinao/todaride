@@ -403,7 +403,11 @@ export function LocationMapPicker({
           with the button that commits to it. */}
       {/* The address summary fills the half of this row the passenger
           counter leaves empty, directly above the map it captions. */}
-      {(!mapFirst || leadingAction || underMapAction) && (
+      {/* Only when there is something to put in it. The summary and the
+          passenger counter that used to fill this row both moved (into the
+          map's toolbar and beside Where to), and an empty row still took
+          its share of the spacing above the map. */}
+      {((mapFirst && leadingAction) || underMapAction) && (
         <div className="flex items-center justify-end gap-2">
           {/* The from/to summary used to sit here, beside the passenger
               counter. It rides in the map's own toolbar now, right of Full

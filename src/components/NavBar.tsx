@@ -462,29 +462,23 @@ export function NavBar() {
                       ? '🏢 Operator Portal'
                       : '🗺️ Franchise Portal'}
             </Link>
-            {isDriverApp && currentDriver && (
-              <span className="min-w-0 self-center border-l border-white/25 pl-2 leading-tight">
-                <span className="block truncate text-xs font-semibold text-white">
-                  {currentDriver.name} · {currentDriver.plateNumber}
-                </span>
-                <span className="block truncate text-[10px] text-gold-400">
-                  {todaOrganizations.find((o) => o.id === currentDriver.todaOrgId)?.name ?? 'Freelance'}
-                </span>
-              </span>
-            )}
+            {/* The driver's name/TODA chip used to sit here — removed on
+                request (2026-09-21); the drawer still shows who is signed in. */}
           </div>
           <div className="flex items-center justify-end gap-1.5">
             <div className="flex items-center gap-1.5">
               <span className="hidden rounded-full bg-white/10 px-2 py-1 text-[11px] text-slate-300 sm:inline">
                 Prototype · Simulated data
               </span>
-              <button
+              {/* Drivers log out from the ☰ drawer (removed from this strip on
+                  request, 2026-09-21). */}
+              {!isDriverApp && <button
                 type="button"
                 onClick={handleLogOut}
                 className="whitespace-nowrap rounded-md px-2 py-1.5 text-xs font-medium text-slate-300 underline hover:bg-white/10 hover:text-white active:bg-white/20"
               >
                 Log out
-              </button>
+              </button>}
             </div>
             {/* Set by the Operator backing this pilot — see
                 PartnerLogoSection in OperatorPortalPage.tsx. No background

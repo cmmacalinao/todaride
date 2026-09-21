@@ -264,6 +264,9 @@ export function PassengerPage() {
   // controls which address form shows below the map, so only one is on
   // screen at a time instead of both stacked.
   const [mapTarget, setMapTarget] = useState<'pickup' | 'dropoff'>('pickup')
+  // Whether the booking map has taken the whole screen — the Where to strip
+  // moves onto it then (see destinationStrip).
+  const [mapIsFullscreen, setMapIsFullscreen] = useState(false)
   const [groupRiders, setGroupRiders] = useState<GroupRiderEntry[]>([])
   const [groupPaySplit, setGroupPaySplit] = useState<'separate' | 'booker'>('separate')
   const [groupSubmitting, setGroupSubmitting] = useState(false)
@@ -1566,6 +1569,87 @@ export function PassengerPage() {
       </span>
   )
 
+  // The Where to strip — tap it and it becomes the search, the way Grab and
+  // Google Maps do. A function so the same strip can be drawn in the address
+  // card or, while the map is full screen, at the top of the map.
+  const destinationStrip = (destinationOnly: boolean) =>
+            openEnd === 'dropoff' ? (
+              // Tapping Where to used to only expand a panel below with its
+              // own separate search box a scroll away — typing directly into
+              // the bar itself, the way Grab/Google Maps do, saves that step
+              // and is where a passenger already expects to type.
+              <div
+                className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-green-500/40 bg-green-500/15 px-3 py-1.5 shadow-sm ${
+                  destinationOnly ? '' : 'pr-14'
+                }`}
+              >
+                <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-dest-dot" />
+                <DestinationSearch
+                  city={cityScope}
+                  near={pickupGps ?? pickup.gps ?? null}
+                  onSelect={handleDropoffLandmark}
+                  onOpenAddressForm={() => setAddressFormOpen('dropoff')}
+                  onPinOnMap={() => {
+                    setMapTarget('dropoff')
+                    setOpenEnd(null)
+                    setAddressFormOpen(null)
+                  }}
+                  autoFocus
+                  placeholder={isErrand ? 'Where should it go?' : 'Where to?'}
+                  className="min-w-0 flex-1"
+                  // The matches float under the whole row rather than growing
+                  // the bar: inline, six streets stretched the red and yellow
+                  // boxes tall and narrow and every name was cut to "S…".
+                  // Anchored to the row (relative above), so the list spans
+                  // the bar and Set on Map together and names read in full.
+                  resultsClassName="absolute inset-x-0 top-full z-[80] mt-1 max-h-72 overflow-y-auto"
+                  inputClassName="w-full min-w-0 bg-transparent text-sm font-semibold text-green-900 placeholder:font-normal placeholder:text-green-800/70 focus:outline-none"
+                />
+              </div>
+            ) : (
+            <button
+              type="button"
+              onClick={() => openAddressPicker('dropoff')}
+              className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-green-500/40 bg-green-500/15 px-3 py-1.5 text-left shadow-sm filter transition hover:brightness-95 ${
+                // pr-14 clears the swap control, which only exists when both
+                // ends are shown.
+                destinationOnly ? '' : 'pr-14'
+              }`}
+            >
+              {/* dest-fill is pale under dark teal text in the default theme,
+                  so the filled teal Pickup above is the one block carrying
+                  weight; a bold theme can instead make this a solid fill with
+                  white text — same four roles (fill/text/subtext/dot), theme
+                  decides which way they lean. See theme.css. */}
+              <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-600" />
+              <span className="min-w-0 flex-1">
+                <span
+                  className={`block truncate text-sm ${
+                    hasDestination ? 'font-semibold text-green-900' : 'font-normal text-green-800/70'
+                  }`}
+                >
+                  {/* The question the empty row asks stays on it once it is
+                      answered, as the answer's label. Without it the two
+                      filled rows are two addresses in two colours, and which
+                      one the tricycle is being sent to is left to the colour
+                      alone. */}
+                  {hasDestination ? (
+                    <>
+                      <span className="font-normal text-green-800/80">
+                        {isErrand ? 'Deliver to: ' : 'Where to: '}
+                      </span>
+                      {formatAddressLine(dropoff.label)}
+                    </>
+                  ) : isErrand ? (
+                    'Where should it go?'
+                  ) : (
+                    'Where to?'
+                  )}
+                </span>
+              </span>
+            </button>
+            )
+
   const sharedMap = (
     <div ref={bookingMapRef} className="scroll-mt-24">
       <LocationMapPicker
@@ -1614,6 +1698,14 @@ export function PassengerPage() {
         streetGuide={!activeRide}
         // No centre pin or Set buttons once a ride is booked — see pinPicking.
         pinPicking={!activeRide}
+        onFullscreenChange={setMapIsFullscreen}
+        // Where to, at the top of the full-screen map, so a destination can
+        // be searched without leaving it. Not once a ride is booked.
+        fullscreenTop={
+          !activeRide && !isErrand ? (
+            <div className="relative flex items-stretch gap-1">{destinationStrip(true)}</div>
+          ) : undefined
+        }
         // No Find Barangay box in the map's toolbar any more — that spot shows
         // the pickup and destination instead (see LocationMapPicker's
         // overlayTop). Searching still lives in the Where to bar.
@@ -2019,83 +2111,11 @@ export function PassengerPage() {
                 they" first — first on its own the rest of the time, which
                 is most of the time: booking for yourself never shows the
                 row above this one. */}
-            <div className={guestRider.bookingFor === 'other' ? 'relative mt-2 flex items-stretch gap-1.5' : 'relative mt-1.5 flex items-stretch gap-1.5'}>
-            {openEnd === 'dropoff' ? (
-              // Tapping Where to used to only expand a panel below with its
-              // own separate search box a scroll away — typing directly into
-              // the bar itself, the way Grab/Google Maps do, saves that step
-              // and is where a passenger already expects to type.
-              <div
-                className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-green-500/40 bg-green-500/15 px-3 py-1.5 shadow-sm ${
-                  destinationOnly ? '' : 'pr-14'
-                }`}
-              >
-                <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-dest-dot" />
-                <DestinationSearch
-                  city={cityScope}
-                  near={pickupGps ?? pickup.gps ?? null}
-                  onSelect={handleDropoffLandmark}
-                  onOpenAddressForm={() => setAddressFormOpen('dropoff')}
-                  onPinOnMap={() => {
-                    setMapTarget('dropoff')
-                    setOpenEnd(null)
-                    setAddressFormOpen(null)
-                  }}
-                  autoFocus
-                  placeholder={isErrand ? 'Where should it go?' : 'Where to?'}
-                  className="min-w-0 flex-1"
-                  // The matches float under the whole row rather than growing
-                  // the bar: inline, six streets stretched the red and yellow
-                  // boxes tall and narrow and every name was cut to "S…".
-                  // Anchored to the row (relative above), so the list spans
-                  // the bar and Set on Map together and names read in full.
-                  resultsClassName="absolute inset-x-0 top-full z-[80] mt-1 max-h-72 overflow-y-auto"
-                  inputClassName="w-full min-w-0 bg-transparent text-sm font-semibold text-green-900 placeholder:font-normal placeholder:text-green-800/70 focus:outline-none"
-                />
-              </div>
-            ) : (
-            <button
-              type="button"
-              onClick={() => openAddressPicker('dropoff')}
-              className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-green-500/40 bg-green-500/15 px-3 py-1.5 text-left shadow-sm filter transition hover:brightness-95 ${
-                // pr-14 clears the swap control, which only exists when both
-                // ends are shown.
-                destinationOnly ? '' : 'pr-14'
-              }`}
-            >
-              {/* dest-fill is pale under dark teal text in the default theme,
-                  so the filled teal Pickup above is the one block carrying
-                  weight; a bold theme can instead make this a solid fill with
-                  white text — same four roles (fill/text/subtext/dot), theme
-                  decides which way they lean. See theme.css. */}
-              <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-600" />
-              <span className="min-w-0 flex-1">
-                <span
-                  className={`block truncate text-sm ${
-                    hasDestination ? 'font-semibold text-green-900' : 'font-normal text-green-800/70'
-                  }`}
-                >
-                  {/* The question the empty row asks stays on it once it is
-                      answered, as the answer's label. Without it the two
-                      filled rows are two addresses in two colours, and which
-                      one the tricycle is being sent to is left to the colour
-                      alone. */}
-                  {hasDestination ? (
-                    <>
-                      <span className="font-normal text-green-800/80">
-                        {isErrand ? 'Deliver to: ' : 'Where to: '}
-                      </span>
-                      {formatAddressLine(dropoff.label)}
-                    </>
-                  ) : isErrand ? (
-                    'Where should it go?'
-                  ) : (
-                    'Where to?'
-                  )}
-                </span>
-              </span>
-            </button>
-            )}
+            <div className={guestRider.bookingFor === 'other' ? 'relative mt-1.5 flex items-stretch gap-1.5' : 'relative mt-1 flex items-stretch gap-1.5'}>
+            {/* In full screen the strip rides at the top of the map instead
+                (see fullscreenTop) — one copy at a time, so its search box
+                is never mounted twice. */}
+            {!mapIsFullscreen && destinationStrip(destinationOnly)}
             {!isErrand && <div className="flex shrink-0 items-center">{passengerCounter}</div>}
             {/* The yellow "Set on Map" button beside Where to is gone
                 (2026-09-21): the map has a centre pin and its own Set
@@ -2179,7 +2199,7 @@ export function PassengerPage() {
   // without it would be a form with no way to answer half its questions.
   if (groupRideOpen) {
     return (
-      <div className="mx-auto flex min-h-[calc(100vh-70px)] max-w-lg flex-col space-y-2 px-4 pb-[72px] pt-1">
+      <div className="mx-auto flex min-h-[calc(100vh-70px)] max-w-lg flex-col space-y-1.5 px-4 pb-[72px] pt-1">
         {/* Rider one is a rider. Their pickup is where the whole group
             boards and their destination is their own — and with this card
             left behind on the booking form, neither could be changed from
@@ -2523,7 +2543,7 @@ export function PassengerPage() {
         </div>
       )}
       {(!activeRide || searchingAgain || rideIsOver) && (
-        <section className="space-y-2 rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm">
+        <section className="space-y-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm">
             <>
           {/* The Ride/Pabili/Medicine row that used to live here is gone: the
               two mode cards and the errand tiles at the top of the page now

@@ -68,6 +68,8 @@ export function LocationMapPicker({
   streetGuide = true,
   pickupAutomatic = false,
   pinPicking = true,
+  onFullscreenChange,
+  fullscreenTop,
 }: {
   mapFirst?: boolean
   sheetHeader?: () => ReactNode
@@ -168,6 +170,10 @@ export function LocationMapPicker({
   // and its Set buttons would only invite moving a trip that is already
   // happening.
   pinPicking?: boolean
+  // Told when the map goes full screen or comes back.
+  onFullscreenChange?: (fullscreen: boolean) => void
+  // Drawn at the top of the map while it is full screen — see RealLiveMap.
+  fullscreenTop?: ReactNode
 
   // Ride booking calls these "Pickup"/"Destination"; a Pabili/Buy Medicine
   // errand calls them "Buy near to"/"Deliver to" instead — same map, same
@@ -537,7 +543,11 @@ export function LocationMapPicker({
       frameLines={streetEnd ? (streetEnd === 'dropoff' ? dropoffStreet : pickupStreet) ?? undefined : undefined}
       centerOn={myPosition}
       fill={mapFirst}
-      onFullscreenChange={setMapFullscreen}
+      onFullscreenChange={(next) => {
+        setMapFullscreen(next)
+        onFullscreenChange?.(next)
+      }}
+      fullscreenTop={fullscreenTop}
       onScanQr={onScanQr}
       toolbarAction={toolbarAction}
       detailsBar={detailsBar}

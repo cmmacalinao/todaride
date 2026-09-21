@@ -265,6 +265,10 @@ export interface RealLiveMapProps {
   // left behind the instant it opens, unless a caller hands them here too.
   // Drawn along the bottom of the full-screen map.
   detailsBar?: ReactNode
+  // A row drawn under the toolbar only while full screen — the booking
+  // screen puts its Where to strip here, so the destination can still be
+  // searched once the map has covered the page it normally sits on.
+  fullscreenTop?: ReactNode
   // Height of a bar the page keeps pinned over the full-screen map at the
   // bottom (a CSS length, e.g. "4rem") — full screen leaves that much room.
   fullscreenBottomInset?: string
@@ -753,7 +757,7 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
 // OpenStreetMap/Leaflet stack otherwise — behind one shared wrapper (sizing,
 // border, and the point legend below the map) so callers never need to know
 // which one is active.
-export function RealLiveMap({ points, centerPin, centerPinColor, onCenterChange, fill, overlayTop, overlayTopInline = false, overlayBottom, onFullscreenChange, routeLine, progressPointId, hintLine, streetLines, frameLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker, detailsBar, fullscreenBottomInset }: RealLiveMapProps) {
+export function RealLiveMap({ points, centerPin, centerPinColor, onCenterChange, fill, overlayTop, overlayTopInline = false, overlayBottom, onFullscreenChange, routeLine, progressPointId, hintLine, streetLines, frameLines, routeIsReal, routeVariant, onMapClick, onPointClick, areas, refitSignal, fitPointIds, singlePointZoom, holdFit, fitOnce, followAll, centerOn, frozen = false, draggableIds, onPointDragEnd, hideLegend = false, legendOverride, alwaysInteractive = false, height, nav, onScanQr, toolbarAction, cityPicker, detailsBar, fullscreenBottomInset, fullscreenTop }: RealLiveMapProps) {
   // The driven-so-far / still-ahead split of the route, if there is a
   // vehicle to measure it by. Only for a real road path: a dashed
   // straight-line placeholder has no "behind" worth drawing.
@@ -931,6 +935,9 @@ export function RealLiveMap({ points, centerPin, centerPinColor, onCenterChange,
           </button>
         )}
       </div>
+      {fullscreen && fullscreenTop && (
+        <div className="border-b border-slate-200 bg-white px-2 py-1.5">{fullscreenTop}</div>
+      )}
       {/* The key and the pickup/destination strip, as rows above the map
           rather than floating over it. Over the map they hid the very roads
           near the pins they were naming, and the two had to be measured

@@ -22,6 +22,14 @@ import type { GeoCoords, MockLocation, Terminal } from '../types'
 // keeping a marker alive for somebody who has finished for the day.
 const LIVE_DRIVER_WINDOW_MS = 3 * 60 * 1000
 
+// What a flag on the map says: the first part of the address — the street or
+// the place — short enough to sit over a marker without covering the roads
+// around it. The full address is on the lines above the map.
+function mapFlagText(label: string): string {
+  const first = formatAddressLine(label).split(',')[0].trim()
+  return first.length > 28 ? `${first.slice(0, 27)}…` : first
+}
+
 export function LocationMapPicker({
   pickup,
   dropoff,
@@ -68,6 +76,8 @@ export function LocationMapPicker({
   streetGuide = true,
   pickupAutomatic = false,
   pinPicking = true,
+  labelPickupOnMap = false,
+  fullscreenToolbar,
   onFullscreenChange,
   fullscreenTop,
 }: {
@@ -170,6 +180,12 @@ export function LocationMapPicker({
   // and its Set buttons would only invite moving a trip that is already
   // happening.
   pinPicking?: boolean
+  // Name the pickup on its marker as well as the destination — for a
+  // delivery, where the pickup is a store or a sender somewhere else.
+  labelPickupOnMap?: boolean
+  // Shown in the map's top row, beside Close, while it is full screen — in
+  // place of the pickup/destination lines, which the flags now carry.
+  fullscreenToolbar?: ReactNode
   // Told when the map goes full screen or comes back.
   onFullscreenChange?: (fullscreen: boolean) => void
   // Drawn at the top of the map while it is full screen — see RealLiveMap.
@@ -283,9 +299,26 @@ export function LocationMapPicker({
           },
         ]
       : []),
-    ...(pickup.gps ? [{ id: 'pickup', gps: pickup.gps, color: '#dc2626', icon: 'pickup' as const, label: `${pickupLabel} — ${formatAddressLine(pickup.label)}` }] : []),
+    // The destination flag carries its address on the map, always — it is
+    // the one place the ride is going, and reading it off the flag beats
+    // matching a marker to a line of text above the map. The pickup gets one
+    // too on a delivery (see labelPickupOnMap), where it is a shop or a
+    // sender rather than wherever the phone is.
+    ...(pickup.gps
+      ? [
+          {
+            id: 'pickup',
+            gps: pickup.gps,
+            color: '#dc2626',
+            icon: 'pickup' as const,
+            label: labelPickupOnMap ? mapFlagText(pickup.label) : `${pickupLabel} — ${formatAddressLine(pickup.label)}`,
+            callout: labelPickupOnMap,
+            alwaysLabel: labelPickupOnMap,
+          },
+        ]
+      : []),
     ...(hasDropoff && dropoff.gps
-      ? [{ id: 'dropoff', gps: dropoff.gps, color: '#16a34a', icon: 'dropoff' as const, label: `${dropoffLabel} — ${formatAddressLine(dropoff.label)}` }]
+      ? [{ id: 'dropoff', gps: dropoff.gps, color: '#16a34a', icon: 'dropoff' as const, label: mapFlagText(dropoff.label), callout: true, alwaysLabel: true }]
       : []),
     ...extraPoints,
     ...terminals
@@ -564,6 +597,8 @@ export function LocationMapPicker({
             {summary}
             {sheetNote}
           </div>
+        ) : mapFullscreen && fullscreenToolbar ? (
+          fullscreenToolbar
         ) : (
           summary
         )

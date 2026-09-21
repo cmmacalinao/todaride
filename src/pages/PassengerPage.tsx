@@ -1569,6 +1569,43 @@ export function PassengerPage() {
       </span>
   )
 
+  // The city, above the barangay list it filters.
+  //
+  // It used to sit at the top of the card, above both address rows, where it
+  // was a setting rather than a step — and it filters the barangay dropdown,
+  // which is two taps further down inside whichever end you opened. Answering
+  // "which city" before being asked "which barangay" is the order the form
+  // actually works in, so that is where it now lives.
+  // One per end rather than one shared element: the destination's copy now
+  // sits above the Where to bar permanently (not only while that panel is
+  // open), so it can be on screen at the same time as the pickup panel's
+  // own copy — each needs its own id and its own end's colour.
+  const cityRowFor = (end: 'pickup' | 'dropoff') => (
+    <div className="flex items-center gap-2">
+      <label
+        htmlFor={`home-city-${end}`}
+        className={`shrink-0 text-xs font-semibold uppercase tracking-wide ${
+          end === 'dropoff' ? 'text-dest-accent' : 'text-pickup-accent'
+        }`}
+      >
+        City
+      </label>
+      <select
+        id={`home-city-${end}`}
+        value={cityScope}
+        onChange={(e) => handleHomeCityChange(e.target.value)}
+        className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
+      >
+        <option value="">Select city…</option>
+        {getCitiesForProvince(DEFAULT_BOOKING_PROVINCE).map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+
   // The Where to strip — tap it and it becomes the search, the way Grab and
   // Google Maps do. A function so the same strip can be drawn in the address
   // card or, while the map is full screen, at the top of the map.
@@ -1699,6 +1736,11 @@ export function PassengerPage() {
         // No centre pin or Set buttons once a ride is booked — see pinPicking.
         pinPicking={!activeRide}
         onFullscreenChange={setMapIsFullscreen}
+        // A delivery starts somewhere other than here, so its pickup is named
+        // on the map too.
+        labelPickupOnMap={isErrand}
+        // Full screen: choose the city up here, where the address lines were.
+        fullscreenToolbar={cityRowFor('dropoff')}
         // Where to, at the top of the full-screen map, so a destination can
         // be searched without leaving it. Not once a ride is booked.
         fullscreenTop={
@@ -1807,43 +1849,6 @@ export function PassengerPage() {
   // invites somebody to answer something that is about to be answered
   // better, and a Swap button between one real row and one about-to-be
   // filled row swaps nothing worth swapping.
-  // The city, above the barangay list it filters.
-  //
-  // It used to sit at the top of the card, above both address rows, where it
-  // was a setting rather than a step — and it filters the barangay dropdown,
-  // which is two taps further down inside whichever end you opened. Answering
-  // "which city" before being asked "which barangay" is the order the form
-  // actually works in, so that is where it now lives.
-  // One per end rather than one shared element: the destination's copy now
-  // sits above the Where to bar permanently (not only while that panel is
-  // open), so it can be on screen at the same time as the pickup panel's
-  // own copy — each needs its own id and its own end's colour.
-  const cityRowFor = (end: 'pickup' | 'dropoff') => (
-    <div className="flex items-center gap-2">
-      <label
-        htmlFor={`home-city-${end}`}
-        className={`shrink-0 text-xs font-semibold uppercase tracking-wide ${
-          end === 'dropoff' ? 'text-dest-accent' : 'text-pickup-accent'
-        }`}
-      >
-        City
-      </label>
-      <select
-        id={`home-city-${end}`}
-        value={cityScope}
-        onChange={(e) => handleHomeCityChange(e.target.value)}
-        className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
-      >
-        <option value="">Select city…</option>
-        {getCitiesForProvince(DEFAULT_BOOKING_PROVINCE).map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </select>
-    </div>
-  )
-
   const addressCard = (showStrip: boolean, destinationOnly = false) => (
         <section
           ref={addressSectionRef}

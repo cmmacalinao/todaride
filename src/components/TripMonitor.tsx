@@ -79,6 +79,13 @@ interface TripMonitorProps {
   watching?: boolean
 }
 
+
+// What a flag on the trip map says — the first part of the address, short
+// enough to sit over a marker without covering the roads around it.
+function tripFlagText(label: string): string {
+  const first = formatAddressLine(label).split(',')[0].trim()
+  return first.length > 28 ? `${first.slice(0, 27)}…` : first
+}
 export function TripMonitor({
   title,
   ride,
@@ -439,6 +446,9 @@ export function TripMonitor({
       )
     : []
   const sharingWith = coRidersOnboard.length
+  // A food order or a PaDeliver delivery: its pickup is a store or a sender,
+  // so that end is named on the map as well as the destination.
+  const isDeliveryRide = ride.serviceType === 'vendor_order' || ride.serviceType === 'padala' || ride.serviceType === 'pabili'
   const mapPoints: MapPoint[] = [
     // The TODA's terminals, drawn under the trip's own pins. They are not
     // part of this journey, but a passenger watching the map uses them to
@@ -453,8 +463,26 @@ export function TripMonitor({
         label: t.name,
         icon: 'terminal' as const,
       })),
-    ...(ride.pickup.gps ? [{ id: 'pickup', gps: ride.pickup.gps, color: '#0d9488', label: formatAddressLine(ride.pickup.label) }] : []),
-    ...(ride.dropoff.gps ? [{ id: 'dropoff', gps: ride.dropoff.gps, color: '#e11d48', label: formatAddressLine(ride.dropoff.label) }] : []),
+    // The same 📍 and 🏁, in the same red and green, as the booking map.
+    // The destination names its address on the flag; on a food order or a
+    // PaDeliver delivery the pickup does too, since that is a store or a
+    // sender rather than where the passenger is standing.
+    ...(ride.pickup.gps
+      ? [
+          {
+            id: 'pickup',
+            gps: ride.pickup.gps,
+            color: '#dc2626',
+            icon: 'pickup' as const,
+            label: tripFlagText(ride.pickup.label),
+            callout: isDeliveryRide,
+            alwaysLabel: isDeliveryRide,
+          },
+        ]
+      : []),
+    ...(ride.dropoff.gps
+      ? [{ id: 'dropoff', gps: ride.dropoff.gps, color: '#16a34a', icon: 'dropoff' as const, label: tripFlagText(ride.dropoff.label), callout: true, alwaysLabel: true }]
+      : []),
     // Where everyone else riding along shares off — orange, not the rose
     // this passenger's own dropoff wears, so their own stop still reads as
     // the one that matters at a glance. Same reasoning as the marker label

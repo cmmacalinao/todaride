@@ -46,10 +46,10 @@ export function DestinationSearch({
   inputClassName = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm',
   autoFocus = false,
 }: {
-  // Scopes results to the city already chosen above this box (see the City
-  // row in PassengerPage) — a search is "palengke in this city", not a
-  // province-wide lookup, so a same-named landmark three towns over never
-  // outranks the one actually in the picked city. Unfiltered when blank.
+  // The city already chosen above this box (see the City row in
+  // PassengerPage). Its places are listed first, so a same-named landmark
+  // three towns over never outranks the one in the picked city — but the
+  // other towns are still searched, further down the list.
   city?: string
   // The rider's current position, for ranking equally-good text matches by
   // which one is actually closer. Optional: a passenger with GPS blocked
@@ -91,9 +91,9 @@ export function DestinationSearch({
   // moment the box is tapped, before anything is typed.
   const [focused, setFocused] = useState(false)
   const pool = barangayOnly ? landmarks.filter((l) => l.id.startsWith('landmark-brgy-')) : landmarks
-  // The chosen city and the towns next to it — see searchLandmarksNearCity.
-  // The city's own places come first; a neighbour's follow, named with
-  // their town. A town further away needs the City picker changed first.
+  // Every town, in order: the chosen city's places first, then its
+  // neighbours', then everywhere else — see searchLandmarksNearCity. Anything
+  // outside the chosen city is named with its town.
   const matches = searchLandmarksNearCity(query, pool, city, near ?? null, 8, landmarks)
   // Two results with the same name — the same barangay name in two towns is
   // common (Poblacion, San Roque, Bagong Sikat) — are told apart by town.
@@ -236,12 +236,12 @@ export function DestinationSearch({
           <p className="mt-1 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-400">
             {noMatchNote ? (
               <>
-                No {barangayOnly ? 'barangay' : 'landmark'} matches "{trimmed}"{city ? ` in ${city} or the towns next to it` : ''}
+                No {barangayOnly ? 'barangay' : 'landmark'} matches "{trimmed}"{city ? ` anywhere` : ''}
                 {shouldTryLive && liveStatus === 'done' ? ' and no nearby place found' : ''} — {noMatchNote}
               </>
             ) : (
               <>
-                No landmark matches "{trimmed}"{city ? ` in ${city} or the towns next to it` : ''}
+                No landmark matches "{trimmed}"{city ? ` anywhere` : ''}
                 {shouldTryLive && liveStatus === 'done' ? ', and no nearby place found either' : ''} —{' '}
                 {onOpenAddressForm ? (
                   <button

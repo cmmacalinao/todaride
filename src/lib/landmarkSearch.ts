@@ -137,10 +137,13 @@ export function nearbyCities(city: string, landmarks: Landmark[], radiusMeters =
     .map(([other]) => other)
 }
 
-// A search across the chosen city and its neighbours: every match inside the
-// city first, then the neighbours', each group still in the order
-// searchLandmarks ranked it. A weaker match in town beats a better one a town
-// over — the city was picked for a reason.
+// A search across every town, in three tiers: every match inside the chosen
+// city first, then the towns next to it, then everywhere else — each tier
+// still in the order searchLandmarks ranked it. A weaker match in town beats
+// a better one a town over (the city was picked for a reason), but nothing is
+// out of reach: a place three towns away is simply further down the list.
+// (Until 2026-09-21 the neighbours were the limit and a far town needed the
+// City picker changed first; that rule is gone.)
 export function searchLandmarksNearCity(
   query: string,
   landmarks: Landmark[],
@@ -154,12 +157,8 @@ export function searchLandmarksNearCity(
   allLandmarks: Landmark[] = landmarks,
 ): LandmarkMatch[] {
   if (!city) return searchLandmarks(query, landmarks, near, limit)
-  const scope = new Set([city, ...nearbyCities(city, allLandmarks)])
-  const ranked = searchLandmarks(
-    query,
-    landmarks.filter((l) => scope.has(l.city)),
-    near,
-    limit * 4,
-  )
-  return [...ranked.filter((m) => m.landmark.city === city), ...ranked.filter((m) => m.landmark.city !== city)].slice(0, limit)
+  const neighbours = new Set(nearbyCities(city, allLandmarks))
+  const ranked = searchLandmarks(query, landmarks, near, limit * 6)
+  const tier = (m: LandmarkMatch) => (m.landmark.city === city ? 0 : neighbours.has(m.landmark.city) ? 1 : 2)
+  return [...ranked].sort((a, b) => tier(a) - tier(b)).slice(0, limit)
 }

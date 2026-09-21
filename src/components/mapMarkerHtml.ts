@@ -5,7 +5,7 @@
 // HTML. Sharing the markup is the only way the tricycle a passenger sees while
 // choosing a pickup is the same tricycle they see while riding in it.
 
-export type MarkerIcon = 'tricycle' | 'pharmacy' | 'resto' | 'terminal' | 'me'
+export type MarkerIcon = 'tricycle' | 'pharmacy' | 'resto' | 'terminal' | 'me' | 'pickup' | 'dropoff'
 
 export const EMOJI_MARKER_ICONS: Record<MarkerIcon, string> = {
   tricycle: '🛺',
@@ -19,6 +19,11 @@ export const EMOJI_MARKER_ICONS: Record<MarkerIcon, string> = {
   // glance as "that one is me" while somebody is standing at a rank looking
   // between the screen and the road.
   me: '🧍',
+  // The two ends of a trip being booked — the same 📍 and 🏁 the pickup
+  // and destination lines above the map start with, so a line and its
+  // marker are visibly the same thing rather than a colour to match up.
+  pickup: '📍',
+  dropoff: '🏁',
 }
 
 // Pharmacy pins render at ~75% of the driver/tricycle marker's size — a
@@ -33,6 +38,8 @@ export const EMOJI_MARKER_SIZES: Record<MarkerIcon, { box: number; font: number 
   // The largest of them. Everything else on this map is a place or a vehicle
   // being looked for; this is the one point the eye should find first.
   me: { box: 22, font: 13 },
+  pickup: { box: 24, font: 14 },
+  dropoff: { box: 24, font: 14 },
 }
 
 // The tricycle, drawn rather than borrowed from the emoji font.

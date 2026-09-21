@@ -277,9 +277,9 @@ export function LocationMapPicker({
           },
         ]
       : []),
-    ...(pickup.gps ? [{ id: 'pickup', gps: pickup.gps, color: '#dc2626', label: `${pickupLabel} — ${formatAddressLine(pickup.label)}` }] : []),
+    ...(pickup.gps ? [{ id: 'pickup', gps: pickup.gps, color: '#dc2626', icon: 'pickup' as const, label: `${pickupLabel} — ${formatAddressLine(pickup.label)}` }] : []),
     ...(hasDropoff && dropoff.gps
-      ? [{ id: 'dropoff', gps: dropoff.gps, color: '#16a34a', label: `${dropoffLabel} — ${formatAddressLine(dropoff.label)}` }]
+      ? [{ id: 'dropoff', gps: dropoff.gps, color: '#16a34a', icon: 'dropoff' as const, label: `${dropoffLabel} — ${formatAddressLine(dropoff.label)}` }]
       : []),
     ...extraPoints,
     ...terminals

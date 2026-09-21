@@ -2900,10 +2900,18 @@ function reducer(state: RideState, action: RideAction): RideState {
       if (!ride || !driver || ride.status !== 'requested' || ride.pendingApproval) return state
       const terminalGps = getTerminalGps(state.todaOrganizations.find((o) => o.id === ride.priorityTodaOrgId))
       const area = estimateOutOfAreaBreakdown(action.originGps, terminalGps, state.todaRadiusKm, state.outOfAreaPerKm)
+      // A Group Ride is one job, here as in ACCEPT_RIDE: the driver's Take
+      // lands on one rider, and everyone still waiting in the same booking
+      // comes with them. The out-of-area fee is one trip's worth, so only the
+      // tapped rider carries it.
+      const groupId = ride.groupBookingId ?? null
+      const takes = (r: Ride) =>
+        r.id === action.rideId ||
+        (!!groupId && r.groupBookingId === groupId && r.status === 'requested' && !r.pendingApproval)
       return {
         ...state,
         rides: state.rides.map((r) =>
-          r.id === action.rideId
+          takes(r)
             ? {
                 ...r,
                 status: 'driver_arriving',
@@ -2915,9 +2923,13 @@ function reducer(state: RideState, action: RideAction): RideState {
                 legProgress: 0,
                 driverOriginGps: action.originGps,
                 passengerDeclinedFare: false,
-                fareEstimate: r.fareEstimate + area.fee,
-                outOfAreaKm: Number(area.extraKm.toFixed(2)),
-                outOfAreaFee: area.fee,
+                ...(r.id === action.rideId
+                  ? {
+                      fareEstimate: r.fareEstimate + area.fee,
+                      outOfAreaKm: Number(area.extraKm.toFixed(2)),
+                      outOfAreaFee: area.fee,
+                    }
+                  : {}),
                 pendingApproval: null,
               }
             : r,

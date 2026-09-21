@@ -475,9 +475,19 @@ export function AppLoginForm() {
           type="button"
           disabled={busy}
           onClick={() => void handleFingerprint()}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-white/20 bg-white/5 py-3 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-white/10 disabled:opacity-60"
+          className="flex flex-1 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 py-3 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-white/10 disabled:opacity-60"
         >
-          <span aria-hidden>👆</span> Fingerprint
+          {/* Line icons in the style of GCash's login row (drawn here, not
+              their artwork) — the emoji read as clip-art next to the form. */}
+          <svg aria-hidden viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5.2 8.6A8 8 0 0 1 18.8 8.6" />
+            <path d="M4 13a8 8 0 0 1 .5-2.6" />
+            <path d="M7.5 20.2A10.5 10.5 0 0 1 6.5 15v-2a5.5 5.5 0 0 1 11 0v1.2" />
+            <path d="M10.5 21.4A7.8 7.8 0 0 1 9.2 17v-4a2.8 2.8 0 0 1 5.6 0v2.4a5.6 5.6 0 0 0 1.3 3.6" />
+            <path d="M12 13v3.6a6 6 0 0 0 1.8 4.3" />
+            <path d="M17.5 17.6a9 9 0 0 1 .1 1.9" />
+          </svg>
+          Fingerprint
         </button>
         {/* Always the OTP door: registering is what the main Login/Register
             button does now, so this one has a single job and says so. */}
@@ -495,9 +505,15 @@ export function AppLoginForm() {
             setOtpCandidates(null)
             setOtpPhone(phone)
           }}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-white/20 bg-white/5 py-3 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-white/10"
+          className="flex flex-1 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 py-3 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-white/10"
         >
-          <span aria-hidden>✉️</span> Send OTP
+          <svg aria-hidden viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 5.5h16a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5V17.5H4A1.5 1.5 0 0 1 2.5 16V7A1.5 1.5 0 0 1 4 5.5z" />
+            <circle cx="8" cy="11.5" r="0.9" fill="currentColor" stroke="none" />
+            <circle cx="12" cy="11.5" r="0.9" fill="currentColor" stroke="none" />
+            <circle cx="16" cy="11.5" r="0.9" fill="currentColor" stroke="none" />
+          </svg>
+          Send OTP
         </button>
       </div>
 

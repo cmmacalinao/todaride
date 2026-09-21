@@ -33,7 +33,7 @@ import {
 import { getCurrentGeoPosition } from '../lib/geo'
 import { isInAppBrowser, openInBrowserHint } from '../lib/inAppBrowser'
 import { isWithinRetentionDays } from '../lib/tracking'
-import { SAVED_LOCATION_ICONS, SAVED_LOCATION_LABELS, savedLocationButtonLabel } from '../lib/savedLocations'
+import { SAVED_LOCATION_ICONS } from '../lib/savedLocations'
 import {
   createCustomLocation,
   resolvePhAddress,
@@ -71,7 +71,6 @@ import type {
   PaymentMethod,
   Pharmacy,
   Ride,
-  SavedLocationLabel,
   ServiceType,
 } from '../types'
 
@@ -100,7 +99,6 @@ export function PassengerPage() {
     acknowledgeRidePayment,
     requestedDrivers,
     setRequestedDriver,
-    savePassengerLocation,
     removePassengerLocation,
     medsOrders,
     pharmacies,
@@ -745,10 +743,6 @@ export function PassengerPage() {
     )
   })()
 
-  function handleSaveLocation(label: SavedLocationLabel, location: MockLocation) {
-    savePassengerLocation(passenger.id, label, location)
-  }
-
   async function handlePickupResolve(address: PhAddressTags) {
     setPickupChosen(true)
     const location = await resolvePhAddress(address)
@@ -1346,66 +1340,6 @@ export function PassengerPage() {
       ),
   )
 
-  // The saved-place row. Rendered against whichever end of the trip means
-  // "where I am": the pickup on a ride, the delivery address on an errand.
-  function quickPlaceChips(target: 'pickup' | 'dropoff', heading = '') {
-    const applyPlace = target === 'pickup' ? handlePickupQuickPick : handleDropoffQuickPick
-    const current = target === 'pickup' ? pickup : dropoff
-    const fieldName = target === 'pickup' ? pickupLabel : dropoffLabel
-    // No "My location" chip here. The row already has two ways to say where
-    // you are — the GPS button under the map, and tapping the map itself —
-    // and a third one wedged in front of Home/School/Work made the row read
-    // as a mix of "use this place" and "remember this place", which are
-    // opposite actions sitting in identical pills.
-    return (
-      <div className="-mx-1 mt-2 flex flex-nowrap items-center gap-1 overflow-x-auto px-1 pb-0.5">
-        {heading && <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold text-slate-500">{heading}</span>}
-        {SAVED_LOCATION_LABELS.filter((label) => label !== 'Favorite').map((label) => {
-          const saved = savedLocations.find((sl) => sl.label === label)
-          return (
-            <button
-              key={label}
-              type="button"
-              title={saved ? `${fieldName}: ${saved.location.label}` : `Save this as ${label}`}
-              onClick={() => (saved ? applyPlace(saved.location) : handleSaveLocation(label, current))}
-              className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
-                saved
-                  ? 'border-[#0f766e] bg-white text-[#0f766e] hover:bg-[#0f766e]/10'
-                  : 'border-slate-300 bg-white text-slate-500 hover:bg-slate-50'
-              }`}
-            >
-              {saved ? savedLocationButtonLabel(label) : `+ ${savedLocationButtonLabel(label)}`}
-            </button>
-          )
-        })}
-        {/* The barangay dropdown and detailed-address field below only show
-            once this is tapped — see addressFormOpen. Right of Work rather
-            than its own row so it reads as one more way to say where you
-            are, not a separate step everyone has to look at first. */}
-        <button
-          type="button"
-          onClick={() => {
-            // Quick destinations (this row) show on the dropoff side even
-            // before that end is open — tapping Address form there has to
-            // open the end too, not just a form nothing underneath is
-            // showing yet. Already-open just toggles the form itself.
-            if (openEnd !== target) openAddressPicker(target)
-            setAddressFormOpen((v) => (v === target ? null : target))
-          }}
-          aria-expanded={addressFormOpen === target}
-          title="Type a barangay and address instead"
-          className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
-            addressFormOpen === target
-              ? 'border-brand-600 bg-brand-600 text-white'
-              : 'border-slate-300 bg-white text-slate-500 hover:bg-slate-50'
-          }`}
-        >
-          📝 Address form
-        </button>
-      </div>
-    )
-  }
-
   // The one pickup/destination map this page has, built once here so it can
   // be slotted into wherever it is currently needed — its normal spot inside
   // the booking form, or (see TerminalBoardingPanel's mapSlot prop) right
@@ -1923,7 +1857,33 @@ export function PassengerPage() {
                 destination row is paired with Set on Map — the row takes the
                 width and the secondary control sits beside it, rather than
                 each taking a line of its own. */}
-            <div className="mt-1.5 flex items-stretch gap-1.5">
+            <div className="relative mt-1.5 flex items-stretch gap-1.5">
+            {openEnd === 'pickup' ? (
+              // Typed straight into the bar, the same way Where to works below:
+              // tap the strip, it becomes the search, the matches drop under
+              // it. It used to open a separate panel with its own city row,
+              // search box and chips — a second, different way of doing the
+              // same thing the destination does in place.
+              <div className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-red-500/40 bg-red-500/15 px-3 py-1.5 shadow-sm">
+                <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-600" />
+                <DestinationSearch
+                  city={cityScope}
+                  near={pickupGps ?? pickup.gps ?? null}
+                  onSelect={handlePickupLandmark}
+                  onOpenAddressForm={() => setAddressFormOpen('pickup')}
+                  onPinOnMap={() => {
+                    setMapTarget('pickup')
+                    setOpenEnd(null)
+                    setAddressFormOpen(null)
+                  }}
+                  autoFocus
+                  placeholder="Set PICKUP address"
+                  className="min-w-0 flex-1"
+                  resultsClassName="absolute inset-x-0 top-full z-[80] mt-1 max-h-72 overflow-y-auto"
+                  inputClassName="w-full min-w-0 bg-transparent text-sm font-semibold text-red-900 placeholder:font-normal placeholder:text-red-800/70 focus:outline-none"
+                />
+              </div>
+            ) : (
             <button
               type="button"
               onClick={() => openAddressPicker('pickup')}
@@ -1974,6 +1934,7 @@ export function PassengerPage() {
                 </span>
               </span>
             </button>
+            )}
             {/* The pickup gets the same map route as the destination. Booking
                 for somebody else is exactly the case where an address is hard
                 to type and easy to point at — a sitio, a corner, a house with
@@ -1999,23 +1960,8 @@ export function PassengerPage() {
               </button>
             )}
             </div>
-            {openEnd === 'pickup' && (
+            {openEnd === 'pickup' && (isErrand || addressFormOpen === 'pickup') && (
               <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
-              {cityRowFor('pickup')}
-              <DestinationSearch
-                city={cityScope}
-                near={pickupGps ?? pickup.gps ?? null}
-                onSelect={handlePickupLandmark}
-                className="relative"
-                resultsClassName="absolute inset-x-0 top-full z-[80] mt-1 max-h-72 overflow-y-auto"
-                onOpenAddressForm={() => setAddressFormOpen('pickup')}
-                onPinOnMap={() => {
-                  setMapTarget('pickup')
-                  setOpenEnd(null)
-                  setAddressFormOpen(null)
-                }}
-              />
-              {!isErrand && quickPlaceChips('pickup', 'Save as:')}
               {/* Gated on the Address form chip above — except on an errand,
                   where that chip (and the rest of the quick-places row) is
                   not shown at all, so the form is this pickup's only way in. */}
@@ -2078,7 +2024,7 @@ export function PassengerPage() {
               // the bar itself, the way Grab/Google Maps do, saves that step
               // and is where a passenger already expects to type.
               <div
-                className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg bg-dest-fill px-3 py-1.5 shadow-sm ${
+                className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-green-500/40 bg-green-500/15 px-3 py-1.5 shadow-sm ${
                   destinationOnly ? '' : 'pr-14'
                 }`}
               >
@@ -2102,7 +2048,7 @@ export function PassengerPage() {
                   // Anchored to the row (relative above), so the list spans
                   // the bar and Set on Map together and names read in full.
                   resultsClassName="absolute inset-x-0 top-full z-[80] mt-1 max-h-72 overflow-y-auto"
-                  inputClassName="w-full min-w-0 bg-transparent text-sm font-semibold text-dest-text placeholder:font-normal placeholder:text-dest-subtext/70 focus:outline-none"
+                  inputClassName="w-full min-w-0 bg-transparent text-sm font-semibold text-green-900 placeholder:font-normal placeholder:text-green-800/70 focus:outline-none"
                 />
               </div>
             ) : (

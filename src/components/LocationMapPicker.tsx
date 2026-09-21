@@ -495,17 +495,21 @@ export function LocationMapPicker({
       // names both pins, so a key naming them again under it was the same
       // two lines twice.
       hideLegend
-      onMapClick={(gps) => void placePin(gps)}
+      // No tap-to-place any more: a tap used to drop whichever pin was
+      // armed, and with the centre pin that became a second, less exact way
+      // to do the same thing — one that fired on every stray touch of a map
+      // that now has to be dragged around to be used at all.
       // The map is the pointer: a pin stands at the middle of the frame and
       // the passenger slides the place they mean under its tip, then taps
       // the button below to set it. Tapping the map still works and still
       // places the armed pin — this is the way that survives a thumb, which
       // covers the very corner it is trying to choose.
       centerPin
-      // Teal while the pickup is armed, rose once it is the destination — the
-      // same two colours the pins themselves use, so the pointer says which
-      // end it is about to set without a word.
-      centerPinColor={armed === 'pickup' ? '#0d9488' : '#e11d48'}
+      // Red while the pickup is armed, green once it is the destination — the
+      // same colours as the Pickup and Destination strips and the two buttons
+      // under the map, so the pointer says which end it is about to set
+      // without a word.
+      centerPinColor={armed === 'pickup' ? '#dc2626' : '#16a34a'}
       onCenterChange={setCenterGps}
       refitSignal={streetEnd ? `${refitSignal}|street:${streetEnd}` : refitSignal}
       holdFit={holdNextFitRef.current}

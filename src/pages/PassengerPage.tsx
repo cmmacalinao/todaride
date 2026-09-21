@@ -659,22 +659,6 @@ export function PassengerPage() {
     }
   }
 
-  function swapEndpoints() {
-    setPickupChosen(true)
-    setDropoffChosen(true)
-    const prevPickup = pickupId
-    const prevDropoff = dropoffId
-    const prevPickupSeed = pickupPickerSeed
-    const prevDropoffSeed = dropoffPickerSeed
-    setPickupId(prevDropoff)
-    setDropoffId(prevPickup)
-    // The pickers own their dropdown state, so the ids alone would leave them
-    // showing the old province/city/barangay — reseed both (see the seed
-    // comment on pickupPickerSeed) so the forms follow the swap.
-    setPickupPickerSeed({ ...prevDropoffSeed, key: prevPickupSeed.key + 1 })
-    setDropoffPickerSeed({ ...prevPickupSeed, key: prevDropoffSeed.key + 1 })
-  }
-
   function chooseErrand(next: ServiceType, opts?: { food?: boolean; catalog?: 'food' | 'goods' }) {
     setPageTab('book')
     setServiceType(next)
@@ -2168,30 +2152,10 @@ export function PassengerPage() {
               </span>
             </button>
             )}
-            {/* Tapping the map has always set the pin and nothing on the form
-                said so, leaving the address dropdowns reading as the only way
-                in — and typing a barangay and a street is far more work than
-                pointing at the place, especially for somewhere with no
-                address worth typing. This arms the map for the destination
-                and closes the form so the map is clear to tap. */}
-            <button
-              type="button"
-              onClick={() => {
-                setMapTarget('dropoff')
-                setOpenEnd(null)
-                setAddressFormOpen(null)
-              }}
-              aria-label="Set the destination by tapping the map"
-              aria-pressed={mapTarget === 'dropoff'}
-              className={`flex w-28 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-1 text-[10px] font-bold leading-tight text-dest-accent transition ${
-                mapTarget === 'dropoff'
-                  ? 'border-gold-400 bg-gold-400'
-                  : 'border-gold-400/60 bg-gold-400/20 hover:bg-gold-400/40'
-              }`}
-            >
-              <span aria-hidden className="text-sm leading-none">📍</span>
-              Set on Map
-            </button>
+            {/* The yellow "Set on Map" button beside Where to is gone
+                (2026-09-21): the map has a centre pin and its own Set
+                Destination button now, so arming the map from up here was a
+                second switch for something already switched on. */}
             </div>
             {/* The Home / School / Work / Address form chips that sat here are
                 gone (2026-09-21). The destination is chosen on the map now —
@@ -2259,22 +2223,6 @@ export function PassengerPage() {
                   Group Ride moved up into the Book for myself/someone row
                   instead of keeping its own line here — see addressCard. */}
               </>
-            )}
-            {!destinationOnly && (
-            <button
-              type="button"
-              onClick={swapEndpoints}
-              aria-label="Swap From and Where to"
-              title="Swap From and Where to"
-              // Offsets carry the City row that now sits above the address
-              // bars inside this same box — without them the button's
-              // centre drifted up onto the City select's edge.
-              className={`absolute right-1.5 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-xs shadow-sm transition hover:bg-slate-50 ${
-                openEnd ? 'top-[5.75rem]' : 'top-[calc(50%+1.25rem)]'
-              }`}
-            >
-              ⇅
-            </button>
             )}
           </div>
   

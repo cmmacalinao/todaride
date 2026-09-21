@@ -3068,10 +3068,19 @@ function reducer(state: RideState, action: RideAction): RideState {
       // A paused or terminated driver can still open the app; they cannot
       // take a ride, whatever screen the request came from.
       if (driver && driver.accessStatus !== 'active') return state
+      // A Group Ride is one job: accepting any one of its riders accepts the
+      // whole group — everyone still waiting in the same booking goes to this
+      // driver at once. They are boarding the same tricycle together; taking
+      // them one by one left the rest behind, since a driver on a trip cannot
+      // take another request, and only riders going his way are offered as
+      // "Sakay din".
+      const acceptedGroupId = state.rides.find((r) => r.id === action.rideId)?.groupBookingId ?? null
+      const takesThisRide = (r: Ride) =>
+        r.id === action.rideId || (!!acceptedGroupId && r.groupBookingId === acceptedGroupId && r.status === 'requested')
       return {
         ...state,
         rides: state.rides.map((r) =>
-          r.id === action.rideId
+          takesThisRide(r)
             ? {
                 ...r,
                 status: 'driver_arriving',
@@ -3102,8 +3111,11 @@ function reducer(state: RideState, action: RideAction): RideState {
       // stayed sitting in their list.
       return {
         ...state,
-        rides: state.rides.map((r) => {
-          if (r.id !== action.rideId) return r
+        rides: state.rides.map((r, _i, all) => {
+          // Passing on a Group Ride passes on the whole group — the same way
+          // taking one takes all of it (see ACCEPT_RIDE).
+          const declinedGroupId = all.find((x) => x.id === action.rideId)?.groupBookingId ?? null
+          if (r.id !== action.rideId && !(declinedGroupId && r.groupBookingId === declinedGroupId && r.status === 'requested')) return r
           const declinedBy = r.declinedByDriverIds ?? []
           const withDecline = {
             ...r,

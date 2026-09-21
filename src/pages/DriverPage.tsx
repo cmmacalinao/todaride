@@ -496,6 +496,12 @@ export function DriverPage() {
       isRideVisibleToDriver(r, driver, todaQueueWindowMs, specialPickupEscalationMs),
   )
   const hiddenCount = allRequested.length - incoming.length
+  // Requests as jobs: a Group Ride's riders count once, under the first of
+  // them — the driver takes the group or passes on it, so it is one thing
+  // waiting, not four.
+  const incomingJobs = incoming.filter(
+    (r, i) => !r.groupBookingId || incoming.findIndex((x) => x.groupBookingId === r.groupBookingId) === i,
+  )
   // Admin-configurable — see AdminPage's "Trip history retention" setting.
   // Older rides aren't lost, they just drop out of this list (earnings
   // totals below still see the full history regardless). "Clear history"
@@ -594,14 +600,20 @@ export function DriverPage() {
             ? `${homeToda.name} terminal (no GPS)`
             : `You — ${driver.plateNumber} (no GPS)`,
     },
-    ...incoming
+    ...incomingJobs
       .filter((r) => !!r.pickup.gps)
-      .map((r) => ({
-        id: `req-${r.id}`,
-        gps: r.pickup.gps!,
-        color: '#f59e0b',
-        label: `${r.passengerName} — ${formatAddressLine(r.pickup.label)}`,
-      })),
+      .map((r) => {
+        const groupSize = r.groupBookingId ? incoming.filter((x) => x.groupBookingId === r.groupBookingId).length : 1
+        return {
+          id: `req-${r.id}`,
+          gps: r.pickup.gps!,
+          color: '#f59e0b',
+          label:
+            groupSize > 1
+              ? `👥 Group of ${groupSize} — ${formatAddressLine(r.pickup.label)}`
+              : `${r.passengerName} — ${formatAddressLine(r.pickup.label)}`,
+        }
+      }),
   ]
   // The terminals this driver could work out of, and the one they picked.
   // A queue is a line at a place: with several terminals, the line a driver
@@ -1436,7 +1448,7 @@ export function DriverPage() {
               {myActiveRide
                 ? `${myActiveRide.status.replace(/_/g, ' ')} — tap for the trip`
                 : incoming.length > 0
-                  ? `${incoming.length} passenger${incoming.length === 1 ? '' : 's'} waiting — tap to view`
+                  ? `${incomingJobs.length} request${incomingJobs.length === 1 ? '' : 's'} waiting — tap to view`
                   : 'You will be alerted here'}
             </span>
           </span>
@@ -2328,8 +2340,10 @@ function ActiveTripCard({
   // Defensive: a MockLocation from before `gps` existed (stale localStorage)
   // has no real coordinate to plot — skip that point rather than crash.
   const mapPoints: MapPoint[] = [
-    ...(ride.pickup.gps ? [{ id: 'pickup', gps: ride.pickup.gps, color: '#0d9488', label: formatAddressLine(ride.pickup.label) }] : []),
-    ...(ride.dropoff.gps ? [{ id: 'dropoff', gps: ride.dropoff.gps, color: '#e11d48', label: formatAddressLine(ride.dropoff.label) }] : []),
+    // The same 📍 and 🏁, in the same red and green, as the passenger's
+    // booking and trip maps — one trip, marked the same way on both phones.
+    ...(ride.pickup.gps ? [{ id: 'pickup', gps: ride.pickup.gps, color: '#dc2626', icon: 'pickup' as const, label: formatAddressLine(ride.pickup.label) }] : []),
+    ...(ride.dropoff.gps ? [{ id: 'dropoff', gps: ride.dropoff.gps, color: '#16a34a', icon: 'dropoff' as const, label: formatAddressLine(ride.dropoff.label) }] : []),
     ...(driverGpsInfo
       ? [
           {

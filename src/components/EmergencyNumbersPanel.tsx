@@ -48,7 +48,7 @@ export function EmergencyNumbersPanel({
             </button>
           )}
           <span aria-hidden className="text-lg leading-none">
-            🆘
+            🛡️
           </span>
           <span className="min-w-0 flex-1 truncate text-sm font-bold text-white">Emergency numbers</span>
           <button
@@ -84,13 +84,17 @@ export function EmergencyNumbersButton({
     <button
       type="button"
       onClick={onClick}
-      aria-label="Emergency"
-      title="Emergency — SOS and hotline numbers"
-      className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-danger-600 text-xl leading-none shadow-sm transition hover:bg-danger-700 active:bg-danger-800 ${
+      aria-label="Safety — emergency contacts"
+      title="Safety — SOS and hotline numbers"
+      // The shield and the word Safety, the same as the passenger's Safety
+      // tile and the trip screen's button: the red SOS square read as an
+      // alarm to press, and what it opens is every way to reach help.
+      className={`relative flex h-11 w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-danger-300 bg-danger-50 leading-none shadow-sm transition hover:bg-danger-100 ${
         alertOpen ? 'ring-2 ring-danger-300 ring-offset-2' : ''
       }`}
     >
-      🆘
+      <span aria-hidden className="text-[17px] leading-none">🛡️</span>
+      <span className="text-[10px] font-bold leading-none text-danger-800">Safety</span>
       {alertOpen && (
         <span
           aria-hidden

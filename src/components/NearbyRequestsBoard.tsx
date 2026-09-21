@@ -35,6 +35,10 @@ export interface NearbyRequest {
   // passenger already deciding on another driver's offer is spoken for,
   // while a terminal-Pila hold is only about whose turn it is in the line.
   blockedKind: 'pending_other' | 'queue_hold' | null
+  // Set when this card stands for a whole Group Ride: everyone in the same
+  // booking, shown and taken as one job (see ACCEPT_RIDE). The money above is
+  // then the group's total.
+  group: { count: number; names: string[]; stops: string[] } | null
 }
 
 export function buildNearbyRequests(
@@ -84,8 +88,39 @@ export function buildNearbyRequests(
         cod,
         blockedReason,
         blockedKind,
+        group: null as NearbyRequest['group'],
       }
     })
+    // One card per Group Ride: the riders of one booking fold into the first
+    // of them, with the fares added up and every stop listed. A driver takes
+    // the group or passes on it, never one rider out of it.
+    .reduce<NearbyRequest[]>((cards, card) => {
+      const groupId = card.ride.groupBookingId
+      const lead = groupId ? cards.find((c) => c.ride.groupBookingId === groupId) : undefined
+      if (!lead) {
+        cards.push(
+          groupId
+            ? {
+                ...card,
+                group: {
+                  count: 1,
+                  names: [card.ride.passengerName.split(' ')[0]],
+                  stops: [card.ride.dropoff.label.split(',')[0].trim()],
+                },
+              }
+            : card,
+        )
+        return cards
+      }
+      lead.fare += card.fare
+      lead.tips += card.tips
+      lead.total += card.total
+      lead.takeHome += card.takeHome
+      lead.group!.count += 1
+      lead.group!.names.push(card.ride.passengerName.split(' ')[0])
+      lead.group!.stops.push(card.ride.dropoff.label.split(',')[0].trim())
+      return cards
+    }, [])
     .sort((a, b) => {
       // Takeable work first — a driver scanning this list wants the ones they
       // can actually press, not the ones they have to wait out.
@@ -122,19 +157,33 @@ export function NearbyRequestsBoard({ requests, onAccept, onDecline, busyNote = 
       {busyNote && (
         <p className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] font-medium text-amber-800">{busyNote}</p>
       )}
-      {requests.map(({ ride, distanceMeters, fare, tips, total, takeHome, cod, blockedReason }) => (
+      {requests.map(({ ride, distanceMeters, fare, tips, total, takeHome, cod, blockedReason, group }) => (
         <div
           key={ride.id}
           className={`rounded-lg border p-3 ${blockedReason || busyNote ? 'border-slate-200 bg-slate-50' : 'border-slate-200 bg-white'}`}
         >
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-700">
-                {rideServiceTag(ride)?.icon ?? SERVICE_ICON.ride} {ride.passengerName}
-              </p>
-              <p className="mt-0.5 truncate text-xs text-slate-500">
-                {formatTripRoute(ride.pickup.label, ride.dropoff.label, 3)}
-              </p>
+              {group && group.count > 1 ? (
+                <>
+                  <p className="truncate text-sm font-semibold text-slate-700">
+                    👥 Group Ride · {group.count} riders
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-slate-500">{group.names.join(', ')}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {ride.pickup.label.split(',')[0]} → {group.stops.map((s, i) => `${i + 1}. ${s}`).join(' · ')}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="truncate text-sm font-semibold text-slate-700">
+                    {rideServiceTag(ride)?.icon ?? SERVICE_ICON.ride} {ride.passengerName}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-slate-500">
+                    {formatTripRoute(ride.pickup.label, ride.dropoff.label, 3)}
+                  </p>
+                </>
+              )}
             </div>
             <span className="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">
               📍 {formatDistance(distanceMeters)}
@@ -197,7 +246,7 @@ export function NearbyRequestsBoard({ requests, onAccept, onDecline, busyNote = 
                 onClick={() => onAccept(ride.id)}
                 className="flex-1 rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
               >
-                Take this one
+                {group && group.count > 1 ? `Take all ${group.count}` : 'Take this one'}
               </button>
               <button
                 type="button"

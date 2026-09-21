@@ -2,7 +2,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { terminalRideIsFree } from '../lib/terminalFee'
 import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
-import { PilotBranding } from '../components/PilotBranding'
 import { TricycleIcon } from '../components/TricycleIcon'
 import { usePilotBranding } from '../lib/usePilotBranding'
 
@@ -31,7 +30,7 @@ export function RiderStartPage() {
     // in. ScanSafeRideBanner already wore this look on its own; this brings
     // the page it sits on into line with it, rather than the other way round.
     <div
-      className="relative min-h-[calc(100vh-50px)] overflow-hidden px-4 py-4"
+      className="relative min-h-[calc(100vh-50px)] overflow-hidden px-4 pb-4 pt-2"
       // Same royal-blue-to-navy diagonal as the landing page and role
       // chooser (see LandingPage.tsx) — one product, lit the same way on
       // every screen a passenger passes through before booking.
@@ -59,7 +58,9 @@ export function RiderStartPage() {
         {pilotBranding.specific ? (
           <NearbyTodaAdCard name={pilotBranding.name} showNearYouTag={pilotBranding.showNearYouTag} />
         ) : (
-          <PilotBranding name={pilotBranding.name} />
+          // The generic "TODA Ride Mobility" wordmark was removed (2026-09-21) —
+          // the logo already says it; only what TODA stands for stays.
+          <p className="whitespace-nowrap text-center text-[17px] text-gold-400">Transport &amp; Opportunity Digital Access</p>
         )}
 
         {/* No ServiceTabs strip here — this screen's own three tiles below

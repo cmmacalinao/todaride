@@ -475,6 +475,8 @@ export function AppLoginForm() {
           type="button"
           disabled={busy}
           onClick={() => void handleFingerprint()}
+          aria-label="Fingerprint"
+          title="Fingerprint"
           className="flex flex-1 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 py-3 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-white/10 disabled:opacity-60"
         >
           {/* Line icons in the style of GCash's login row (drawn here, not
@@ -487,7 +489,6 @@ export function AppLoginForm() {
             <path d="M12 13v3.6a6 6 0 0 0 1.8 4.3" />
             <path d="M17.5 17.6a9 9 0 0 1 .1 1.9" />
           </svg>
-          Fingerprint
         </button>
         {/* Always the OTP door: registering is what the main Login/Register
             button does now, so this one has a single job and says so. */}

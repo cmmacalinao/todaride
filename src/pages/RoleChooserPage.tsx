@@ -1,7 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
-import { PilotBranding } from '../components/PilotBranding'
 import { usePilotBranding } from '../lib/usePilotBranding'
 
 interface RoleTile {
@@ -88,7 +87,7 @@ export function RoleChooserPage() {
     // "use the main login" and "pick a role" should not land on two
     // different products.
     <div
-      className="relative min-h-[calc(100vh-50px)] overflow-hidden px-4 py-8"
+      className="relative min-h-[calc(100vh-50px)] overflow-hidden px-4 pb-8 pt-3"
       // Same royal-blue-to-navy diagonal as the landing page (see
       // LandingPage.tsx).
       style={{ backgroundImage: 'linear-gradient(135deg, #3e6fe4 0%, #0a1529 60%, #0a1529 100%)' }}
@@ -110,19 +109,30 @@ export function RoleChooserPage() {
           ‹ Go back
         </Link>
         <div className="mb-6 flex flex-col items-center text-center">
-          <Link to="/" aria-label="Back to home" className="rounded-2xl border-2 border-white/25 p-3">
-            <img src="/logo.png" alt="TODA Ride Mobility" className="h-14 w-auto object-contain" />
+          {/* The same framed logo and tagline as the login screen, so the two
+              doors into the app look like one place. */}
+          <Link
+            to="/"
+            aria-label="Back to home"
+            className="flex flex-col items-center rounded-2xl border-2 border-white/25 px-[15px] pb-[9.5px] pt-[11.5px]"
+          >
+            <img src="/logo.png" alt="TODA Ride Mobility" className="h-[76px] w-auto object-contain" />
+            <span className="-mt-1 whitespace-nowrap text-center text-[17px] text-gold-400">
+              Transport &amp; Opportunity Digital Access
+            </span>
           </Link>
+          <p className="mt-3 text-center text-xs font-medium italic leading-snug text-white/70">
+            Empowering Drivers. Protecting Passengers.
+            <br />
+            Strengthening Communities.
+          </p>
           {/* Same resolution as the launch screen behind this one — see
               usePilotBranding — so the two doors into the app never
               disagree about which TODA a visitor is looking at. */}
           {pilotBranding.specific ? (
             <NearbyTodaAdCard name={pilotBranding.name} showNearYouTag={pilotBranding.showNearYouTag} />
-          ) : (
-            <div className="mt-3">
-              <PilotBranding name={pilotBranding.name} />
-            </div>
-          )}
+          ) : null /* The generic "TODA Ride Mobility" wordmark was removed
+            (2026-09-21) — the framed logo above already says it all. */}
           <h1 className="mt-4 text-sm font-semibold text-white">Who are you?</h1>
           <p className="mt-1 text-xs text-white/50">Pick your account — you log in or sign up on the next page.</p>
         </div>

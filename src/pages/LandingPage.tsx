@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom'
 import { AppLoginForm } from '../components/AppLoginForm'
 import { AndroidAppBanner } from '../components/AndroidAppBanner'
 import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
-import { PilotBranding } from '../components/PilotBranding'
 import { BuildLabel } from '../components/BuildLabel'
 import { VisionMission } from '../components/VisionMission'
 import { usePilotBranding } from '../lib/usePilotBranding'
@@ -84,35 +83,29 @@ export function LandingPage() {
               it. */}
           {/* What TODA stands for sits inside the logo's own frame, right
               under the mark that says TODA; the frame widens to fit it. */}
-          <div className="flex flex-col items-center rounded-2xl border-2 border-white/25 px-4 pb-2.5 pt-3">
-            <img src="/logo.png" alt="TODA Ride Mobility" className="h-20 w-auto object-contain" />
-            <p className="-mt-1 whitespace-nowrap text-center text-[18px] text-gold-400">
+          <div className="flex flex-col items-center rounded-2xl border-2 border-white/25 px-[15px] pb-[9.5px] pt-[11.5px]">
+            <img src="/logo.png" alt="TODA Ride Mobility" className="h-[76px] w-auto object-contain" />
+            <p className="-mt-1 whitespace-nowrap text-center text-[17px] text-gold-400">
               Transport &amp; Opportunity Digital Access
             </p>
           </div>
-          {/* Which build this actually is — see BuildLabel. Right under the
-              logo/partner artwork so it's the first thing a screenshot of a
-              bug report captures, rather than something found by scrolling
-              to the bottom of the page or the login form. */}
-          <p className="mt-2 text-center text-xs font-semibold tracking-wide text-white/80">
-            <BuildLabel />
-          </p>
           {/* Whichever TODA's terminal is nearest right now (or Super
-              Admin's manual override, or — if neither — the app's own
-              generic name) — see usePilotBranding. A specific org gets the
-              ad-like card; the generic name renders plainly, since the app
-              naming itself isn't a promotion. */}
-          {pilotBranding.specific ? (
+              Admin's manual override) gets its ad-like card — see
+              usePilotBranding. The app's generic "TODA Ride Mobility"
+              wordmark that used to show otherwise was removed (2026-09-21):
+              the logo above already says it. */}
+          {pilotBranding.specific && (
             <NearbyTodaAdCard name={pilotBranding.name} showNearYouTag={pilotBranding.showNearYouTag} />
-          ) : (
-            <div className="mt-4">
-              <PilotBranding name={pilotBranding.name} hideSubtitle />
-            </div>
           )}
-          <p className="mt-2 text-center text-xs font-medium italic leading-snug text-white/70">
+          <p className="mt-3 text-center text-xs font-medium italic leading-snug text-white/70">
             Empowering Drivers. Protecting Passengers.
             <br />
             Strengthening Communities.
+          </p>
+          {/* Which build this actually is — see BuildLabel. Under the tagline,
+              still above the form, so a screenshot of a bug report catches it. */}
+          <p className="mt-2 text-center text-xs font-semibold tracking-wide text-white/80">
+            <BuildLabel />
           </p>
           {/* One user name and password for everyone — the form works out
               whether you're a rider, parent, driver, TODA officer, partner or

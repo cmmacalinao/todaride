@@ -1837,7 +1837,11 @@ export function PassengerPage() {
                     choice, not an afterthought: "who is this booking for"
                     plus "is it one destination or several" is one decision
                     about the trip, made in one place. */}
-                <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
+                {/* The three choices and the city share one row: short words
+                    (Myself / Someone / Group) leave room for the city beside
+                    them, where it used to take a line of its own under them. */}
+                <div className="flex items-center gap-1.5">
+                <div className="flex min-w-0 flex-1 gap-1 rounded-lg bg-slate-100 p-1">
                   <button
                     type="button"
                     onClick={() => {
@@ -1850,7 +1854,7 @@ export function PassengerPage() {
                         : 'text-slate-500 hover:bg-slate-200'
                     }`}
                   >
-                    Book for myself
+                    Myself
                   </button>
                   <button
                     type="button"
@@ -1864,7 +1868,7 @@ export function PassengerPage() {
                         : 'text-slate-500 hover:bg-slate-200'
                     }`}
                   >
-                    Book for someone
+                    Someone
                   </button>
                   <button
                     type="button"
@@ -1875,8 +1879,10 @@ export function PassengerPage() {
                     }`}
                   >
                     <span aria-hidden className="text-[11px] leading-none">👥</span>
-                    Group Ride
+                    Group
                   </button>
+                </div>
+                <div className="w-[42%] shrink-0">{cityRowFor('dropoff')}</div>
                 </div>
                 {guestRider.bookingFor === 'other' && (
                   <div className="mt-1.5 grid grid-cols-2 gap-1.5">
@@ -2057,7 +2063,7 @@ export function PassengerPage() {
                 to — moved above the bar itself so the scope is set before
                 typing into it, instead of being buried in the panel that
                 only shows once the bar is already expanded. */}
-            <div className="mt-1.5">{cityRowFor('dropoff')}</div>
+            {isErrand && <div className="mt-1.5">{cityRowFor('dropoff')}</div>}
             {/* The destination row. Second when the pickup row is showing
                 beside it — booking for someone else answers "where are
                 they" first — first on its own the rest of the time, which

@@ -67,6 +67,7 @@ export function LocationMapPicker({
   toolbarAction,
   streetGuide = true,
   pickupAutomatic = false,
+  pinPicking = true,
 }: {
   mapFirst?: boolean
   sheetHeader?: () => ReactNode
@@ -162,6 +163,11 @@ export function LocationMapPicker({
   // pickup marker drawn but not draggable. Book for someone, Group Ride and
   // PaDeliver leave this off, since there the pickup is somewhere else.
   pickupAutomatic?: boolean
+  // Whether the map is for choosing places at all. Off once a ride is booked
+  // or under way: the pickup and destination are settled, so the centre pin
+  // and its Set buttons would only invite moving a trip that is already
+  // happening.
+  pinPicking?: boolean
 
   // Ride booking calls these "Pickup"/"Destination"; a Pabili/Buy Medicine
   // errand calls them "Buy near to"/"Deliver to" instead — same map, same
@@ -271,9 +277,9 @@ export function LocationMapPicker({
           },
         ]
       : []),
-    ...(pickup.gps ? [{ id: 'pickup', gps: pickup.gps, color: '#0d9488', label: `${pickupLabel} — ${formatAddressLine(pickup.label)}` }] : []),
+    ...(pickup.gps ? [{ id: 'pickup', gps: pickup.gps, color: '#dc2626', label: `${pickupLabel} — ${formatAddressLine(pickup.label)}` }] : []),
     ...(hasDropoff && dropoff.gps
-      ? [{ id: 'dropoff', gps: dropoff.gps, color: '#e11d48', label: `${dropoffLabel} — ${formatAddressLine(dropoff.label)}` }]
+      ? [{ id: 'dropoff', gps: dropoff.gps, color: '#16a34a', label: `${dropoffLabel} — ${formatAddressLine(dropoff.label)}` }]
       : []),
     ...extraPoints,
     ...terminals
@@ -316,7 +322,7 @@ export function LocationMapPicker({
         onClick={() => setShowFullAddress(true)}
         title="Tap to see the complete address"
         className={`min-w-0 flex-1 truncate text-left ${
-          end === 'pickup' ? 'text-pickup-accent' : 'text-dest-accent'
+          end === 'pickup' ? 'text-red-600' : 'text-green-700'
         } ${target === end ? 'font-semibold' : 'font-normal'}`}
       >
         {icon}{' '}
@@ -504,7 +510,7 @@ export function LocationMapPicker({
       // the button below to set it. Tapping the map still works and still
       // places the armed pin — this is the way that survives a thumb, which
       // covers the very corner it is trying to choose.
-      centerPin
+      centerPin={pinPicking}
       // Red while the pickup is armed, green once it is the destination — the
       // same colours as the Pickup and Destination strips and the two buttons
       // under the map, so the pointer says which end it is about to set
@@ -544,7 +550,22 @@ export function LocationMapPicker({
       // In the toolbar row, right of Full screen, rather than as its own row:
       // two short lines that would otherwise spend a strip of a phone screen.
       overlayTopInline={!mapFirst}
-      overlayBottom={mapFooter ? () => mapFooter : undefined}
+      // Full screen lifts the map out of the page, and the Set Pickup / Set
+      // Destination buttons that normally sit under it stay behind — which
+      // left the centre pin with nothing to press. So in full screen they ride
+      // along the bottom of the map itself.
+      overlayBottom={(fullscreen) =>
+        (fullscreen && pinPicking) || mapFooter ? (
+          <>
+            {fullscreen && !mapFirst && pinPicking && (
+              // A white card behind them: see-through buttons laid over the
+              // map read the street names and the map credits through them.
+              <div className="rounded-xl bg-white/95 p-1.5 pt-0 shadow-lg">{setFromCenter}</div>
+            )}
+            {mapFooter}
+          </>
+        ) : null
+      }
       // Draggable exactly when drawn — the same conditions the two points
       // above are built from, not the "has the passenger chosen one yet"
       // flags. The pickup is drawn from a default coordinate before anybody
@@ -561,7 +582,7 @@ export function LocationMapPicker({
         its box and the booking sheet is drawn over it, so a button appended
         underneath would land outside the frame; there it rides in the
         sheet's own footer instead (see mapFooter). */}
-    {!mapFirst && setFromCenter}
+    {!mapFirst && pinPicking && setFromCenter}
     {/* The booking button, straight under Set Destination here: set where
         you are going, then go — the two steps one above the other, where the
         thumb already is, rather than the button a whole map's height away. */}

@@ -1612,6 +1612,8 @@ export function PassengerPage() {
         // The green street guide is for placing the pin; once Book a
         // tricycle is tapped there is a ride, and the line comes off.
         streetGuide={!activeRide}
+        // No centre pin or Set buttons once a ride is booked — see pinPicking.
+        pinPicking={!activeRide}
         // No Find Barangay box in the map's toolbar any more — that spot shows
         // the pickup and destination instead (see LocationMapPicker's
         // overlayTop). Searching still lives in the Where to bar.

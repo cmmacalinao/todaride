@@ -47,9 +47,8 @@ export function DestinationSearch({
   autoFocus = false,
 }: {
   // The city already chosen above this box (see the City row in
-  // PassengerPage). Its places are listed first, so a same-named landmark
-  // three towns over never outranks the one in the picked city — but the
-  // other towns are still searched, further down the list.
+  // PassengerPage). Its places are listed first, then the towns next to it;
+  // a same-named landmark three towns over is not searched at all.
   city?: string
   // The rider's current position, for ranking equally-good text matches by
   // which one is actually closer. Optional: a passenger with GPS blocked
@@ -91,9 +90,9 @@ export function DestinationSearch({
   // moment the box is tapped, before anything is typed.
   const [focused, setFocused] = useState(false)
   const pool = barangayOnly ? landmarks.filter((l) => l.id.startsWith('landmark-brgy-')) : landmarks
-  // Every town, in order: the chosen city's places first, then its
-  // neighbours', then everywhere else — see searchLandmarksNearCity. Anything
-  // outside the chosen city is named with its town.
+  // The chosen city and the towns next to it — see searchLandmarksNearCity.
+  // The city's own places come first; a neighbour's follow, named with
+  // their town. A town further away needs the City picker changed first.
   const matches = searchLandmarksNearCity(query, pool, city, near ?? null, 8, landmarks)
   // Two results with the same name — the same barangay name in two towns is
   // common (Poblacion, San Roque, Bagong Sikat) — are told apart by town.
@@ -236,12 +235,12 @@ export function DestinationSearch({
           <p className="mt-1 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-400">
             {noMatchNote ? (
               <>
-                No {barangayOnly ? 'barangay' : 'landmark'} matches "{trimmed}"{city ? ` anywhere` : ''}
+                No {barangayOnly ? 'barangay' : 'landmark'} matches "{trimmed}"{city ? ` in ${city} or the towns next to it` : ''}
                 {shouldTryLive && liveStatus === 'done' ? ' and no nearby place found' : ''} — {noMatchNote}
               </>
             ) : (
               <>
-                No landmark matches "{trimmed}"{city ? ` anywhere` : ''}
+                No landmark matches "{trimmed}"{city ? ` in ${city} or the towns next to it` : ''}
                 {shouldTryLive && liveStatus === 'done' ? ', and no nearby place found either' : ''} —{' '}
                 {onOpenAddressForm ? (
                   <button

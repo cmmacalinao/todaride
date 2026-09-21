@@ -29,12 +29,12 @@ describe('searchLandmarksNearCity', () => {
   const landmarks = [
     place('a', 'Poblacion', 'Town A', 15.8, 121.0),
     place('b', 'Poblacion', 'Town B', 15.72, 120.92), // ~12 km away: a neighbour
-    place('c', 'Poblacion', 'Town C', 15.2, 121.0), // ~67 km away: not a neighbour, still found
+    place('c', 'Poblacion', 'Town C', 15.2, 121.0), // ~67 km away: too far
   ]
 
-  it('puts the chosen city first, then its neighbours, then a far town', () => {
+  it('puts the chosen city first, then its neighbours, and never a far town', () => {
     const found = searchLandmarksNearCity('poblacion', landmarks, 'Town A', null)
-    expect(found.map((m) => m.landmark.city)).toEqual(['Town A', 'Town B', 'Town C'])
+    expect(found.map((m) => m.landmark.city)).toEqual(['Town A', 'Town B'])
   })
 
   it('searches everything when no city is chosen', () => {

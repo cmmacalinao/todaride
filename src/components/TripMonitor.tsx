@@ -169,18 +169,21 @@ export function TripMonitor({
   // whoever needs it, without standing between everyone else and the answer.
   const [gotOffHelpOpen, setGotOffHelpOpen] = useState(false)
   const [customTipInput, setCustomTipInput] = useState('')
-  // Full screen, by itself, the moment a driver takes the ride. That is when
-  // the map starts to matter — a tricycle is now coming, and where it is is
-  // the whole question — and it is also the moment the phone is most likely
-  // in a pocket. Only on the change seen here (waiting, then accepted), not
-  // every time this screen opens on a ride already on its way, and never for
-  // someone watching (a parent at home) rather than riding.
+  // Full screen, by itself, the moment the trip starts — the driver has
+  // reached the passenger and the tricycle is moving with them aboard. Not
+  // when the ride is merely accepted: while the driver is still on the way the
+  // passenger is waiting, and the normal screen (the driver's name, plate,
+  // call and cancel) is what they need; a map covering all of that would only
+  // get in the way. Once they are riding, where the tricycle is becomes the
+  // whole question. Only on the change seen here, not every time this screen
+  // opens on a trip already under way, and never for someone watching (a
+  // parent at home) rather than riding.
   const [acceptedSignal, setAcceptedSignal] = useState(0)
   const lastStatusRef = useRef(ride.status)
   useEffect(() => {
     const was = lastStatusRef.current
     lastStatusRef.current = ride.status
-    if (!watching && was === 'requested' && ride.status === 'driver_arriving') setAcceptedSignal((n) => n + 1)
+    if (!watching && was !== 'ongoing' && ride.status === 'ongoing') setAcceptedSignal((n) => n + 1)
   }, [ride.status, watching])
   const {
     position: ownGps,

@@ -1927,17 +1927,17 @@ export function PassengerPage() {
             <button
               type="button"
               onClick={() => openAddressPicker('pickup')}
-              className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg bg-pickup-accent px-3 py-1.5 text-left shadow-sm filter transition hover:brightness-90 ${
+              className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-red-500/40 bg-red-500/15 px-3 py-1.5 text-left shadow-sm filter transition hover:bg-red-500/25 ${
                 destinationOnly ? '' : 'pr-14'
               }`}
             >
-              <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-white" />
+              <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-600" />
               <span className="min-w-0 flex-1">
                 {/* No eyebrow on the booking screen, same as the destination
                     row: the colour and the placeholder already say which end
                     this is, and the label cost a line of a thin strip. */}
                 {!destinationOnly && (
-                  <span className="block text-[9px] font-semibold uppercase tracking-wide text-white/75">{pickupLabel}</span>
+                  <span className="block text-[9px] font-semibold uppercase tracking-wide text-red-800/75">{pickupLabel}</span>
                 )}
                 {/* Blank until the passenger says where they are, the same as
                     the destination below.
@@ -1955,12 +1955,12 @@ export function PassengerPage() {
                     where a driver is being sent. */}
                 <span
                   className={`block truncate ${
-                    pickupChosen ? 'text-sm font-semibold text-white' : 'text-[11px] font-normal text-white/70'
+                    pickupChosen ? 'text-sm font-semibold text-red-900' : 'text-[11px] font-normal text-red-800/70'
                   }`}
                 >
                   {pickupChosen ? (
                     <>
-                      <span className="font-normal text-white/75">Pickup: </span>
+                      <span className="font-normal text-red-800/80">Pickup: </span>
                       {formatAddressLine(pickup.label)}
                     </>
                   ) : (

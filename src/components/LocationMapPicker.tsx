@@ -467,7 +467,7 @@ export function LocationMapPicker({
         type="button"
         onClick={() => setEndFromCenter('pickup')}
         disabled={!centerGps || status === 'locating'}
-        className="flex-1 rounded-lg bg-pickup-accent py-2 text-[11px] font-bold text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-300"
+        className="flex-1 rounded-lg border border-red-500/40 bg-red-500/15 py-2 text-[11px] font-bold text-red-900 shadow-sm transition hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-50"
       >
         📍 Set {pickupLabel} here
       </button>

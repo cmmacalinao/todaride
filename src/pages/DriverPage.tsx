@@ -1308,7 +1308,7 @@ export function DriverPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-3 px-4 pb-20 pt-2">
+    <div className="mx-auto max-w-lg space-y-2 px-4 pb-20 pt-0">
       <div ref={topSentinelRef} />
       {/* The TODA name banner and the Location permission row used to sit
           here; both removed on request (2026-09-21) — the header already
@@ -1384,7 +1384,7 @@ export function DriverPage() {
         </div>
       )}
 
-      <div className="sticky top-[70px] z-10 -mx-4 flex items-center justify-end gap-2 border-b border-slate-200 bg-slate-50/95 px-4 py-2 backdrop-blur">
+      <div className="sticky top-[57px] z-10 -mx-4 flex items-center justify-end gap-2 border-b border-slate-200 bg-slate-50/95 px-4 py-1.5 backdrop-blur">
         <button
           type="button"
           onClick={() =>

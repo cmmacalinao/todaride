@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { PILOT_ORIGIN } from '../lib/pilotOrigin'
 import { QRCodeSVG } from 'qrcode.react'
 import { useRides } from '../context/RideContext'
 import { terminalRideIsFree } from '../lib/terminalFee'
@@ -20,7 +21,10 @@ export function TricycleQrPanel({ driver }: TricycleQrPanelProps) {
   // publicBaseUrl is what the Super Admin published the app at; without it the
   // QR would encode "localhost", which is unreachable from a passenger's
   // phone — so the driver is told to ask rather than handed a dead code.
-  const base = publicBaseUrl || window.location.origin
+  // Falls back to the pilot address itself, not this page (2026-09-23):
+  // a code printed from a preview build or the old Netlify address would
+  // otherwise send phones somewhere other than the live domain.
+  const base = publicBaseUrl || PILOT_ORIGIN
   const scanUrl = `${base}/scan/${driver.id}`
   const usable = !!publicBaseUrl || !/localhost|127\.0\.0\.1/.test(base)
 

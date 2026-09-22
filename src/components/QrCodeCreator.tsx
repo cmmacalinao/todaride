@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { PILOT_ORIGIN } from '../lib/pilotOrigin'
 import { QRCodeSVG } from 'qrcode.react'
 import { useRides } from '../context/RideContext'
 
@@ -27,7 +28,10 @@ export function QrCodeCreator() {
   const [size, setSize] = useState(512)
   const previewRef = useRef<HTMLDivElement>(null)
 
-  const base = publicBaseUrl || window.location.origin
+  // Falls back to the pilot address itself, not this page (2026-09-23):
+  // a code printed from a preview build or the old Netlify address would
+  // otherwise send phones somewhere other than the live domain.
+  const base = publicBaseUrl || PILOT_ORIGIN
   // A code encoding "localhost" is unscannable by anyone but this machine —
   // it must be caught here, not at the printer.
   const baseIsLocal = /localhost|127\.0\.0\.1/.test(base)

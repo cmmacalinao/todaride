@@ -1030,11 +1030,42 @@ function ActiveVendorOrderCard({
             : `✓ Approved (cash on delivery) — ${vendor?.name ?? 'the vendor'} is preparing your order`}
       </p>
       <p className="text-xs text-slate-500">{VENDOR_TYPE_ICONS[vendor?.businessType ?? ''] ?? '🏪'} {vendor?.name ?? 'Vendor'}</p>
-      <p className="text-xs text-slate-600">{order.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}</p>
-      <p className="text-xs font-semibold text-slate-700">
-        {order.status === 'pending_confirmation' ? `About ₱${order.total}` : `Total ₱${order.total}`}
-        {order.status === 'confirmed' && ` · goods ₱${order.subtotal} + TODA fare ₱${order.deliveryFee} + booking fee ₱${order.serviceFee}`}
-      </p>
+      {/* What was ordered and what it costs, itemised in a faded-yellow box
+          so it stands out from the status lines around it. Before the store
+          confirms, the fare and fee are estimates, and the box says so. */}
+      <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 text-xs text-slate-700">
+        <ul className="space-y-1">
+          {order.items.map((i) => (
+            <li key={i.productId} className="flex items-baseline gap-2">
+              <span className="min-w-0 flex-1">
+                <span className="font-semibold">{i.quantity}×</span> {i.name}
+                <span className="text-slate-500"> · ₱{i.unitPrice} each</span>
+              </span>
+              <span className="shrink-0 font-semibold tabular-nums">₱{i.unitPrice * i.quantity}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-2 space-y-0.5 border-t border-amber-200 pt-1.5">
+          <p className="flex justify-between">
+            <span>Goods</span>
+            <span className="tabular-nums">₱{order.subtotal}</span>
+          </p>
+          <p className="flex justify-between">
+            <span>TODA fare{order.status === 'pending_confirmation' && ' (estimate)'}</span>
+            <span className="tabular-nums">₱{order.deliveryFee}</span>
+          </p>
+          {order.serviceFee > 0 && (
+            <p className="flex justify-between">
+              <span>Booking fee</span>
+              <span className="tabular-nums">₱{order.serviceFee}</span>
+            </p>
+          )}
+          <p className="flex justify-between border-t border-amber-200 pt-1 text-sm font-bold text-slate-900">
+            <span>{order.status === 'pending_confirmation' ? 'About' : 'Total'}</span>
+            <span className="tabular-nums">₱{order.total}</span>
+          </p>
+        </div>
+      </div>
       {cancelState.note && (
         <p className={`text-[11px] ${cancelState.overdue ? 'font-semibold text-amber-700' : 'text-slate-500'}`}>
           ⏱ {cancelState.note}

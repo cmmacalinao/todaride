@@ -76,6 +76,7 @@ export function LocationMapPicker({
   onScanQr,
   toolbarAction,
   streetGuide = true,
+  pickedStreetLines,
   pickupAutomatic = false,
   pinPicking = true,
   toolbarStrip,
@@ -143,6 +144,14 @@ export function LocationMapPicker({
   // the map on it). The booking form turns this off the moment a ride is
   // requested: the pin is placed by then, and the trip map is for the trip.
   streetGuide?: boolean
+  // A street picked from the search's 🛣️ Streets list carries its own shape
+  // (the seeded streets have theirs in streetPaths). Drawn green like a seeded
+  // one, but only while that end still sits at the point it was picked at —
+  // a pin moved elsewhere is no longer "on that street".
+  pickedStreetLines?: {
+    pickup?: { gps: GeoCoords; line: GeoCoords[][] } | null
+    dropoff?: { gps: GeoCoords; line: GeoCoords[][] } | null
+  }
   // Rendered directly under the map, filling the row's width to the left
   // of underMapAction. The booking form's submit lives here so the action
   // sits with the map it is confirming, immediately after the pin the
@@ -514,8 +523,11 @@ export function LocationMapPicker({
   // whatever the frame happened to be centred on, and the person doing the
   // pinching slides off the edge.
   // A street picked from the search draws its road in green — either end.
-  const pickupStreet = streetGuide ? streetLinesFor(pickup, landmarks) : null
-  const dropoffStreet = streetGuide ? streetLinesFor(dropoff, landmarks) : null
+  const sameSpot = (a: GeoCoords | null | undefined, b: GeoCoords) => !!a && a.lat === b.lat && a.lng === b.lng
+  const pickedPickup = pickedStreetLines?.pickup && sameSpot(pickup.gps, pickedStreetLines.pickup.gps) ? pickedStreetLines.pickup.line : null
+  const pickedDropoff = pickedStreetLines?.dropoff && sameSpot(dropoff.gps, pickedStreetLines.dropoff.gps) ? pickedStreetLines.dropoff.line : null
+  const pickupStreet = streetGuide ? streetLinesFor(pickup, landmarks) ?? pickedPickup : null
+  const dropoffStreet = streetGuide ? streetLinesFor(dropoff, landmarks) ?? pickedDropoff : null
   const streetLines = [...(pickupStreet ?? []), ...(dropoffStreet ?? [])]
   // The one exception to "the map never moves on its own": picking a
   // street is a request to see that street, so the view frames the whole

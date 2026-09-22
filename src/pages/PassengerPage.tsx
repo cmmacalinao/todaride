@@ -787,13 +787,21 @@ export function PassengerPage() {
   // handler a map tap uses, just without a reverse-geocoded guess to reseed
   // the address form with. Works the same for a seeded Landmark or a live
   // OpenStreetMap fallback result — see DestinationSearch's SelectedPlace.
+  // The shape of a street picked from the search, per end — see
+  // LocationMapPicker's pickedStreetLines.
+  const [pickedStreetLines, setPickedStreetLines] = useState<{
+    pickup?: { gps: GeoCoords; line: GeoCoords[][] } | null
+    dropoff?: { gps: GeoCoords; line: GeoCoords[][] } | null
+  }>({})
   function handlePickupLandmark(place: SelectedPlace) {
+    setPickedStreetLines((s) => ({ ...s, pickup: place.line ? { gps: place.gps, line: place.line } : null }))
     handlePinPickup(createCustomLocation(place.name, place.gps), null)
     setOpenEnd(null)
     setAddressFormOpen(null)
   }
 
   function handleDropoffLandmark(place: SelectedPlace) {
+    setPickedStreetLines((s) => ({ ...s, dropoff: place.line ? { gps: place.gps, line: place.line } : null }))
     handlePinDropoff(createCustomLocation(place.name, place.gps), null)
     setOpenEnd(null)
     setAddressFormOpen(null)
@@ -1133,7 +1141,10 @@ export function PassengerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finishedRideId])
 
-  const isGuestBooking = guestRider.bookingFor === 'other'
+  // Only a ride offers Myself / Someone. An errand (Book a Delivery) shows no
+  // such choice, so a Someone left selected on Book a Ride must not turn it
+  // into a delivery 'for them' (2026-09-22).
+  const isGuestBooking = guestRider.bookingFor === 'other' && !isErrand
   // Said when Book is pressed with nothing behind the pickup — a phone that
   // refused location, or one still waiting on the auto-locate fix to land.
   // canSubmit does not gate on this: booking for yourself with no pickup
@@ -1711,6 +1722,9 @@ export function PassengerPage() {
   // it to the other; the ⇄ switches by hand. It follows mapTarget, the same
   // armed end the centre pin and its Set buttons use.
   const padalaEnd: 'pickup' | 'dropoff' = mapTarget
+  // Where the one two-ended box is used: Book a Delivery, and Book a Ride for
+  // Someone (2026-09-22) — the two bookings where both ends are picked by hand.
+  const dualEndBox = isPadala || (!isErrand && !groupRideOpen && guestRider.bookingFor === 'other')
   // A place picked in the box is not set straight away: the map goes to it
   // and that end's Set button lights up; tapping the button sets it (see
   // LocationMapPicker's flyTo / onEndSet).
@@ -1742,7 +1756,15 @@ export function PassengerPage() {
           // Only ever the question, never the chosen address (2026-09-22) —
           // the address is on the map's pin. Nothing set yet: 'Where to?';
           // then 'Pickup?' or 'Where to Deliver?' for whichever end is next.
-          placeholder={!pickupChosen && !dropoffChosen ? 'Where to?' : isPickupEnd ? 'Pickup? - type landmark, street, brgy.' : 'Delivery? - type landmark, street, brgy.'}
+          placeholder={
+            !pickupChosen && !dropoffChosen
+              ? 'Where to?'
+              : isPickupEnd
+                ? 'Pickup? - type landmark, street, brgy.'
+                : isPadala
+                  ? 'Delivery? - type landmark, street, brgy.'
+                  : 'Destination? - type landmark, street, brgy.'
+          }
           className="min-w-0 flex-1"
           resultsClassName="absolute inset-x-0 top-full z-[80] mt-1 max-h-72 overflow-y-auto"
           inputClassName={`map-toolbar-input w-full min-w-0 bg-transparent text-sm font-semibold focus:outline-none ${
@@ -1767,7 +1789,7 @@ export function PassengerPage() {
     )
   }
   const destinationStrip = (destinationOnly: boolean) =>
-          isPadala ? padalaStrip() :
+          dualEndBox ? padalaStrip() :
             openEnd === 'dropoff' ? (
               // Tapping Where to used to only expand a panel below with its
               // own separate search box a scroll away — typing directly into
@@ -1873,13 +1895,13 @@ export function PassengerPage() {
         dropoff={dropoff}
         target={mapTarget}
         onTargetChange={setMapTarget}
-        flyTo={isPadala ? padalaPreview : null}
+        flyTo={dualEndBox ? padalaPreview : null}
         onEndSet={(end) => {
           setPadalaPreview(null)
           // Book a Delivery then asks for the other end: pickup set -> Delivery?,
           // delivery set with no pickup yet -> Pickup?. Its destination starts
           // pre-filled, so the map's own advance does not fire here.
-          if (!isPadala) return
+          if (!dualEndBox) return
           if (end === 'pickup') setMapTarget('dropoff')
           else if (!pickupChosen) setMapTarget('pickup')
         }}
@@ -1923,6 +1945,7 @@ export function PassengerPage() {
         // The green street guide is for placing the pin; once Book a
         // tricycle is tapped there is a ride, and the line comes off.
         streetGuide={!activeRide}
+        pickedStreetLines={pickedStreetLines}
         // No centre pin or Set buttons once a ride is booked — see pinPicking.
         pinPicking={!activeRide}
         onFullscreenChange={setMapIsFullscreen}
@@ -2249,7 +2272,7 @@ export function PassengerPage() {
                 they going". */}
             {/* Book a Delivery: City first, as on Book a Ride. */}
             {isPadala && <div className="mb-1.5">{cityRowFor('dropoff')}</div>}
-            {guestRider.bookingFor === 'other' && !isPadala && (
+            {guestRider.bookingFor === 'other' && !dualEndBox && (
             <>
             {/* Paired with Group Ride on the booking screen, the way the
                 destination row is paired with Set on Map — the row takes the

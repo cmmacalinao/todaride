@@ -889,7 +889,9 @@ export function TripMonitor({
           value={customTipInput}
           onChange={(e) => setCustomTipInput(e.target.value)}
           placeholder="Custom"
-          className="w-16 rounded-lg border border-slate-300 px-2 py-1 text-[11px]"
+          // compact-input: 11px on a phone too, the same height as the Add button
+          // beside it (see index.css).
+          className="compact-input w-16 rounded-full border border-slate-300 px-2.5 py-1 text-[11px] font-medium leading-normal"
         />
         <button
           type="button"

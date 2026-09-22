@@ -125,7 +125,8 @@ body {
  * on iOS Safari this one box will zoom on focus, the lesser wrong.
  * !important because the rule above carries four :not() selectors. */
 @media (pointer: coarse) {
-  input.map-toolbar-input {
+  input.map-toolbar-input,
+  input.compact-input {
     font-size: 11px !important;
   }
 }

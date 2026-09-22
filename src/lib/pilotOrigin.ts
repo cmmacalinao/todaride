@@ -21,4 +21,9 @@
 // Deliberately a lib module rather than a constant exported from
 // ShareAppPanel: otpApi and mayaApi need it too, and a lib importing from a
 // component to get its API base is the wrong direction.
-export const PILOT_ORIGIN = 'https://todaride-pilot2.netlify.app'
+//
+// 2026-09-22: the real domain, todaridemobility.com, is live and serves the
+// same Netlify site (checked: same build, same app-version.json), so every
+// QR and share link now carries it. An APK installed before this still calls
+// todaride-pilot2.netlify.app, which keeps working — it is the same site.
+export const PILOT_ORIGIN = 'https://todaridemobility.com'

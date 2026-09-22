@@ -8430,7 +8430,10 @@ export function usePublicOrigin(): { origin: string; shareable: boolean } {
   // one the world can reach; else the pilot's. A link built from
   // localhost (the dev server) or the installed app's own origin is dead
   // to everyone it is sent to — Facebook fetches nothing and shows no card.
-  const origin = publicBaseUrl || (isShareableOrigin(current) ? current : PILOT_ORIGIN)
+  // The site's bare *.netlify.app address counts as not-the-domain: it is
+  // the same site, but a QR or shared link should carry todaridemobility.com.
+  const onNetlifyHost = /^https:\/\/[^/]+\.netlify\.app$/.test(current)
+  const origin = publicBaseUrl || (isShareableOrigin(current) && !onNetlifyHost ? current : PILOT_ORIGIN)
   return { origin, shareable: isShareableOrigin(origin) }
 }
 

@@ -162,6 +162,8 @@ export function TripMonitor({
   // Set when the rider taps "I've gotten off" — opens the safety check
   // asking whether they got out where they meant to, or need help.
   const [gotOffAsked, setGotOffAsked] = useState(false)
+  // The same question as a pop-up, raised by the GPS separation itself.
+  const [separationPopup, setSeparationPopup] = useState(false)
   // This phone and the tricycle are apart right now (see separation.ts'
   // isApart) — the tricycle's label stops naming you once you are not in it.
   const [seatsApart, setSeatsApart] = useState(false)
@@ -783,8 +785,10 @@ export function TripMonitor({
       if (decision.metersApart !== null) setSeatsApart(isApart(separationRef.current))
       if (decision.separated) {
         setApartMeters(Math.round(decision.metersApart ?? 0))
-        setGotOffAsked(true)
+        setSeparationPopup(true)
         setGotOffHelpOpen(false)
+        // A buzz as well: the phone is probably in a pocket by now.
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate?.([200, 100, 200])
       }
     }
     if (watching) {
@@ -1047,6 +1051,103 @@ export function TripMonitor({
 
   // Same reasoning, same fix. Withdrawn once arrival is already confirmed —
   // see the block this replaced for why.
+  // Closes the "did you get off?" question, wherever it is showing — the
+  // card below, or the pop-up the separation opens.
+  const closeGotOff = () => {
+    setGotOffAsked(false)
+    setSeparationPopup(false)
+    setApartMeters(null)
+  }
+  const gotOffQuestion = (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-amber-900">
+          {apartMeters === null
+            ? 'Did you get off safely?'
+            : `You have moved ${apartMeters}m from the tricycle — did you get off safely?`}
+        </p>
+
+        <button
+          type="button"
+          onClick={() => setGotOffHelpOpen((v) => !v)}
+          aria-expanded={gotOffHelpOpen}
+          aria-label={gotOffHelpOpen ? 'Hide what this means' : 'What does this mean?'}
+          title={gotOffHelpOpen ? 'Hide what this means' : 'What does this mean?'}
+          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold transition ${
+            gotOffHelpOpen
+              ? 'border-amber-500 bg-amber-500 text-white'
+              : 'border-amber-400 bg-white text-amber-700 hover:bg-amber-100'
+          }`}
+        >
+          ⓘ
+        </button>
+      </div>
+      {gotOffHelpOpen && (
+        <p className="text-[11px] text-amber-800">
+          If you're where you meant to be, finish the ride so your driver and TODA know the trip is done. If
+          something's wrong — you were dropped somewhere else, or you don't feel safe — send an SOS instead.
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={() => {
+          void confirmArrivalHere()
+          closeGotOff()
+        }}
+        className="w-full rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
+      >
+        ✅ Yes — I arrived safely
+      </button>
+      {sosEnabled ? (
+        <button
+          type="button"
+          onClick={() => {
+            setEmergencyCountdown(true)
+            setEmergencyFromGotOff(true)
+            setEmergencyOpen(true)
+            closeGotOff()
+          }}
+          className="w-full rounded-lg border border-danger-500 bg-danger-600 py-2 text-xs font-semibold text-white hover:bg-danger-700"
+        >
+          🆘 No — I need help, send SOS
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            setEmergencyCountdown(false)
+            setEmergencyFromGotOff(true)
+            setEmergencyOpen(true)
+            closeGotOff()
+          }}
+          className="w-full rounded-lg border border-danger-500 bg-danger-600 py-2 text-xs font-semibold text-white hover:bg-danger-700"
+        >
+          📞 No — I need help, call someone
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => {
+          closeGotOff()
+        }}
+        className="w-full text-[11px] font-medium text-amber-800 underline"
+      >
+        Never mind, I'm still on board
+      </button>
+    </div>
+  )
+  // The pop-up (2026-09-22): when this phone and the tricycle's GPS part —
+  // see the separation effect — the question comes up over the whole screen,
+  // full-screen map included, instead of only opening inside the card.
+  const separationAlert =
+    separationPopup && allowGotOffCheck && isOngoingLeg && !openSos && !ride.passengerArrivedAt ? (
+      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/60 p-4" role="alertdialog" aria-modal="true">
+        <div className="w-full max-w-sm rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-2xl">
+          <p className="mb-2 text-sm font-bold text-amber-900">📍 You and the tricycle have separated</p>
+          {gotOffQuestion}
+        </div>
+      </div>
+    ) : null
   const gotOffCard =
     allowGotOffCheck && isOngoingLeg && !openSos && !ride.passengerArrivedAt ? (
       <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
@@ -1060,92 +1161,14 @@ export function TripMonitor({
             I've gotten off the tricycle
           </button>
         ) : (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold text-amber-900">
-                {apartMeters === null
-                  ? 'Did you get off safely?'
-                  : `You have moved ${apartMeters}m from the tricycle — did you get off safely?`}
-              </p>
-
-              <button
-                type="button"
-                onClick={() => setGotOffHelpOpen((v) => !v)}
-                aria-expanded={gotOffHelpOpen}
-                aria-label={gotOffHelpOpen ? 'Hide what this means' : 'What does this mean?'}
-                title={gotOffHelpOpen ? 'Hide what this means' : 'What does this mean?'}
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold transition ${
-                  gotOffHelpOpen
-                    ? 'border-amber-500 bg-amber-500 text-white'
-                    : 'border-amber-400 bg-white text-amber-700 hover:bg-amber-100'
-                }`}
-              >
-                ⓘ
-              </button>
-            </div>
-            {gotOffHelpOpen && (
-              <p className="text-[11px] text-amber-800">
-                If you're where you meant to be, finish the ride so your driver and TODA know the trip is done. If
-                something's wrong — you were dropped somewhere else, or you don't feel safe — send an SOS instead.
-              </p>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                void confirmArrivalHere()
-                setGotOffAsked(false)
-                setApartMeters(null)
-              }}
-              className="w-full rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
-            >
-              ✅ Yes — I arrived safely
-            </button>
-            {sosEnabled ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setEmergencyCountdown(true)
-                  setEmergencyFromGotOff(true)
-                  setEmergencyOpen(true)
-                  setGotOffAsked(false)
-                  setApartMeters(null)
-                }}
-                className="w-full rounded-lg border border-danger-500 bg-danger-600 py-2 text-xs font-semibold text-white hover:bg-danger-700"
-              >
-                🆘 No — I need help, send SOS
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setEmergencyCountdown(false)
-                  setEmergencyFromGotOff(true)
-                  setEmergencyOpen(true)
-                  setGotOffAsked(false)
-                  setApartMeters(null)
-                }}
-                className="w-full rounded-lg border border-danger-500 bg-danger-600 py-2 text-xs font-semibold text-white hover:bg-danger-700"
-              >
-                📞 No — I need help, call someone
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                setGotOffAsked(false)
-                setApartMeters(null)
-              }}
-              className="w-full text-[11px] font-medium text-amber-800 underline"
-            >
-              Never mind, I'm still on board
-            </button>
-          </div>
+          gotOffQuestion
         )}
       </div>
     ) : null
 
   return (
     <section className="space-y-3 rounded-xl border border-brand-200 bg-brand-50 p-4 shadow-sm">
+      {separationAlert}
       {/* The tricycle has plainly left the planned road.
           A quiet reroute already fixed the route the moment this fired — see
           the effect above — so this dialog is not asking permission to do

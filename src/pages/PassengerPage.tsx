@@ -195,6 +195,17 @@ export function PassengerPage() {
   // it stays out of the way until this is tapped instead of opening with
   // everything else.
   const [addressFormOpen, setAddressFormOpen] = useState<'pickup' | 'dropoff' | null>(null)
+  // "Fill Address Form" under a search with no match: opens that end's form
+  // and brings it on screen. The form is drawn only while its end is the open
+  // one (openEnd) — setting addressFormOpen alone left nothing to see once
+  // Where to moved onto the map and stopped opening its end — and it sits in
+  // the card above the map, usually scrolled away from the search box.
+  const addressFormRef = useRef<HTMLDivElement>(null)
+  function openAddressForm(end: 'pickup' | 'dropoff') {
+    setOpenEnd(end)
+    setAddressFormOpen(end)
+    setTimeout(() => addressFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80)
+  }
   // How open the booking sheet is.
   //
   // Driven by the address form rather than left to the reader: opening
@@ -1700,7 +1711,7 @@ export function PassengerPage() {
                   city={cityScope}
                   near={pickupGps ?? pickup.gps ?? null}
                   onSelect={handleDropoffLandmark}
-                  onOpenAddressForm={() => setAddressFormOpen('dropoff')}
+                  onOpenAddressForm={() => openAddressForm('dropoff')}
                   onPinOnMap={() => {
                     setMapTarget('dropoff')
                     setOpenEnd(null)
@@ -2147,7 +2158,7 @@ export function PassengerPage() {
                   city={cityScope}
                   near={pickupGps ?? pickup.gps ?? null}
                   onSelect={handlePickupLandmark}
-                  onOpenAddressForm={() => setAddressFormOpen('pickup')}
+                  onOpenAddressForm={() => openAddressForm('pickup')}
                   onPinOnMap={() => {
                     setMapTarget('pickup')
                     setOpenEnd(null)
@@ -2238,7 +2249,7 @@ export function PassengerPage() {
             )}
             </div>
             {openEnd === 'pickup' && (isErrand || addressFormOpen === 'pickup') && (
-              <div className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
+              <div ref={addressFormRef} className="mt-1.5 space-y-2 rounded-lg bg-slate-50/70 p-2">
               {/* Gated on the Address form chip above — except on an errand,
                   where that chip (and the rest of the quick-places row) is
                   not shown at all, so the form is this pickup's only way in. */}
@@ -2321,7 +2332,7 @@ export function PassengerPage() {
                 form collapsed this panel used to render as an empty grey
                 strip under the chips. */}
             {openEnd === 'dropoff' && (addressFormOpen === 'dropoff' || (isErrand && gpsStatus === 'error' && !!gpsError)) && (
-              <div className="mt-1 space-y-2 rounded-lg bg-slate-50/70 p-2">
+              <div ref={addressFormRef} className="mt-1 space-y-2 rounded-lg bg-slate-50/70 p-2">
                 {/* The landmark search itself now lives in the Where to bar
                     above (see the embedded DestinationSearch branch), and
                     the City row now sits above that same bar — this is just

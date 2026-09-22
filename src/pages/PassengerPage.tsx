@@ -1731,6 +1731,17 @@ export function PassengerPage() {
   // Where the one two-ended box is used: Book a Delivery, and Book a Ride for
   // Someone (2026-09-22) — the two bookings where both ends are picked by hand.
   const dualEndBox = isPadala || (!isErrand && !groupRideOpen && guestRider.bookingFor === 'other')
+  // Which ends were set in this box. A pickup that is merely filled in —
+  // this phone's own GPS from Myself, or a default — is not an answer for
+  // someone else's ride or a delivery, so the box asks for it anyway.
+  // Cleared whenever the box starts over (a different booking mode).
+  const [boxSet, setBoxSet] = useState<{ pickup: boolean; dropoff: boolean }>({ pickup: false, dropoff: false })
+  const dualModeKey = `${isPadala ? 'padala' : 'ride'}:${guestRider.bookingFor}:${groupRideOpen}`
+  useEffect(() => {
+    setBoxSet({ pickup: false, dropoff: false })
+    if (dualEndBox) setMapTarget('pickup')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dualModeKey])
   // A place picked in the box is not set straight away: the map goes to it
   // and that end's Set button lights up; tapping the button sets it (see
   // LocationMapPicker's flyTo / onEndSet).
@@ -1771,7 +1782,7 @@ export function PassengerPage() {
           // the address is on the map's pin. Nothing set yet: 'Where to?';
           // then 'Pickup?' or 'Where to Deliver?' for whichever end is next.
           placeholder={
-            !pickupChosen && !dropoffChosen
+            !boxSet.pickup && !boxSet.dropoff
               ? 'Where to?'
               : isPickupEnd
                 ? 'Pickup? - type landmark, street, brgy.'
@@ -1920,8 +1931,12 @@ export function PassengerPage() {
           // delivery set with no pickup yet -> Pickup?. Its destination starts
           // pre-filled, so the map's own advance does not fire here.
           if (!dualEndBox) return
+          const next = { ...boxSet, [end]: true }
+          setBoxSet(next)
+          // Then the end still to be set: pickup set -> the destination;
+          // destination set with no pickup set here yet -> the pickup.
           if (end === 'pickup') setMapTarget('dropoff')
-          else if (!pickupChosen) setMapTarget('pickup')
+          else if (!next.pickup) setMapTarget('pickup')
         }}
         onPinPickup={handlePinPickup}
         onPinDropoff={handlePinDropoff}

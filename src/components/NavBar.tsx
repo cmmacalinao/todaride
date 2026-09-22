@@ -335,6 +335,13 @@ export function NavBar() {
 
   function handleDrawerNavigate(section: DrawerSection) {
     setActiveSection(section)
+    // A passenger's (or parent's) Home is the three-tile start page — Book a
+    // Ride, Food Order, PaDeliver — the same screen login lands on, not the
+    // booking form itself.
+    if (isRiderApp && section === 'home') {
+      navigate('/book/start')
+      return
+    }
     navigate(
       isRiderApp ? '/book' : isPharmacyApp ? '/pharmacy' : isOperatorApp ? '/operator' : isFranchiseApp ? '/franchise' : '/drive',
       { state: { section } },

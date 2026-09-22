@@ -39,6 +39,7 @@ export function LocationMapPicker({
   onPinDropoff,
   pickupLabel = 'Pickup',
   dropoffLabel = 'Destination',
+  dropoffButtonText,
   refitSignal,
   hasDropoff = true,
   hasPickup = true,
@@ -239,6 +240,9 @@ export function LocationMapPicker({
   // pickup/dropoff state, just different words for what each pin means.
   pickupLabel?: string
   dropoffLabel?: string
+  // The destination Set button's whole text, in place of 'Set {dropoffLabel}
+  // here' — e.g. 'Save as Home' while a saved place is being set.
+  dropoffButtonText?: string
   // Extra markers alongside pickup/dropoff/terminals — used by Group Ride to
   // show every rider's own destination on this same map at once, not just
   // whichever one is currently being pinned.
@@ -593,7 +597,7 @@ export function LocationMapPicker({
               : 'border-green-500/40 bg-green-500/15 text-green-900 hover:bg-green-500/25'
           }`}
         >
-          🏁 Set {dropoffLabel} here
+          {dropoffButtonText ?? `🏁 Set ${dropoffLabel} here`}
         </button>
     </div>
   )

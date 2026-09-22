@@ -362,9 +362,24 @@ export function PassengerPage() {
   // members as its riders — one tricycle, a stop per school. The owner books
   // it and is not riding.
   const familyGroup = groupRideOpen && new URLSearchParams(location.search).get('family') === '1'
+  // Family home (2026-09-22): members, trusted driver and trips, with a tab
+  // into booking. The booking itself is its own page (/book in Family mode)
+  // so the map and the box have the whole phone screen.
+  const familyHome = location.pathname === '/book/family'
+  function openFamilyBooking(several = false) {
+    navigate(several ? '/book/group?family=1' : '/book')
+    if (!several) guestRider.setBookingFor('family')
+    window.scrollTo({ top: 0 })
+  }
+  // Arriving on Family home (tile, link or back button) puts the page in
+  // Family mode, so its Book tab opens a Family booking.
+  useEffect(() => {
+    if (familyHome) guestRider.setBookingFor('family')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [familyHome])
   // Family bookings: the family's trusted driver first, or anyone nearby.
   const [familyDriverChoice, setFamilyDriverChoice] = useState<FamilyDriverChoice>('')
-  // Saved places (2026-09-22): Home, School, Office or a named favourite
+  // Saved places (2026-09-22): Home, School, Work or a named favourite
   // being set on the map. While set, the centre pin and its Set button save
   // that place instead of choosing the trip's destination.
   const [savingPlace, setSavingPlace] = useState<{ label: SavedLocationLabel; name?: string } | null>(null)
@@ -483,11 +498,10 @@ export function PassengerPage() {
         scrollTop()
         break
       case 'family':
-        // The home page's Family tile: Book a Ride, already on the Family tab.
+        // Family has its own home page now (see familyHome).
         setPageTab('book')
         setServiceType('ride')
-        setGroupRideOpen(false)
-        guestRider.setBookingFor('family')
+        navigate('/book/family')
         scrollTop()
         break
       case 'goods_store':
@@ -1095,9 +1109,9 @@ export function PassengerPage() {
         isPwdSeniorRide: false,
       })),
     })
-    setGroupRideOpen(false)
-    // Back on the Family page, where Family trips follows every stop.
-    if (familyGroup) guestRider.setBookingFor('family')
+    // Back to Family home, where Family trips follows every stop.
+    if (familyGroup) navigate('/book/family')
+    else setGroupRideOpen(false)
     setGroupRiders([])
     setGroupSubmitting(false)
   }
@@ -1340,13 +1354,23 @@ export function PassengerPage() {
       bookedAtTerminal: boardedAtTerminal,
     })
     // A family member booked for is kept on the booker's list for next time.
+    // Only a new one: saving over a member already listed would wipe their
+    // invite code and who pays their rides.
     if (forFamily && !isErrand && guestRider.otherName.trim()) {
-      saveFamilyMember(passenger.id, {
-        id: `fam-${Date.now()}`,
-        name: guestRider.otherName.trim(),
-        phone: guestRider.otherPhone.trim(),
-      })
+      const phoneDigits = guestRider.otherPhone.replace(/\D/g, '')
+      const known = (passenger.familyMembers ?? []).some(
+        (m) => m.phone.replace(/\D/g, '') === phoneDigits || m.name === guestRider.otherName.trim(),
+      )
+      if (!known) {
+        saveFamilyMember(passenger.id, {
+          id: `fam-${Date.now()}`,
+          name: guestRider.otherName.trim(),
+          phone: guestRider.otherPhone.trim(),
+        })
+      }
     }
+    // Back to Family home, where Family trips follows the ride.
+    if (forFamily && !isErrand) navigate('/book/family')
     setRequestedDriverId(null)
     setSpecialTrip(false)
     setPassengerCount(1)
@@ -1395,7 +1419,7 @@ export function PassengerPage() {
   }
 
   function handlePinDropoff(location: MockLocation, guess: PhAddressTags | null) {
-    // Saving Home / School / Office / a favourite: the pin is that place,
+    // Saving Home / School / Work / a favourite: the pin is that place,
     // not this trip's destination.
     if (savingPlace) {
       savePassengerLocation(passenger.id, savingPlace.label, location, savingPlace.name)
@@ -2041,7 +2065,7 @@ export function PassengerPage() {
             }}
           />
   )
-  // Saved places for one-tap booking (2026-09-22): Home, School and Office
+  // Saved places for one-tap booking (2026-09-22): Home, School and Work
   // always show — set ones fill the trip, unset ones are set on the map —
   // then any named favourites, and + Place for another. ✎ lets a place be
   // moved (set again on the map) or removed.
@@ -2055,7 +2079,7 @@ export function PassengerPage() {
           <span className="flex-1 leading-snug">
             📍 Move the map to your{' '}
             <span className="font-bold">{savedPlaceName(savingPlace.label, savingPlace.name)}</span>, then tap{' '}
-            <span className="font-bold">Set {savedPlaceName(savingPlace.label, savingPlace.name)} here</span>.
+            <span className="font-bold">Save as {savedPlaceName(savingPlace.label, savingPlace.name)}</span>.
           </span>
           <button type="button" onClick={() => setSavingPlace(null)} className="shrink-0 font-bold text-slate-600 hover:underline">
             Cancel
@@ -2237,6 +2261,9 @@ export function PassengerPage() {
             : groupRideOpen && groupPinRider
               ? groupPinRider.label
               : undefined
+        }
+        dropoffButtonText={
+          savingPlace ? `💾 Save as ${savedPlaceName(savingPlace.label, savingPlace.name)}` : undefined
         }
         dropoffLabel={
           savingPlace
@@ -2506,7 +2533,15 @@ export function PassengerPage() {
                 {forFamily || familyGroup ? (
                   <div className="space-y-1.5">
                     <p className="flex items-center gap-1.5 whitespace-nowrap text-sm font-bold text-slate-800">
-                      👨‍👩‍👧 Family
+                      {/* Back to Family home, where members, drivers and trips are. */}
+                      <button
+                        type="button"
+                        onClick={() => navigate('/book/family')}
+                        className="rounded-lg border border-slate-300 px-2 py-0.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+                      >
+                        ‹ Family
+                      </button>
+                      👨‍👩‍👧 Book a Ride
                       <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">1-year free promo</span>
                     </p>
                     <div className="flex items-center gap-1.5">
@@ -2537,8 +2572,16 @@ export function PassengerPage() {
                         </button>
                       </div>
                     </div>
-                    <FamilyDriverRow owner={passenger} choice={familyDriverChoice} onChoice={setFamilyDriverChoice} />
-
+                    {/* The driver choice is made on Family home; here it is
+                        only said, so the booking keeps the screen. */}
+                    {familyTrustedPick && (
+                      <p className="text-[10px] text-slate-500">
+                        🛺 Goes first to your trusted driver{' '}
+                        <span className="font-semibold text-slate-700">
+                          {drivers.find((d) => d.id === familyTrustedPick)?.name}
+                        </span>
+                      </p>
+                    )}
                   </div>
                 ) : (
                 <div className="flex items-center gap-1.5">
@@ -2589,15 +2632,13 @@ export function PassengerPage() {
                 </div>
                 )}
                 {forFamily && (
-                  <div className="mt-1.5 space-y-1.5 rounded-lg border border-amber-200 bg-amber-50/80 p-1.5">
-                    <p className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-900">
-                      Book for your family and follow their trip
-                    </p>
+                  <div className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50/80 p-1.5">
                     <FamilyMembersBar
                       passengerId={passenger.id}
                       members={passenger.familyMembers ?? []}
                       selectedName={guestRider.otherName}
                       selectedPhone={guestRider.otherPhone}
+                      manage={false}
                       onPick={(m) => {
                         guestRider.setOtherName(m.name)
                         guestRider.setOtherPhone(m.phone)
@@ -2906,6 +2947,58 @@ export function PassengerPage() {
         {/* The Group Ride panel rides on the bottom of the map now, as a
             swipe-up sheet - see bottomPanel on sharedMap. */}
         {sharedMap}
+      </div>
+    )
+  }
+
+  // Family home (2026-09-22): everything about the family on one page — who
+  // is in it, their trusted drivers, their trips — and a tab into booking,
+  // which opens on its own page so the map fills the phone screen.
+  if (familyHome) {
+    return (
+      <div className="mx-auto max-w-lg space-y-2 px-4 pb-6 pt-1">
+        <section className="space-y-2 rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm">
+          <p className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
+            👨‍👩‍👧 Family
+            <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">1-year free promo</span>
+          </p>
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              onClick={() => openFamilyBooking(false)}
+              className="rounded-xl border border-gold-400 bg-amber-50 px-2 py-3 text-left shadow-sm transition hover:bg-amber-100"
+            >
+              <span className="block text-sm font-bold text-slate-900">🛺 Book a Ride</span>
+              <span className="block text-[11px] leading-snug text-slate-600">for a family member</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => openFamilyBooking(true)}
+              className="rounded-xl border border-gold-400 bg-amber-50 px-2 py-3 text-left shadow-sm transition hover:bg-amber-100"
+            >
+              <span className="block text-sm font-bold text-slate-900">🏫 Several stops</span>
+              <span className="block text-[11px] leading-snug text-slate-600">one tricycle, a stop for each</span>
+            </button>
+          </div>
+        </section>
+        <section className="space-y-1.5 rounded-xl border border-amber-200 bg-amber-50/80 p-2">
+          <p className="text-[11px] font-semibold text-amber-900">Your family — tap a name, then Book — or add, invite and set who pays</p>
+          <FamilyMembersBar
+            passengerId={passenger.id}
+            members={passenger.familyMembers ?? []}
+            selectedName={guestRider.otherName}
+            selectedPhone={guestRider.otherPhone}
+            onPick={(m) => {
+              guestRider.setOtherName(m.name)
+              guestRider.setOtherPhone(m.phone)
+            }}
+            onBook={() => openFamilyBooking(false)}
+          />
+        </section>
+        <section className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+          <FamilyDriverRow owner={passenger} choice={familyDriverChoice} onChoice={setFamilyDriverChoice} />
+        </section>
+        <FamilyTrips bookerId={passenger.id} />
       </div>
     )
   }
@@ -3676,12 +3769,18 @@ function FamilyMembersBar({
   selectedName,
   selectedPhone,
   onPick,
+  onBook,
+  manage = true,
 }: {
   passengerId: string
   members: FamilyMember[]
   selectedName: string
   selectedPhone: string
   onPick: (m: FamilyMember) => void
+  // Family home: a Book button on the picked member's panel.
+  onBook?: (m: FamilyMember) => void
+  // false on the booking page: pick who is riding, nothing else.
+  manage?: boolean
 }) {
   const { saveFamilyMember, removeFamilyMember } = useRides()
   const [adding, setAdding] = useState(false)
@@ -3729,15 +3828,17 @@ function FamilyMembersBar({
                 {m.passengerId ? '✓ ' : ''}
                 {m.name}
               </button>
-              <button
-                type="button"
-                onClick={() => removeFamilyMember(passengerId, m.id)}
-                aria-label={`Remove ${m.name}`}
-                title={`Remove ${m.name}`}
-                className={`py-1 pl-0.5 pr-2 text-[10px] ${on ? 'text-white/80' : 'text-amber-700/70'} hover:opacity-100`}
-              >
-                ✕
-              </button>
+              {manage && (
+                <button
+                  type="button"
+                  onClick={() => removeFamilyMember(passengerId, m.id)}
+                  aria-label={`Remove ${m.name}`}
+                  title={`Remove ${m.name}`}
+                  className={`py-1 pl-0.5 pr-2 text-[10px] ${on ? 'text-white/80' : 'text-amber-700/70'} hover:opacity-100`}
+                >
+                  ✕
+                </button>
+              )}
             </span>
           )
         })}
@@ -3750,22 +3851,33 @@ function FamilyMembersBar({
             + Add family member
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => {
-            setInviteFor(null)
-            setShowQr(true)
-          }}
-          title="Show the QR code so a family member can install the app"
-          className="shrink-0 rounded-full border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-900 hover:bg-amber-100"
-        >
-          📲 QR
-        </button>
+        {manage && (
+          <button
+            type="button"
+            onClick={() => {
+              setInviteFor(null)
+              setShowQr(true)
+            }}
+            title="Show the QR code so a family member can install the app"
+            className="shrink-0 rounded-full border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-900 hover:bg-amber-100"
+          >
+            📲 QR
+          </button>
+        )}
       </div>
       {/* The picked member: their personal invite, who pays their rides, and
           whether they have joined with their own phone yet. */}
-      {selected && (
+      {selected && manage && (
         <div className="space-y-1.5 rounded-lg border border-amber-200 bg-white p-1.5 text-[11px]">
+          {onBook && (
+            <button
+              type="button"
+              onClick={() => onBook(selected)}
+              className="w-full rounded-lg bg-brand-600 py-2 text-xs font-bold text-white hover:bg-brand-700"
+            >
+              🛺 Book a ride for {selected.name.split(' ')[0]}
+            </button>
+          )}
           <div className="flex items-center gap-1.5">
             <span className="min-w-0 flex-1 truncate font-semibold text-slate-700">
               {selected.name} · {selected.passengerId ? '✓ has the app, linked' : 'not on the app yet'}

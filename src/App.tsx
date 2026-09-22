@@ -363,6 +363,7 @@ function AppShell() {
               screen. Still BookPage, because it shares that page's pickup,
               map and fare maths. */}
           <Route path="/book/group" element={<BookPage />} />
+          <Route path="/book/family" element={<BookPage />} />
           {/* Booking the pickup ride for a medicine order the pharmacy has
               already confirmed and set aside. */}
           <Route path="/book/meds/:orderId" element={<MedsRideBookingPage />} />

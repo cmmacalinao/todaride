@@ -115,7 +115,7 @@ export function RiderStartPage() {
             their trip. A subscription later; free for now as an intro promo. */}
         <button
           type="button"
-          onClick={() => navigate('/book', { state: { section: 'family' } })}
+          onClick={() => navigate('/book/family')}
           className="flex w-full items-center gap-3 rounded-xl border border-gold-400 bg-amber-50 p-3 text-left shadow-sm transition hover:bg-amber-100"
         >
           <span aria-hidden className="flex h-12 w-12 shrink-0 items-center justify-center text-3xl leading-none">

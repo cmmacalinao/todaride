@@ -1,4 +1,5 @@
 import { formatAddressLine } from '../lib/addressFormat'
+import { ShareAppPanel } from '../components/ShareAppPanel'
 import { streetLinesFor } from '../lib/streetPaths'
 import { formatTripRoute } from '../lib/addressFormat'
 import { isVendorDeliveryRide, rideServiceTag } from '../lib/vendorOrders'
@@ -69,6 +70,7 @@ import { ContactSheet } from '../components/ContactSheet'
 import { DestinationSearch, type SelectedPlace } from '../components/DestinationSearch'
 import type {
   DriverReportReason,
+  FamilyMember,
   GeoCoords,
   MockLocation,
   PaymentMethod,
@@ -442,6 +444,8 @@ export function PassengerPage() {
       case 'ride':
         setPageTab('book')
         setServiceType('ride')
+        // Book a Ride leaves the Family page for an ordinary booking.
+        if (guestRider.bookingFor === 'family') guestRider.setBookingFor('self')
         scrollTop()
         break
       case 'medicine':
@@ -2278,10 +2282,22 @@ export function PassengerPage() {
                 {/* The three choices and the city share one row: short words
                     (Myself / Someone / Group) leave room for the city beside
                     them, where it used to take a line of its own under them. */}
+                {/* Family is its own page (2026-09-22), opened from the home
+                    page's Family tile: its header and the City, no Myself /
+                    Someone / Group row. */}
+                {forFamily ? (
+                  <div className="space-y-1.5">
+                    <p className="flex items-center gap-1.5 whitespace-nowrap text-sm font-bold text-slate-800">
+                      👨‍👩‍👧 Family
+                      <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">Free · intro promo</span>
+                    </p>
+                    {cityRowFor('dropoff')}
+                  </div>
+                ) : (
                 <div className="flex items-center gap-1.5">
                 {/* City first: which city the trip is in comes before who it is
                     for, and it scopes the search in the Where to bar below. */}
-                <div className="w-[36%] shrink-0">{cityRowFor('dropoff')}</div>
+                <div className="w-[42%] shrink-0">{cityRowFor('dropoff')}</div>
                 <div className="flex min-w-0 flex-1 gap-1 rounded-lg bg-slate-100 p-1">
                   <button
                     type="button"
@@ -2289,7 +2305,7 @@ export function PassengerPage() {
                       if (groupRideOpen) setGroupRideOpen(false)
                       guestRider.setBookingFor('self')
                     }}
-                    className={`flex-1 whitespace-nowrap rounded-md px-0.5 py-1.5 text-[10px] font-semibold transition ${
+                    className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
                       !groupRideOpen && guestRider.bookingFor === 'self'
                         ? 'bg-brand-600 text-white shadow-sm'
                         : 'text-slate-500 hover:bg-slate-200'
@@ -2303,7 +2319,7 @@ export function PassengerPage() {
                       if (groupRideOpen) setGroupRideOpen(false)
                       guestRider.setBookingFor('other')
                     }}
-                    className={`flex-1 whitespace-nowrap rounded-md px-0.5 py-1.5 text-[10px] font-semibold transition ${
+                    className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
                       !groupRideOpen && guestRider.bookingFor === 'other'
                         ? 'bg-brand-600 text-white shadow-sm'
                         : 'text-slate-500 hover:bg-slate-200'
@@ -2313,21 +2329,9 @@ export function PassengerPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (groupRideOpen) setGroupRideOpen(false)
-                      guestRider.setBookingFor('family')
-                    }}
-                    className={`flex-1 whitespace-nowrap rounded-md px-0.5 py-1.5 text-[10px] font-semibold transition ${
-                      !groupRideOpen && forFamily ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'
-                    }`}
-                  >
-                    Family
-                  </button>
-                  <button
-                    type="button"
                     onClick={openGroupRide}
                     aria-expanded={groupRideOpen}
-                    className={`flex flex-1 items-center justify-center gap-0.5 whitespace-nowrap rounded-md px-0.5 py-1.5 text-[10px] font-semibold transition ${
+                    className={`flex flex-1 items-center justify-center gap-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
                       groupRideOpen ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'
                     }`}
                   >
@@ -2336,36 +2340,22 @@ export function PassengerPage() {
                   </button>
                 </div>
                 </div>
+                )}
                 {forFamily && (
                   <div className="mt-1.5 space-y-1.5 rounded-lg border border-amber-200 bg-amber-50/80 p-1.5">
                     <p className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-900">
-                      👨‍👩‍👧 Book for your family and follow their trip
-                      <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
-                        Free · intro promo
-                      </span>
+                      Book for your family and follow their trip
                     </p>
-                    {(passenger.familyMembers ?? []).length > 0 && (
-                      <div className="-mx-0.5 flex gap-1 overflow-x-auto px-0.5">
-                        {(passenger.familyMembers ?? []).map((m) => {
-                          const on = guestRider.otherName.trim() === m.name && guestRider.otherPhone.replace(/\D/g, '') === m.phone.replace(/\D/g, '')
-                          return (
-                            <button
-                              key={m.id}
-                              type="button"
-                              onClick={() => {
-                                guestRider.setOtherName(m.name)
-                                guestRider.setOtherPhone(m.phone)
-                              }}
-                              className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-                                on ? 'border-brand-600 bg-brand-600 text-white' : 'border-amber-300 bg-white text-amber-900 hover:bg-amber-100'
-                              }`}
-                            >
-                              {m.name}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
+                    <FamilyMembersBar
+                      passengerId={passenger.id}
+                      members={passenger.familyMembers ?? []}
+                      selectedName={guestRider.otherName}
+                      selectedPhone={guestRider.otherPhone}
+                      onPick={(m) => {
+                        guestRider.setOtherName(m.name)
+                        guestRider.setOtherPhone(m.phone)
+                      }}
+                    />
                   </div>
                 )}
                 {forOther && (
@@ -3418,6 +3408,131 @@ function ActiveRideCard({
       showGuardianContact
       askAboutFarDriver
     />
+  )
+}
+
+// The Family page's saved members (2026-09-22): tap a name to book for them,
+// ✕ to remove one, and "+ Add family member" to save a new one (name and a
+// PH mobile) without booking yet.
+function FamilyMembersBar({
+  passengerId,
+  members,
+  selectedName,
+  selectedPhone,
+  onPick,
+}: {
+  passengerId: string
+  members: FamilyMember[]
+  selectedName: string
+  selectedPhone: string
+  onPick: (m: FamilyMember) => void
+}) {
+  const { saveFamilyMember, removeFamilyMember } = useRides()
+  const [adding, setAdding] = useState(false)
+  // The app's install QR, for a family member to scan and get it on their own
+  // phone (the same sheet as the menu's Share the app).
+  const [showQr, setShowQr] = useState(false)
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const digits = (s: string) => s.replace(/\D/g, '')
+  const localPhone = digits(phone).startsWith('63') ? `0${digits(phone).slice(2)}` : digits(phone)
+  const canSave = name.trim().length > 0 && /^09\d{9}$/.test(localPhone)
+  function save() {
+    if (!canSave) return
+    const member = { id: `fam-${Date.now()}`, name: name.trim(), phone: localPhone }
+    saveFamilyMember(passengerId, member)
+    onPick(member)
+    setName('')
+    setPhone('')
+    setAdding(false)
+  }
+  return (
+    <div className="space-y-1.5">
+      <div className="-mx-0.5 flex flex-wrap gap-1 px-0.5">
+        {members.map((m) => {
+          const on = selectedName.trim() === m.name && digits(selectedPhone) === digits(m.phone)
+          return (
+            <span
+              key={m.id}
+              className={`flex shrink-0 items-center rounded-full border text-[11px] font-semibold transition ${
+                on ? 'border-brand-600 bg-brand-600 text-white' : 'border-amber-300 bg-white text-amber-900'
+              }`}
+            >
+              <button type="button" onClick={() => onPick(m)} className="py-1 pl-2.5 pr-1.5">
+                {m.name}
+              </button>
+              <button
+                type="button"
+                onClick={() => removeFamilyMember(passengerId, m.id)}
+                aria-label={`Remove ${m.name}`}
+                title={`Remove ${m.name}`}
+                className={`py-1 pl-0.5 pr-2 text-[10px] ${on ? 'text-white/80' : 'text-amber-700/70'} hover:opacity-100`}
+              >
+                ✕
+              </button>
+            </span>
+          )
+        })}
+        {!adding && (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="shrink-0 rounded-full border border-dashed border-amber-400 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100"
+          >
+            + Add family member
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setShowQr(true)}
+          title="Show the QR code so a family member can install the app"
+          className="shrink-0 rounded-full border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-900 hover:bg-amber-100"
+        >
+          📲 QR
+        </button>
+      </div>
+      {showQr && <ShareAppPanel onClose={() => setShowQr(false)} />}
+      {adding && (
+        <div className="space-y-1.5 rounded-lg border border-amber-200 bg-white p-1.5">
+          <div className="grid grid-cols-2 gap-1.5">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Name"
+              className="compact-input min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
+            />
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Mobile (09XXXXXXXXX)"
+              inputMode="tel"
+              className="compact-input min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
+            />
+          </div>
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              disabled={!canSave}
+              onClick={save}
+              className="flex-1 rounded-lg bg-brand-600 py-1.5 text-xs font-semibold text-white disabled:bg-slate-200 disabled:text-slate-400"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAdding(false)
+                setName('')
+                setPhone('')
+              }}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 

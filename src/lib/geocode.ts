@@ -93,6 +93,9 @@ export interface PlaceSuggestion {
   // picks (see resolveGooglePlaceGps), not for every row shown.
   gps: GeoCoords | null
   placeId?: string
+  // A street from searchStreets: its OpenStreetMap id ("W253920152"), for
+  // fetching the road's own shape (see fetchStreetLine).
+  osmId?: string
 }
 
 // One Autocomplete session covers every keystroke of a single search plus
@@ -277,7 +280,7 @@ export async function searchStreets(query: string, near: GeoCoords | null, limit
     clearTimeout(timeout)
     if (!res.ok) return []
     const data = (await res.json()) as {
-      features: { geometry: { coordinates: [number, number] }; properties: { name?: string; osm_value?: string; district?: string; city?: string; county?: string } }[]
+      features: { geometry: { coordinates: [number, number] }; properties: { name?: string; osm_value?: string; osm_type?: string; osm_id?: number; district?: string; city?: string; county?: string } }[]
     }
     const seen = new Set<string>()
     const out: PlaceSuggestion[] = []
@@ -289,11 +292,38 @@ export async function searchStreets(query: string, near: GeoCoords | null, limit
       if (seen.has(label)) continue
       seen.add(label)
       const [lng, lat] = f.geometry.coordinates
-      out.push({ label, gps: { lat, lng } })
+      out.push({ label, gps: { lat, lng }, osmId: p.osm_type && p.osm_id ? `${p.osm_type}${p.osm_id}` : undefined })
       if (out.length >= limit) break
     }
     return out
   } catch {
     return []
+  }
+}
+
+// The shape of a street picked from searchStreets, so the map can draw it as
+// a green line (the same guide a seeded street gets — see streetPaths.ts) and
+// the customer can slide the pin to the right spot along it. One call, only
+// for the street actually tapped. Null on any failure: the map still goes to
+// the street's point, just without the line.
+export async function fetchStreetLine(osmId: string): Promise<GeoCoords[][] | null> {
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 6000)
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/lookup?osm_ids=${encodeURIComponent(osmId)}&format=json&polygon_geojson=1`,
+      { headers: { Accept: 'application/json' }, signal: controller.signal },
+    )
+    clearTimeout(timeout)
+    if (!res.ok) return null
+    const [hit] = (await res.json()) as { geojson?: { type: string; coordinates: unknown } }[]
+    const g = hit?.geojson
+    if (!g) return null
+    const toRun = (coords: [number, number][]) => coords.map(([lng, lat]) => ({ lat, lng }))
+    if (g.type === 'LineString') return [toRun(g.coordinates as [number, number][])]
+    if (g.type === 'MultiLineString') return (g.coordinates as [number, number][][]).map(toRun)
+    return null
+  } catch {
+    return null
   }
 }

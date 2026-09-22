@@ -3,6 +3,8 @@ import { RealLiveMap, type MapPoint } from './RealLiveMap'
 import { DestinationSearch } from './DestinationSearch'
 import { formatAddressLine } from '../lib/addressFormat'
 import { createCustomLocation, reverseGeocodeToPhAddress, type PhAddressTags } from '../lib/customLocation'
+import { streetLinesFor } from '../lib/streetPaths'
+import { useRides } from '../context/RideContext'
 import { DEFAULT_BOOKING_PROVINCE, getCitiesForProvince } from '../mock/data'
 import type { GeoCoords, MockLocation, Pharmacy } from '../types'
 
@@ -55,6 +57,13 @@ export function DeliveryMapPicker({
   const [error, setError] = useState('')
   const [centerGps, setCenterGps] = useState<GeoCoords | null>(null)
   const [fullscreen, setFullscreen] = useState(false)
+  const { landmarks } = useRides()
+  // A place picked in Where to moves the map to it, as on Book a Ride — each
+  // pick bumps this, which hands the map one fresh fit onto the new point (or
+  // onto the whole street). Setting the spot with the centre pin does not.
+  const [jump, setJump] = useState(0)
+  // The street picked, drawn as a green line to slide the pin along.
+  const [streetLine, setStreetLine] = useState<GeoCoords[][] | null>(null)
   // The City row above the map, as on Book a Ride: it scopes the Where to
   // search (that city first, then the towns next to it).
   const [cityScope, setCityScope] = useState(city || vendor.city)
@@ -97,7 +106,12 @@ export function DeliveryMapPicker({
         city={cityScope}
         near={deliveryAddress?.gps ?? storeGps}
         // A landmark is a named point already — no reverse-geocode round trip.
-        onSelect={(place) => onChange(createCustomLocation(place.name, place.gps), null)}
+        onSelect={(place) => {
+          const location = createCustomLocation(place.name, place.gps)
+          onChange(location, null)
+          setStreetLine(place.line ?? streetLinesFor(location, landmarks))
+          setJump((n) => n + 1)
+        }}
         onOpenAddressForm={onOpenAddressForm}
         // The centre pin is already the way to set it on the map.
         onPinOnMap={() => undefined}
@@ -154,9 +168,14 @@ export function DeliveryMapPicker({
         centerPinColor={DEST_GREEN}
         onCenterChange={setCenterGps}
         // Frame the store and the delivery point once; after that the
-        // customer moves the map, not the map the customer.
-        fitOnce
-        refitSignal={deliveryAddress?.id ?? 'none'}
+        // customer moves the map — except right after a Where to pick, which
+        // goes to that place (the whole street, for a street).
+        fitOnce={jump === 0}
+        refitSignal={`jump:${jump}`}
+        fitPointIds={jump > 0 ? ['dropoff'] : undefined}
+        singlePointZoom={17}
+        streetLines={streetLine ?? undefined}
+        frameLines={streetLine ?? undefined}
         height="320px"
         onFullscreenChange={setFullscreen}
         // One Where to at a time: in the toolbar row normally, along the top
@@ -184,6 +203,11 @@ export function DeliveryMapPicker({
           {setDestination}
           {action && <div className="mt-1.5">{action}</div>}
         </>
+      )}
+      {streetLine && !fullscreen && (
+        <p className="rounded-md border border-green-300 bg-green-50 px-2 py-1 text-[11px] font-medium text-green-800">
+          🛣️ Slide the map so the pin sits on the green line at the exact spot, then tap Set Destination here.
+        </p>
       )}
       {status === 'error' && <p className="text-[11px] text-amber-700">{error}</p>}
     </div>

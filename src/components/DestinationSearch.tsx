@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { searchLandmarksNearCity } from '../lib/landmarkSearch'
-import { searchNearbyPlaces, searchStreets, resolveGooglePlaceGps, type PlaceSuggestion } from '../lib/geocode'
+import { searchNearbyPlaces, searchStreets, fetchStreetLine, resolveGooglePlaceGps, type PlaceSuggestion } from '../lib/geocode'
 import { LANDMARK_CATEGORY_ICONS } from '../types'
 import type { GeoCoords } from '../types'
 
@@ -24,6 +24,8 @@ const MIN_LIVE_QUERY_LENGTH = 3
 export interface SelectedPlace {
   name: string
   gps: GeoCoords
+  // A street's own shape, when the pick was a street — for the green line.
+  line?: GeoCoords[][] | null
 }
 
 // Nueva Ecija addressing runs on landmarks ("palengke", "sa may simbahan"),
@@ -137,6 +139,15 @@ export function DestinationSearch({
   // up empty (2026-09-22): a partial landmark match used to hide every street.
   // Same pause-before-searching as the live search above.
   const [streets, setStreets] = useState<PlaceSuggestion[]>([])
+  // The street whose shape is being fetched after a tap (see pickStreet).
+  const [resolvingStreet, setResolvingStreet] = useState<string | null>(null)
+  async function pickStreet(s: PlaceSuggestion) {
+    if (!s.gps) return
+    setResolvingStreet(s.label)
+    const line = s.osmId ? await fetchStreetLine(s.osmId) : null
+    setResolvingStreet(null)
+    pick({ name: s.label, gps: s.gps, line })
+  }
   const streetRequestRef = useRef(0)
   useEffect(() => {
     if (barangayOnly || trimmed.length < MIN_LIVE_QUERY_LENGTH) {
@@ -300,10 +311,11 @@ export function DestinationSearch({
             <button
               key={`${s.label}-${i}`}
               type="button"
-              onClick={() => s.gps && pick({ name: s.label, gps: s.gps })}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-slate-50"
+              disabled={resolvingStreet !== null}
+              onClick={() => void pickStreet(s)}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-slate-50 disabled:opacity-60"
             >
-              <span aria-hidden className="text-base leading-none">🛣️</span>
+              <span aria-hidden className="text-base leading-none">{resolvingStreet === s.label ? '⏳' : '🛣️'}</span>
               <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">{s.label}</span>
             </button>
           ))}

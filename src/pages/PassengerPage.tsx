@@ -875,6 +875,14 @@ export function PassengerPage() {
   function openGroupRide() {
     setGroupRideOpen(!groupRideOpen)
   }
+  // Group Ride is always booked by you, from where you stand (its pickup is
+  // your GPS), so a Someone left selected before opening it would leave that
+  // page showing Their name / mobile and a red Set PICKUP strip it has no use
+  // for (2026-09-22). Opening Group Ride, by tab or by address, clears it.
+  useEffect(() => {
+    if (groupRideOpen && guestRider.bookingFor === 'other') guestRider.setBookingFor('self')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupRideOpen, guestRider.bookingFor])
   // Seeding the booker's own row belongs to the screen, not to the button
   // that used to open it. Now that Group Ride has an address it can be
   // arrived at without pressing anything — a refresh, the back button, a

@@ -44,6 +44,8 @@ export function LocationMapPicker({
   hasPickup = true,
   pickupIsMyLocation = false,
   leadingAction,
+  flyTo = null,
+  onEndSet,
   sheetNote,
   mapFooter,
   sheetExtras,
@@ -146,6 +148,13 @@ export function LocationMapPicker({
   // sits with the map it is confirming, immediately after the pin the
   // passenger just placed rather than above it.
   leadingAction?: ReactNode
+  // A place picked in a search that is not set yet (Book a Delivery,
+  // 2026-09-22): the map goes to it — its street framed and drawn green — its
+  // name rides the centre pin, and that end's Set button is lit until it is
+  // tapped. A new key moves the map again.
+  flyTo?: { gps: GeoCoords; name: string; line?: GeoCoords[][] | null; end: 'pickup' | 'dropoff'; key: number } | null
+  // Told after a Set … here button has set its end.
+  onEndSet?: (end: 'pickup' | 'dropoff') => void
   // Rides at the top of the sheet, above the booking controls. Whatever a
   // caller would otherwise keep under the map — the times, the fare — is off
   // screen the moment the map is full screen, and those are exactly the
@@ -300,6 +309,9 @@ export function LocationMapPicker({
   })
 
   const points: MapPoint[] = [
+    // Where a searched place is, for the map to go to (see flyTo). Under the
+    // centre pin once the map is there.
+    ...(flyTo ? [{ id: 'preview', gps: flyTo.gps, color: flyTo.end === 'pickup' ? '#dc2626' : '#16a34a', label: flyTo.name }] : []),
     ...liveTricycles.map((d) => ({
       id: `live-driver-${d.id}`,
       gps: d.lastKnownGps!,
@@ -531,6 +543,7 @@ export function LocationMapPicker({
     if (!centerGps) return
     onTargetChange(end)
     await placePin(centerGps, end)
+    onEndSet?.(end)
     if (end === 'pickup' && !hasDropoff) onTargetChange('dropoff')
     else if (end === 'dropoff' && !hasPickup && !pickupAutomatic) onTargetChange('pickup')
   }
@@ -542,7 +555,11 @@ export function LocationMapPicker({
         type="button"
         onClick={() => void setEndFromCenter('pickup')}
         disabled={!centerGps || status === 'locating'}
-        className="flex-1 rounded-lg border border-red-500/40 bg-red-500/15 py-2 text-[11px] font-bold text-red-900 shadow-sm transition hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+        className={`flex-1 rounded-lg border py-2 text-[11px] font-bold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
+          flyTo?.end === 'pickup'
+            ? 'animate-pulse border-red-600 bg-red-600 text-white ring-2 ring-red-300'
+            : 'border-red-500/40 bg-red-500/15 text-red-900 hover:bg-red-500/25'
+        }`}
       >
         📍 Set {pickupLabel} here
       </button>
@@ -553,7 +570,11 @@ export function LocationMapPicker({
           type="button"
           onClick={() => void setEndFromCenter('dropoff')}
           disabled={!centerGps || status === 'locating'}
-          className="flex-1 rounded-lg border border-green-500/40 bg-green-500/15 py-2 text-[11px] font-bold text-green-900 shadow-sm transition hover:bg-green-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+          className={`flex-1 rounded-lg border py-2 text-[11px] font-bold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
+            flyTo?.end === 'dropoff'
+              ? 'animate-pulse border-green-600 bg-green-600 text-white ring-2 ring-green-300'
+              : 'border-green-500/40 bg-green-500/15 text-green-900 hover:bg-green-500/25'
+          }`}
         >
           🏁 Set {dropoffLabel} here
         </button>
@@ -565,7 +586,7 @@ export function LocationMapPicker({
     {streetNote}
     <RealLiveMap
       points={points}
-      streetLines={streetLines}
+      streetLines={flyTo?.line ? [...streetLines, ...flyTo.line] : streetLines}
       // No legend on this map: the 📍/🏁 summary directly above it already
       // names both pins, so a key naming them again under it was the same
       // two lines twice.
@@ -585,15 +606,19 @@ export function LocationMapPicker({
       // under the map, so the pointer says which end it is about to set
       // without a word.
       centerPinColor={armed === 'pickup' ? '#dc2626' : '#16a34a'}
-      centerPinLabel={pinPicking ? centerPinLabel : undefined}
+      centerPinLabel={pinPicking ? flyTo?.name ?? centerPinLabel : undefined}
       onCenterChange={setCenterGps}
-      refitSignal={streetEnd ? `${refitSignal}|street:${streetEnd}` : refitSignal}
+      refitSignal={flyTo ? `fly:${flyTo.key}` : streetEnd ? `${refitSignal}|street:${streetEnd}` : refitSignal}
+      fitPointIds={flyTo ? ['preview'] : undefined}
+      singlePointZoom={flyTo ? 17 : undefined}
       holdFit={holdNextFitRef.current}
       // Frame the pins once on open, then leave the view alone — the
       // passenger moves the map, not the map the passenger. (Except a
       // street pick — see streetEnd above.)
-      fitOnce={!streetEnd}
-      frameLines={streetEnd ? (streetEnd === 'dropoff' ? dropoffStreet : pickupStreet) ?? undefined : undefined}
+      fitOnce={!streetEnd && !flyTo}
+      frameLines={
+        flyTo?.line ?? (streetEnd ? (streetEnd === 'dropoff' ? dropoffStreet : pickupStreet) ?? undefined : undefined)
+      }
       centerOn={myPosition}
       fill={mapFirst}
       routeLine={routeLine}

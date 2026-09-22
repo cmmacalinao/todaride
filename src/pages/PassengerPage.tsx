@@ -1703,6 +1703,16 @@ export function PassengerPage() {
   // it to the other; the ⇄ switches by hand. It follows mapTarget, the same
   // armed end the centre pin and its Set buttons use.
   const padalaEnd: 'pickup' | 'dropoff' = mapTarget
+  // A place picked in the box is not set straight away: the map goes to it
+  // and that end's Set button lights up; tapping the button sets it (see
+  // LocationMapPicker's flyTo / onEndSet).
+  const [padalaPreview, setPadalaPreview] = useState<{
+    gps: GeoCoords
+    name: string
+    line?: GeoCoords[][] | null
+    end: 'pickup' | 'dropoff'
+    key: number
+  } | null>(null)
   const padalaStrip = () => {
     const isPickupEnd = padalaEnd === 'pickup'
     return (
@@ -1716,15 +1726,9 @@ export function PassengerPage() {
           key={padalaEnd}
           city={cityScope}
           near={pickupGps ?? pickup.gps ?? null}
-          onSelect={(place) => {
-            if (isPickupEnd) {
-              handlePickupLandmark(place)
-              setMapTarget('dropoff')
-            } else {
-              handleDropoffLandmark(place)
-              if (!pickupChosen) setMapTarget('pickup')
-            }
-          }}
+          onSelect={(place) =>
+            setPadalaPreview({ gps: place.gps, name: place.name, line: place.line, end: padalaEnd, key: Date.now() })
+          }
           onOpenAddressForm={() => openAddressForm(padalaEnd)}
           onPinOnMap={() => undefined}
           // Only ever the question, never the chosen address (2026-09-22) —
@@ -1741,7 +1745,10 @@ export function PassengerPage() {
         />
         <button
           type="button"
-          onClick={() => setMapTarget(isPickupEnd ? 'dropoff' : 'pickup')}
+          onClick={() => {
+            setPadalaPreview(null)
+            setMapTarget(isPickupEnd ? 'dropoff' : 'pickup')
+          }}
           aria-label={isPickupEnd ? 'Switch to the destination' : 'Switch to the pickup'}
           title={isPickupEnd ? 'Switch to Where to go' : 'Switch to Where to pickup'}
           className="shrink-0 rounded-md px-1 text-sm font-bold text-slate-500 hover:bg-white/60"
@@ -1858,6 +1865,16 @@ export function PassengerPage() {
         dropoff={dropoff}
         target={mapTarget}
         onTargetChange={setMapTarget}
+        flyTo={isPadala ? padalaPreview : null}
+        onEndSet={(end) => {
+          setPadalaPreview(null)
+          // Book a Delivery then asks for the other end: pickup set -> Delivery?,
+          // delivery set with no pickup yet -> Pickup?. Its destination starts
+          // pre-filled, so the map's own advance does not fire here.
+          if (!isPadala) return
+          if (end === 'pickup') setMapTarget('dropoff')
+          else if (!pickupChosen) setMapTarget('pickup')
+        }}
         onPinPickup={handlePinPickup}
         onPinDropoff={handlePinDropoff}
         pickupLabel={pickupLabel}

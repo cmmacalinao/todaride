@@ -770,8 +770,10 @@ export function PassengerPage() {
     )
   })()
 
+  // Set through the address form: that end counts as set in the two-ended box.
   async function handlePickupResolve(address: PhAddressTags) {
     setPickupChosen(true)
+    setBoxSet((s) => ({ ...s, pickup: true }))
     const location = await resolvePhAddress(address)
     setCustomLocations((prev) => [...prev, location])
     handlePickupChange(location.id)
@@ -779,6 +781,7 @@ export function PassengerPage() {
 
   async function handleDropoffResolve(address: PhAddressTags) {
     setDropoffChosen(true)
+    setBoxSet((s) => ({ ...s, dropoff: true }))
     const location = await resolvePhAddress(address)
     setCustomLocations((prev) => [...prev, location])
     setDropoffId(location.id)
@@ -1168,9 +1171,29 @@ export function PassengerPage() {
     pickupId === dropoffId ||
     (!!pickup.gps && !!dropoff.gps && haversineDistanceMeters(pickup.gps, dropoff.gps) < 40)
 
+  // Where the one two-ended box is used: Book a Delivery, and Book a Ride for
+  // Someone (2026-09-22) — the two bookings where both ends are picked by hand.
+  const dualEndBox = isPadala || (!isErrand && !groupRideOpen && guestRider.bookingFor === 'other')
+  // Which ends were set in this box. A pickup that is merely filled in —
+  // this phone's own GPS from Myself, or a default — is not an answer for
+  // someone else's ride or a delivery, so the box asks for it anyway.
+  // Cleared whenever the box starts over (a different booking mode).
+  const [boxSet, setBoxSet] = useState<{ pickup: boolean; dropoff: boolean }>({ pickup: false, dropoff: false })
+  const dualModeKey = `${isPadala ? 'padala' : 'ride'}:${guestRider.bookingFor}:${groupRideOpen}`
+  useEffect(() => {
+    setBoxSet({ pickup: false, dropoff: false })
+    if (dualEndBox) setMapTarget('pickup')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dualModeKey])
+  // With the two-ended box, both ends must be set in it before booking —
+  // Book a Delivery used to let "Request Delivery" go with no pickup and the
+  // default delivery point (2026-09-22). Which one is still missing is also
+  // what the button says.
+  const dualMissing: 'pickup' | 'dropoff' | null = dualEndBox ? (!boxSet.pickup ? 'pickup' : !boxSet.dropoff ? 'dropoff' : null) : null
   const canSubmit =
     hasDestination &&
     !endsAreSameSpot &&
+    !dualMissing &&
     (!isGuestBooking || guestRider.otherName.trim().length > 0)
 
   // How far away the nearest driver who could take this actually is.
@@ -1728,20 +1751,6 @@ export function PassengerPage() {
   // it to the other; the ⇄ switches by hand. It follows mapTarget, the same
   // armed end the centre pin and its Set buttons use.
   const padalaEnd: 'pickup' | 'dropoff' = mapTarget
-  // Where the one two-ended box is used: Book a Delivery, and Book a Ride for
-  // Someone (2026-09-22) — the two bookings where both ends are picked by hand.
-  const dualEndBox = isPadala || (!isErrand && !groupRideOpen && guestRider.bookingFor === 'other')
-  // Which ends were set in this box. A pickup that is merely filled in —
-  // this phone's own GPS from Myself, or a default — is not an answer for
-  // someone else's ride or a delivery, so the box asks for it anyway.
-  // Cleared whenever the box starts over (a different booking mode).
-  const [boxSet, setBoxSet] = useState<{ pickup: boolean; dropoff: boolean }>({ pickup: false, dropoff: false })
-  const dualModeKey = `${isPadala ? 'padala' : 'ride'}:${guestRider.bookingFor}:${groupRideOpen}`
-  useEffect(() => {
-    setBoxSet({ pickup: false, dropoff: false })
-    if (dualEndBox) setMapTarget('pickup')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dualModeKey])
   // A place picked in the box is not set straight away: the map goes to it
   // and that end's Set button lights up; tapping the button sets it (see
   // LocationMapPicker's flyTo / onEndSet).
@@ -2144,7 +2153,14 @@ export function PassengerPage() {
                 className="min-w-0 flex-1 rounded-lg bg-[#ffe066] px-2.5 py-1.5 text-xs font-bold text-navy-900 transition hover:bg-[#ffd633] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
               >
                 <span className="block truncate">
-                  {isPabili
+                  {/* What is still missing, said on the button (2026-09-22). */}
+                  {dualMissing
+                    ? dualMissing === 'pickup'
+                      ? `Set the pickup to ${isPadala ? 'request' : 'book'}`
+                      : isPadala
+                        ? 'Set the delivery to request'
+                        : 'Set the destination to book'
+                    : isPabili
                     ? isGuestBooking
                       ? `Request Pabili for ${guestRider.otherName.trim() || 'them'}`
                       : 'Request Pabili'

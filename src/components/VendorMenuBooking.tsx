@@ -666,7 +666,12 @@ export const VendorMenuBooking = forwardRef<
                 disabled={!canPlaceOrder}
                 className="w-full rounded-lg bg-[#ffe066] px-2.5 py-1.5 text-xs font-bold text-navy-900 transition hover:bg-[#ffd633] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
               >
-                Send order — about ₱{total}
+                {/* Says what is missing instead of just greying out (2026-09-22). */}
+                {!deliveryAddress
+                  ? 'Set where to deliver to order'
+                  : cartLines.length === 0
+                    ? 'Add a dish to order'
+                    : `Send order — about ₱${total}`}
               </button>
             }
           />

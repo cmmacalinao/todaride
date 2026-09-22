@@ -2544,6 +2544,25 @@ export function PassengerPage() {
             <span className="truncate text-[10px] font-semibold text-slate-700">Contact</span>
           </button>
         )}
+        {/* Trip history lives in the footer now (2026-09-22) rather than as a
+            folded row at the foot of the page: tap to open the list and go to
+            it, tap again to close it. */}
+        <button
+          type="button"
+          onClick={() => {
+            const opening = !showTripHistory
+            setShowTripHistory(opening)
+            if (opening) setTimeout(() => tripHistorySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
+          }}
+          aria-pressed={showTripHistory}
+          title="Trip history"
+          className={`flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border px-2 py-1.5 transition ${
+            showTripHistory ? 'border-gold-500 bg-gold-400 shadow-md' : 'border-transparent bg-slate-100 hover:bg-slate-200'
+          }`}
+        >
+          <span className="text-[15px] leading-none">🧾</span>
+          <span className="whitespace-nowrap text-[10px] font-semibold text-slate-700">History</span>
+        </button>
         {/* The safety feature, one tap from every screen: the same Track
             your trip that the yellow card on the booking form opens. Seated
             right before SOS, since both are about the ride going wrong. */}
@@ -3000,14 +3019,19 @@ export function PassengerPage() {
       )}
 
       <section ref={tripHistorySectionRef}>
-        <button
-          type="button"
-          onClick={() => setShowTripHistory((v) => !v)}
-          className="mb-2 flex w-full items-center justify-between text-sm font-semibold text-slate-700"
-        >
-          Trip history
-          <span className="text-xs text-slate-400">{showTripHistory ? '▲ Hide' : '▼ Show'}</span>
-        </button>
+        {/* Opened from the footer's History tile — no folded row here. */}
+        {showTripHistory && (
+          <div className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-700">
+            Trip history
+            <button
+              type="button"
+              onClick={() => setShowTripHistory(false)}
+              className="text-xs font-medium text-slate-400 hover:text-slate-600"
+            >
+              ✕ Close
+            </button>
+          </div>
+        )}
         {showTripHistory && (
         <div className="space-y-2">
           {visibleTripHistory.length > 0 && (

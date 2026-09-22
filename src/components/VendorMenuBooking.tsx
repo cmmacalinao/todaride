@@ -181,9 +181,6 @@ export const VendorMenuBooking = forwardRef<
   // way to the vendors page, and a strip at its top brings them back to it.
   // The order itself is untouched; this is only which screen is showing.
   const [steppedBackOrderId, setSteppedBackOrderId] = useState<string | null>(null)
-  // Cancelled & completed orders start folded; the ones in process are
-  // always in view above them.
-  const [showHistory, setShowHistory] = useState(false)
 
   const myOrders = medsOrders.filter((o) => o.customerId === customerId && o.pricedFromMenu)
   const activeOrder = myOrders.find((o) => {
@@ -738,7 +735,6 @@ export const VendorMenuBooking = forwardRef<
         }
         const byNewest = (a: MedsOrder, b: MedsOrder) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime()
         const currentOrders = pastOrders.filter(isInProcess).sort(byNewest)
-        const finishedOrders = pastOrders.filter((o) => !isInProcess(o)).sort(byNewest)
 
         const renderOrder = (order: MedsOrder, inProcess: boolean) => {
           const ride = rides.find((r) => r.id === order.linkedRideId)
@@ -817,22 +813,8 @@ export const VendorMenuBooking = forwardRef<
                 <div className="space-y-2">{currentOrders.map((o) => renderOrder(o, true))}</div>
               </>
             )}
-            {finishedOrders.length > 0 && (
-              <div className="rounded-lg border border-slate-200 bg-white">
-                <button
-                  type="button"
-                  onClick={() => setShowHistory((v) => !v)}
-                  aria-expanded={showHistory}
-                  className="flex w-full items-center justify-between px-3 py-2.5 text-left text-sm font-semibold text-slate-600"
-                >
-                  <span>🗂 Cancelled & completed ({finishedOrders.length})</span>
-                  <span className="text-xs text-slate-400">{showHistory ? '▲ Hide' : '▼ Show'}</span>
-                </button>
-                {showHistory && (
-                  <div className="space-y-2 border-t border-slate-100 p-2">{finishedOrders.map((o) => renderOrder(o, false))}</div>
-                )}
-              </div>
-            )}
+            {/* The folded "Cancelled & completed" list is gone (2026-09-22);
+                finished trips are in the footer's History. */}
           </section>
         )
       })()}

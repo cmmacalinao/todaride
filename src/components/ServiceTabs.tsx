@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
+import { useSession } from '../context/SessionContext'
+import { familyPlanActive } from './FamilyActivation'
 
 // The three services a passenger switches between — tricycle rides, Food
 // Order, and PaDeliver (goods) — as one strip that appears on every service
@@ -9,9 +11,14 @@ import { useRides } from '../context/RideContext'
 // compact: the header-row size — three labels have to share the width left
 // beside the hamburger on a phone, so the type comes down a step and the
 // pills lose some height.
-export function ServiceTabs({ active, tone = 'dark', compact = false }: { active: 'toda' | 'food' | 'padeliver'; tone?: 'dark' | 'light'; compact?: boolean }) {
+export function ServiceTabs({ active, tone = 'dark', compact = false }: { active: 'toda' | 'food' | 'padeliver' | 'family'; tone?: 'dark' | 'light'; compact?: boolean }) {
   const navigate = useNavigate()
-  const { vendorsEnabled } = useRides()
+  const { vendorsEnabled, passengers } = useRides()
+  const { currentPassengerId } = useSession()
+  // A Family Plan member (2026-09-23) keeps the Family icon at the end of the
+  // strip on every service, so Family is one tap away from anywhere.
+  const me = passengers.find((p) => p.id === currentPassengerId)
+  const inFamilyPlan = !!me && familyPlanActive(me, passengers)
   // Without registered vendors there is nothing to switch to — Food Order
   // and PaDeliver's Store both browse vendor catalogs (see VendorMenuBooking).
   if (!vendorsEnabled) return null
@@ -54,6 +61,20 @@ export function ServiceTabs({ active, tone = 'dark', compact = false }: { active
       {tab('toda', 'Book a Ride', () => navigate('/book', { state: { section: 'ride' } }))}
       {tab('food', 'Food Order', () => navigate('/book', { state: { section: 'food' } }))}
       {tab('padeliver', 'PaDeliver', () => navigate('/book', { state: { section: 'goods_store' } }))}
+      {inFamilyPlan && (
+        <button
+          type="button"
+          onClick={active === 'family' ? undefined : () => navigate('/book/family')}
+          aria-current={active === 'family' ? 'page' : undefined}
+          aria-label="Family"
+          title="Family"
+          className={`flex shrink-0 items-center justify-center rounded-full leading-none transition ${compact ? 'h-7 w-8 text-base' : 'h-9 w-10 text-xl'} ${
+            active === 'family' ? 'bg-gold-400 shadow-sm' : idle
+          }`}
+        >
+          👨‍👩‍👧
+        </button>
+      )}
     </div>
   )
 }

@@ -9,7 +9,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 // page announces the tabs it wants while it is on screen, and takes them
 // back when it leaves — so any other screen under the same header (the
 // terminal page, a storefront) gets the plain title again.
-export type HeaderTabs = { active: 'toda' | 'food' | 'padeliver' }
+export type HeaderTabs = { active: 'toda' | 'food' | 'padeliver' | 'family' }
 
 type HeaderSlot = { tabs: HeaderTabs | null; setTabs: (tabs: HeaderTabs | null) => void }
 

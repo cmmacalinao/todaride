@@ -385,7 +385,10 @@ export function PassengerPage() {
   // Arriving on Family home (tile, link or back button) puts the page in
   // Family mode, so its Book tab opens a Family booking.
   useEffect(() => {
-    if (familyHome) guestRider.setBookingFor('family')
+    if (!familyHome) return
+    guestRider.setBookingFor('family')
+    // Family books rides — leave any Food Order / PaDeliver screen behind.
+    setServiceType('ride')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [familyHome])
   // Family bookings: the family's trusted driver first, or anyone nearby.
@@ -632,7 +635,18 @@ export function PassengerPage() {
   // to switch away from) and not on the Rewards/Emergency tabs.
   useHeaderTabs(
     pageTab === 'book' && !isBuyMedicine
-      ? { active: showVendorMenu ? (catalogKind === 'goods' ? 'padeliver' : 'food') : isPadala ? 'padeliver' : 'toda' }
+      ? {
+          active:
+            familyHome || familyGroup || (forFamily && !showVendorMenu && !isPadala)
+              ? 'family'
+              : showVendorMenu
+                ? catalogKind === 'goods'
+                  ? 'padeliver'
+                  : 'food'
+                : isPadala
+                  ? 'padeliver'
+                  : 'toda',
+        }
       : null,
   )
   // Buy Medicine has its own self-contained flow (MedsBooking) with a

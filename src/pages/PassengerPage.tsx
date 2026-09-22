@@ -1697,7 +1697,68 @@ export function PassengerPage() {
   // The Where to strip — tap it and it becomes the search, the way Grab and
   // Google Maps do. A function so the same strip can be drawn in the address
   // card or, while the map is full screen, at the top of the map.
+  // Book a Delivery's one search box on the map, for both ends (2026-09-22):
+  // "Where to pickup?" in faded red while the pickup is the end being set,
+  // "Where to go?" in faded green for the destination. Setting one end turns
+  // it to the other; the ⇄ switches by hand. It follows mapTarget, the same
+  // armed end the centre pin and its Set buttons use.
+  const padalaEnd: 'pickup' | 'dropoff' = mapTarget
+  const padalaStrip = () => {
+    const isPickupEnd = padalaEnd === 'pickup'
+    const chosen = isPickupEnd ? (pickupChosen ? formatAddressLine(pickup.label) : null) : dropoffChosen ? formatAddressLine(dropoff.label) : null
+    return (
+      <div
+        className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-3 py-1.5 shadow-sm ${
+          isPickupEnd ? 'border-red-500/40 bg-red-500/15' : 'border-green-500/40 bg-green-500/15'
+        }`}
+      >
+        <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${isPickupEnd ? 'bg-red-600' : 'bg-dest-dot'}`} />
+        <DestinationSearch
+          key={padalaEnd}
+          city={cityScope}
+          near={pickupGps ?? pickup.gps ?? null}
+          onSelect={(place) => {
+            if (isPickupEnd) {
+              handlePickupLandmark(place)
+              setMapTarget('dropoff')
+            } else {
+              handleDropoffLandmark(place)
+              if (!pickupChosen) setMapTarget('pickup')
+            }
+          }}
+          onOpenAddressForm={() => openAddressForm(padalaEnd)}
+          onPinOnMap={() => undefined}
+          placeholder={
+            chosen ? `${isPickupEnd ? 'Pickup' : 'Where to go'}: ${chosen}` : isPickupEnd ? 'Where to pickup?' : 'Where to go?'
+          }
+          className="min-w-0 flex-1"
+          resultsClassName="absolute inset-x-0 top-full z-[80] mt-1 max-h-72 overflow-y-auto"
+          inputClassName={`map-toolbar-input w-full min-w-0 bg-transparent text-sm font-semibold focus:outline-none ${
+            isPickupEnd ? 'text-red-900' : 'text-green-900'
+          } ${
+            chosen
+              ? isPickupEnd
+                ? 'placeholder:font-semibold placeholder:text-red-900'
+                : 'placeholder:font-semibold placeholder:text-green-900'
+              : isPickupEnd
+                ? 'placeholder:font-normal placeholder:text-red-800/70'
+                : 'placeholder:font-normal placeholder:text-green-800/70'
+          }`}
+        />
+        <button
+          type="button"
+          onClick={() => setMapTarget(isPickupEnd ? 'dropoff' : 'pickup')}
+          aria-label={isPickupEnd ? 'Switch to the destination' : 'Switch to the pickup'}
+          title={isPickupEnd ? 'Switch to Where to go' : 'Switch to Where to pickup'}
+          className="shrink-0 rounded-md px-1 text-sm font-bold text-slate-500 hover:bg-white/60"
+        >
+          ⇄
+        </button>
+      </div>
+    )
+  }
   const destinationStrip = (destinationOnly: boolean) =>
+          isPadala ? padalaStrip() :
             openEnd === 'dropoff' ? (
               // Tapping Where to used to only expand a panel below with its
               // own separate search box a scroll away — typing directly into
@@ -2169,7 +2230,7 @@ export function PassengerPage() {
                 they going". */}
             {/* Book a Delivery: City first, as on Book a Ride. */}
             {isPadala && <div className="mb-1.5">{cityRowFor('dropoff')}</div>}
-            {(guestRider.bookingFor === 'other' || isPadala) && (
+            {guestRider.bookingFor === 'other' && !isPadala && (
             <>
             {/* Paired with Group Ride on the booking screen, the way the
                 destination row is paired with Set on Map — the row takes the

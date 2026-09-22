@@ -1189,12 +1189,17 @@ export function PassengerPage() {
   // Book a Delivery used to let "Request Delivery" go with no pickup and the
   // default delivery point (2026-09-22). Which one is still missing is also
   // what the button says.
+  // Booking for Someone needs their name and a PH mobile (09XXXXXXXXX, spaced,
+  // dashed or +63 are fine) — the driver has to be able to reach them
+  // (2026-09-22).
+  const guestPhoneDigits = guestRider.otherPhone.replace(/\D/g, '')
+  const guestPhoneOk = /^09\d{9}$/.test(guestPhoneDigits.startsWith('63') ? `0${guestPhoneDigits.slice(2)}` : guestPhoneDigits)
   const dualMissing: 'pickup' | 'dropoff' | null = dualEndBox ? (!boxSet.pickup ? 'pickup' : !boxSet.dropoff ? 'dropoff' : null) : null
   const canSubmit =
     hasDestination &&
     !endsAreSameSpot &&
     !dualMissing &&
-    (!isGuestBooking || guestRider.otherName.trim().length > 0)
+    (!isGuestBooking || (guestRider.otherName.trim().length > 0 && guestPhoneOk))
 
   // How far away the nearest driver who could take this actually is.
   //
@@ -2169,11 +2174,15 @@ export function PassengerPage() {
                         ? `Request Delivery for ${guestRider.otherName.trim() || 'them'}`
                         : 'Request Delivery'
                       : isGuestBooking
-                        ? guestRider.otherName.trim()
-                          ? `Book a Ride for ${guestRider.otherName.trim()}`
-                          : // The one thing Someone still needs — said on the
-                            // button it is holding back (2026-09-22).
-                            'Type their name above to book'
+                        ? !guestRider.otherName.trim() && !guestPhoneOk
+                          ? // What Someone still needs — said on the button it
+                            // is holding back (2026-09-22).
+                            'Type their name and mobile above to book'
+                          : !guestRider.otherName.trim()
+                            ? 'Type their name above to book'
+                            : !guestPhoneOk
+                              ? 'Type their mobile (09XXXXXXXXX) to book'
+                              : `Book a Ride for ${guestRider.otherName.trim()}`
                         : 'Book a Ride'}
                 </span>
               </button>
@@ -2309,7 +2318,14 @@ export function PassengerPage() {
                       value={guestRider.otherPhone}
                       onChange={(e) => guestRider.setOtherPhone(e.target.value)}
                       placeholder="Their mobile number"
-                      className="compact-input min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
+                      inputMode="tel"
+                      // Amber once both ends are set and the number is missing
+                      // or not a PH mobile yet.
+                      className={`compact-input min-w-0 rounded-lg border px-2.5 py-1.5 text-xs ${
+                        !guestPhoneOk && hasDestination && !endsAreSameSpot
+                          ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-300'
+                          : 'border-slate-300'
+                      }`}
                     />
                   </div>
                 )}

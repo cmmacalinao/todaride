@@ -99,6 +99,7 @@ export function PassengerPage() {
     todaRadiusKm,
     outOfAreaPerKm,
     setFavoriteDriver,
+    saveFamilyMember,
     acknowledgeRidePayment,
     requestedDrivers,
     setRequestedDriver,
@@ -327,6 +328,11 @@ export function PassengerPage() {
   const currentRideSectionRef = useRef<HTMLDivElement>(null)
   const tripHistorySectionRef = useRef<HTMLElement>(null)
   const guestRider = useGuestRider()
+  // Someone and Family both book for another person — the same page. Family
+  // (2026-09-22) also saves that person to the booker's family list and links
+  // the ride back to the booker, who follows it from here (Family trips).
+  const forOther = guestRider.bookingFor === 'other' || guestRider.bookingFor === 'family'
+  const forFamily = guestRider.bookingFor === 'family'
   const [searchParams] = useSearchParams()
   const location = useLocation()
   const navigate = useNavigate()
@@ -455,6 +461,14 @@ export function PassengerPage() {
         // Pabili flow underneath).
         if (!vendorsEnabled) break
         chooseErrand('pabili', { food: true, catalog: 'food' })
+        scrollTop()
+        break
+      case 'family':
+        // The home page's Family tile: Book a Ride, already on the Family tab.
+        setPageTab('book')
+        setServiceType('ride')
+        setGroupRideOpen(false)
+        guestRider.setBookingFor('family')
         scrollTop()
         break
       case 'goods_store':
@@ -897,7 +911,7 @@ export function PassengerPage() {
   // page showing Their name / mobile and a red Set PICKUP strip it has no use
   // for (2026-09-22). Opening Group Ride, by tab or by address, clears it.
   useEffect(() => {
-    if (groupRideOpen && guestRider.bookingFor === 'other') guestRider.setBookingFor('self')
+    if (groupRideOpen && forOther) guestRider.setBookingFor('self')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupRideOpen, guestRider.bookingFor])
   // Seeding the booker's own row belongs to the screen, not to the button
@@ -1153,7 +1167,7 @@ export function PassengerPage() {
   // Only a ride offers Myself / Someone. An errand (Book a Delivery) shows no
   // such choice, so a Someone left selected on Book a Ride must not turn it
   // into a delivery 'for them' (2026-09-22).
-  const isGuestBooking = guestRider.bookingFor === 'other' && !isErrand
+  const isGuestBooking = forOther && !isErrand
   // Said when Book is pressed with nothing behind the pickup — a phone that
   // refused location, or one still waiting on the auto-locate fix to land.
   // canSubmit does not gate on this: booking for yourself with no pickup
@@ -1173,7 +1187,7 @@ export function PassengerPage() {
 
   // Where the one two-ended box is used: Book a Delivery, and Book a Ride for
   // Someone (2026-09-22) — the two bookings where both ends are picked by hand.
-  const dualEndBox = isPadala || (!isErrand && !groupRideOpen && guestRider.bookingFor === 'other')
+  const dualEndBox = isPadala || (!isErrand && !groupRideOpen && forOther)
   // Which ends were set in this box. A pickup that is merely filled in —
   // this phone's own GPS from Myself, or a default — is not an answer for
   // someone else's ride or a delivery, so the box asks for it anyway.
@@ -1248,6 +1262,7 @@ export function PassengerPage() {
       passengerId: isGuestBooking ? makeGuestPassengerId() : passenger.id,
       passengerName: isGuestBooking ? guestRider.otherName.trim() : passenger.name,
       passengerPhone: isGuestBooking ? guestRider.otherPhone.trim() || null : null,
+      familyBookerId: forFamily && !isErrand ? passenger.id : null,
       pickup: isErrand && storeName.trim() ? { ...pickup, label: storeName.trim() } : pickup,
       dropoff,
       paymentMethod,
@@ -1264,6 +1279,14 @@ export function PassengerPage() {
       requestedDriverId,
       bookedAtTerminal: boardedAtTerminal,
     })
+    // A family member booked for is kept on the booker's list for next time.
+    if (forFamily && !isErrand && guestRider.otherName.trim()) {
+      saveFamilyMember(passenger.id, {
+        id: `fam-${Date.now()}`,
+        name: guestRider.otherName.trim(),
+        phone: guestRider.otherPhone.trim(),
+      })
+    }
     setRequestedDriverId(null)
     setSpecialTrip(false)
     setPassengerCount(1)
@@ -1457,7 +1480,7 @@ export function PassengerPage() {
   const autoLocatedRef = useRef(false)
   useEffect(() => {
     if (autoLocatedRef.current) return
-    if (pickupChosen || isErrand || activeRide || guestRider.bookingFor === 'other') return
+    if (pickupChosen || isErrand || activeRide || forOther) return
     autoLocatedRef.current = true
     void handleUseMyGps('pickup')
   }, [pickupChosen, isErrand, activeRide, guestRider.bookingFor])
@@ -2082,7 +2105,7 @@ export function PassengerPage() {
         // on the map too.
         // Booking for someone else too: their pickup is somewhere other than
         // this phone, so it is named on the map like the destination.
-        labelPickupOnMap={isErrand || guestRider.bookingFor === 'other'}
+        labelPickupOnMap={isErrand || forOther}
         // Full screen: choose the city up here, where the address lines were.
         fullscreenToolbar={cityRowFor('dropoff')}
         // Where to, at the top of the full-screen map, so a destination can
@@ -2109,7 +2132,7 @@ export function PassengerPage() {
         // one row now stops short of it. Bumped just enough to bring that
         // row into view — the guest name/phone inputs and the rest of the
         // form stay below the fold until the sheet is pulled up.
-        sheetPeekFraction={mapFirstBooking && guestRider.bookingFor === 'other' ? 0.34 : undefined}
+        sheetPeekFraction={mapFirstBooking && forOther ? 0.34 : undefined}
         // Taking a pin off the map is the same as never having set it: the
         // row goes back to "not set yet" and the marker disappears.
         onClearPickup={() => setPickupChosen(false)}
@@ -2258,7 +2281,7 @@ export function PassengerPage() {
                 <div className="flex items-center gap-1.5">
                 {/* City first: which city the trip is in comes before who it is
                     for, and it scopes the search in the Where to bar below. */}
-                <div className="w-[42%] shrink-0">{cityRowFor('dropoff')}</div>
+                <div className="w-[36%] shrink-0">{cityRowFor('dropoff')}</div>
                 <div className="flex min-w-0 flex-1 gap-1 rounded-lg bg-slate-100 p-1">
                   <button
                     type="button"
@@ -2266,7 +2289,7 @@ export function PassengerPage() {
                       if (groupRideOpen) setGroupRideOpen(false)
                       guestRider.setBookingFor('self')
                     }}
-                    className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
+                    className={`flex-1 whitespace-nowrap rounded-md px-0.5 py-1.5 text-[10px] font-semibold transition ${
                       !groupRideOpen && guestRider.bookingFor === 'self'
                         ? 'bg-brand-600 text-white shadow-sm'
                         : 'text-slate-500 hover:bg-slate-200'
@@ -2280,7 +2303,7 @@ export function PassengerPage() {
                       if (groupRideOpen) setGroupRideOpen(false)
                       guestRider.setBookingFor('other')
                     }}
-                    className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
+                    className={`flex-1 whitespace-nowrap rounded-md px-0.5 py-1.5 text-[10px] font-semibold transition ${
                       !groupRideOpen && guestRider.bookingFor === 'other'
                         ? 'bg-brand-600 text-white shadow-sm'
                         : 'text-slate-500 hover:bg-slate-200'
@@ -2290,9 +2313,21 @@ export function PassengerPage() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => {
+                      if (groupRideOpen) setGroupRideOpen(false)
+                      guestRider.setBookingFor('family')
+                    }}
+                    className={`flex-1 whitespace-nowrap rounded-md px-0.5 py-1.5 text-[10px] font-semibold transition ${
+                      !groupRideOpen && forFamily ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'
+                    }`}
+                  >
+                    Family
+                  </button>
+                  <button
+                    type="button"
                     onClick={openGroupRide}
                     aria-expanded={groupRideOpen}
-                    className={`flex flex-1 items-center justify-center gap-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
+                    className={`flex flex-1 items-center justify-center gap-0.5 whitespace-nowrap rounded-md px-0.5 py-1.5 text-[10px] font-semibold transition ${
                       groupRideOpen ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'
                     }`}
                   >
@@ -2301,7 +2336,39 @@ export function PassengerPage() {
                   </button>
                 </div>
                 </div>
-                {guestRider.bookingFor === 'other' && (
+                {forFamily && (
+                  <div className="mt-1.5 space-y-1.5 rounded-lg border border-amber-200 bg-amber-50/80 p-1.5">
+                    <p className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-900">
+                      👨‍👩‍👧 Book for your family and follow their trip
+                      <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
+                        Free · intro promo
+                      </span>
+                    </p>
+                    {(passenger.familyMembers ?? []).length > 0 && (
+                      <div className="-mx-0.5 flex gap-1 overflow-x-auto px-0.5">
+                        {(passenger.familyMembers ?? []).map((m) => {
+                          const on = guestRider.otherName.trim() === m.name && guestRider.otherPhone.replace(/\D/g, '') === m.phone.replace(/\D/g, '')
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => {
+                                guestRider.setOtherName(m.name)
+                                guestRider.setOtherPhone(m.phone)
+                              }}
+                              className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+                                on ? 'border-brand-600 bg-brand-600 text-white' : 'border-amber-300 bg-white text-amber-900 hover:bg-amber-100'
+                              }`}
+                            >
+                              {m.name}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {forOther && (
                   <div className="mt-1.5 grid grid-cols-2 gap-1.5">
                     <input
                       value={guestRider.otherName}
@@ -2346,7 +2413,7 @@ export function PassengerPage() {
                 they going". */}
             {/* Book a Delivery: City first, as on Book a Ride. */}
             {isPadala && <div className="mb-1.5">{cityRowFor('dropoff')}</div>}
-            {guestRider.bookingFor === 'other' && !dualEndBox && (
+            {forOther && !dualEndBox && (
             <>
             {/* Paired with Group Ride on the booking screen, the way the
                 destination row is paired with Set on Map — the row takes the
@@ -2517,7 +2584,7 @@ export function PassengerPage() {
             {/* Where to lives in the map's top row (see toolbarStrip), and how
                 many are riding sits beside Book a Ride — nothing left for here. */}
             {groupRideOpen || whereToOnMap ? null : (
-            <div className={guestRider.bookingFor === 'other' ? 'relative mt-1.5 flex items-stretch gap-1.5' : 'relative mt-1 flex items-stretch gap-1.5'}>
+            <div className={forOther ? 'relative mt-1.5 flex items-stretch gap-1.5' : 'relative mt-1 flex items-stretch gap-1.5'}>
             {/* In full screen the strip rides at the top of the map instead
                 (see fullscreenTop) — one copy at a time, so its search box
                 is never mounted twice. */}
@@ -2916,6 +2983,9 @@ export function PassengerPage() {
         />
         </div>
       )}
+      {/* Family trips (2026-09-22): rides this passenger booked for family
+          members from the Family tab, followed live from here. */}
+      <FamilyTrips bookerId={passenger.id} />
       {(!activeRide || searchingAgain || rideIsOver) && (
         <section className="space-y-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm">
             <>
@@ -3348,6 +3418,59 @@ function ActiveRideCard({
       showGuardianContact
       askAboutFarDriver
     />
+  )
+}
+
+// The rides a passenger booked for family members (Book a Ride → Family),
+// while they are under way — one row each, and the live trip map on tap,
+// the same watching view a parent gets for a child (TripMonitor watching).
+function FamilyTrips({ bookerId }: { bookerId: string }) {
+  const { rides } = useRides()
+  const [openId, setOpenId] = useState<string | null>(null)
+  const live = rides.filter(
+    (r) =>
+      r.familyBookerId === bookerId &&
+      (r.status === 'requested' || r.status === 'driver_arriving' || r.status === 'ongoing'),
+  )
+  if (live.length === 0) return null
+  const statusLabel = (r: Ride) =>
+    r.status === 'requested' ? 'Finding a driver' : r.status === 'driver_arriving' ? `${r.driverName ?? 'Driver'} is on the way` : 'On the way to the destination'
+  return (
+    <section className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/80 p-2.5 shadow-sm">
+      <p className="flex items-center gap-1.5 text-sm font-bold text-amber-900">
+        👨‍👩‍👧 Family trips
+        <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">Free · intro promo</span>
+      </p>
+      {live.map((r) => (
+        <div key={r.id} className="rounded-lg border border-amber-200 bg-white">
+          <button
+            type="button"
+            onClick={() => setOpenId(openId === r.id ? null : r.id)}
+            aria-expanded={openId === r.id}
+            className="flex w-full items-center gap-2 px-2.5 py-2 text-left"
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold text-slate-800">{r.passengerName}</span>
+              <span className="block truncate text-[11px] text-slate-500">
+                {statusLabel(r)} · to {formatAddressLine(r.dropoff.label)}
+              </span>
+            </span>
+            <span className="shrink-0 text-[11px] font-semibold text-brand-600">{openId === r.id ? 'Hide ▲' : 'Track live ▼'}</span>
+          </button>
+          {openId === r.id && (
+            <div className="border-t border-amber-100 p-1.5">
+              <TripMonitor
+                title={`${r.passengerName}'s trip`}
+                ride={r}
+                sosActorId={bookerId}
+                sosLabel="SOS — Emergency"
+                watching
+              />
+            </div>
+          )}
+        </div>
+      ))}
+    </section>
   )
 }
 

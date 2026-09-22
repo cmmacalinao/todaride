@@ -111,6 +111,26 @@ export function RiderStartPage() {
           <span aria-hidden className="text-xl text-slate-500">›</span>
         </button>
 
+        {/* Family (2026-09-22): Book a Ride for a family member and follow
+            their trip. A subscription later; free for now as an intro promo. */}
+        <button
+          type="button"
+          onClick={() => navigate('/book', { state: { section: 'family' } })}
+          className="flex w-full items-center gap-3 rounded-xl border border-gold-400 bg-amber-50 p-3 text-left shadow-sm transition hover:bg-amber-100"
+        >
+          <span aria-hidden className="flex h-12 w-12 shrink-0 items-center justify-center text-3xl leading-none">
+            👨‍👩‍👧
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex flex-wrap items-center gap-1.5">
+              <span className="text-base font-bold text-slate-900">FAMILY</span>
+              <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">Free · intro promo</span>
+            </span>
+            <span className="block text-xs text-slate-700">Book a ride for a family member and follow their trip live.</span>
+          </span>
+          <span aria-hidden className="text-xl text-slate-500">›</span>
+        </button>
+
         {/* Food Order and PaDeliver share one row — two columns, not two
             full-width bands under Book a Ride.
             Book a Ride keeps the whole width above them: it is the service

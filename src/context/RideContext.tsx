@@ -79,6 +79,7 @@ import type {
   ParentLink,
   PartnershipRevenueEntry,
   Passenger,
+  FamilyMember,
   PaymentAccountDetails,
   PaymentMethod,
   Pharmacy,
@@ -469,6 +470,8 @@ type RideAction =
       packageNote: string | null
       tip: number
       bookedByParentId: string | null
+      // Book a Ride → Family: the passenger who booked it for a family member.
+      familyBookerId?: string | null
       specialPickupRequested: boolean
       specialTrip: boolean
       // A driver the passenger picked off the nearby list for this one
@@ -630,6 +633,8 @@ type RideAction =
   | { type: 'SET_QUEUE_OFFER_TIMEOUT'; ms: number }
   | { type: 'SET_SPECIAL_PICKUP_ESCALATION_MS'; ms: number }
   | { type: 'SET_FAVORITE_DRIVER'; passengerId: string; driverId: string | null }
+  | { type: 'SAVE_FAMILY_MEMBER'; passengerId: string; member: FamilyMember }
+  | { type: 'REMOVE_FAMILY_MEMBER'; passengerId: string; memberId: string }
   | { type: 'SET_PARENT_FAVORITE_DRIVER'; parentId: string; driverId: string | null }
   | { type: 'PROPOSE_TODA_COMMISSION'; todaOrgId: string; amount: number | null }
   | { type: 'SET_TODA_COMMISSION_MEMBER_APPROVAL'; todaOrgId: string; approved: boolean }
@@ -2712,6 +2717,7 @@ function reducer(state: RideState, action: RideAction): RideState {
         otherDocDataUrl: action.serviceType === 'buy_medicine' ? action.otherDocDataUrl : null,
         paymentProofDataUrl: action.paymentProofDataUrl,
         bookedByParentId: action.bookedByParentId,
+        familyBookerId: action.familyBookerId ?? null,
         specialPickupRequested: action.specialPickupRequested,
         specialTrip: action.specialTrip,
         bookedAtTerminal: action.bookedAtTerminal,
@@ -4158,6 +4164,31 @@ function reducer(state: RideState, action: RideAction): RideState {
         ...state,
         passengers: state.passengers.map((p) =>
           p.id === action.passengerId ? { ...p, favoriteDriverId: action.driverId } : p,
+        ),
+      }
+    // Book a Ride → Family: the passenger's saved family list. Saving a
+    // member with the same mobile updates that one instead of adding twice.
+    case 'SAVE_FAMILY_MEMBER':
+      return {
+        ...state,
+        passengers: state.passengers.map((p) => {
+          if (p.id !== action.passengerId) return p
+          const list = p.familyMembers ?? []
+          const digits = (s: string) => s.replace(/\D/g, '')
+          const same = list.find((m) => m.id === action.member.id || digits(m.phone) === digits(action.member.phone))
+          return {
+            ...p,
+            familyMembers: same
+              ? list.map((m) => (m === same ? { ...action.member, id: same.id } : m))
+              : [...list, action.member],
+          }
+        }),
+      }
+    case 'REMOVE_FAMILY_MEMBER':
+      return {
+        ...state,
+        passengers: state.passengers.map((p) =>
+          p.id === action.passengerId ? { ...p, familyMembers: (p.familyMembers ?? []).filter((m) => m.id !== action.memberId) } : p,
         ),
       }
     case 'SET_PARENT_FAVORITE_DRIVER':
@@ -6595,6 +6626,7 @@ interface RideContextValue extends RideState {
     packageNote?: string | null
     tip?: number
     bookedByParentId?: string | null
+    familyBookerId?: string | null
     specialPickupRequested?: boolean
     specialTrip?: boolean
     requestedDriverId?: string | null
@@ -6734,6 +6766,8 @@ interface RideContextValue extends RideState {
   setQueueOfferTimeoutMs: (ms: number) => void
   setSpecialPickupEscalationMs: (ms: number) => void
   setFavoriteDriver: (passengerId: string, driverId: string | null) => void
+  saveFamilyMember: (passengerId: string, member: FamilyMember) => void
+  removeFamilyMember: (passengerId: string, memberId: string) => void
   setParentFavoriteDriver: (parentId: string, driverId: string | null) => void
   proposeTodaCommission: (todaOrgId: string, amount: number | null) => void
   setTodaCommissionMemberApproval: (todaOrgId: string, approved: boolean) => void
@@ -8012,6 +8046,8 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setQueueOfferTimeoutMs: (ms) => dispatch({ type: 'SET_QUEUE_OFFER_TIMEOUT', ms }),
     setSpecialPickupEscalationMs: (ms) => dispatch({ type: 'SET_SPECIAL_PICKUP_ESCALATION_MS', ms }),
     setFavoriteDriver: (passengerId, driverId) => dispatch({ type: 'SET_FAVORITE_DRIVER', passengerId, driverId }),
+    saveFamilyMember: (passengerId, member) => dispatch({ type: 'SAVE_FAMILY_MEMBER', passengerId, member }),
+    removeFamilyMember: (passengerId, memberId) => dispatch({ type: 'REMOVE_FAMILY_MEMBER', passengerId, memberId }),
     setParentFavoriteDriver: (parentId, driverId) => dispatch({ type: 'SET_PARENT_FAVORITE_DRIVER', parentId, driverId }),
     proposeTodaCommission: (todaOrgId, amount) => dispatch({ type: 'PROPOSE_TODA_COMMISSION', todaOrgId, amount }),
     setTodaCommissionMemberApproval: (todaOrgId, approved) =>

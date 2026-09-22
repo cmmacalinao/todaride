@@ -897,9 +897,19 @@ export interface SavedLocation {
   location: MockLocation
 }
 
+// A family member a passenger books rides for (Book a Ride → Family): saved
+// on the passenger so the next booking is one tap.
+export interface FamilyMember {
+  id: string
+  name: string
+  phone: string
+}
+
 export interface Passenger {
   id: string
   name: string
+  // Saved from the Family tab. Optional so existing passengers parse.
+  familyMembers?: FamilyMember[]
   age: number
   isStudent: boolean
   // PWD/Senior citizen discount — mutually exclusive with isStudent in
@@ -1457,6 +1467,10 @@ export interface Ride {
   // (passengerId/passengerName are still the child's — this is just a
   // record of who initiated it).
   bookedByParentId: string | null
+  // Set when a passenger booked this ride for a member of their family from
+  // Book a Ride's Family tab (2026-09-22): who booked it, so they can follow
+  // the trip from their own booking page. Optional so older rides parse.
+  familyBookerId?: string | null
   // Links every ride created from one Group Ride booking together — each
   // rider going to their own destination gets their own Ride record (same
   // as an ordinary shared ride), but these were all requested at once by

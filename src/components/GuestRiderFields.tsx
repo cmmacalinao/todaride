@@ -6,8 +6,8 @@ import { useState } from 'react'
 // person; the ride just carries their name/phone directly (see
 // makeGuestPassengerId) so the driver can identify and call them.
 export interface GuestRiderState {
-  bookingFor: 'self' | 'other'
-  setBookingFor: (v: 'self' | 'other') => void
+  bookingFor: 'self' | 'other' | 'family'
+  setBookingFor: (v: 'self' | 'other' | 'family') => void
   otherName: string
   setOtherName: (v: string) => void
   otherPhone: string
@@ -16,7 +16,7 @@ export interface GuestRiderState {
 }
 
 export function useGuestRider(): GuestRiderState {
-  const [bookingFor, setBookingFor] = useState<'self' | 'other'>('self')
+  const [bookingFor, setBookingFor] = useState<'self' | 'other' | 'family'>('self')
   const [otherName, setOtherName] = useState('')
   const [otherPhone, setOtherPhone] = useState('')
   function reset() {

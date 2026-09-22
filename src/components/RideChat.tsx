@@ -38,6 +38,7 @@ export function RideChatButton({
   senderName,
   otherLabel,
   withLabel = false,
+  quickOnly = false,
 }: {
   ride: Ride
   as: Side
@@ -45,6 +46,8 @@ export function RideChatButton({
   // Who is on the other end: "Kuya Dante", "Celeste (parent)".
   otherLabel: string
   withLabel?: boolean
+  // A child whose family allows quick replies only: no free typing.
+  quickOnly?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const theirs = (ride.messages ?? []).filter((m) => m.from !== as).length
@@ -85,7 +88,16 @@ export function RideChatButton({
           </span>
         )}
       </button>
-      {open && <RideChatSheet ride={ride} as={as} senderName={senderName} otherLabel={otherLabel} onClose={() => setOpen(false)} />}
+      {open && (
+        <RideChatSheet
+          ride={ride}
+          as={as}
+          senderName={senderName}
+          otherLabel={otherLabel}
+          quickOnly={quickOnly}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </>
   )
 }
@@ -95,12 +107,14 @@ function RideChatSheet({
   as,
   senderName,
   otherLabel,
+  quickOnly = false,
   onClose,
 }: {
   ride: Ride
   as: Side
   senderName: string
   otherLabel: string
+  quickOnly?: boolean
   onClose: () => void
 }) {
   const { sendRideMessage } = useRides()
@@ -180,6 +194,11 @@ function RideChatSheet({
                 </button>
               ))}
             </div>
+            {quickOnly ? (
+              <p className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-center text-[10px] text-slate-500">
+                Your family set this chat to quick replies only.
+              </p>
+            ) : (
             <div className="flex gap-1.5">
               <input
                 value={draft}
@@ -199,6 +218,7 @@ function RideChatSheet({
                 Send
               </button>
             </div>
+            )}
           </div>
         )}
       </div>

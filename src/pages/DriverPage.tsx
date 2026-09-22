@@ -508,7 +508,9 @@ export function DriverPage() {
       </div>
     ) : null
 
-  const allRequested = rides.filter((r) => r.status === 'requested')
+  // A child's ride held for their parent is not work yet — it reaches drivers
+  // only once the parent approves it (see APPROVE_FAMILY_RIDE).
+  const allRequested = rides.filter((r) => r.status === 'requested' && !r.awaitingFamilyApproval)
   const incoming = allRequested.filter(
     (r) =>
       // A ride this driver already turned down stays out of their list. It is

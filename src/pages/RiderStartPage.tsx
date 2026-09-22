@@ -1,5 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
+import { useSession } from '../context/SessionContext'
+import { familyLimitsFor } from '../lib/familyLimits'
 import { terminalRideIsFree } from '../lib/terminalFee'
 import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
 import { TricycleIcon } from '../components/TricycleIcon'
@@ -13,7 +15,11 @@ import { usePilotBranding } from '../lib/usePilotBranding'
 // the terminal path discoverable at all.
 export function RiderStartPage() {
   const navigate = useNavigate()
-  const { vendorsEnabled, pharmacies } = useRides()
+  const { vendorsEnabled, pharmacies, passengers } = useRides()
+  const { currentPassengerId } = useSession()
+  // A child sees Food Order and PaDeliver only if their parent allows them.
+  const me = passengers.find((p) => p.id === currentPassengerId)
+  const limits = me ? familyLimitsFor(me, passengers) : null
   const pilotBranding = usePilotBranding()
   // Only the Food & Vendor partners switch matters here. Food Order and
   // PaDeliver's Store both check out through VendorMenuBooking and end up
@@ -22,7 +28,8 @@ export function RiderStartPage() {
   // now, not borrowed from it, so nothing here depends on Super Admin's
   // Pabili switch at all. PaDeliver's "Book a Delivery" ('padala') was
   // already its own type and stays available regardless of either switch.
-  const vendorCatalogsAvailable = vendorsEnabled
+  const vendorCatalogsAvailable = vendorsEnabled && (!limits || limits.food)
+  const padeliverAvailable = !limits || limits.padeliver
   // Every partner a passenger can order from — approved restos and goods
   // stores, the same set Food Order and PaDeliver's Store list — open ones
   // first, then by name. There is no separate "featured" flag yet, so all of
@@ -112,7 +119,10 @@ export function RiderStartPage() {
         </button>
 
         {/* Family (2026-09-22): Book a Ride for a family member and follow
-            their trip. A subscription later; free for now as an intro promo. */}
+            their trip. A subscription later; free for now as an intro promo.
+            Not for a member already in someone else's family — they are in the
+            plan already, and cannot add members of their own. */}
+        {!limits && (
         <button
           type="button"
           onClick={() => navigate('/book/family')}
@@ -139,6 +149,7 @@ export function RiderStartPage() {
           </span>
           <span aria-hidden className="text-xl text-slate-500">›</span>
         </button>
+        )}
 
         {/* Food Order and PaDeliver share one row — two columns, not two
             full-width bands under Book a Ride.
@@ -186,6 +197,7 @@ export function RiderStartPage() {
               Book a Delivery doesn't depend on any registered vendor either,
               so it's offered even when Store isn't — and on its own it takes
               the full width back. */}
+          {padeliverAvailable && (
           <button
             type="button"
             onClick={() => navigate('/book', { state: { section: 'goods_store' } })}
@@ -198,6 +210,7 @@ export function RiderStartPage() {
             <span className="block text-base font-bold text-slate-900">PaDeliver</span>
             <span className="block text-xs text-slate-700">Goods — from a store's shelf, or straight from you.</span>
           </button>
+          )}
         </div>
 
         {/* Featured merchants & stores: one tile each, straight into that

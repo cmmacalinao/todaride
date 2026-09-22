@@ -63,7 +63,11 @@ export function buildNearbyRequests(
   const myOrg = driver.todaOrgId ? orgs.find((o) => o.id === driver.todaOrgId) : null
   const todaCut = getActiveTodaCommission(myOrg)
   return rides
-    .filter((r) => r.status === 'requested' && !(r.declinedByDriverIds ?? []).includes(driver.id))
+    // A child's ride held for their parent is not work yet — it reaches
+    // drivers only once the parent approves it (see APPROVE_FAMILY_RIDE).
+    .filter(
+      (r) => r.status === 'requested' && !r.awaitingFamilyApproval && !(r.declinedByDriverIds ?? []).includes(driver.id),
+    )
     .map((r) => {
       const cod = codBreakdown(r, orders)
       // The driver's own money: the fee on a cash delivery, the fare otherwise.

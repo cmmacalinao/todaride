@@ -31,6 +31,7 @@ import { SosPeopleLocations } from './SosPeopleLocations'
 import { RIDE_CANCELLATION_REASON_LABELS } from '../types'
 import type { EmergencyContact, GeoCoords, Ride } from '../types'
 import { RideChatButton } from './RideChat'
+import { familyLimitsFor } from '../lib/familyLimits'
 
 interface CallContact {
   label: string
@@ -878,6 +879,15 @@ export function TripMonitor({
     passengers.find((p) => p.id === ride.passengerId)?.favoriteDriverId ??
     null
   const favoriteDriver = favoriteDriverId ? drivers.find((d) => d.id === favoriteDriverId) : undefined
+  // The family's trusted drivers — this passenger's own, or (for a member's
+  // account) their family owner's. Ready to hand while a ride waits.
+  const familyTrustedDrivers = (() => {
+    const me = passengers.find((p) => p.id === (ride.bookedByParentId ?? ride.passengerId))
+    const owner = me?.familyOwnerId ? passengers.find((o) => o.id === me.familyOwnerId) : me
+    return (owner?.familyTrustedDriverIds ?? [])
+      .map((id) => drivers.find((d) => d.id === id))
+      .filter((d): d is NonNullable<typeof d> => !!d && d.verificationStatus === 'approved' && d.accessStatus === 'active')
+  })()
   const canAskFavorite =
     !!favoriteDriver &&
     favoriteDriver.verificationStatus === 'approved' &&
@@ -924,6 +934,31 @@ export function TripMonitor({
           Add
         </button>
       </div>
+      {/* The family's own trusted drivers, while nobody has taken the ride:
+          ask them to take it, or ring them (2026-09-23). */}
+      {ride.status === 'requested' && !ride.driverId && familyTrustedDrivers.length > 0 && (
+        <div className="mt-1.5 space-y-1">
+          {familyTrustedDrivers.map((d) => (
+            <div key={d.id} className="flex gap-1.5">
+              {ride.priorityQueueOfferedDriverId !== d.id && (
+                <button
+                  type="button"
+                  onClick={() => offerRideToFavorite(ride.id, d.id)}
+                  className="min-w-0 flex-1 truncate rounded-lg border border-gold-500 bg-[#ffe066] py-1.5 text-xs font-bold text-navy-900 transition hover:bg-[#ffd633]"
+                >
+                  ⭐ Ask {d.name} to take it
+                </button>
+              )}
+              <a
+                href={`tel:${d.phone}`}
+                className="shrink-0 rounded-lg border border-brand-300 bg-white px-2.5 py-1.5 text-xs font-bold text-brand-700 hover:bg-brand-50"
+              >
+                📞 Contact trusted driver
+              </a>
+            </div>
+          ))}
+        </div>
+      )}
       {canAskFavorite && favoriteDriver && (
         <button
           type="button"
@@ -1030,6 +1065,10 @@ export function TripMonitor({
           ride={ride}
           as="passenger"
           senderName={passengers.find((p) => p.id === sosActorId)?.name ?? ride.passengerName}
+          quickOnly={(() => {
+            const me = passengers.find((p) => p.id === sosActorId)
+            return !!me && !!familyLimitsFor(me, passengers)?.quickChatOnly
+          })()}
           otherLabel={drivers.find((d) => d.id === ride.driverId)?.name ?? ride.driverName ?? "Your driver"}
         />
       )}

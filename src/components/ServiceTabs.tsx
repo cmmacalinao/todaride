@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { useSession } from '../context/SessionContext'
 import { familyPlanActive } from './FamilyActivation'
+import { familyLimitsFor } from '../lib/familyLimits'
 
 // The three services a passenger switches between — tricycle rides, Food
 // Order, and PaDeliver (goods) — as one strip that appears on every service
@@ -19,6 +20,8 @@ export function ServiceTabs({ active, tone = 'dark', compact = false }: { active
   // strip on every service, so Family is one tap away from anywhere.
   const me = passengers.find((p) => p.id === currentPassengerId)
   const inFamilyPlan = !!me && familyPlanActive(me, passengers)
+  // A child only sees the services their parent allows (2026-09-23).
+  const limits = me ? familyLimitsFor(me, passengers) : null
   // Without registered vendors there is nothing to switch to — Food Order
   // and PaDeliver's Store both browse vendor catalogs (see VendorMenuBooking).
   if (!vendorsEnabled) return null
@@ -59,9 +62,10 @@ export function ServiceTabs({ active, tone = 'dark', compact = false }: { active
   return (
     <div className={`flex ${compact ? 'gap-1' : 'gap-1.5'}`}>
       {tab('toda', 'Book a Ride', () => navigate('/book', { state: { section: 'ride' } }))}
-      {tab('food', 'Food Order', () => navigate('/book', { state: { section: 'food' } }))}
-      {tab('padeliver', 'PaDeliver', () => navigate('/book', { state: { section: 'goods_store' } }))}
-      {inFamilyPlan && (
+      {(!limits || limits.food) && tab('food', 'Food Order', () => navigate('/book', { state: { section: 'food' } }))}
+      {(!limits || limits.padeliver) && tab('padeliver', 'PaDeliver', () => navigate('/book', { state: { section: 'goods_store' } }))}
+      {/* The parent manages the family; a limited member just rides. */}
+      {inFamilyPlan && !limits && (
         <button
           type="button"
           onClick={active === 'family' ? undefined : () => navigate('/book/family')}

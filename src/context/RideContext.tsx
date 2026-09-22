@@ -478,6 +478,8 @@ type RideAction =
       bookedByParentId: string | null
       // Book a Ride → Family: the passenger who booked it for a family member.
       familyBookerId?: string | null
+      // A child's own booking, held until their parent approves it.
+      awaitingFamilyApproval?: boolean
       specialPickupRequested: boolean
       specialTrip: boolean
       // A driver the passenger picked off the nearby list for this one
@@ -541,6 +543,7 @@ type RideAction =
     }
   | { type: 'REPORT_DRIVER_GPS'; driverId: string; gps: GeoCoords }
   | { type: 'SEND_RIDE_MESSAGE'; rideId: string; message: RideMessage }
+  | { type: 'APPROVE_FAMILY_RIDE'; rideId: string }
   | { type: 'ACCEPT_RIDE'; rideId: string; driverId: string }
   | { type: 'DECLINE_RIDE'; rideId: string; driverId: string }
   | { type: 'PASSENGER_RELEASE_DRIVER'; rideId: string }
@@ -565,7 +568,7 @@ type RideAction =
       note: string | null
     }
   | { type: 'ADD_TIP_OFFER'; rideId: string; amount: number }
-  | { type: 'OFFER_RIDE_TO_FAVORITE'; rideId: string }
+  | { type: 'OFFER_RIDE_TO_FAVORITE'; rideId: string; driverId?: string }
   | { type: 'ACKNOWLEDGE_RIDE_PAYMENT'; rideId: string; method: PaymentMethod; referenceNo?: string | null }
   | { type: 'TICK_POSITIONS' }
   | { type: 'UPDATE_DRIVER_LIVE_GPS'; rideId: string; gps: GeoCoords | null }
@@ -2659,7 +2662,11 @@ function reducer(state: RideState, action: RideAction): RideState {
   switch (action.type) {
     case 'REQUEST_RIDE': {
       const priorityTodaOrgId = getPriorityTodaOrgId(action.pickup)
-      const { offeredDriverId, offeredAt } = nextQueueOffer(
+      // Held for a parent: no driver is offered it yet, and it stays out of
+      // the drivers' request list until APPROVE_FAMILY_RIDE.
+      const { offeredDriverId, offeredAt } = action.awaitingFamilyApproval
+        ? { offeredDriverId: null, offeredAt: null }
+        : nextQueueOffer(
         priorityTodaOrgId,
         [],
         state.drivers,
@@ -2746,6 +2753,7 @@ function reducer(state: RideState, action: RideAction): RideState {
         paymentProofDataUrl: action.paymentProofDataUrl,
         bookedByParentId: action.bookedByParentId,
         familyBookerId: action.familyBookerId ?? null,
+        awaitingFamilyApproval: action.awaitingFamilyApproval ?? false,
         // The family owner pays when that member is set to 'I pay' — whether the
         // owner booked it for them (familyBookerId) or they booked it themselves
         // on the account their invite created (familyOwnerId).
@@ -3116,6 +3124,40 @@ function reducer(state: RideState, action: RideAction): RideState {
       return { ...state, todaRadiusKm: Math.max(0, Number(action.km) || 0) }
     case 'SET_OUT_OF_AREA_PER_KM':
       return { ...state, outOfAreaPerKm: Math.max(0, Math.round(action.amount)) }
+    // The parent approved: the ride joins the queue now, offered like any
+    // other request from where it starts.
+    case 'APPROVE_FAMILY_RIDE': {
+      const held = state.rides.find((r) => r.id === action.rideId)
+      if (!held || !held.awaitingFamilyApproval) return state
+      // Their family's trusted driver still comes first when the parent has
+      // set 'our trusted drivers only' for this child — the preference was
+      // made when the ride was booked, and approving must not lose it.
+      const rider = state.passengers.find((p) => p.id === held.passengerId)
+      const owner = rider?.familyOwnerId ? state.passengers.find((o) => o.id === rider.familyOwnerId) : undefined
+      const member = owner?.familyMembers?.find((m) => m.passengerId === held.passengerId)
+      const trustedFirst = member?.limits?.trustedOnly ? (owner?.familyTrustedDriverIds ?? [])[0] ?? null : null
+      const offer = nextQueueOffer(
+        held.priorityTodaOrgId,
+        [],
+        state.drivers,
+        trustedFirst ?? findFavoriteDriverId(state, held.passengerId),
+        held.serviceType !== 'ride',
+        dispatchCtx(state, held.pickup.gps ?? null),
+      )
+      return {
+        ...state,
+        rides: state.rides.map((r) =>
+          r.id === action.rideId
+            ? {
+                ...r,
+                awaitingFamilyApproval: false,
+                priorityQueueOfferedDriverId: offer.offeredDriverId,
+                priorityQueueOfferedAt: offer.offeredAt,
+              }
+            : r,
+        ),
+      }
+    }
     case 'SEND_RIDE_MESSAGE':
       return {
         ...state,
@@ -3515,7 +3557,9 @@ function reducer(state: RideState, action: RideAction): RideState {
       // Group Ride moves as one, like accepting it does.
       const ride = state.rides.find((r) => r.id === action.rideId)
       if (!ride || ride.status !== 'requested' || ride.driverId) return state
-      const favoriteId = findFavoriteDriverId(state, ride.bookedByParentId ?? ride.passengerId)
+      // Or a driver the passenger named — their family's trusted driver from
+      // the waiting strip (2026-09-23).
+      const favoriteId = action.driverId ?? findFavoriteDriverId(state, ride.bookedByParentId ?? ride.passengerId)
       const favorite = favoriteId ? state.drivers.find((d) => d.id === favoriteId) : null
       if (!favorite || favorite.verificationStatus !== 'approved' || favorite.accessStatus !== 'active') return state
       const groupId = ride.groupBookingId ?? null
@@ -6754,6 +6798,7 @@ interface RideContextValue extends RideState {
     tip?: number
     bookedByParentId?: string | null
     familyBookerId?: string | null
+    awaitingFamilyApproval?: boolean
     specialPickupRequested?: boolean
     specialTrip?: boolean
     requestedDriverId?: string | null
@@ -6787,6 +6832,8 @@ interface RideContextValue extends RideState {
   }) => void
   reportDriverGps: (driverId: string, gps: GeoCoords) => void
   sendRideMessage: (rideId: string, from: 'driver' | 'passenger', senderName: string, text: string) => void
+  // A parent letting their child's held ride go out to drivers.
+  approveFamilyRide: (rideId: string) => void
   acceptRide: (rideId: string, driverId: string) => void
   declineRide: (rideId: string, driverId: string) => void
   // The passenger lets the accepted driver go (too far away) and the ride goes
@@ -6807,7 +6854,7 @@ interface RideContextValue extends RideState {
   setPabiliItemBought: (rideId: string, index: number, bought: boolean) => void
   driverCancelRide: (rideId: string, reason: RideCancellationReason, note: string | null) => void
   addTipOffer: (rideId: string, amount: number) => void
-  offerRideToFavorite: (rideId: string) => void
+  offerRideToFavorite: (rideId: string, driverId?: string) => void
   acknowledgeRidePayment: (rideId: string, method: PaymentMethod, referenceNo?: string | null) => void
   updateDriverLiveGps: (rideId: string, gps: GeoCoords | null) => void
   updatePassengerLiveGps: (rideId: string, gps: GeoCoords | null) => void
@@ -8018,6 +8065,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     requestGroupRide: (args) =>
       dispatch({ type: 'REQUEST_GROUP_RIDE', requestedDriverId: null, ...args }),
     reportDriverGps: (driverId, gps) => dispatch({ type: 'REPORT_DRIVER_GPS', driverId, gps }),
+    approveFamilyRide: (rideId) => dispatch({ type: 'APPROVE_FAMILY_RIDE', rideId }),
     sendRideMessage: (rideId, from, senderName, text) =>
       dispatch({
         type: 'SEND_RIDE_MESSAGE',
@@ -8043,7 +8091,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'SET_PABILI_ITEM_BOUGHT', rideId, index, bought }),
     driverCancelRide: (rideId, reason, note) => dispatch({ type: 'DRIVER_CANCEL_RIDE', rideId, reason, note }),
     addTipOffer: (rideId, amount) => dispatch({ type: 'ADD_TIP_OFFER', rideId, amount }),
-    offerRideToFavorite: (rideId) => dispatch({ type: 'OFFER_RIDE_TO_FAVORITE', rideId }),
+    offerRideToFavorite: (rideId, driverId) => dispatch({ type: 'OFFER_RIDE_TO_FAVORITE', rideId, driverId }),
     acknowledgeRidePayment: (rideId, method, referenceNo) =>
       dispatch({ type: 'ACKNOWLEDGE_RIDE_PAYMENT', rideId, method, referenceNo }),
     updateDriverLiveGps: (rideId, gps) => dispatch({ type: 'UPDATE_DRIVER_LIVE_GPS', rideId, gps }),

@@ -1,5 +1,6 @@
 import { formatAddressLine } from '../lib/addressFormat'
 import { ShareAppPanel, familyInviteUrl } from '../components/ShareAppPanel'
+import { familyLimitsFor, withinCurfew } from '../lib/familyLimits'
 import { FamilyActivation, FamilyTermsText, familyPlanActive, formatPlanDate } from '../components/FamilyActivation'
 import { FamilyDriverRow, familyDriverPick, type FamilyDriverChoice } from '../components/FamilyTrustedDriver'
 import { streetLinesFor } from '../lib/streetPaths'
@@ -70,9 +71,12 @@ import { PassengerRewardsCard } from '../components/PassengerRewardsCard'
 import { GroupRideInlinePanel, type GroupRiderEntry } from '../components/GroupRideInlinePanel'
 import { ContactSheet } from '../components/ContactSheet'
 import { DestinationSearch, type SelectedPlace } from '../components/DestinationSearch'
+import { ADULT_MEMBER_LIMITS, MINOR_DEFAULT_LIMITS } from '../types'
+import { MINOR_AGE } from '../lib/familyLimits'
 import type {
   DriverReportReason,
   FamilyMember,
+  FamilyMemberLimits,
   GeoCoords,
   MockLocation,
   PaymentMethod,
@@ -556,6 +560,16 @@ export function PassengerPage() {
   // Family Plan activated (terms accepted), by this account or — for a member
   // who joined by invite — its owner. Family booking is locked until then.
   const familyActive = familyPlanActive(passenger, passengers)
+  // This account's own limits, when it is a family member's account (a
+  // child's, usually) — see lib/familyLimits. Null for everyone else.
+  const myLimits = familyLimitsFor(passenger, passengers)
+  const inCurfew = withinCurfew(myLimits)
+  // Their family's trusted drivers, when their rides may only go to those.
+  const myFamilyTrustedId = (() => {
+    if (!myLimits?.trustedOnly) return null
+    const owner = passengers.find((o) => o.id === passenger.familyOwnerId)
+    return (owner?.familyTrustedDriverIds ?? [])[0] ?? null
+  })()
   // Family booking without an active plan goes back to Family home, which
   // shows the activation screen.
   useEffect(() => {
@@ -1336,7 +1350,9 @@ export function PassengerPage() {
     hasDestination &&
     !endsAreSameSpot &&
     !dualMissing &&
-    (!isGuestBooking || (guestRider.otherName.trim().length > 0 && guestPhoneFine))
+    (!isGuestBooking || (guestRider.otherName.trim().length > 0 && guestPhoneFine)) &&
+    // A child cannot book during their family's curfew hours.
+    !inCurfew
 
   // How far away the nearest driver who could take this actually is.
   //
@@ -1399,7 +1415,10 @@ export function PassengerPage() {
       tip: isErrand ? tip : 0,
       specialPickupRequested: specialPickupRequested && pickupGps !== null,
       specialTrip,
-      requestedDriverId: familyTrustedPick ?? requestedDriverId,
+      // A child whose family allows only trusted drivers: theirs goes first,
+      // and the ride waits for the parent when "Ask me first" is on.
+      requestedDriverId: familyTrustedPick ?? myFamilyTrustedId ?? requestedDriverId,
+      awaitingFamilyApproval: !!myLimits?.askFirst,
       bookedAtTerminal: boardedAtTerminal,
     })
     // A family member booked for is kept on the booker's list for next time.
@@ -2598,7 +2617,9 @@ export function PassengerPage() {
               >
                 <span className="block truncate">
                   {/* What is still missing, said on the button (2026-09-22). */}
-                  {dualMissing
+                  {inCurfew
+                    ? `No booking ${myLimits?.curfewFrom}–${myLimits?.curfewTo} — ask your parent`
+                    : dualMissing
                     ? dualMissing === 'pickup'
                       ? `Set the pickup to ${isPadala ? 'request' : 'book'}`
                       : isPadala
@@ -2622,7 +2643,9 @@ export function PassengerPage() {
                             : !guestPhoneFine
                               ? 'Type their mobile (09XXXXXXXXX) to book'
                               : `Book a Ride for ${guestRider.otherName.trim()}`
-                        : 'Book a Ride'}
+                        : myLimits?.askFirst
+                          ? 'Ask my parent to approve this ride'
+                          : 'Book a Ride'}
                 </span>
               </button>
               {!isErrand && <div className="flex shrink-0 items-center">{passengerCounter}</div>}
@@ -2840,6 +2863,14 @@ export function PassengerPage() {
                       }`}
                     />
                   </div>
+                )}
+                {myLimits && !activeRide && (
+                  <p className="mt-1.5 rounded-lg bg-amber-50 px-2 py-1 text-[10px] leading-snug text-amber-900">
+                    👨‍👩‍👧 Family account
+                    {myLimits.askFirst && ' · your parent approves each ride'}
+                    {myLimits.trustedOnly && ' · your family drivers only'}
+                    {myLimits.curfew && ` · no booking ${myLimits.curfewFrom}–${myLimits.curfewTo}`}
+                  </p>
                 )}
                 {!activeRide && !groupRideOpen && savedPlacesRow}
               </div>
@@ -4085,6 +4116,9 @@ function FamilyMembersBar({
               📲 Invite {selected.name.split(' ')[0]}
             </button>
           </div>
+          {/* What this member's own account may do (2026-09-23) — the safe
+              set for a child, opened up one switch at a time. */}
+          <MemberLimitsPanel passengerId={passengerId} member={selected} />
           <div className="flex items-center gap-1.5">
             <span className="text-slate-500">Rides paid by</span>
             {([false, true] as const).map((mine) => (
@@ -4160,8 +4194,82 @@ function FamilyMembersBar({
 // The rides a passenger booked for family members (Book a Ride → Family),
 // while they are under way — one row each, and the live trip map on tap,
 // the same watching view a parent gets for a child (TripMonitor watching).
+// The switches a parent sets for one family member's own account. Shown
+// under the picked member on the Family page; saved on the member.
+function MemberLimitsPanel({ passengerId, member }: { passengerId: string; member: FamilyMember }) {
+  const { saveFamilyMember, passengers } = useRides()
+  const [open, setOpen] = useState(false)
+  const account = member.passengerId ? passengers.find((p) => p.id === member.passengerId) : undefined
+  const limits = member.limits ?? (account && account.age >= MINOR_AGE ? ADULT_MEMBER_LIMITS : MINOR_DEFAULT_LIMITS)
+  const set = (patch: Partial<FamilyMemberLimits>) =>
+    saveFamilyMember(passengerId, { ...member, limits: { ...limits, ...patch } })
+  const row = (label: string, note: string, on: boolean, toggle: () => void) => (
+    <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 bg-white p-1.5">
+      <input type="checkbox" checked={on} onChange={toggle} className="mt-0.5 h-4 w-4 shrink-0 accent-brand-600" />
+      <span className="min-w-0 flex-1">
+        <span className="block font-semibold text-slate-800">{label}</span>
+        <span className="block text-[10px] leading-snug text-slate-500">{note}</span>
+      </span>
+    </label>
+  )
+  return (
+    <div className="space-y-1">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between rounded-lg bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700"
+      >
+        <span>🔒 What {member.name.split(' ')[0]} can do on their own phone</span>
+        <span className="text-slate-400">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="space-y-1">
+          <p className="rounded-lg bg-emerald-50 px-2 py-1 text-[10px] leading-snug text-emerald-900">
+            Always on: you see every trip live, Safety and SOS, and the driver calls and chats with you — never the child.
+          </p>
+          {row('Ask me first', 'Their ride waits for your approval before any driver is offered it.', limits.askFirst, () =>
+            set({ askFirst: !limits.askFirst }),
+          )}
+          {row('Our trusted drivers only', 'Their rides go to your family drivers first.', limits.trustedOnly, () =>
+            set({ trustedOnly: !limits.trustedOnly }),
+          )}
+          {row(
+            `No booking ${limits.curfewFrom}–${limits.curfewTo}`,
+            'Night curfew — they cannot book during these hours.',
+            limits.curfew,
+            () => set({ curfew: !limits.curfew }),
+          )}
+          {limits.curfew && (
+            <div className="flex items-center gap-1.5 pl-6 text-[10px] text-slate-600">
+              From
+              <input
+                type="time"
+                value={limits.curfewFrom}
+                onChange={(e) => set({ curfewFrom: e.target.value })}
+                className="rounded border border-slate-300 px-1 py-0.5"
+              />
+              to
+              <input
+                type="time"
+                value={limits.curfewTo}
+                onChange={(e) => set({ curfewTo: e.target.value })}
+                className="rounded border border-slate-300 px-1 py-0.5"
+              />
+            </div>
+          )}
+          {row('Quick replies only in chat', 'They can tap ready-made messages to the driver, not type.', limits.quickChatOnly, () =>
+            set({ quickChatOnly: !limits.quickChatOnly }),
+          )}
+          {row('Allow Food Order', 'Ordering meals from partner stores.', limits.food, () => set({ food: !limits.food }))}
+          {row('Allow PaDeliver', 'Sending and buying goods.', limits.padeliver, () => set({ padeliver: !limits.padeliver }))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function FamilyTrips({ bookerId }: { bookerId: string }) {
-  const { rides, passengers, acknowledgeRidePayment } = useRides()
+  const { rides, passengers, acknowledgeRidePayment, approveFamilyRide, cancelRide } = useRides()
   const [openId, setOpenId] = useState<string | null>(null)
   const [payingId, setPayingId] = useState<string | null>(null)
   // Family members who joined with their own phone (their invite linked them).
@@ -4175,15 +4283,44 @@ function FamilyTrips({ bookerId }: { bookerId: string }) {
   // Rides this owner pays for ("Rides paid by: Me"), finished and not yet settled.
   const toPay = rides.filter((r) => r.familyPayerId === bookerId && r.status === 'completed' && !r.paymentAcknowledged)
   const paying = toPay.find((r) => r.id === payingId)
+  // A child's ride waiting on this parent ("Ask me first"): no driver has
+  // been offered it yet, so approving is what sends it out.
+  const toApprove = live.filter((r) => r.awaitingFamilyApproval)
   if (live.length === 0 && toPay.length === 0) return null
   const statusLabel = (r: Ride) =>
-    r.status === 'requested' ? 'Finding a driver' : r.status === 'driver_arriving' ? `${r.driverName ?? 'Driver'} is on the way` : 'On the way to the destination'
+    r.awaitingFamilyApproval
+      ? 'Waiting for you to approve'
+      : r.status === 'requested' ? 'Finding a driver' : r.status === 'driver_arriving' ? `${r.driverName ?? 'Driver'} is on the way` : 'On the way to the destination'
   return (
     <section className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/80 p-2.5 shadow-sm">
       <p className="flex items-center gap-1.5 text-sm font-bold text-amber-900">
         👨‍👩‍👧 Family trips
         <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">1-year free promo</span>
       </p>
+      {toApprove.map((r) => (
+        <div key={r.id} className="rounded-lg border-2 border-amber-400 bg-white px-2.5 py-2">
+          <p className="text-sm font-semibold text-slate-800">{r.passengerName} wants to book a ride</p>
+          <p className="mt-0.5 text-[11px] leading-snug text-slate-600">
+            {formatAddressLine(r.pickup.label)} → {formatAddressLine(r.dropoff.label)} · ₱{r.fareEstimate}
+          </p>
+          <div className="mt-1.5 flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => approveFamilyRide(r.id)}
+              className="flex-1 rounded-lg bg-brand-600 py-2 text-xs font-bold text-white hover:bg-brand-700"
+            >
+              ✅ Approve — find a driver
+            </button>
+            <button
+              type="button"
+              onClick={() => cancelRide(r.id)}
+              className="rounded-lg border border-red-300 bg-white px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50"
+            >
+              Decline
+            </button>
+          </div>
+        </div>
+      ))}
       {toPay.map((r) => {
         const total = r.fareEstimate + r.pabiliTip + (r.tipOffer || 0)
         return (

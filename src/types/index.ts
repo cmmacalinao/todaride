@@ -913,6 +913,53 @@ export interface FamilyMember {
   passengerId?: string | null
   // Who pays their rides: the family owner (in the app) or themselves.
   ownerPays?: boolean
+  // What this member may do on their own account (2026-09-23). Set by the
+  // parent on the Family page; the safe set is the default for a child.
+  limits?: FamilyMemberLimits
+}
+
+// A child rides with the app narrowed to what their parent allows. The safety
+// parts — live tracking, SOS, the driver reaching the parent rather than the
+// child — are not in here: they are never optional.
+export interface FamilyMemberLimits {
+  // Their ride request waits for the parent to approve it before any driver
+  // is offered the trip.
+  askFirst: boolean
+  // Only the family's trusted drivers are offered their rides.
+  trustedOnly: boolean
+  // No booking during the night hours below (a local curfew ordinance).
+  curfew: boolean
+  curfewFrom: string
+  curfewTo: string
+  // Their chat with the driver is the quick replies only — nothing typed.
+  quickChatOnly: boolean
+  // Whether they can use Food Order / PaDeliver at all.
+  food: boolean
+  padeliver: boolean
+}
+
+// What a child gets unless the parent opens something up.
+export const MINOR_DEFAULT_LIMITS: FamilyMemberLimits = {
+  askFirst: true,
+  trustedOnly: true,
+  curfew: true,
+  curfewFrom: '22:00',
+  curfewTo: '05:00',
+  quickChatOnly: true,
+  food: false,
+  padeliver: false,
+}
+
+// An adult family member keeps the whole app.
+export const ADULT_MEMBER_LIMITS: FamilyMemberLimits = {
+  askFirst: false,
+  trustedOnly: false,
+  curfew: false,
+  curfewFrom: '22:00',
+  curfewTo: '05:00',
+  quickChatOnly: false,
+  food: true,
+  padeliver: true,
 }
 
 export interface Passenger {
@@ -1498,6 +1545,9 @@ export interface Ride {
   // Set when the family owner pays this ride (their member's "I pay" choice):
   // the owner settles it in the app, the rider is not asked for the fare.
   familyPayerId?: string | null
+  // A child's ride held for the parent to approve before any driver is
+  // offered it (Family "Ask me first", 2026-09-23).
+  awaitingFamilyApproval?: boolean
   // In-app chat between the driver and the passenger (or, on a Family ride,
   // the parent who booked it) — 2026-09-23. Optional so older rides parse.
   messages?: RideMessage[]

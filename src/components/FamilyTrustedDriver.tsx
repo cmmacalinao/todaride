@@ -89,10 +89,26 @@ export function FamilyDriverRow({
       <div className="flex items-start gap-1.5">
         <span className="w-[42%] shrink-0 pt-1.5 text-[11px] font-semibold text-slate-600">🛺 Driver</span>
         <div className="flex min-w-0 flex-1 flex-wrap gap-1 rounded-lg bg-slate-100 p-1">
+          {/* Each trusted driver carries their own ✕, the same as a family
+              member's chip — adding and removing in one place (2026-09-23). */}
           {trusted.map((d) => (
-            <button key={d.id} type="button" onClick={() => onChoice(d.id)} className={chip(picked === d.id)}>
-              ⭐ {firstName(d.name)}
-            </button>
+            <span key={d.id} className={`flex items-center ${picked === d.id ? 'rounded-md bg-brand-600' : ''}`}>
+              <button type="button" onClick={() => onChoice(d.id)} className={chip(picked === d.id)}>
+                ⭐ {firstName(d.name)}
+              </button>
+              <button
+                type="button"
+                aria-label={`Remove ${d.name}`}
+                title={`Remove ${d.name}`}
+                onClick={() => {
+                  removeFamilyTrustedDriver(owner.id, d.id)
+                  if (picked === d.id) onChoice('others')
+                }}
+                className={`pr-1.5 text-[10px] font-bold ${picked === d.id ? 'text-white/80' : 'text-red-600/80'} hover:opacity-100`}
+              >
+                ✕
+              </button>
+            </span>
           ))}
           <button type="button" onClick={() => onChoice('others')} className={chip(picked === null)}>
             {trusted.length ? 'Others' : 'Any nearby driver'}

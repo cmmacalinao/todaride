@@ -1017,6 +1017,41 @@ export function PassengerPage() {
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupRideOpen, familyGroup])
+  // Each family rider's saved schools, for the panel's one-tap chips.
+  const familyPlacesByRider: Record<string, { id: string; name: string }[]> = Object.fromEntries(
+    groupRiders
+      .filter((r) => r.familyMemberId)
+      .map((r) => [
+        r.key,
+        ((passenger.familyMembers ?? []).find((m) => m.id === r.familyMemberId)?.schools ?? []).map((pl) => ({
+          id: pl.id,
+          name: pl.name,
+        })),
+      ]),
+  )
+  function pickRiderPlace(riderKey: string, placeId: string) {
+    const rider = groupRiders.find((r) => r.key === riderKey)
+    const place = (passenger.familyMembers ?? [])
+      .find((m) => m.id === rider?.familyMemberId)
+      ?.schools?.find((pl) => pl.id === placeId)
+    if (!place) return
+    setGroupRiders((prev) => prev.map((r) => (r.key === riderKey ? { ...r, destination: place.location } : r)))
+    setPickingForGroupRiderKey(null)
+  }
+  // A stop set for a member is remembered as one of their places, so the next
+  // school run is a tap. Saved under its own short name; the same place twice
+  // is not saved twice.
+  function rememberRiderPlace(riderKey: string, location: MockLocation) {
+    const rider = groupRiders.find((r) => r.key === riderKey)
+    const member = (passenger.familyMembers ?? []).find((m) => m.id === rider?.familyMemberId)
+    if (!member) return
+    const name = formatAddressLine(location.label).split(',')[0].trim()
+    if ((member.schools ?? []).some((pl) => pl.name === name)) return
+    saveFamilyMember(passenger.id, {
+      ...member,
+      schools: [...(member.schools ?? []), { id: `place-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`, name, location }],
+    })
+  }
   const familyChoices = familyGroup
     ? (passenger.familyMembers ?? [])
         .filter((m) => !groupRiders.some((r) => r.familyMemberId === m.id))
@@ -1115,7 +1150,9 @@ export function PassengerPage() {
       icon: (pickRun ? 'pickup' : 'dropoff') as 'pickup' | 'dropoff',
       // The stop number, whose it is, and where — the flag is the one place
       // the rider's address is shown now.
-      label: `${groupStopNumbers[r.key]} · ${groupRiderShortName(r.key)}${pickRun ? ' pickup' : ''} · ${formatAddressLine(r.destination!.label).split(',')[0].trim()}`,
+      // Just who it is (2026-09-23) — the address is in the panel, and a flag
+      // carrying all three ran off the edge of the map.
+      label: `${groupStopNumbers[r.key]} · 🏫 ${groupRiderShortName(r.key)}`,
       callout: true,
       alwaysLabel: true,
     }))
@@ -1345,6 +1382,11 @@ export function PassengerPage() {
   // driver calls the parent who booked (see DriverPage), so the member's
   // mobile is optional there; one typed in still has to be a real number.
   const guestPhoneFine = guestPhoneOk || (forFamily && guestPhoneDigits.length === 0)
+  // A family member picked from the chips: their details came with them.
+  const familyMemberChosen =
+    forFamily &&
+    guestRider.otherName.trim().length > 0 &&
+    (passenger.familyMembers ?? []).some((m) => m.name === guestRider.otherName.trim())
   const dualMissing: 'pickup' | 'dropoff' | null = dualEndBox ? (!boxSet.pickup ? 'pickup' : !boxSet.dropoff ? 'dropoff' : null) : null
   const canSubmit =
     hasDestination &&
@@ -1518,6 +1560,7 @@ export function PassengerPage() {
       const key = groupTarget
       setGroupRiders((prev) => prev.map((r) => (r.key === key ? { ...r, destination: location } : r)))
       setPickingForGroupRiderKey(null)
+      if (familyGroup) rememberRiderPlace(key, location)
       return
     }
     setDropoffChosen(true)
@@ -2523,6 +2566,8 @@ export function PassengerPage() {
                     maxRiders={4}
                     familyChoices={familyChoices}
                     onAddFamily={addFamilyRider}
+                    familyPlaces={familyGroup ? familyPlacesByRider : undefined}
+                    onPickPlace={pickRiderPlace}
                     hasActiveRide={!!activeRide}
                   />
                 </SwipePanel>
@@ -2829,6 +2874,7 @@ export function PassengerPage() {
                       selectedName={guestRider.otherName}
                       selectedPhone={guestRider.otherPhone}
                       manage={false}
+                      allowAddRemove
                       onPick={(m) => {
                         guestRider.setOtherName(m.name)
                         guestRider.setOtherPhone(m.phone)
@@ -2836,7 +2882,10 @@ export function PassengerPage() {
                     />
                   </div>
                 )}
-                {forOther && (
+                {/* Once a family member is picked, their name and mobile are
+                    already known — the boxes go away and the chip says who is
+                    riding. They come back for someone not on the list. */}
+                {forOther && !familyMemberChosen && (
                   <div className="mt-1.5 grid grid-cols-2 gap-1.5">
                     <input
                       value={guestRider.otherName}
@@ -3993,6 +4042,7 @@ function FamilyMembersBar({
   onPick,
   onBook,
   manage = true,
+  allowAddRemove = manage,
 }: {
   passengerId: string
   members: FamilyMember[]
@@ -4001,8 +4051,10 @@ function FamilyMembersBar({
   onPick: (m: FamilyMember) => void
   // Family home: a Book button on the picked member's panel.
   onBook?: (m: FamilyMember) => void
-  // false on the booking page: pick who is riding, nothing else.
+  // false on the booking page: no invite, QR or payer panel there.
   manage?: boolean
+  // Adding and removing members, which the booking page keeps (2026-09-23).
+  allowAddRemove?: boolean
 }) {
   const { saveFamilyMember, removeFamilyMember } = useRides()
   const [adding, setAdding] = useState(false)
@@ -4051,7 +4103,7 @@ function FamilyMembersBar({
                 {m.passengerId ? '✓ ' : ''}
                 {m.name}
               </button>
-              {manage && (
+              {allowAddRemove && (
                 <button
                   type="button"
                   onClick={() => removeFamilyMember(passengerId, m.id)}
@@ -4065,7 +4117,7 @@ function FamilyMembersBar({
             </span>
           )
         })}
-        {!adding && (
+        {allowAddRemove && !adding && (
           <button
             type="button"
             onClick={() => setAdding(true)}

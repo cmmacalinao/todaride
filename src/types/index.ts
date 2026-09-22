@@ -913,9 +913,19 @@ export interface FamilyMember {
   passengerId?: string | null
   // Who pays their rides: the family owner (in the app) or themselves.
   ownerPays?: boolean
+  // Places this member is regularly taken to — their school, tutor, clinic
+  // (2026-09-23). Kept per member so a school run is a tap, not a search.
+  schools?: FamilyPlace[]
   // What this member may do on their own account (2026-09-23). Set by the
   // parent on the Family page; the safe set is the default for a child.
   limits?: FamilyMemberLimits
+}
+
+// One of a member's regular places, saved from a stop that was set for them.
+export interface FamilyPlace {
+  id: string
+  name: string
+  location: MockLocation
 }
 
 // A child rides with the app narrowed to what their parent allows. The safety

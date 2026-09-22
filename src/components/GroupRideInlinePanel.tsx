@@ -33,6 +33,8 @@ export function GroupRideInlinePanel({
   hasActiveRide,
   familyChoices,
   onAddFamily,
+  familyPlaces,
+  onPickPlace,
 }: {
   riders: GroupRiderEntry[]
   onAddRider: () => void
@@ -60,6 +62,10 @@ export function GroupRideInlinePanel({
   // 'Rides paid by' setting, so there is no payment choice here.
   familyChoices?: { id: string; name: string }[]
   onAddFamily?: (id: string) => void
+  // Each rider's saved places (their schools), by rider key — one tap sets
+  // that stop instead of searching the same school every morning.
+  familyPlaces?: Record<string, { id: string; name: string }[]>
+  onPickPlace?: (riderKey: string, placeId: string) => void
 }) {
   const familyMode = !!familyChoices
   // Each rider's stop wears the same light, see-through green as Where to
@@ -138,6 +144,21 @@ export function GroupRideInlinePanel({
                 />
               </div>
             ) : null}
+            {/* Their saved schools — tap one to set this stop (2026-09-23). */}
+            {familyMode && (familyPlaces?.[rider.key]?.length ?? 0) > 0 && (
+              <div className="-mx-0.5 mt-1 flex flex-nowrap gap-1 overflow-x-auto px-0.5 pb-0.5">
+                {familyPlaces![rider.key].map((pl) => (
+                  <button
+                    key={pl.id}
+                    type="button"
+                    onClick={() => onPickPlace?.(rider.key, pl.id)}
+                    className="shrink-0 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-900 hover:bg-amber-100"
+                  >
+                    🏫 {pl.name}
+                  </button>
+                ))}
+              </div>
+            )}
             {/* No stop line on the card: each rider's address is on their
                 numbered flag on the map, where the stop actually is. */}
           </div>

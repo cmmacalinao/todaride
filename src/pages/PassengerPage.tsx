@@ -1674,7 +1674,7 @@ export function PassengerPage() {
         id={`home-city-${end}`}
         value={cityScope}
         onChange={(e) => handleHomeCityChange(e.target.value)}
-        className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
+        className="compact-input min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
       >
         <option value="">Select city…</option>
         {getCitiesForProvince(DEFAULT_BOOKING_PROVINCE).map((c) => (

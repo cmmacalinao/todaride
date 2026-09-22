@@ -126,7 +126,8 @@ body {
  * !important because the rule above carries four :not() selectors. */
 @media (pointer: coarse) {
   input.map-toolbar-input,
-  input.compact-input {
+  input.compact-input,
+  select.compact-input {
     font-size: 11px !important;
   }
 }

@@ -42,7 +42,30 @@ export function SwipePanel({
 
   return (
     <div className="pointer-events-auto overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-[0_-4px_16px_rgba(0,0,0,0.15)]">
-      <div className="flex items-end">
+      {/* Up and down, at the top of the panel either side of the handle
+          (2026-09-22) — a step at a time, for anyone who does not swipe. */}
+      <div className="flex items-center justify-center gap-3 pt-1">
+        <button
+          type="button"
+          aria-label="Lower the panel"
+          disabled={level === 0}
+          onClick={() => onLevelChange(Math.max(0, level - 1) as SwipeLevel)}
+          className="flex h-6 w-8 items-center justify-center rounded-md text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+        >
+          ▼
+        </button>
+        <span aria-hidden className="block h-1 w-10 rounded-full bg-slate-300" />
+        <button
+          type="button"
+          aria-label="Raise the panel"
+          disabled={level === 2}
+          onClick={() => onLevelChange(Math.min(2, level + 1) as SwipeLevel)}
+          className="flex h-6 w-8 items-center justify-center rounded-md text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+        >
+          ▲
+        </button>
+      </div>
+      <div className="flex items-center">
       <button
         type="button"
         aria-expanded={level > 0}
@@ -68,15 +91,9 @@ export function SwipePanel({
           const next = dy < 0 ? Math.min(2, level + 1) : Math.max(0, level - 1)
           onLevelChange(next as SwipeLevel)
         }}
-        className="block min-w-0 flex-1 touch-none select-none px-3 pb-1.5 pt-1.5 text-left"
+        className="block min-w-0 flex-1 touch-none select-none px-3 pb-1.5 pt-0.5 text-left"
       >
-        <span aria-hidden className="mx-auto mb-1.5 block h-1 w-10 rounded-full bg-slate-300" />
-        <span className="flex items-center justify-between gap-2">
-          <span className="min-w-0 truncate text-sm font-bold text-slate-800">{title}</span>
-          <span aria-hidden className="shrink-0 text-xs text-slate-400">
-            {level === 2 ? '▼' : '▲'}
-          </span>
-        </span>
+        <span className="block min-w-0 truncate text-sm font-bold text-slate-800">{title}</span>
       </button>
       {headerAction && <div className="shrink-0 pb-1 pr-2">{headerAction}</div>}
       </div>

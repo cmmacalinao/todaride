@@ -1705,7 +1705,6 @@ export function PassengerPage() {
   const padalaEnd: 'pickup' | 'dropoff' = mapTarget
   const padalaStrip = () => {
     const isPickupEnd = padalaEnd === 'pickup'
-    const chosen = isPickupEnd ? (pickupChosen ? formatAddressLine(pickup.label) : null) : dropoffChosen ? formatAddressLine(dropoff.label) : null
     return (
       <div
         className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-3 py-1.5 shadow-sm ${
@@ -1728,21 +1727,16 @@ export function PassengerPage() {
           }}
           onOpenAddressForm={() => openAddressForm(padalaEnd)}
           onPinOnMap={() => undefined}
-          placeholder={
-            chosen ? `${isPickupEnd ? 'Pickup' : 'Where to'}: ${chosen}` : isPickupEnd ? 'Where to pickup?' : 'Where to go?'
-          }
+          // Only ever the question, never the chosen address (2026-09-22) —
+          // the address is on the map's pin. Nothing set yet: 'Where to?';
+          // then 'Pickup?' or 'Where to Deliver?' for whichever end is next.
+          placeholder={!pickupChosen && !dropoffChosen ? 'Where to?' : isPickupEnd ? 'Pickup?' : 'Where to Deliver?'}
           className="min-w-0 flex-1"
           resultsClassName="absolute inset-x-0 top-full z-[80] mt-1 max-h-72 overflow-y-auto"
           inputClassName={`map-toolbar-input w-full min-w-0 bg-transparent text-sm font-semibold focus:outline-none ${
             isPickupEnd ? 'text-red-900' : 'text-green-900'
           } ${
-            chosen
-              ? isPickupEnd
-                ? 'placeholder:font-semibold placeholder:text-red-900'
-                : 'placeholder:font-semibold placeholder:text-green-900'
-              : isPickupEnd
-                ? 'placeholder:font-normal placeholder:text-red-800/70'
-                : 'placeholder:font-normal placeholder:text-green-800/70'
+            isPickupEnd ? 'placeholder:font-normal placeholder:text-red-800/70' : 'placeholder:font-normal placeholder:text-green-800/70'
           }`}
         />
         <button

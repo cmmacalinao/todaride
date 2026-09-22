@@ -3,6 +3,7 @@ import { RealLiveMap, type MapPoint } from './RealLiveMap'
 import { DestinationSearch } from './DestinationSearch'
 import { formatAddressLine } from '../lib/addressFormat'
 import { createCustomLocation, reverseGeocodeToPhAddress, type PhAddressTags } from '../lib/customLocation'
+import { DEFAULT_BOOKING_PROVINCE, getCitiesForProvince } from '../mock/data'
 import type { GeoCoords, MockLocation, Pharmacy } from '../types'
 
 // Same fallback the vendor's own location picker and buildMedsDeliveryRide
@@ -54,6 +55,9 @@ export function DeliveryMapPicker({
   const [error, setError] = useState('')
   const [centerGps, setCenterGps] = useState<GeoCoords | null>(null)
   const [fullscreen, setFullscreen] = useState(false)
+  // The City row above the map, as on Book a Ride: it scopes the Where to
+  // search (that city first, then the towns next to it).
+  const [cityScope, setCityScope] = useState(city || vendor.city)
 
   async function placePin(gps: GeoCoords) {
     setStatus('locating')
@@ -90,7 +94,7 @@ export function DeliveryMapPicker({
         <span className="sr-only">Delivering to {formatAddressLine(deliveryAddress.label)}</span>
       )}
       <DestinationSearch
-        city={city || vendor.city}
+        city={cityScope}
         near={deliveryAddress?.gps ?? storeGps}
         // A landmark is a named point already — no reverse-geocode round trip.
         onSelect={(place) => onChange(createCustomLocation(place.name, place.gps), null)}
@@ -118,8 +122,30 @@ export function DeliveryMapPicker({
     </button>
   )
 
+  const cityRow = (
+    <div className="flex items-center gap-2">
+      <label htmlFor="delivery-city" className="shrink-0 text-xs font-semibold uppercase tracking-wide text-dest-accent">
+        City
+      </label>
+      <select
+        id="delivery-city"
+        value={cityScope}
+        onChange={(e) => setCityScope(e.target.value)}
+        className="compact-input min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
+      >
+        <option value="">Select city…</option>
+        {getCitiesForProvince(DEFAULT_BOOKING_PROVINCE).map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+
   return (
     <div className="space-y-1">
+      {!fullscreen && cityRow}
       {!fullscreen && addressForm}
       <RealLiveMap
         points={points}
@@ -138,7 +164,8 @@ export function DeliveryMapPicker({
         overlayTop={fullscreen ? undefined : whereTo}
         overlayTopInline
         fullscreenTop={
-          <div>
+          <div className="space-y-1">
+            {cityRow}
             <div className="relative flex items-stretch gap-1">{whereTo}</div>
             {addressForm && <div className="mt-1 rounded-lg bg-white/95 p-2 shadow-sm">{addressForm}</div>}
           </div>

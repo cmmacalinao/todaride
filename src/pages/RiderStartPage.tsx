@@ -124,9 +124,15 @@ export function RiderStartPage() {
           <span className="min-w-0 flex-1">
             <span className="flex flex-wrap items-center gap-1.5">
               <span className="text-base font-bold text-slate-900">FAMILY</span>
-              <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">Free · intro promo</span>
+              <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">1-year free promo</span>
             </span>
-            <span className="block text-xs text-slate-700">Book a ride for a family member and follow their trip live.</span>
+            <span className="mt-0.5 block text-sm font-extrabold uppercase leading-tight text-red-700">
+              Protect your family. Save ₱6,000.
+            </span>
+            <span className="mt-0.5 block text-xs text-slate-700">
+              Sign up now and get the ₱500/month Family Plan <span className="font-bold">FREE for 1 year</span>.
+            </span>
+            <span className="block text-xs text-slate-700">Book rides for your loved ones and follow their trip live.</span>
           </span>
           <span aria-hidden className="text-xl text-slate-500">›</span>
         </button>

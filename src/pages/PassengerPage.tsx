@@ -355,6 +355,10 @@ export function PassengerPage() {
   // it — so it also stays this component and takes the map with it.
   const groupRideOpen = location.pathname === '/book/group'
   const setGroupRideOpen = (open: boolean) => navigate(open ? '/book/group' : '/book')
+  // Family → Several stops (2026-09-22): the Group Ride screen with family
+  // members as its riders — one tricycle, a stop per school. The owner books
+  // it and is not riding.
+  const familyGroup = groupRideOpen && new URLSearchParams(location.search).get('family') === '1'
 
   // A Food Order/PaDeliver cart, mirrored up from VendorMenuBooking (see
   // VendorMenuBookingHandle) purely so the app-wide footer below can show a
@@ -923,14 +927,47 @@ export function PassengerPage() {
   // arrived at without pressing anything — a refresh, the back button, a
   // link someone was sent — and every one of those landed on a group
   // booking with nobody in it, including the person doing the booking.
+  // Family → Several stops has no booker row (the owner is not riding) and
+  // keeps only family rows; plain Group Ride keeps only its own.
   useEffect(() => {
-    if (!groupRideOpen || groupRiders.length > 0) return
-    setGroupRiders([
-      { key: 'booker', passengerId: passenger.id, name: passenger.name, phone: passenger.phone, isGuest: false, destination: null },
-    ])
+    if (!groupRideOpen) return
+    if (familyGroup) {
+      setGroupRiders((prev) => prev.filter((r) => !!r.familyMemberId))
+      return
+    }
+    setGroupRiders((prev) =>
+      prev.some((r) => !r.isGuest) && !prev.some((r) => r.familyMemberId)
+        ? prev
+        : [{ key: 'booker', passengerId: passenger.id, name: passenger.name, phone: passenger.phone, isGuest: false, destination: null }],
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupRideOpen])
+  }, [groupRideOpen, familyGroup])
+  const familyChoices = familyGroup
+    ? (passenger.familyMembers ?? [])
+        .filter((m) => !groupRiders.some((r) => r.familyMemberId === m.id))
+        .map((m) => ({ id: m.id, name: m.name }))
+    : undefined
+  function addFamilyRider(memberId: string) {
+    const m = (passenger.familyMembers ?? []).find((x) => x.id === memberId)
+    if (!m || groupRiders.length >= 4) return
+    setGroupRiders((prev) => [
+      ...prev,
+      {
+        key: `fam-${m.id}`,
+        passengerId: m.passengerId ?? makeGuestPassengerId(),
+        name: m.name,
+        phone: m.phone,
+        isGuest: true,
+        destination: null,
+        familyMemberId: m.id,
+      },
+    ])
+  }
   function addGroupRider() {
+    if (familyGroup) {
+      if (familyChoices?.[0]) addFamilyRider(familyChoices[0].id)
+      return
+    }
     if (groupRiders.length >= 4) return
     setGroupRiders((prev) => [
       ...prev,
@@ -1033,7 +1070,8 @@ export function PassengerPage() {
       pickup,
       pickupGps,
       paymentMethod,
-      paySplit: groupPaySplit,
+      paySplit: familyGroup ? 'separate' : groupPaySplit,
+      familyBookerId: familyGroup ? passenger.id : null,
       riders: [...groupRiders].sort((a, b) => (groupStopNumbers[a.key] ?? 99) - (groupStopNumbers[b.key] ?? 99)).map((r) => ({
         passengerId: r.passengerId,
         passengerName: r.name.trim() || `Rider ${groupRiders.findIndex((x) => x.key === r.key) + 1}`,
@@ -1044,6 +1082,8 @@ export function PassengerPage() {
       })),
     })
     setGroupRideOpen(false)
+    // Back on the Family page, where Family trips follows every stop.
+    if (familyGroup) guestRider.setBookingFor('family')
     setGroupRiders([])
     setGroupSubmitting(false)
   }
@@ -2042,7 +2082,7 @@ export function PassengerPage() {
                   halfHeightClass={fullscreen ? 'max-h-[40vh]' : 'max-h-[170px]'}
                   // All the way up: nearly the whole map, pin and all.
                   fullHeightClass={fullscreen ? 'max-h-[72vh]' : 'max-h-[380px]'}
-                  title={`👥 Group Ride · ${groupRiders.filter((r) => r.destination).length}/${groupRiders.length} stops`}
+                  title={`${familyGroup ? '👨‍👩‍👧 Family' : '👥 Group Ride'} · ${groupRiders.filter((r) => r.destination).length}/${groupRiders.length} stops`}
                   // How many are riding, right on the header: + adds a rider,
                   // − takes the last added one off (never the booker).
                   headerAction={
@@ -2065,7 +2105,7 @@ export function PassengerPage() {
                         type="button"
                         aria-label="One more rider"
                         onClick={addGroupRider}
-                        disabled={groupRiders.length >= 4}
+                        disabled={groupRiders.length >= 4 || (familyGroup && !familyChoices?.length)}
                         className="h-6 w-6 rounded-md border border-slate-300 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         +
@@ -2096,6 +2136,8 @@ export function PassengerPage() {
                     fares={groupFares}
                     totalFare={groupTotalFare}
                     maxRiders={4}
+                    familyChoices={familyChoices}
+                    onAddFamily={addFamilyRider}
                     hasActiveRide={!!activeRide}
                   />
                 </SwipePanel>
@@ -2162,7 +2204,7 @@ export function PassengerPage() {
                 onClick={submitGroupRide}
                 className="w-full rounded-lg bg-brand-600 py-2 text-sm font-bold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
               >
-                Request Group Ride{groupRiders.length > 1 ? ` · ${groupRiders.length} riders` : ''}
+                {familyGroup ? (groupRiders.length < 2 ? 'Add at least 2 family members' : 'Request Family Ride') : 'Request Group Ride'}{groupRiders.length > 1 ? ` · ${groupRiders.length} riders` : ''}
               </button>
             )
           ) : (
@@ -2287,13 +2329,40 @@ export function PassengerPage() {
                 {/* Family is its own page (2026-09-22), opened from the home
                     page's Family tile: its header and the City, no Myself /
                     Someone / Group row. */}
-                {forFamily ? (
+                {forFamily || familyGroup ? (
                   <div className="space-y-1.5">
                     <p className="flex items-center gap-1.5 whitespace-nowrap text-sm font-bold text-slate-800">
                       👨‍👩‍👧 Family
-                      <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">Free · intro promo</span>
+                      <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">1-year free promo</span>
                     </p>
-                    {cityRowFor('dropoff')}
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-[42%] shrink-0">{cityRowFor('dropoff')}</div>
+                      {/* One member to one place, or several members dropped
+                          at different places (school runs) in one tricycle. */}
+                      <div className="flex min-w-0 flex-1 gap-1 rounded-lg bg-slate-100 p-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (familyGroup) navigate('/book')
+                            guestRider.setBookingFor('family')
+                          }}
+                          className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
+                            !familyGroup ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'
+                          }`}
+                        >
+                          One stop
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => navigate('/book/group?family=1')}
+                          className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
+                            familyGroup ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'
+                          }`}
+                        >
+                          🏫 Several stops
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                 <div className="flex items-center gap-1.5">
@@ -3632,7 +3701,7 @@ function FamilyTrips({ bookerId }: { bookerId: string }) {
     <section className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/80 p-2.5 shadow-sm">
       <p className="flex items-center gap-1.5 text-sm font-bold text-amber-900">
         👨‍👩‍👧 Family trips
-        <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">Free · intro promo</span>
+        <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">1-year free promo</span>
       </p>
       {toPay.map((r) => {
         const total = r.fareEstimate + r.pabiliTip + (r.tipOffer || 0)

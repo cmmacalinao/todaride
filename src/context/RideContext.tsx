@@ -516,6 +516,11 @@ type RideAction =
       // into the booker's own ride; every other rider's ride carries a
       // fareEstimate of 0.
       paySplit: 'separate' | 'booker'
+      // Family (2026-09-22): the owner booking several family members at
+      // once — school runs to different schools. The owner is not riding, so
+      // every rider keeps their own fare, and each one's payer follows that
+      // member's 'Rides paid by' setting, as a single Family booking does.
+      familyBookerId?: string | null
       riders: {
         passengerId: string
         passengerName: string
@@ -2823,10 +2828,18 @@ function reducer(state: RideState, action: RideAction): RideState {
         }),
       )
       const totalFare = fares.reduce((sum, f) => sum + f, 0)
+      const familyOwner = action.familyBookerId
+        ? state.passengers.find((p) => p.id === action.familyBookerId)
+        : undefined
       const newRides: Ride[] = action.riders.map((r, i) => {
-        const isBookerPays = action.paySplit === 'booker'
+        const isBookerPays = action.paySplit === 'booker' && !familyOwner
         const isPayer = isBookerPays && r.passengerId === action.bookedByPassengerId
+        const familyMember = familyOwner?.familyMembers?.find(
+          (m) => m.passengerId === r.passengerId || m.name === r.passengerName,
+        )
         return {
+          familyBookerId: familyOwner ? familyOwner.id : null,
+          familyPayerId: familyOwner && familyMember?.ownerPays ? familyOwner.id : null,
           id: `ride-${Date.now()}-${i}`,
           passengerId: r.passengerId,
           passengerName: r.passengerName,
@@ -6682,6 +6695,7 @@ interface RideContextValue extends RideState {
     paymentMethod: PaymentMethod
     requestedDriverId?: string | null
     paySplit: 'separate' | 'booker'
+    familyBookerId?: string | null
     riders: {
       passengerId: string
       passengerName: string

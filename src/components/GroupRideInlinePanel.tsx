@@ -7,6 +7,9 @@ export interface GroupRiderEntry {
   phone: string
   isGuest: boolean
   destination: MockLocation | null
+  // Family → Several stops: which family member this row is (their name
+  // comes from the Family list, so it is not typed here).
+  familyMemberId?: string
 }
 
 // Group Ride, inline on the booking page instead of its own — every rider's
@@ -28,6 +31,8 @@ export function GroupRideInlinePanel({
   totalFare,
   maxRiders,
   hasActiveRide,
+  familyChoices,
+  onAddFamily,
 }: {
   riders: GroupRiderEntry[]
   onAddRider: () => void
@@ -49,7 +54,14 @@ export function GroupRideInlinePanel({
   canSubmit?: boolean
   onSubmit?: () => void
   submitting?: boolean
+  // Family → Several stops (2026-09-22): the family members not yet on this
+  // booking. Given, the riders are family members added from these chips
+  // instead of typed guests, and each fare follows that member's own
+  // 'Rides paid by' setting, so there is no payment choice here.
+  familyChoices?: { id: string; name: string }[]
+  onAddFamily?: (id: string) => void
 }) {
+  const familyMode = !!familyChoices
   // Each rider's stop wears the same light, see-through green as Where to
   // and Set Destination here — it is a destination too, so it reads as one.
   return (
@@ -74,7 +86,7 @@ export function GroupRideInlinePanel({
           .sort((a, b) => (stopNumbers[a.rider.key] ?? 100 + a.i) - (stopNumbers[b.rider.key] ?? 100 + b.i))
           .map(({ rider, i }) => (
           <div key={rider.key} className="rounded-lg border border-slate-200 bg-slate-50/60 p-2.5">
-            <div className={`${rider.isGuest ? 'mb-1.5 ' : ''}flex items-center justify-between gap-2`}>
+            <div className={`${rider.isGuest && !familyMode ? 'mb-1.5 ' : ''}flex items-center justify-between gap-2`}>
               <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
                 {/* The same number the rider's flag carries on the map: the order
                     the tricycle drops everyone off in, nearest first. */}
@@ -84,7 +96,9 @@ export function GroupRideInlinePanel({
                   </span>
                 )}
                 {/* The booker on one line: "You · Celeste M." (2026-09-22). */}
-                {rider.isGuest ? (
+                {familyMode ? (
+                  <span className="text-sm font-semibold text-slate-800">{rider.name}</span>
+                ) : rider.isGuest ? (
                   `Rider ${i + 1}`
                 ) : (
                   <>
@@ -108,7 +122,7 @@ export function GroupRideInlinePanel({
                 </button>
               )}
             </div>
-            {rider.isGuest ? (
+            {rider.isGuest && !familyMode ? (
               <div className="mb-1.5 grid grid-cols-2 gap-1.5">
                 <input
                   value={rider.name}
@@ -130,7 +144,27 @@ export function GroupRideInlinePanel({
         ))}
       </div>
 
-      {riders.length < maxRiders && (
+      {familyMode ? (
+        riders.length < maxRiders && (
+          <div>
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              {familyChoices!.length > 0 ? 'Add a family member' : riders.length === 0 ? 'Add family members on the Family page first (One stop)' : 'Everyone is on this booking'}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {familyChoices!.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => onAddFamily?.(m.id)}
+                  className="rounded-full border border-dashed border-amber-400 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+                >
+                  + {m.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      ) : riders.length < maxRiders && (
         <button
           type="button"
           onClick={onAddRider}
@@ -153,6 +187,13 @@ export function GroupRideInlinePanel({
         </button>
       )}
 
+      {familyMode ? (
+        <p className="rounded-lg bg-slate-50 px-2.5 py-2 text-[11px] leading-snug text-slate-600">
+          Each member pays their own fare, or you pay it in the app. That follows their{' '}
+          <span className="font-semibold">Rides paid by</span> setting on the Family page.
+          {totalFare !== null && <span className="mt-0.5 block font-semibold text-slate-800">Total for everyone: ₱{totalFare}</span>}
+        </p>
+      ) : (
       <div>
         <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Payment</p>
         <div className="space-y-1.5">
@@ -192,6 +233,7 @@ export function GroupRideInlinePanel({
           </button>
         </div>
       </div>
+      )}
 
       {/* No Request button here: it sits under the map's Set Destination
           here, where a single ride's Book a Ride is — see PassengerPage. */}

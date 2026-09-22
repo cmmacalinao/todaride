@@ -396,6 +396,9 @@ function VendorFeedCard({
             <img src={post.photoDataUrl} alt="" className="block h-auto w-full" loading="lazy" />
           </button>
         )}
+        {/* Like · Heart · Comment · Share between the post and its dish
+            (2026-09-22), not at the foot of the card. */}
+        <PostActions pharmacy={vendor} post={post} viewer={viewer} />
         {featured && (
           <div
             role="button"
@@ -437,7 +440,6 @@ function VendorFeedCard({
             </button>
           </div>
         )}
-        <PostActions pharmacy={vendor} post={post} viewer={viewer} />
       </div>
     </article>
   )

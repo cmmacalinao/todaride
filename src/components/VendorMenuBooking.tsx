@@ -548,6 +548,68 @@ export const VendorMenuBooking = forwardRef<
               )}
             </div>
           )}
+
+          {/* Every store's menu, under the feed (2026-09-22): one row per
+              store, its dishes as cards that slide sideways. Open stores
+              first. A dish opens its store with that dish in the cart; the
+              store's name opens the store. */}
+          {vendors.length > 0 && !query && (
+            <div className="space-y-3">
+              {[...shownVendors]
+                .sort((a, b) => Number(b.isOpen) - Number(a.isOpen) || a.name.localeCompare(b.name))
+                .map((v) => {
+                  const dishes = medicineProducts.filter((p) => p.pharmacyId === v.id && p.visible !== false)
+                  if (dishes.length === 0) return null
+                  return (
+                    <div key={v.id}>
+                      <button
+                        type="button"
+                        onClick={() => openVendor(v.id)}
+                        className="mb-1 flex w-full items-center gap-1.5 text-left"
+                      >
+                        <span className="min-w-0 truncate text-sm font-bold text-slate-800">
+                          {VENDOR_TYPE_ICONS[v.businessType] ?? '🏪'} {v.name}
+                        </span>
+                        {!v.isOpen && (
+                          <span className="shrink-0 rounded bg-slate-200 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-600">Closed</span>
+                        )}
+                        <span className="ml-auto shrink-0 text-[11px] font-semibold text-brand-600">See all ›</span>
+                      </button>
+                      <div className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1.5">
+                        {dishes.map((d) => (
+                          <button
+                            key={d.id}
+                            type="button"
+                            disabled={!d.inStock}
+                            onClick={() => {
+                              openVendor(v.id)
+                              setCart({ [d.id]: 1 })
+                            }}
+                            className="w-28 shrink-0 snap-start overflow-hidden rounded-lg border border-slate-200 bg-white text-left shadow-sm transition hover:border-brand-300 disabled:opacity-50"
+                          >
+                            <span className="block aspect-square w-full bg-slate-100">
+                              {d.photoDataUrl ? (
+                                <img src={d.photoDataUrl} alt="" aria-hidden className="h-full w-full object-cover" loading="lazy" />
+                              ) : (
+                                <span aria-hidden className="flex h-full w-full items-center justify-center text-3xl">
+                                  {VENDOR_TYPE_ICONS[v.businessType] ?? '🏪'}
+                                </span>
+                              )}
+                            </span>
+                            <span className="block px-1.5 pb-1.5 pt-1">
+                              <span className="line-clamp-2 text-[11px] font-semibold leading-tight text-slate-800">{d.name}</span>
+                              <span className="mt-0.5 block text-[11px] font-bold text-brand-700">
+                                {d.inStock ? `₱${d.price}` : 'Sold out'}
+                              </span>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+            </div>
+          )}
         </div>
       )}
 

@@ -2326,8 +2326,8 @@ function ActiveTripCard({
   const mapPoints: MapPoint[] = [
     // The same 📍 and 🏁, in the same red and green, as the passenger's
     // booking and trip maps — one trip, marked the same way on both phones.
-    ...(ride.pickup.gps ? [{ id: 'pickup', gps: ride.pickup.gps, color: '#dc2626', icon: 'pickup' as const, label: formatAddressLine(ride.pickup.label) }] : []),
-    ...(ride.dropoff.gps ? [{ id: 'dropoff', gps: ride.dropoff.gps, color: '#16a34a', icon: 'dropoff' as const, label: formatAddressLine(ride.dropoff.label) }] : []),
+    ...(ride.pickup.gps ? [{ id: 'pickup', gps: ride.pickup.gps, color: '#dc2626', icon: 'pickup' as const, label: formatAddressLine(ride.pickup.label), callout: true, alwaysLabel: true }] : []),
+    ...(ride.dropoff.gps ? [{ id: 'dropoff', gps: ride.dropoff.gps, color: '#16a34a', icon: 'dropoff' as const, label: formatAddressLine(ride.dropoff.label), callout: true, alwaysLabel: true }] : []),
     ...(driverGpsInfo
       ? [
           {

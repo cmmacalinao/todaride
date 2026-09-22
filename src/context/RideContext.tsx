@@ -547,6 +547,7 @@ type RideAction =
       note: string | null
     }
   | { type: 'ADD_TIP_OFFER'; rideId: string; amount: number }
+  | { type: 'OFFER_RIDE_TO_FAVORITE'; rideId: string }
   | { type: 'ACKNOWLEDGE_RIDE_PAYMENT'; rideId: string; method: PaymentMethod; referenceNo?: string | null }
   | { type: 'TICK_POSITIONS' }
   | { type: 'UPDATE_DRIVER_LIVE_GPS'; rideId: string; gps: GeoCoords | null }
@@ -3443,6 +3444,40 @@ function reducer(state: RideState, action: RideAction): RideState {
             : r,
         ),
       }
+    case 'OFFER_RIDE_TO_FAVORITE': {
+      // "Request my favorite driver" from the waiting strip: the ride goes to
+      // the passenger's starred driver now, instead of waiting for its turn in
+      // the queue. Whoever holds the offer at the moment is logged as released
+      // by the passenger, so they are not offered it again straight away. A
+      // Group Ride moves as one, like accepting it does.
+      const ride = state.rides.find((r) => r.id === action.rideId)
+      if (!ride || ride.status !== 'requested' || ride.driverId) return state
+      const favoriteId = findFavoriteDriverId(state, ride.bookedByParentId ?? ride.passengerId)
+      const favorite = favoriteId ? state.drivers.find((d) => d.id === favoriteId) : null
+      if (!favorite || favorite.verificationStatus !== 'approved' || favorite.accessStatus !== 'active') return state
+      const groupId = ride.groupBookingId ?? null
+      const now = new Date().toISOString()
+      return {
+        ...state,
+        rides: state.rides.map((r) => {
+          const inScope = r.id === ride.id || (!!groupId && r.groupBookingId === groupId)
+          if (!inScope || r.status !== 'requested' || r.driverId || r.priorityQueueOfferedDriverId === favorite.id) return r
+          const holder = r.priorityQueueOfferedDriverId
+          const log = holder
+            ? [
+                ...r.priorityQueueLog,
+                {
+                  driverId: holder,
+                  driverName: state.drivers.find((d) => d.id === holder)?.name ?? 'Driver',
+                  outcome: 'released_by_passenger' as const,
+                  at: now,
+                },
+              ]
+            : r.priorityQueueLog
+          return { ...r, priorityQueueLog: log, priorityQueueOfferedDriverId: favorite.id, priorityQueueOfferedAt: now }
+        }),
+      }
+    }
     case 'ACKNOWLEDGE_RIDE_PAYMENT':
       // Only meaningful once the trip has actually ended — the payment
       // method stays locked in while a ride is still requested/en
@@ -6610,6 +6645,7 @@ interface RideContextValue extends RideState {
   setPabiliItemBought: (rideId: string, index: number, bought: boolean) => void
   driverCancelRide: (rideId: string, reason: RideCancellationReason, note: string | null) => void
   addTipOffer: (rideId: string, amount: number) => void
+  offerRideToFavorite: (rideId: string) => void
   acknowledgeRidePayment: (rideId: string, method: PaymentMethod, referenceNo?: string | null) => void
   updateDriverLiveGps: (rideId: string, gps: GeoCoords | null) => void
   updatePassengerLiveGps: (rideId: string, gps: GeoCoords | null) => void
@@ -7827,6 +7863,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'SET_PABILI_ITEM_BOUGHT', rideId, index, bought }),
     driverCancelRide: (rideId, reason, note) => dispatch({ type: 'DRIVER_CANCEL_RIDE', rideId, reason, note }),
     addTipOffer: (rideId, amount) => dispatch({ type: 'ADD_TIP_OFFER', rideId, amount }),
+    offerRideToFavorite: (rideId) => dispatch({ type: 'OFFER_RIDE_TO_FAVORITE', rideId }),
     acknowledgeRidePayment: (rideId, method, referenceNo) =>
       dispatch({ type: 'ACKNOWLEDGE_RIDE_PAYMENT', rideId, method, referenceNo }),
     updateDriverLiveGps: (rideId, gps) => dispatch({ type: 'UPDATE_DRIVER_LIVE_GPS', rideId, gps }),

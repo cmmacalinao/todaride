@@ -76,7 +76,6 @@ export function LocationMapPicker({
   streetGuide = true,
   pickupAutomatic = false,
   pinPicking = true,
-  labelPickupOnMap = false,
   toolbarStrip,
   bottomPanel,
   centerPinLabel,
@@ -187,6 +186,8 @@ export function LocationMapPicker({
   pinPicking?: boolean
   // Name the pickup on its marker as well as the destination — for a
   // delivery, where the pickup is a store or a sender somewhere else.
+  // No longer used — the pickup is always labelled now. Kept so callers
+  // still type-check.
   labelPickupOnMap?: boolean
   // Drawn in the map's top row, beside Full screen, in place of the
   // pickup/destination lines — the booking page puts its Where to strip
@@ -321,9 +322,8 @@ export function LocationMapPicker({
       : []),
     // The destination flag carries its address on the map, always — it is
     // the one place the ride is going, and reading it off the flag beats
-    // matching a marker to a line of text above the map. The pickup gets one
-    // too on a delivery (see labelPickupOnMap), where it is a shop or a
-    // sender rather than wherever the phone is.
+    // matching a marker to a line of text above the map. The pickup pin
+    // carries its address the same way.
     ...(pickup.gps
       ? [
           {
@@ -331,9 +331,11 @@ export function LocationMapPicker({
             gps: pickup.gps,
             color: '#dc2626',
             icon: 'pickup' as const,
-            label: labelPickupOnMap ? mapFlagText(pickup.label) : `${pickupLabel} — ${formatAddressLine(pickup.label)}`,
-            callout: labelPickupOnMap,
-            alwaysLabel: labelPickupOnMap,
+            // Its address on the map too, like the destination flag
+            // (2026-09-22) — on every booking, not only a delivery.
+            label: mapFlagText(pickup.label),
+            callout: true,
+            alwaysLabel: true,
           },
         ]
       : []),

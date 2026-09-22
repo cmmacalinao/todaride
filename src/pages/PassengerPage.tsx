@@ -3165,6 +3165,32 @@ function ActiveRideCard({
   )
 }
 
+// "Mark as my favorite" on a finished ride's rating: the favourite driver is
+// offered a booking first (see nextQueueOffer) and can be asked for from the
+// waiting strip. Saved to whoever booked — the parent, or the passenger.
+function FavoriteDriverToggle({ ride, driverName }: { ride: Ride; driverName: string }) {
+  const { passengers, parents, setFavoriteDriver, setParentFavoriteDriver } = useRides()
+  if (!ride.driverId) return null
+  const current = ride.bookedByParentId
+    ? parents.find((p) => p.id === ride.bookedByParentId)?.favoriteDriverId ?? null
+    : passengers.find((p) => p.id === ride.passengerId)?.favoriteDriverId ?? null
+  const isFavorite = current === ride.driverId
+  const set = (driverId: string | null) =>
+    ride.bookedByParentId ? setParentFavoriteDriver(ride.bookedByParentId, driverId) : setFavoriteDriver(ride.passengerId, driverId)
+  return (
+    <button
+      type="button"
+      aria-pressed={isFavorite}
+      onClick={() => set(isFavorite ? null : ride.driverId)}
+      className={`w-full rounded-lg border py-1.5 text-xs font-semibold transition ${
+        isFavorite ? 'border-gold-500 bg-[#ffe066] text-navy-900' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+      }`}
+    >
+      {isFavorite ? `★ ${driverName} is your favorite driver` : `☆ Mark ${driverName} as my favorite`}
+    </button>
+  )
+}
+
 function RateRideSection({ ride, driverName, todaName }: { ride: Ride; driverName: string; todaName: string | null }) {
   const { rateRide } = useRides()
   const [open, setOpen] = useState(false)
@@ -3181,6 +3207,7 @@ function RateRideSection({ ride, driverName, todaName }: { ride: Ride; driverNam
           <StarRating value={ride.driverRating ?? 0} size="sm" />
         </div>
         {ride.driverReviewText && <p className="text-slate-600">"{ride.driverReviewText}"</p>}
+        <FavoriteDriverToggle ride={ride} driverName={driverName} />
         {todaName && ride.todaRating !== null && (
           <>
             <div className="mt-1.5 flex items-center justify-between">
@@ -3218,6 +3245,9 @@ function RateRideSection({ ride, driverName, todaName }: { ride: Ride; driverNam
           rows={2}
           className="mt-1.5 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
         />
+        <div className="mt-1.5">
+          <FavoriteDriverToggle ride={ride} driverName={driverName} />
+        </div>
       </div>
       {todaName && (
         <div>

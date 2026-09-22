@@ -76,13 +76,12 @@ const PARENT_ITEMS: MenuItem[] = [
 const DRIVER_ITEMS: MenuItem[] = [
   { icon: '🏠', label: 'Dashboard', section: 'home' },
   { icon: '🟢', label: 'Go Online / Offline', toggleOnline: true },
-  { icon: '🚗', label: 'Ride Requests', section: 'requests' },
-  { icon: '📍', label: 'Current Ride', section: 'current' },
-  { icon: '🧾', label: 'Ride History', section: 'history' },
+  // Ride Requests, Current Ride and Ride History are gone from here
+  // (2026-09-22) — the footer already has Requests and History, and Home
+  // lands on the trip while one is live.
   { icon: '💰', label: 'Earnings', section: 'earnings' },
   { icon: '⭐', label: 'Ratings', section: 'home' },
   { icon: '🚏', label: 'TODA Terminal Pila', section: 'queue' },
-  { icon: '🏢', label: 'TODA Admin', switchToTodaAdmin: true },
   { icon: '🆘', label: 'Emergency / SOS', section: 'current' },
   { icon: '👤', label: 'My Profile', panel: 'profile' },
   { icon: '⚙️', label: 'Settings', panel: 'settings' },

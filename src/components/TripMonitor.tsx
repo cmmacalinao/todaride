@@ -116,6 +116,7 @@ export function TripMonitor({
     removeSafetyPhoto,
     updatePassengerLiveGps,
     addTipOffer,
+    offerRideToFavorite,
     acknowledgeRidePayment,
     confirmPassengerArrival,
     confirmRiderSafe,
@@ -449,9 +450,6 @@ export function TripMonitor({
       )
     : []
   const sharingWith = coRidersOnboard.length
-  // A food order or a PaDeliver delivery: its pickup is a store or a sender,
-  // so that end is named on the map as well as the destination.
-  const isDeliveryRide = ride.serviceType === 'vendor_order' || ride.serviceType === 'padala' || ride.serviceType === 'pabili'
   const mapPoints: MapPoint[] = [
     // The TODA's terminals, drawn under the trip's own pins. They are not
     // part of this journey, but a passenger watching the map uses them to
@@ -477,9 +475,10 @@ export function TripMonitor({
             gps: ride.pickup.gps,
             color: '#dc2626',
             icon: 'pickup' as const,
+            // Labelled like the destination flag, on every trip (2026-09-22).
             label: tripFlagText(ride.pickup.label),
-            callout: isDeliveryRide,
-            alwaysLabel: isDeliveryRide,
+            callout: true,
+            alwaysLabel: true,
           },
         ]
       : []),
@@ -867,6 +866,20 @@ export function TripMonitor({
   // The tip offer, drawn at the bottom of the waiting strip — see
   // WaitingForDriverStrip. Waiting and "add a tip to be noticed" are the same
   // moment, so they sit in the same box rather than two boxes a map apart.
+  // The passenger's starred driver, for "Request my favorite driver" below
+  // — offered while the ride waits and the offer is with somebody else.
+  const favoriteDriverId =
+    (ride.bookedByParentId ? parents.find((p) => p.id === ride.bookedByParentId)?.favoriteDriverId : null) ??
+    passengers.find((p) => p.id === ride.passengerId)?.favoriteDriverId ??
+    null
+  const favoriteDriver = favoriteDriverId ? drivers.find((d) => d.id === favoriteDriverId) : undefined
+  const canAskFavorite =
+    !!favoriteDriver &&
+    favoriteDriver.verificationStatus === 'approved' &&
+    favoriteDriver.accessStatus === 'active' &&
+    ride.status === 'requested' &&
+    !ride.driverId &&
+    ride.priorityQueueOfferedDriverId !== favoriteDriver.id
   const tipControls = (
     <div>
       <p className="text-[11px] font-medium text-green-900">
@@ -906,6 +919,15 @@ export function TripMonitor({
           Add
         </button>
       </div>
+      {canAskFavorite && favoriteDriver && (
+        <button
+          type="button"
+          onClick={() => offerRideToFavorite(ride.id)}
+          className="mt-1.5 w-full rounded-lg border border-gold-500 bg-[#ffe066] py-1.5 text-xs font-bold text-navy-900 transition hover:bg-[#ffd633]"
+        >
+          ⭐ Request my favorite driver · {favoriteDriver.name}
+        </button>
+      )}
     </div>
   )
 

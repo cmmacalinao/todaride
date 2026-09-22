@@ -1730,7 +1730,7 @@ export function PassengerPage() {
           // Only ever the question, never the chosen address (2026-09-22) —
           // the address is on the map's pin. Nothing set yet: 'Where to?';
           // then 'Pickup?' or 'Where to Deliver?' for whichever end is next.
-          placeholder={!pickupChosen && !dropoffChosen ? 'Where to?' : isPickupEnd ? 'Pickup?' : 'Where to Deliver?'}
+          placeholder={!pickupChosen && !dropoffChosen ? 'Where to?' : isPickupEnd ? 'Pickup? - type landmark, street, brgy.' : 'Delivery? - type landmark, street, brgy.'}
           className="min-w-0 flex-1"
           resultsClassName="absolute inset-x-0 top-full z-[80] mt-1 max-h-72 overflow-y-auto"
           inputClassName={`map-toolbar-input w-full min-w-0 bg-transparent text-sm font-semibold focus:outline-none ${

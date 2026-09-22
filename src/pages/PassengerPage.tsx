@@ -2140,13 +2140,13 @@ export function PassengerPage() {
                       value={guestRider.otherName}
                       onChange={(e) => guestRider.setOtherName(e.target.value)}
                       placeholder="Their name"
-                      className="min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
+                      className="compact-input min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
                     />
                     <input
                       value={guestRider.otherPhone}
                       onChange={(e) => guestRider.setOtherPhone(e.target.value)}
                       placeholder="Their mobile number"
-                      className="min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
+                      className="compact-input min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
                     />
                   </div>
                 )}

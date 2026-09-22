@@ -74,7 +74,7 @@ export function GroupRideInlinePanel({
           .sort((a, b) => (stopNumbers[a.rider.key] ?? 100 + a.i) - (stopNumbers[b.rider.key] ?? 100 + b.i))
           .map(({ rider, i }) => (
           <div key={rider.key} className="rounded-lg border border-slate-200 bg-slate-50/60 p-2.5">
-            <div className="mb-1.5 flex items-center justify-between gap-2">
+            <div className={`${rider.isGuest ? 'mb-1.5 ' : ''}flex items-center justify-between gap-2`}>
               <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
                 {/* The same number the rider's flag carries on the map: the order
                     the tricycle drops everyone off in, nearest first. */}
@@ -83,7 +83,14 @@ export function GroupRideInlinePanel({
                     {stopNumbers[rider.key]}
                   </span>
                 )}
-                {rider.isGuest ? `Rider ${i + 1}` : 'You'}
+                {/* The booker on one line: "You · Celeste M." (2026-09-22). */}
+                {rider.isGuest ? (
+                  `Rider ${i + 1}`
+                ) : (
+                  <>
+                    You <span className="text-sm font-semibold text-slate-800">· {rider.name}</span>
+                  </>
+                )}
               </span>
               {/* The fare on the same row as whose it is. */}
               {fares[i] != null && (
@@ -107,18 +114,16 @@ export function GroupRideInlinePanel({
                   value={rider.name}
                   onChange={(e) => onUpdateRider(rider.key, { name: e.target.value })}
                   placeholder="Their name"
-                  className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
+                  className="compact-input min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
                 />
                 <input
                   value={rider.phone}
                   onChange={(e) => onUpdateRider(rider.key, { phone: e.target.value })}
                   placeholder="Their mobile (optional)"
-                  className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
+                  className="compact-input min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
                 />
               </div>
-            ) : (
-              <p className="mb-1.5 text-sm font-semibold text-slate-800">{rider.name}</p>
-            )}
+            ) : null}
             {/* No stop line on the card: each rider's address is on their
                 numbered flag on the map, where the stop actually is. */}
           </div>

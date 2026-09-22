@@ -65,7 +65,12 @@ export function SuperAdminPage() {
     setSimulateMovementEnabled,
     setPublicBaseUrl,
     activityLog,
+    familyPromoDeadline,
+    setFamilyPromoDeadline,
+    passengers,
   } = useRides()
+  const [promoDate, setPromoDate] = useState(familyPromoDeadline)
+  const familiesActivated = passengers.filter((p) => !!p.familyPlan).length
   const [tab, setTab] = useState<SuperAdminTab>('hub')
   const { containerClass } = useAdminViewMode()
   const [commissionInput, setCommissionInput] = useState(String(commissionPerRide))
@@ -274,6 +279,41 @@ export function SuperAdminPage() {
                 looked broken; Food Order and merchant sign-up are meant to
                 always be available, so the fix was to stop it being a
                 switch at all rather than keep chasing the revert. */}
+          </section>
+
+          {/* Family Plan intro promo (2026-09-23): the last day a family can
+              activate and get the free year. */}
+          <section className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-700">👨‍👩‍👧 Family Plan promo</h2>
+              <p className="mt-0.5 text-[11px] text-slate-500">
+                Families who activate on or before this date get the Family Plan free for 1 year. After it, the
+                activation screen says the promo has ended. Families already activated keep their free year.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="text-[11px] font-semibold text-slate-600">
+                Last day to sign up
+                <input
+                  type="date"
+                  value={promoDate}
+                  onChange={(e) => setPromoDate(e.target.value)}
+                  className="mt-1 block rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={!promoDate || promoDate === familyPromoDeadline}
+                onClick={() => setFamilyPromoDeadline(promoDate)}
+                className="rounded-lg bg-brand-600 px-3 py-2 text-xs font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
+              >
+                Save
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-600">
+              Current: promo until <span className="font-semibold">{familyPromoDeadline}</span> · {familiesActivated}{" "}
+              {familiesActivated === 1 ? "family" : "families"} activated
+            </p>
           </section>
 
           <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">

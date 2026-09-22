@@ -79,7 +79,7 @@ export const FAMILY_TERMS: TermsSection[] = [
   {
     title: '8. Fares, payment and the promo',
     body: [
-      `The Family Plan is free for ${FAMILY_PLAN_FREE_MONTHS} months from activation as an introductory promo (regular price ₱${FAMILY_PLAN_MONTHLY_PRICE}/month). Ride fares are separate and are paid per ride, by the rider or by you in the App, as set for each family member.`,
+      `The Family Plan is free for ${FAMILY_PLAN_FREE_MONTHS} months from activation, for families who activate on or before the promo end date shown in the App, as an introductory promo (regular price ₱${FAMILY_PLAN_MONTHLY_PRICE}/month). Ride fares are separate and are paid per ride, by the rider or by you in the App, as set for each family member.`,
       'Nothing is charged automatically when the free period ends. You will be asked whether you want to continue, and at what price, before any plan fee applies.',
     ],
   },
@@ -100,3 +100,7 @@ export const FAMILY_TERMS: TermsSection[] = [
     ],
   },
 ]
+
+// Last day to activate and get the free year, unless Super Admin changes it
+// (RideState.familyPromoDeadline). Set 2026-09-23.
+export const DEFAULT_FAMILY_PROMO_DEADLINE = '2027-06-30'

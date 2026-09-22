@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode, useRef } from 'react'
 import { BANNER_AD_SLOT_COUNT, MAX_VENDOR_POSTS } from '../types'
 import { mergeById, mergeDriverAccessMessages, mergeIncomingRides, mergeVendorPosts } from '../lib/rideMerge'
+import { DEFAULT_FAMILY_PROMO_DEADLINE } from '../lib/familyTerms'
 import { findPartnerByCode, generatePartnerCode, marketingSplit } from '../lib/marketingProgram'
 import { PILOT_ORIGIN } from '../lib/pilotOrigin'
 import type { RecoveryKind } from '../lib/unifiedLogin'
@@ -300,6 +301,9 @@ interface RideState {
   pabiliFareMode: PabiliFareMode
   pabiliFixedFare: number
   todaRadiusKm: number
+  // Family Plan intro promo (2026-09-23): the last day (YYYY-MM-DD) a family
+  // can activate and get the free year. Set by Super Admin.
+  familyPromoDeadline: string
   outOfAreaPerKm: number
   expenses: ExpenseRecord[]
   // Keyed by ComplianceChecklistItem.id (see mock/data.ts) — true once
@@ -883,6 +887,7 @@ type RideAction =
   | { type: 'SET_LANDMARK_GPS'; landmarkId: string; gps: GeoCoords }
   | { type: 'UPDATE_LANDMARK'; landmarkId: string; landmark: Omit<Landmark, 'id'> }
   | { type: 'SET_TODA_RADIUS_KM'; km: number }
+  | { type: 'SET_FAMILY_PROMO_DEADLINE'; date: string }
   | { type: 'SET_OUT_OF_AREA_PER_KM'; amount: number }
   | { type: 'DRIVER_PROPOSE_ACCEPT'; rideId: string; driverId: string; originGps: GeoCoords | null }
   | { type: 'PASSENGER_APPROVE_FARE'; rideId: string }
@@ -1583,6 +1588,7 @@ interface StoredState {
   pabiliFareMode?: PabiliFareMode
   pabiliFixedFare?: number
   todaRadiusKm?: number
+  familyPromoDeadline?: string
   outOfAreaPerKm?: number
   expenses?: ExpenseRecord[]
   complianceChecked?: Record<string, boolean>
@@ -1808,6 +1814,7 @@ function fromStored(parsed: StoredState): RideState {
     pabiliFareMode: parsed.pabiliFareMode === 'fixed' ? 'fixed' : 'standard',
     pabiliFixedFare: parsed.pabiliFixedFare ?? DEFAULT_PABILI_FIXED_FARE,
     todaRadiusKm: parsed.todaRadiusKm ?? DEFAULT_TODA_RADIUS_KM,
+    familyPromoDeadline: parsed.familyPromoDeadline ?? DEFAULT_FAMILY_PROMO_DEADLINE,
     outOfAreaPerKm: parsed.outOfAreaPerKm ?? DEFAULT_OUT_OF_AREA_PER_KM,
     expenses: parsed.expenses ?? [],
     complianceChecked: parsed.complianceChecked ?? {},
@@ -2195,6 +2202,7 @@ function loadInitialState(): RideState {
     pabiliFareMode: 'standard',
     pabiliFixedFare: DEFAULT_PABILI_FIXED_FARE,
     todaRadiusKm: DEFAULT_TODA_RADIUS_KM,
+    familyPromoDeadline: DEFAULT_FAMILY_PROMO_DEADLINE,
     outOfAreaPerKm: DEFAULT_OUT_OF_AREA_PER_KM,
     expenses: [],
     complianceChecked: {},
@@ -3102,6 +3110,8 @@ function reducer(state: RideState, action: RideAction): RideState {
           t.id === action.terminalId ? { ...t, isActive: action.isActive } : t,
         ),
       }
+    case 'SET_FAMILY_PROMO_DEADLINE':
+      return /^d{4}-d{2}-d{2}$/.test(action.date) ? { ...state, familyPromoDeadline: action.date } : state
     case 'SET_TODA_RADIUS_KM':
       return { ...state, todaRadiusKm: Math.max(0, Number(action.km) || 0) }
     case 'SET_OUT_OF_AREA_PER_KM':
@@ -7066,6 +7076,7 @@ interface RideContextValue extends RideState {
   setTerminalGps: (terminalId: string, gps: GeoCoords) => void
   setTerminalActive: (terminalId: string, isActive: boolean) => void
   setTodaRadiusKm: (km: number) => void
+  setFamilyPromoDeadline: (date: string) => void
   setOutOfAreaPerKm: (amount: number) => void
   driverProposeAccept: (rideId: string, driverId: string, originGps: GeoCoords | null) => void
   approveProposedFare: (rideId: string) => void
@@ -7748,6 +7759,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           pabiliFareMode: state.pabiliFareMode,
           pabiliFixedFare: state.pabiliFixedFare,
           todaRadiusKm: state.todaRadiusKm,
+          familyPromoDeadline: state.familyPromoDeadline,
           outOfAreaPerKm: state.outOfAreaPerKm,
           expenses: state.expenses,
           complianceChecked: state.complianceChecked,
@@ -7858,6 +7870,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     state.pabiliFareMode,
     state.pabiliFixedFare,
     state.todaRadiusKm,
+    state.familyPromoDeadline,
     state.outOfAreaPerKm,
     state.expenses,
     state.complianceChecked,
@@ -8279,6 +8292,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setTerminalGps: (terminalId, gps) => dispatch({ type: 'SET_TERMINAL_GPS', terminalId, gps }),
     setTerminalActive: (terminalId, isActive) => dispatch({ type: 'SET_TERMINAL_ACTIVE', terminalId, isActive }),
     setTodaRadiusKm: (km) => dispatch({ type: 'SET_TODA_RADIUS_KM', km }),
+    setFamilyPromoDeadline: (date) => dispatch({ type: 'SET_FAMILY_PROMO_DEADLINE', date }),
     setOutOfAreaPerKm: (amount) => dispatch({ type: 'SET_OUT_OF_AREA_PER_KM', amount }),
     driverProposeAccept: (rideId, driverId, originGps) =>
       dispatch({ type: 'DRIVER_PROPOSE_ACCEPT', rideId, driverId, originGps }),

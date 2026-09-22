@@ -51,7 +51,11 @@ export function FamilyTermsText() {
 }
 
 export function FamilyActivation({ passenger }: { passenger: Passenger }) {
-  const { activateFamilyPlan } = useRides()
+  const { activateFamilyPlan, familyPromoDeadline } = useRides()
+  // The promo's last day, set by Super Admin. Activating after it gets no
+  // free year — and there is no paid plan to take instead yet.
+  const promoEnds = new Date(`${familyPromoDeadline}T23:59:59+08:00`)
+  const promoOpen = Date.now() <= promoEnds.getTime()
   const [adult, setAdult] = useState(false)
   const [terms, setTerms] = useState(false)
   const [childData, setChildData] = useState(false)
@@ -59,7 +63,7 @@ export function FamilyActivation({ passenger }: { passenger: Passenger }) {
   const [readAll, setReadAll] = useState(false)
   const renewing = !!passenger.familyPlan && passenger.familyPlan.termsVersion !== FAMILY_TERMS_VERSION
   const freeUntil = addMonths(new Date(), FAMILY_PLAN_FREE_MONTHS)
-  const canActivate = adult && terms && childData && signedName.trim().length >= 3
+  const canActivate = (promoOpen || renewing) && adult && terms && childData && signedName.trim().length >= 3
 
   function activate() {
     if (!canActivate) return
@@ -103,6 +107,13 @@ export function FamilyActivation({ passenger }: { passenger: Passenger }) {
           <li>⭐ Your own trusted drivers get your family's requests first</li>
           <li>🔒 Children can use the app only through your family</li>
         </ul>
+        {!renewing && (
+          <p className={`mt-1.5 rounded-md px-2 py-1 text-[11px] font-bold ${promoOpen ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-700'}`}>
+            {promoOpen
+              ? `Sign up now — promo ends ${formatPlanDate(promoEnds.toISOString())}!`
+              : `The free promo ended on ${formatPlanDate(promoEnds.toISOString())}. The paid Family Plan is coming soon.`}
+          </p>
+        )}
         <p className="mt-1.5 text-[10px] text-slate-500">Nothing is charged automatically when the free year ends.</p>
       </section>
 
@@ -157,7 +168,9 @@ export function FamilyActivation({ passenger }: { passenger: Passenger }) {
             ? renewing
               ? 'Accept the updated terms'
               : 'Activate Family Plan — FREE for 1 year'
-            : 'Tick the three boxes and sign to activate'}
+            : !promoOpen && !renewing
+              ? 'The free promo has ended'
+              : 'Tick the three boxes and sign to activate'}
         </button>
         <p className="text-center text-[10px] text-slate-400">
           Your acceptance is saved with the date and this version of the terms.

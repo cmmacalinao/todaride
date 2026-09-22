@@ -349,7 +349,11 @@ export function PassengerPage() {
     // VendorGuestPage) opens Food Express on that store's menu.
     if (vendorsEnabled && searchParams.get('vendor')) {
       setPageTab('book')
-      chooseErrand('pabili', { food: true })
+      // A goods store opens in PaDeliver's Store, a resto in Food Order —
+      // each catalog lists only its own kind, so the wrong one would not find
+      // the store at all (the home page's store tiles link here).
+      const linked = pharmacies.find((p) => p.id === searchParams.get('vendor'))
+      chooseErrand('pabili', { food: true, catalog: linked?.businessType === 'other_commodity' ? 'goods' : 'food' })
       return
     }
     if (medsEnabled && searchParams.get('service') === 'buy_medicine') {

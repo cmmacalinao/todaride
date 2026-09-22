@@ -13,7 +13,7 @@ import { usePilotBranding } from '../lib/usePilotBranding'
 // the terminal path discoverable at all.
 export function RiderStartPage() {
   const navigate = useNavigate()
-  const { vendorsEnabled } = useRides()
+  const { vendorsEnabled, pharmacies } = useRides()
   const pilotBranding = usePilotBranding()
   // Only the Food & Vendor partners switch matters here. Food Order and
   // PaDeliver's Store both check out through VendorMenuBooking and end up
@@ -23,6 +23,15 @@ export function RiderStartPage() {
   // Pabili switch at all. PaDeliver's "Book a Delivery" ('padala') was
   // already its own type and stays available regardless of either switch.
   const vendorCatalogsAvailable = vendorsEnabled
+  // Every partner a passenger can order from — approved restos and goods
+  // stores, the same set Food Order and PaDeliver's Store list — open ones
+  // first, then by name. There is no separate "featured" flag yet, so all of
+  // them are featured here.
+  const stores = vendorCatalogsAvailable
+    ? pharmacies
+        .filter((p) => (p.businessType === 'resto_food' || p.businessType === 'other_commodity') && p.verificationStatus === 'approved')
+        .sort((a, b) => Number(b.isOpen) - Number(a.isOpen) || a.name.localeCompare(b.name))
+    : []
   return (
     // Same pattern as the launch and role-chooser screens before it — dark
     // navy, the diagonal weave — so a passenger doesn't land somewhere that
@@ -161,6 +170,48 @@ export function RiderStartPage() {
             <span className="block text-xs text-slate-700">Goods — from a store's shelf, or straight from you.</span>
           </button>
         </div>
+
+        {/* Featured merchants & stores: one tile each, straight into that
+            store's menu (/book?vendor=, which picks Food Order or PaDeliver's
+            Store by the store's kind — see PassengerPage). The picture is the
+            store's own logo, else its cover photo, else its kind's emoji. */}
+        {stores.length > 0 && (
+          <section>
+            <h2 className="mb-2 mt-1 text-sm font-bold text-white">Featured merchants &amp; stores</h2>
+            <div className="grid grid-cols-3 gap-2">
+              {stores.map((s) => {
+                const picture = s.logoDataUrl || s.coverPhotoDataUrl || s.bannerBackgroundDataUrl || null
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => navigate(`/book?vendor=${encodeURIComponent(s.id)}`)}
+                    className="flex flex-col overflow-hidden rounded-xl border border-gold-400 bg-white text-left shadow-sm transition hover:bg-gold-50"
+                  >
+                    <span className="relative block aspect-square w-full bg-slate-100">
+                      {picture ? (
+                        <img src={picture} alt="" aria-hidden className="h-full w-full object-cover" loading="lazy" />
+                      ) : (
+                        <span aria-hidden className="flex h-full w-full items-center justify-center text-4xl">
+                          {s.businessType === 'resto_food' ? '🍽️' : '📦'}
+                        </span>
+                      )}
+                      {!s.isOpen && (
+                        <span className="absolute left-1 top-1 rounded bg-slate-900/75 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
+                          Closed
+                        </span>
+                      )}
+                    </span>
+                    <span className="block px-1.5 pb-1.5 pt-1">
+                      <span className="line-clamp-2 text-[11px] font-bold leading-tight text-slate-900">{s.name}</span>
+                      <span className="mt-0.5 block truncate text-[10px] text-slate-500">{s.city}</span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   )

@@ -10,8 +10,7 @@ import { StoreRatingSheet } from './StoreRatingSheet'
 import { OrderStatusStrip, orderStageDetail } from './OrderStatusStrip'
 import { OrderChat } from './OrderChat'
 import { TripMonitor } from './TripMonitor'
-import { VendorSearchRow, VendorStorefront } from './VendorStorefront'
-import { haversineDistanceMeters } from '../lib/geo'
+import { VendorStorefront } from './VendorStorefront'
 import type { BusinessType, MedicineProduct, MedsOrder, MockLocation, PaymentMethod, Pharmacy } from '../types'
 
 const VENDOR_BUSINESS_TYPES: BusinessType[] = ['resto_food', 'other_commodity']
@@ -496,26 +495,6 @@ export const VendorMenuBooking = forwardRef<
               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                 {shownVendors.length} {shownVendors.length === 1 ? 'store' : 'stores'} match "{vendorSearch.trim()}"
               </p>
-              <div className="space-y-1.5">
-                {[...shownVendors]
-                  .sort((a, b) => Number(b.isOpen) - Number(a.isOpen) || a.name.localeCompare(b.name))
-                  .map((v) => (
-                    <VendorSearchRow
-                      key={v.id}
-                      pharmacy={v}
-                      itemCount={medicineProducts.filter((p) => p.pharmacyId === v.id && p.visible !== false).length}
-                      distanceMeters={
-                        deliveryAddress?.gps && v.locationGps ? haversineDistanceMeters(deliveryAddress.gps, v.locationGps) : null
-                      }
-                      dishes={matchingDishes(v.id)}
-                      onSelect={() => openVendor(v.id)}
-                      onSelectDish={(productId) => {
-                        openVendor(v.id)
-                        setCart({ [productId]: 1 })
-                      }}
-                    />
-                  ))}
-              </div>
             </div>
           )}
 
@@ -527,12 +506,19 @@ export const VendorMenuBooking = forwardRef<
               store, its dishes as cards that slide sideways. Open stores
               first. A dish opens its store with that dish in the cart; the
               store's name opens the store. */}
-          {vendors.length > 0 && !query && (
+          {/* While a search is typed the same rows list only the stores that
+              match — for a dish, every store that sells it, showing just the
+              matching dishes (2026-09-22). */}
+          {vendors.length > 0 && (
             <div className="space-y-3">
               {[...shownVendors]
                 .sort((a, b) => Number(b.isOpen) - Number(a.isOpen) || a.name.localeCompare(b.name))
                 .map((v) => {
-                  const dishes = medicineProducts.filter((p) => p.pharmacyId === v.id && p.visible !== false)
+                  const allDishes = medicineProducts.filter((p) => p.pharmacyId === v.id && p.visible !== false)
+                  const matched = query ? matchingDishes(v.id) : []
+                  // A store found by a dish shows those dishes; one found by
+                  // its name or place shows its whole menu.
+                  const dishes = matched.length > 0 ? matched : allDishes
                   if (dishes.length === 0) return null
                   return (
                     <div key={v.id}>

@@ -254,3 +254,46 @@ export async function geocodeAddress(query: string): Promise<GeocodeResult | nul
     clearTimeout(timeout)
   }
 }
+
+// Streets, by name, for the Where to search (2026-09-22). The seeded landmark
+// list has places, not roads, and Nominatim's free-text search misses most
+// Philippine street names — OSM calls the town "San Jose", so a query with
+// "San Jose City" appended came back empty, and a half-typed name never
+// matched at all. Photon (komoot's free search over the same OpenStreetMap
+// data) is made for search-as-you-type: partial names match, only roads are
+// asked for, the box keeps it to Nueva Ecija and the towns on its edge, and
+// `near` ranks the closest first. Returns [] on any failure, like the rest.
+const STREET_SEARCH_BBOX = '120.55,15.20,121.40,16.25'
+const NOT_A_STREET = new Set(['bus_stop', 'crossing', 'traffic_signals', 'street_lamp', 'stop', 'give_way', 'milestone', 'speed_camera', 'elevator'])
+export async function searchStreets(query: string, near: GeoCoords | null, limit = 6): Promise<PlaceSuggestion[]> {
+  const q = query.trim()
+  if (q.length < 3) return []
+  const bias = near ? `&lat=${near.lat}&lon=${near.lng}` : ''
+  const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=${limit + 4}&osm_tag=highway&bbox=${STREET_SEARCH_BBOX}${bias}`
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 6000)
+    const res = await fetch(url, { signal: controller.signal })
+    clearTimeout(timeout)
+    if (!res.ok) return []
+    const data = (await res.json()) as {
+      features: { geometry: { coordinates: [number, number] }; properties: { name?: string; osm_value?: string; district?: string; city?: string; county?: string } }[]
+    }
+    const seen = new Set<string>()
+    const out: PlaceSuggestion[] = []
+    for (const f of data.features ?? []) {
+      const p = f.properties
+      if (!p.name || (p.osm_value && NOT_A_STREET.has(p.osm_value))) continue
+      const label = [p.name, p.district, p.city ?? p.county].filter(Boolean).join(', ')
+      // One row per street and place — a long road comes back as several pieces.
+      if (seen.has(label)) continue
+      seen.add(label)
+      const [lng, lat] = f.geometry.coordinates
+      out.push({ label, gps: { lat, lng } })
+      if (out.length >= limit) break
+    }
+    return out
+  } catch {
+    return []
+  }
+}

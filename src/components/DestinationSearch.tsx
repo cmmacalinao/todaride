@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { searchLandmarksNearCity } from '../lib/landmarkSearch'
-import { searchNearbyPlaces, resolveGooglePlaceGps, type PlaceSuggestion } from '../lib/geocode'
+import { searchNearbyPlaces, searchStreets, resolveGooglePlaceGps, type PlaceSuggestion } from '../lib/geocode'
 import { LANDMARK_CATEGORY_ICONS } from '../types'
 import type { GeoCoords } from '../types'
 
@@ -133,9 +133,30 @@ export function DestinationSearch({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldTryLive, trimmed, city])
 
+  // Streets by name, alongside the landmarks rather than only when those come
+  // up empty (2026-09-22): a partial landmark match used to hide every street.
+  // Same pause-before-searching as the live search above.
+  const [streets, setStreets] = useState<PlaceSuggestion[]>([])
+  const streetRequestRef = useRef(0)
+  useEffect(() => {
+    if (barangayOnly || trimmed.length < MIN_LIVE_QUERY_LENGTH) {
+      setStreets([])
+      return
+    }
+    const requestId = ++streetRequestRef.current
+    const timer = setTimeout(() => {
+      void searchStreets(trimmed, near ?? null).then((results) => {
+        if (streetRequestRef.current === requestId) setStreets(results)
+      })
+    }, LIVE_SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trimmed, barangayOnly])
+
   function pick(place: SelectedPlace) {
     onSelect(place)
     setQuery('')
+    setStreets([])
     setLiveResults([])
     setLiveStatus('idle')
   }
@@ -231,7 +252,7 @@ export function DestinationSearch({
               </p>
             )}
           </div>
-        ) : (
+        ) : streets.length > 0 ? null : (
           <p className="mt-1 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-400">
             {noMatchNote ? (
               <>
@@ -272,6 +293,23 @@ export function DestinationSearch({
             )}
           </p>
         ))}
+      {trimmed && streets.length > 0 && (
+        <div className="mt-1 space-y-0.5 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+          <p className="px-2 pt-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">🛣️ Streets</p>
+          {streets.map((s, i) => (
+            <button
+              key={`${s.label}-${i}`}
+              type="button"
+              onClick={() => s.gps && pick({ name: s.label, gps: s.gps })}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-slate-50"
+            >
+              <span aria-hidden className="text-base leading-none">🛣️</span>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">{s.label}</span>
+            </button>
+          ))}
+          <p className="border-t border-slate-100 px-2 pt-1 text-[10px] text-slate-400">Streets © OpenStreetMap contributors</p>
+        </div>
+      )}
       </div>
     </div>
   )

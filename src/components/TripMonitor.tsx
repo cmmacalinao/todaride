@@ -1249,12 +1249,13 @@ export function TripMonitor({
           used to be asked here as well, and in a modal over the whole screen
           — three places for one answer. */}
 
-      {(ride.pabiliTip > 0 || ride.tipOffer > 0 || ride.passengerCount > 1) && (
+      {/* The "👥 N passengers" note is gone (2026-09-22) — the passenger set
+          that number themselves a moment ago. Tips still show. */}
+      {(ride.pabiliTip > 0 || ride.tipOffer > 0) && (
         <p className="text-xs text-slate-500">
           {[
             ride.pabiliTip > 0 ? `+₱${ride.pabiliTip} tip` : null,
             ride.tipOffer > 0 ? `+₱${ride.tipOffer} tip offer` : null,
-            ride.passengerCount > 1 ? `👥 ${ride.passengerCount} passengers` : null,
           ]
             .filter(Boolean)
             .join(' · ')}
@@ -1508,19 +1509,10 @@ export function TripMonitor({
       {/* No "Call <driver>" row here any more — the footer's Contact tile
           already lists the driver, and the off-route panel below keeps its
           own copy of the numbers for the moment they are actually needed. */}
-      {!driver && !isTerminal && ride.status === 'requested' && (
-        <div className="space-y-1">
-          {ride.priorityQueueLog.length > 0 && (
-            <p className="text-[11px] text-slate-400">
-              Already passed:{' '}
-              {ride.priorityQueueLog
-                .map((entry) => `${entry.driverName} (${entry.outcome === 'declined' ? 'declined' : 'no response'})`)
-                .join(', ')}
-            </p>
-          )}
-
-        </div>
-      )}
+      {/* The "Already passed: <driver> (no response)…" list is gone
+          (2026-09-22): a passenger waiting for a ride gains nothing from the
+          names of every driver who let it go by — the waiting strip above
+          already says a driver is being found. */}
 
       {!isTerminal && (
         <div ref={mapSectionRef} className="scroll-mt-24 space-y-1.5">

@@ -895,6 +895,8 @@ export interface SavedLocation {
   id: string
   label: SavedLocationLabel
   location: MockLocation
+  // A name the passenger gave a Favorite ("Lola's house", "Church").
+  name?: string
 }
 
 // A family member a passenger books rides for (Book a Ride → Family): saved

@@ -842,7 +842,7 @@ type RideAction =
   | { type: 'SET_TARIFF_SETTINGS'; settings: TariffSettings }
   | { type: 'SET_CITY_TARIFF'; city: string; settings: TariffSettings | null }
   | { type: 'SET_TODA_TARIFF'; todaOrgId: string; settings: TariffSettings | null }
-  | { type: 'SAVE_PASSENGER_LOCATION'; passengerId: string; id: string; label: SavedLocationLabel; location: MockLocation }
+  | { type: 'SAVE_PASSENGER_LOCATION'; passengerId: string; id: string; label: SavedLocationLabel; location: MockLocation; name?: string }
   | { type: 'REMOVE_PASSENGER_LOCATION'; passengerId: string; savedLocationId: string }
   | {
       type: 'RATE_RIDE'
@@ -5355,7 +5355,7 @@ function reducer(state: RideState, action: RideAction): RideState {
                       ? !(s.label === 'Favorite' && s.location.id === action.location.id)
                       : s.label !== action.label,
                   ),
-                  { id: action.id, label: action.label, location: action.location },
+                  { id: action.id, label: action.label, location: action.location, ...(action.name ? { name: action.name } : {}) },
                 ],
               }
             : p,
@@ -7274,7 +7274,7 @@ interface RideContextValue extends RideState {
     recordedBy: string
   }) => void
   deleteTodaExpense: (expenseId: string) => void
-  savePassengerLocation: (passengerId: string, label: SavedLocationLabel, location: MockLocation) => void
+  savePassengerLocation: (passengerId: string, label: SavedLocationLabel, location: MockLocation, name?: string) => void
   removePassengerLocation: (passengerId: string, savedLocationId: string) => void
   rateRide: (args: {
     rideId: string
@@ -8365,9 +8365,9 @@ export function RideProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'ADD_TODA_EXPENSE', id, ...args })
     },
     deleteTodaExpense: (expenseId) => dispatch({ type: 'DELETE_TODA_EXPENSE', expenseId }),
-    savePassengerLocation: (passengerId, label, location) => {
+    savePassengerLocation: (passengerId, label, location, name) => {
       const id = `savedloc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-      dispatch({ type: 'SAVE_PASSENGER_LOCATION', passengerId, id, label, location })
+      dispatch({ type: 'SAVE_PASSENGER_LOCATION', passengerId, id, label, location, name })
     },
     removePassengerLocation: (passengerId, savedLocationId) =>
       dispatch({ type: 'REMOVE_PASSENGER_LOCATION', passengerId, savedLocationId }),

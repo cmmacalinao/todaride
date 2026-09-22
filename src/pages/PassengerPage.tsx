@@ -36,7 +36,7 @@ import {
 import { getCurrentGeoPosition } from '../lib/geo'
 import { isInAppBrowser, openInBrowserHint } from '../lib/inAppBrowser'
 import { isWithinRetentionDays } from '../lib/tracking'
-import { SAVED_LOCATION_ICONS } from '../lib/savedLocations'
+import { SAVED_LOCATION_ICONS, savedPlaceName } from '../lib/savedLocations'
 import { dropOffOrder } from '../lib/groupStops'
 import { SwipePanel, type SwipeLevel } from '../components/SwipePanel'
 import {
@@ -77,6 +77,7 @@ import type {
   PaymentMethod,
   Pharmacy,
   Ride,
+  SavedLocationLabel,
   ServiceType,
 } from '../types'
 
@@ -107,6 +108,7 @@ export function PassengerPage() {
     requestedDrivers,
     setRequestedDriver,
     removePassengerLocation,
+    savePassengerLocation,
     medsOrders,
     pharmacies,
     rewardsEnabled,
@@ -362,6 +364,12 @@ export function PassengerPage() {
   const familyGroup = groupRideOpen && new URLSearchParams(location.search).get('family') === '1'
   // Family bookings: the family's trusted driver first, or anyone nearby.
   const [familyDriverChoice, setFamilyDriverChoice] = useState<FamilyDriverChoice>('')
+  // Saved places (2026-09-22): Home, School, Office or a named favourite
+  // being set on the map. While set, the centre pin and its Set button save
+  // that place instead of choosing the trip's destination.
+  const [savingPlace, setSavingPlace] = useState<{ label: SavedLocationLabel; name?: string } | null>(null)
+  const [placesManage, setPlacesManage] = useState(false)
+  const [newPlaceName, setNewPlaceName] = useState<string | null>(null)
 
   // A Food Order/PaDeliver cart, mirrored up from VendorMenuBooking (see
   // VendorMenuBookingHandle) purely so the app-wide footer below can show a
@@ -1387,6 +1395,13 @@ export function PassengerPage() {
   }
 
   function handlePinDropoff(location: MockLocation, guess: PhAddressTags | null) {
+    // Saving Home / School / Office / a favourite: the pin is that place,
+    // not this trip's destination.
+    if (savingPlace) {
+      savePassengerLocation(passenger.id, savingPlace.label, location, savingPlace.name)
+      setSavingPlace(null)
+      return
+    }
     // A Group Ride rider's destination is being set on this same map —
     // route the tap into their row instead of the page's own dropoff, and
     // hand the map back to normal booking once it lands.
@@ -1433,6 +1448,30 @@ export function PassengerPage() {
       barangay: location.barangay,
       addressDetail: '',
     }))
+  }
+
+  // A saved place tapped in the chips row: it fills the end being set — the
+  // destination, or in a two-ended box whichever end is armed — and the box
+  // moves on to the other end the same way the map's Set button does.
+  function useSavedPlaceChip(location: MockLocation) {
+    const end = dualEndBox ? mapTarget : 'dropoff'
+    if (end === 'pickup') handlePickupQuickPick(location)
+    else handleDropoffQuickPick(location)
+    if (dualEndBox) {
+      const next = { ...boxSet, [end]: true }
+      setBoxSet(next)
+      if (end === 'pickup') setMapTarget('dropoff')
+      else if (!next.pickup) setMapTarget('pickup')
+    }
+  }
+  // Starts setting a place on the map: the centre pin carries its name and
+  // the Set button saves it (see handlePinDropoff).
+  function startSavingPlace(label: SavedLocationLabel, name?: string) {
+    setSavingPlace({ label, name })
+    setMapTarget('dropoff')
+    setPlacesManage(false)
+    setNewPlaceName(null)
+    requestAnimationFrame(() => showInMiddle(bookingMapRef.current))
   }
 
   function handleDropoffQuickPick(location: MockLocation) {
@@ -2002,6 +2041,121 @@ export function PassengerPage() {
             }}
           />
   )
+  // Saved places for one-tap booking (2026-09-22): Home, School and Office
+  // always show — set ones fill the trip, unset ones are set on the map —
+  // then any named favourites, and + Place for another. ✎ lets a place be
+  // moved (set again on the map) or removed.
+  const slotPlace = (label: SavedLocationLabel) => savedLocations.find((s) => s.label === label)
+  const favouritePlaces = savedLocations.filter((s) => s.label === 'Favorite')
+  const placeChip = 'flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition'
+  const savedPlacesRow = (
+    <div className="mt-1.5 space-y-1">
+      {savingPlace ? (
+        <div className="flex items-center gap-2 rounded-lg border border-green-500/40 bg-green-500/10 px-2.5 py-1.5 text-[11px] text-green-900">
+          <span className="flex-1 leading-snug">
+            📍 Move the map to your{' '}
+            <span className="font-bold">{savedPlaceName(savingPlace.label, savingPlace.name)}</span>, then tap{' '}
+            <span className="font-bold">Set {savedPlaceName(savingPlace.label, savingPlace.name)} here</span>.
+          </span>
+          <button type="button" onClick={() => setSavingPlace(null)} className="shrink-0 font-bold text-slate-600 hover:underline">
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <div className="-mx-1 flex flex-nowrap gap-1 overflow-x-auto px-1 pb-0.5">
+          {(['Home', 'School', 'Work'] as SavedLocationLabel[]).map((label) => {
+            const s = slotPlace(label)
+            const name = savedPlaceName(label)
+            return (
+              <span key={label} className="flex shrink-0 items-center">
+                <button
+                  type="button"
+                  onClick={() => (s && !placesManage ? useSavedPlaceChip(s.location) : startSavingPlace(label))}
+                  title={s ? s.location.label : `Set your ${name} on the map`}
+                  className={`${placeChip} ${
+                    s
+                      ? 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'
+                      : 'border-dashed border-slate-300 bg-white text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  {SAVED_LOCATION_ICONS[label]} {s ? name : `+ ${name}`}
+                  {s && placesManage && <span className="text-[10px] font-medium text-slate-500">· move</span>}
+                </button>
+                {s && placesManage && (
+                  <button
+                    type="button"
+                    aria-label={`Remove ${name}`}
+                    onClick={() => removePassengerLocation(passenger.id, s.id)}
+                    className="ml-0.5 text-xs font-bold text-red-600"
+                  >
+                    ✕
+                  </button>
+                )}
+              </span>
+            )
+          })}
+          {favouritePlaces.map((s) => (
+            <span key={s.id} className="flex shrink-0 items-center">
+              <button
+                type="button"
+                onClick={() => (placesManage ? startSavingPlace('Favorite', s.name) : useSavedPlaceChip(s.location))}
+                title={s.location.label}
+                className={`${placeChip} border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100`}
+              >
+                ⭐ {savedPlaceName('Favorite', s.name ?? s.location.label.split(',')[0])}
+              </button>
+              {placesManage && (
+                <button
+                  type="button"
+                  aria-label="Remove this place"
+                  onClick={() => removePassengerLocation(passenger.id, s.id)}
+                  className="ml-0.5 text-xs font-bold text-red-600"
+                >
+                  ✕
+                </button>
+              )}
+            </span>
+          ))}
+          <button
+            type="button"
+            onClick={() => setNewPlaceName((v) => (v === null ? '' : null))}
+            className={`${placeChip} border-dashed border-slate-300 bg-white text-slate-500 hover:bg-slate-50`}
+          >
+            + Place
+          </button>
+          {savedLocations.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setPlacesManage((v) => !v)}
+              aria-pressed={placesManage}
+              aria-label="Edit saved places"
+              className={`${placeChip} ${placesManage ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-slate-300 bg-white text-slate-500'}`}
+            >
+              {placesManage ? 'Done' : '✎'}
+            </button>
+          )}
+        </div>
+      )}
+      {newPlaceName !== null && !savingPlace && (
+        <div className="flex gap-1.5">
+          <input
+            value={newPlaceName}
+            onChange={(e) => setNewPlaceName(e.target.value)}
+            placeholder="Name it — Lola's house, Church, Gym…"
+            className="compact-input min-w-0 flex-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
+          />
+          <button
+            type="button"
+            disabled={!newPlaceName.trim()}
+            onClick={() => startSavingPlace('Favorite', newPlaceName.trim())}
+            className="shrink-0 rounded-lg bg-brand-600 px-2.5 py-1.5 text-[11px] font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
+          >
+            📍 Set on map
+          </button>
+        </div>
+      )}
+    </div>
+  )
   const sharedMap = (
     <div ref={bookingMapRef} className="scroll-mt-24">
       <LocationMapPicker
@@ -2012,6 +2166,8 @@ export function PassengerPage() {
         flyTo={dualEndBox ? padalaPreview : null}
         focusSignal={mapFocus}
         onEndSet={(end, gps) => {
+          // A saved place being set is not an end of this trip.
+          if (savingPlace) return
           // The previewed street stays drawn on the end it was set on.
           const line = padalaPreview?.end === end ? padalaPreview.line : null
           setPickedStreetLines((s) => ({ ...s, [end]: line ? { gps, line } : null }))
@@ -2075,8 +2231,20 @@ export function PassengerPage() {
         routeLine={groupRideOpen && groupRoute ? groupRoute.points : undefined}
         // Whose stop the pin is setting: the rider picked, or else the next
         // one still without a stop — their name, or their number if none.
-        centerPinLabel={groupRideOpen && groupPinRider ? groupPinRider.label : undefined}
-        dropoffLabel={groupRideOpen && groupPinRider ? `${groupPinRider.label}'s stop` : dropoffLabel}
+        centerPinLabel={
+          savingPlace
+            ? `${SAVED_LOCATION_ICONS[savingPlace.label]} ${savedPlaceName(savingPlace.label, savingPlace.name)}`
+            : groupRideOpen && groupPinRider
+              ? groupPinRider.label
+              : undefined
+        }
+        dropoffLabel={
+          savingPlace
+            ? savedPlaceName(savingPlace.label, savingPlace.name)
+            : groupRideOpen && groupPinRider
+              ? `${groupPinRider.label}'s stop`
+              : dropoffLabel
+        }
         bottomPanel={
           groupRideOpen && !activeRide && !groupSettingStops
             ? (fullscreen) => (
@@ -2465,6 +2633,7 @@ export function PassengerPage() {
                     />
                   </div>
                 )}
+                {!activeRide && !groupRideOpen && savedPlacesRow}
               </div>
             )}
             {/* The dotted connector between the two rows is gone. It drew a

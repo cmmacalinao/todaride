@@ -9,13 +9,20 @@ export const SAVED_LOCATION_LABELS: SavedLocationLabel[] = ['Home', 'School', 'W
 export const SAVED_LOCATION_ICONS: Record<SavedLocationLabel, string> = {
   Home: '🏠',
   School: '🏫',
-  Work: '💼',
+  Work: '🏢',
   Favorite: '⭐',
 }
 
 // Home/School/Work are single-slot (saving one replaces the old one), so
 // their button just names the slot. Favorite accumulates instead — the "+"
 // makes clear that tapping it adds another rather than replacing anything.
+// What a saved place is called on screen: its own name for a Favorite that
+// has one, and "Office" for the Work slot (2026-09-22).
+export function savedPlaceName(label: SavedLocationLabel, name?: string): string {
+  if (name?.trim()) return name.trim()
+  return label === 'Work' ? 'Office' : label
+}
+
 export function savedLocationButtonLabel(label: SavedLocationLabel): string {
-  return label === 'Favorite' ? `+ ${SAVED_LOCATION_ICONS[label]} ${label}` : `${SAVED_LOCATION_ICONS[label]} ${label}`
+  return label === 'Favorite' ? `+ ${SAVED_LOCATION_ICONS[label]} ${label}` : `${SAVED_LOCATION_ICONS[label]} ${savedPlaceName(label)}`
 }

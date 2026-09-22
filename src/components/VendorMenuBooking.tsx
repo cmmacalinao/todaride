@@ -676,6 +676,25 @@ export const VendorMenuBooking = forwardRef<
               <span>₱{total}</span>
             </div>
           </div>
+          {/* Change the order, or drop it: Edit goes back to the store's menu
+              with the cart as it is; Cancel empties the cart and leaves the
+              store. Nothing has been sent yet, so neither needs asking twice. */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => goTo('menu')}
+              className="flex-1 rounded-lg border border-brand-300 bg-white py-2 text-sm font-medium text-brand-700 hover:bg-brand-50"
+            >
+              ✎ Edit
+            </button>
+            <button
+              type="button"
+              onClick={backToBrowse}
+              className="flex-1 rounded-lg border border-amber-300 bg-white py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
+            >
+              Cancel
+            </button>
+          </div>
 
           <p className="rounded-lg bg-slate-50 p-2.5 text-[11px] text-slate-500">
             Nothing is charged yet. {selectedVendor.name} will confirm the rider fee and send you the final quotation —

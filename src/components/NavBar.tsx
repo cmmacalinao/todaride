@@ -429,8 +429,20 @@ export function NavBar() {
           // logo, the account chip, Log out and the partner's mark that
           // used to fill this strip now live in the drawer — a row of things
           // you look at once a day was costing the row you use every time.
-          <div className="mx-auto flex max-w-lg items-center gap-2 py-1.5 pl-1 pr-3">
-            <div className="flex shrink-0 items-center">{hamburgerButton}</div>
+          <div className="mx-auto flex max-w-lg items-center gap-1 py-1.5 pl-1 pr-2">
+            <div className="flex shrink-0 items-center">
+              {hamburgerButton}
+              {/* One tap back to the three-tile start page, the passenger's
+                  Home — without opening the drawer to find it. */}
+              <Link
+                to="/book/start"
+                aria-label="Home"
+                title="Home"
+                className="flex h-9 w-7 items-center justify-center rounded-lg text-lg leading-none hover:bg-white/10 active:bg-white/20"
+              >
+                🏠
+              </Link>
+            </div>
             {headerTabs && vendorsEnabled ? (
               <div className="min-w-0 flex-1">
                 <ServiceTabs active={headerTabs.active} tone="dark" compact />

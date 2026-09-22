@@ -16,10 +16,9 @@ export function ServiceTabs({ active, tone = 'dark', compact = false }: { active
   // and PaDeliver's Store both browse vendor catalogs (see VendorMenuBooking).
   if (!vendorsEnabled) return null
 
-  // A white strip on either background (2026-09-21) — the dark header's
-  // see-through version read as part of the header rather than as buttons.
-  const shell = tone === 'dark' ? 'border-white/60 bg-white shadow-sm' : 'border-slate-200 bg-white'
-  const idle = 'text-navy-900 hover:bg-slate-100'
+  // Three separate white boxes with the background showing between them
+  // (2026-09-21) — each one a button of its own, not one white strip.
+  const idle = tone === 'dark' ? 'bg-white text-navy-900 shadow-sm hover:bg-slate-100' : 'border border-slate-200 bg-white text-navy-900 hover:bg-slate-100'
   // The same pictures as the start page's three tiles (RiderStartPage), so a
   // tab and the tile it stands for look like the same thing.
   const icon = (key: 'toda' | 'food' | 'padeliver') => {
@@ -51,7 +50,7 @@ export function ServiceTabs({ active, tone = 'dark', compact = false }: { active
   }
 
   return (
-    <div className={`flex overflow-hidden rounded-full border p-0.5 ${shell}`}>
+    <div className={`flex ${compact ? 'gap-1' : 'gap-1.5'}`}>
       {tab('toda', 'Book a Ride', () => navigate('/book', { state: { section: 'ride' } }))}
       {tab('food', 'Food Order', () => navigate('/book', { state: { section: 'food' } }))}
       {tab('padeliver', 'PaDeliver', () => navigate('/book', { state: { section: 'goods_store' } }))}

@@ -40,10 +40,10 @@ interface MenuItem {
 }
 
 const PASSENGER_ITEMS: MenuItem[] = [
+  // Book a Ride, Food Express and My Current Ride are gone from this menu
+  // (2026-09-22): Home opens the three service tiles, and the header's tabs
+  // switch between them.
   { icon: '🏠', label: 'Home', section: 'home' },
-  { icon: '🚗', label: 'Book a Ride', section: 'ride' },
-  { icon: '🍽️', label: 'Food Express', section: 'food' },
-  { icon: '📍', label: 'My Current Ride', section: 'current' },
   { icon: '🧾', label: 'Ride History', section: 'history' },
   { icon: '🎁', label: 'Rewards, Promos & Wallet', section: 'rewards' },
   { icon: '🆘', label: 'Emergency / SOS', section: 'current' },
@@ -59,9 +59,10 @@ const PASSENGER_ITEMS: MenuItem[] = [
 // Passenger accounts specifically — see PassengerRewardsCard), so it's
 // dropped rather than pointing at something that doesn't exist for them.
 const PARENT_ITEMS: MenuItem[] = [
+  // Book a Ride, Food Express and My Current Ride are gone from this menu
+  // (2026-09-22): Home opens the three service tiles, and the header's tabs
+  // switch between them.
   { icon: '🏠', label: 'Home', section: 'home' },
-  { icon: '🚗', label: 'Book a Ride', section: 'ride' },
-  { icon: '📍', label: 'My Current Ride', section: 'current' },
   { icon: '🧾', label: 'Ride History', section: 'history' },
   { icon: '🆘', label: 'Emergency / SOS', section: 'current' },
   { icon: '👤', label: 'My Profile', panel: 'profile' },

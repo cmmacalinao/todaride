@@ -2529,28 +2529,7 @@ export function PassengerPage() {
             </span>
           </button>
         )}
-        {/* Choosing who drives you comes once you
-            know what you are booking. The dot marks a driver already picked
-            for this booking. */}
-        <button
-          type="button"
-          onClick={() => setShowDrivers(true)}
-          title="See drivers near you and pick one"
-          // Gold only while the drivers sheet is open — that is when this
-          // tab is the one selected. A driver already picked is the dot,
-          // not a highlight, so the footer never shows two lit tabs.
-          className={`relative flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border py-1.5 transition ${
-            showDrivers
-              ? 'border-gold-500 bg-gold-400 shadow-md'
-              : 'border-transparent bg-slate-100 hover:bg-slate-200'
-          }`}
-        >
-          <span className="text-[15px] leading-none">🧑‍✈️</span>
-          <span className="truncate text-[10px] font-semibold text-slate-700">Drivers Near You</span>
-          {requestedDriverId && (
-            <span aria-hidden className="absolute right-1.5 top-1 h-2 w-2 rounded-full bg-brand-600" />
-          )}
-        </button>
+        {/* The Drivers Near You tile is gone from the footer (2026-09-22). */}
         {/* An action, not a mode to switch into — kept beside Drivers, since
             it belongs with "who is driving me". Absent whenever there is no
             assigned driver: nobody to reach. */}
@@ -2572,7 +2551,7 @@ export function PassengerPage() {
           type="button"
           onClick={() => navigate('/book/terminal')}
           title="Track your trip — I-track ang biyahe mo"
-          className="flex shrink-0 flex-col items-center gap-0 rounded-lg border border-transparent bg-slate-100 px-2 py-1.5 transition hover:bg-slate-200"
+          className="flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border border-transparent bg-slate-100 px-2 py-1.5 transition hover:bg-slate-200"
         >
           <span className="text-[15px] leading-none">📍</span>
           <span className="whitespace-nowrap text-[10px] font-semibold text-slate-700">Track your trip</span>
@@ -2601,7 +2580,7 @@ export function PassengerPage() {
             // under stress, so it keeps the size up and carries its name,
             // the same icon-over-word shape as Track your trip beside it.
             className={`flex shrink-0 flex-col items-center justify-center rounded-lg border transition ${
-              item.tab === 'emergency' ? 'w-14 gap-0.5 py-1' : 'w-9 text-base'
+              item.tab === 'emergency' ? 'min-w-0 flex-1 gap-0.5 py-1' : 'w-9 text-base'
             } ${
               pageTab === item.tab
                 ? 'border-gold-500 bg-gold-400 shadow-md'

@@ -204,7 +204,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon.svg', 'favicon-32.png', 'favicon-64.png'],
       // Default cap is 2 MiB — the main bundle now carries the full
       // province-wide landmark seed (MOCK_LANDMARKS) baked in as JS data and
       // has grown past that on its own. Raised rather than split out: the

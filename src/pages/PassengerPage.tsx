@@ -1382,11 +1382,6 @@ export function PassengerPage() {
   // driver calls the parent who booked (see DriverPage), so the member's
   // mobile is optional there; one typed in still has to be a real number.
   const guestPhoneFine = guestPhoneOk || (forFamily && guestPhoneDigits.length === 0)
-  // A family member picked from the chips: their details came with them.
-  const familyMemberChosen =
-    forFamily &&
-    guestRider.otherName.trim().length > 0 &&
-    (passenger.familyMembers ?? []).some((m) => m.name === guestRider.otherName.trim())
   const dualMissing: 'pickup' | 'dropoff' | null = dualEndBox ? (!boxSet.pickup ? 'pickup' : !boxSet.dropoff ? 'dropoff' : null) : null
   const canSubmit =
     hasDestination &&
@@ -2682,9 +2677,13 @@ export function PassengerPage() {
                         ? !guestRider.otherName.trim() && !guestPhoneFine
                           ? // What Someone still needs — said on the button it
                             // is holding back (2026-09-22).
-                            'Type their name and mobile above to book'
+                            forFamily
+                            ? 'Pick a family member above to book'
+                            : 'Type their name and mobile above to book'
                           : !guestRider.otherName.trim()
-                            ? 'Type their name above to book'
+                            ? forFamily
+                              ? 'Pick a family member above to book'
+                              : 'Type their name above to book'
                             : !guestPhoneFine
                               ? 'Type their mobile (09XXXXXXXXX) to book'
                               : `Book a Ride for ${guestRider.otherName.trim()}`
@@ -2882,10 +2881,11 @@ export function PassengerPage() {
                     />
                   </div>
                 )}
-                {/* Once a family member is picked, their name and mobile are
-                    already known — the boxes go away and the chip says who is
-                    riding. They come back for someone not on the list. */}
-                {forOther && !familyMemberChosen && (
+                {/* Family never types a name here (2026-09-23): the rider is
+                    picked from the chips above, and somebody new is added with
+                    "+ Add family member", which has its own boxes. The pair
+                    stays for a plain Someone booking. */}
+                {forOther && !forFamily && (
                   <div className="mt-1.5 grid grid-cols-2 gap-1.5">
                     <input
                       value={guestRider.otherName}

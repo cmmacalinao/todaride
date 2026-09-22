@@ -245,7 +245,13 @@ export function DestinationSearch({
                 {onOpenAddressForm ? (
                   <button
                     type="button"
-                    onClick={onOpenAddressForm}
+                    onClick={() => {
+                      // The form takes over from here; the no-match note would
+                      // otherwise float over it (it sits over the map in full
+                      // screen, right where the form opens).
+                      setQuery('')
+                      onOpenAddressForm()
+                    }}
                     className="font-semibold text-brand-600 underline hover:text-brand-700"
                   >
                     Fill Address Form

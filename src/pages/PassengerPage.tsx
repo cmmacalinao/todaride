@@ -1773,6 +1773,27 @@ export function PassengerPage() {
             </button>
             )
 
+  // The destination's address form (Fill Address Form under a Where to search
+  // with no match). One copy at a time, since it holds what has been typed:
+  // under the Where to strip at the top of the map in full screen, in the
+  // card above the map otherwise.
+  const dropoffFormOpen = openEnd === 'dropoff' && addressFormOpen === 'dropoff'
+  const dropoffAddressForm = (
+          <BarangayAddressPicker
+            key={`to-${dropoffPickerSeed.key}`}
+            label=""
+            hideRegionSelects
+            defaultProvince={dropoffPickerSeed.province || DEFAULT_BOOKING_PROVINCE}
+            defaultCity={dropoffPickerSeed.city || cityScope || DEFAULT_BOOKING_CITY}
+            defaultBarangay={dropoffPickerSeed.barangay}
+            defaultAddressDetail={dropoffPickerSeed.addressDetail}
+            onResolve={handleDropoffResolve}
+            onConfirm={() => {
+              setOpenEnd(null)
+              setAddressFormOpen(null)
+            }}
+          />
+  )
   const sharedMap = (
     <div ref={bookingMapRef} className="scroll-mt-24">
       <LocationMapPicker
@@ -1916,7 +1937,12 @@ export function PassengerPage() {
         // be searched without leaving it. Not once a ride is booked.
         fullscreenTop={
           whereToOnMap ? (
-            <div className="relative flex items-stretch gap-1">{destinationStrip(true)}</div>
+            <div>
+              <div className="relative flex items-stretch gap-1">{destinationStrip(true)}</div>
+              {dropoffFormOpen && (
+                <div className="mt-1 rounded-lg bg-white/95 p-2 shadow-sm">{dropoffAddressForm}</div>
+              )}
+            </div>
           ) : undefined
         }
         // No Find Barangay box in the map's toolbar any more — that spot shows
@@ -2338,22 +2364,7 @@ export function PassengerPage() {
                     the City row now sits above that same bar — this is just
                     the address-form fallback for whatever the search and
                     the map pin don't cover. */}
-                {addressFormOpen === 'dropoff' && (
-                <BarangayAddressPicker
-                  key={`to-${dropoffPickerSeed.key}`}
-                  label=""
-                  hideRegionSelects
-                  defaultProvince={dropoffPickerSeed.province || DEFAULT_BOOKING_PROVINCE}
-                  defaultCity={dropoffPickerSeed.city || cityScope || DEFAULT_BOOKING_CITY}
-                  defaultBarangay={dropoffPickerSeed.barangay}
-                  defaultAddressDetail={dropoffPickerSeed.addressDetail}
-                  onResolve={handleDropoffResolve}
-                  onConfirm={() => {
-                    setOpenEnd(null)
-                    setAddressFormOpen(null)
-                  }}
-                />
-                )}
+                {addressFormOpen === 'dropoff' && !(mapIsFullscreen && whereToOnMap) && dropoffAddressForm}
                 {isErrand && gpsStatus === 'error' && gpsError && (
                   <p className="text-[11px] text-amber-700">{gpsError}</p>
                 )}

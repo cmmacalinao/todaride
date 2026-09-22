@@ -50,6 +50,13 @@ export function ShareAppPanel({
 }) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const canShare = typeof navigator !== 'undefined' && !!navigator.share
+  // What just happened, said under the app row — a button that opens nothing
+  // and says nothing reads as broken.
+  const [sentNote, setSentNote] = useState('')
+  const [sentWeb, setSentWeb] = useState<{ label: string; web: string } | null>(null)
+  // A phone is where fb-messenger://, viber:// and sms: actually lead
+  // somewhere. Anything else is a laptop, whatever it calls itself.
+  const onPhone = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
 
   // The older way of copying, kept because the modern one is not always
   // there. navigator.clipboard is undefined outside a secure context and is
@@ -93,6 +100,32 @@ export function ShareAppPanel({
     const ok = copyTheOldWay(url)
     setCopyState(ok ? 'copied' : 'failed')
     if (ok) setTimeout(() => setCopyState('idle'), 2000)
+  }
+
+  // Copies without touching the Copy button's own label — the app row says
+  // what happened in its own note instead.
+  async function copyForPaste(): Promise<boolean> {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url)
+        return true
+      }
+    } catch {
+      /* refused — the old way below */
+    }
+    return copyTheOldWay(url)
+  }
+
+  // More…: the phone's share sheet where there is one, otherwise a copy with
+  // a note, rather than a button that appears to do nothing.
+  async function shareOrCopy() {
+    if (canShare) {
+      await shareLink()
+      return
+    }
+    const copied = await copyForPaste()
+    setSentWeb(null)
+    setSentNote(copied ? 'Link copied — paste it anywhere.' : 'Copy the address above and paste it anywhere.')
   }
 
   async function shareLink() {
@@ -191,31 +224,81 @@ export function ShareAppPanel({
             {(() => {
               const message = `${title}: ${url}`
               const enc = encodeURIComponent
+              // fb-messenger:// and viber:// are phone app links, and sms:
+              // needs a messaging app — on a laptop they open nothing at all
+              // and the button looks broken (2026-09-23). So off a phone, the
+              // link is copied and that service's website is opened to paste
+              // it into, and the panel says what happened either way.
               const apps = [
-                { key: 'messenger', label: 'Messenger', icon: '💬', href: `fb-messenger://share?link=${enc(url)}`, tint: 'bg-[#0084ff]' },
-                { key: 'viber', label: 'Viber', icon: '📞', href: `viber://forward?text=${enc(message)}`, tint: 'bg-[#7360f2]' },
-                { key: 'whatsapp', label: 'WhatsApp', icon: '🟢', href: `https://wa.me/?text=${enc(message)}`, tint: 'bg-[#25d366]' },
-                { key: 'sms', label: 'Messages', icon: '✉️', href: `sms:?&body=${enc(message)}`, tint: 'bg-slate-600' },
+                {
+                  key: 'messenger',
+                  label: 'Messenger',
+                  icon: '💬',
+                  tint: 'bg-[#0084ff]',
+                  app: `fb-messenger://share?link=${enc(url)}`,
+                  web: 'https://www.messenger.com/',
+                },
+                {
+                  key: 'viber',
+                  label: 'Viber',
+                  icon: '📞',
+                  tint: 'bg-[#7360f2]',
+                  app: `viber://forward?text=${enc(message)}`,
+                  web: 'https://www.viber.com/',
+                },
+                {
+                  key: 'whatsapp',
+                  label: 'WhatsApp',
+                  icon: '🟢',
+                  tint: 'bg-[#25d366]',
+                  // wa.me works on both: the app on a phone, web WhatsApp otherwise.
+                  app: `https://wa.me/?text=${enc(message)}`,
+                  web: null,
+                },
+                {
+                  key: 'sms',
+                  label: 'Messages',
+                  icon: '✉️',
+                  tint: 'bg-slate-600',
+                  app: `sms:?&body=${enc(message)}`,
+                  web: null,
+                },
               ]
+              async function openWith(a: (typeof apps)[number]) {
+                if (onPhone) {
+                  window.location.href = a.app
+                  return
+                }
+                // No window.open here: a popup opened from a click like this
+                // is what popup blockers are for, and a blocked one is the
+                // same silence this was fixing. The link is copied and the
+                // note offers that service's website as an ordinary link.
+                const copied = await copyForPaste()
+                setSentNote(
+                  copied
+                    ? `Link copied — paste it into ${a.label}.`
+                    : `Copy the address above, then paste it into ${a.label}.`,
+                )
+                setSentWeb(a.web ? { label: a.label, web: a.web } : null)
+              }
               return (
                 <>
                   {apps.map((a) => (
-                    <a
+                    <button
                       key={a.key}
-                      href={a.href}
-                      target={a.key === 'whatsapp' ? '_blank' : undefined}
-                      rel="noreferrer"
+                      type="button"
+                      onClick={() => void openWith(a)}
                       className="flex flex-col items-center gap-1 rounded-lg border border-slate-200 bg-white py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"
                     >
                       <span aria-hidden className={`flex h-8 w-8 items-center justify-center rounded-full text-base text-white ${a.tint}`}>
                         {a.icon}
                       </span>
                       {a.label}
-                    </a>
+                    </button>
                   ))}
                   <button
                     type="button"
-                    onClick={() => void (canShare ? shareLink() : copyLink())}
+                    onClick={() => void shareOrCopy()}
                     className="flex flex-col items-center gap-1 rounded-lg border border-slate-200 bg-white py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"
                   >
                     <span aria-hidden className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-base">
@@ -227,6 +310,19 @@ export function ShareAppPanel({
               )
             })()}
           </div>
+          {sentNote && (
+            <p className="mt-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-center text-[11px] font-medium text-slate-700">
+              {sentNote}
+              {sentWeb && (
+                <>
+                  {' '}
+                  <a href={sentWeb.web} target="_blank" rel="noreferrer" className="font-bold text-brand-700 underline">
+                    Open {sentWeb.label}
+                  </a>
+                </>
+              )}
+            </p>
+          )}
         </div>
 
         <p className="mt-3 border-t border-slate-100 pt-2 text-[11px] leading-snug text-slate-500">

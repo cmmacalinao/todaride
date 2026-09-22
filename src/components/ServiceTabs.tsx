@@ -16,8 +16,23 @@ export function ServiceTabs({ active, tone = 'dark', compact = false }: { active
   // and PaDeliver's Store both browse vendor catalogs (see VendorMenuBooking).
   if (!vendorsEnabled) return null
 
-  const shell = tone === 'dark' ? 'border-white/15 bg-white/5' : 'border-slate-200 bg-slate-100'
-  const idle = tone === 'dark' ? 'text-white/80 hover:bg-white/10' : 'text-slate-700 hover:bg-white'
+  // A white strip on either background (2026-09-21) — the dark header's
+  // see-through version read as part of the header rather than as buttons.
+  const shell = tone === 'dark' ? 'border-white/60 bg-white shadow-sm' : 'border-slate-200 bg-white'
+  const idle = 'text-navy-900 hover:bg-slate-100'
+  // The same pictures as the start page's three tiles (RiderStartPage), so a
+  // tab and the tile it stands for look like the same thing.
+  const icon = (key: 'toda' | 'food' | 'padeliver') => {
+    const box = compact ? 'h-4 w-5' : 'h-5 w-6'
+    if (key === 'toda') return <img src="/tricycle-thumb.png" alt="" aria-hidden className={`${box} shrink-0 object-contain`} />
+    if (key === 'food')
+      return <img src="/food-photos/141-tapsilog.jpg" alt="" aria-hidden className={`${compact ? 'h-4 w-4' : 'h-5 w-5'} shrink-0 rounded object-cover`} />
+    return (
+      <span aria-hidden className={`shrink-0 leading-none ${compact ? 'text-sm' : 'text-base'}`}>
+        📦
+      </span>
+    )
+  }
   const tab = (key: 'toda' | 'food' | 'padeliver', label: string, to: () => void) => {
     const isActive = key === active
     return (
@@ -25,11 +40,12 @@ export function ServiceTabs({ active, tone = 'dark', compact = false }: { active
         type="button"
         onClick={isActive ? undefined : to}
         aria-current={isActive ? 'page' : undefined}
-        className={`flex-1 rounded-full text-center font-black uppercase tracking-wide transition ${compact ? 'py-1 text-[11px]' : 'py-1.5 text-[13px]'} ${
+        className={`flex min-w-0 flex-1 items-center justify-center gap-1 rounded-full text-center font-black uppercase transition ${compact ? 'px-1 py-1 text-[10px] tracking-tight' : 'px-2 py-1.5 text-[13px] tracking-wide'} ${
           isActive ? 'bg-gold-400 text-navy-900 shadow-sm' : idle
         }`}
       >
-        {label}
+        {icon(key)}
+        <span className="truncate">{label}</span>
       </button>
     )
   }

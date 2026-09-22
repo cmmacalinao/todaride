@@ -891,7 +891,7 @@ export function TripMonitor({
           placeholder="Custom"
           // compact-input: 11px on a phone too, the same height as the Add button
           // beside it (see index.css).
-          className="compact-input w-16 rounded-full border border-slate-300 px-2.5 py-1 text-[11px] font-medium leading-normal"
+          className="compact-input w-[4.5rem] rounded-full border border-slate-300 px-2.5 py-1 text-[11px] font-medium leading-normal"
         />
         <button
           type="button"
@@ -909,12 +909,68 @@ export function TripMonitor({
     </div>
   )
 
+  // Cancel request / Cancel trip — drawn under the map, and at the bottom of
+  // the full-screen map too while a ride is still waiting or on its way.
+  // Nobody has taken the ride yet: the waiting strip takes this row's whole
+  // width, and Safety moves down beside Cancel request (2026-09-22) — the
+  // strip is shorter without it squeezed in. Once a driver is found (or the
+  // strip is not shown), Safety is back in its usual place in this row.
+  const waitingForDriver = !driver && !isTerminal && ride.status === 'requested'
+  const cancelControl =
+    showCancel && onCancel && (ride.status === 'requested' || ride.status === 'driver_arriving') ? (
+      <div className="space-y-1">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="w-full rounded-lg border border-amber-300 bg-white py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
+        >
+          {ride.status === 'requested' ? 'Cancel request' : 'Cancel trip'}
+        </button>
+        {ride.status === 'driver_arriving' && (
+          <p className="text-center text-[11px] text-slate-500">
+            {ride.driverName ?? 'Your driver'} is already on the way — cancel only if you really cannot ride.
+          </p>
+        )}
+      </div>
+    ) : null
+  // The shield, same as the footer's Safety tile: this opens the same
+  // screen — call 911, family, the TODA, hotlines.
+  const safetyButton = (
+    <button
+      type="button"
+      onClick={() => {
+        setEmergencyCountdown(false)
+        setEmergencyOpen(true)
+      }}
+      aria-label={sosLabel}
+      title={sosLabel}
+      className={`flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 transition ${
+        openSos
+          ? 'animate-pulse border-danger-700 bg-danger-600 text-white'
+          : 'border-danger-300 bg-danger-50 text-danger-800 hover:bg-danger-100'
+      }`}
+    >
+      <span className="text-base leading-none">🛡️</span>
+      <span className="text-[11px] font-semibold">{openSos ? 'Sent' : sosEnabled ? 'SOS' : 'Safety'}</span>
+    </button>
+  )
+  // Cancel request with Safety to its right while the ride waits; just the
+  // cancel control otherwise. Safety always shows while waiting, even where
+  // this screen offers no cancel (a parent watching).
+  const cancelRow = waitingForDriver ? (
+    <div className="flex items-stretch gap-2">
+      {cancelControl && <div className="min-w-0 flex-1 [&_button]:h-11 [&_button]:py-0">{cancelControl}</div>}
+      <div className={cancelControl ? '' : 'ml-auto'}>{safetyButton}</div>
+    </div>
+  ) : (
+    cancelControl
+  )
   const photoRouteSosRow = (
     <div className="flex items-center gap-2">
       {hasDriver && (
         <PhotoCaptureButton onCapture={(dataUrl) => addSafetyPhoto(ride.id, dataUrl, sosActorId)} />
       )}
-      {!driver && !isTerminal && ride.status === 'requested' ? (
+      {waitingForDriver ? (
         // While nobody has taken the ride yet, this row is the wait itself —
         // beside the Safety button, just under the map — in place of the
         // route length and the note that the map will fill in later, which
@@ -942,25 +998,7 @@ export function TripMonitor({
         )}
       </div>
       )}
-      <button
-        type="button"
-        onClick={() => {
-          setEmergencyCountdown(false)
-          setEmergencyOpen(true)
-        }}
-        aria-label={sosLabel}
-        title={sosLabel}
-        className={`flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 transition ${
-          openSos
-            ? 'animate-pulse border-danger-700 bg-danger-600 text-white'
-            : 'border-danger-300 bg-danger-50 text-danger-800 hover:bg-danger-100'
-        }`}
-      >
-        {/* The shield, same as the footer's Safety tile: this opens the
-            same screen — call 911, family, the TODA, hotlines. */}
-        <span className="text-base leading-none">🛡️</span>
-        <span className="text-[11px] font-semibold">{openSos ? 'Sent' : sosEnabled ? 'SOS' : 'Safety'}</span>
-      </button>
+      {!waitingForDriver && safetyButton}
     </div>
   )
 
@@ -1602,7 +1640,16 @@ export function TripMonitor({
                       )}
                     </div>
                   )
-                : undefined
+                : (fullscreen) =>
+                    // Waiting for a driver, or the driver on the way: the
+                    // waiting strip (tips included), Safety and Cancel come
+                    // along to the bottom of full screen, as on board.
+                    fullscreen ? (
+                      <div className="space-y-1.5">
+                        <div className="rounded-lg bg-white/90 p-1.5 shadow-lg backdrop-blur-sm">{photoRouteSosRow}</div>
+                        {cancelRow}
+                      </div>
+                    ) : null
             }
             // This is the map a passenger or a parent is actually watching
             // for the length of a ride, not one sitting mid-page among other
@@ -1639,22 +1686,7 @@ export function TripMonitor({
           It stops once the trip is underway: cancelling a ride you are
           sitting in is not a cancellation, it is getting out, and the
           drop-off flow handles that with a fare attached. */}
-      {showCancel && onCancel && (ride.status === 'requested' || ride.status === 'driver_arriving') && (
-        <div className="space-y-1">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="w-full rounded-lg border border-amber-300 bg-white py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
-          >
-            {ride.status === 'requested' ? 'Cancel request' : 'Cancel trip'}
-          </button>
-          {ride.status === 'driver_arriving' && (
-            <p className="text-center text-[11px] text-slate-500">
-              {ride.driverName ?? 'Your driver'} is already on the way — cancel only if you really cannot ride.
-            </p>
-          )}
-        </div>
-      )}
+      {cancelRow}
 
       {/* The passenger said they were out, and the trip is still running.
           Confirming arrival stamps a time and an actual drop-off point — it

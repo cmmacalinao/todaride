@@ -1,49 +1,59 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { RealLiveMap, type MapPoint } from './RealLiveMap'
 import { DestinationSearch } from './DestinationSearch'
 import { formatAddressLine } from '../lib/addressFormat'
 import { createCustomLocation, reverseGeocodeToPhAddress, type PhAddressTags } from '../lib/customLocation'
-import { getCurrentGeoPosition } from '../lib/geo'
-import { STREET_PIN_NOTE, streetLinesFor } from '../lib/streetPaths'
-import { useRides } from '../context/RideContext'
 import type { GeoCoords, MockLocation, Pharmacy } from '../types'
 
 // Same fallback the vendor's own location picker and buildMedsDeliveryRide
 // use for a store that has never pinned itself — so the map opens on the
 // same spot the delivery would actually be routed from.
 const DEFAULT_STORE_GPS: GeoCoords = { lat: 15.7940977, lng: 120.9905849 }
+// Book a Ride's destination green — the centre pin, the flag and the strip.
+const DEST_GREEN = '#16a34a'
 
-// The delivery-location half of a Food Express checkout, on the same live map
-// the ride booking uses (see LocationMapPicker/RealLiveMap). Two pins: the
-// vendor's store, fixed, so the customer can see how far the food travels;
-// and "Deliver to", which a tap places and a drag corrects. The GPS button
-// sits beside Legend exactly as it does on the vendor's own pin screen
-// (VendorLocationPicker) — one map, one set of controls, whichever side of
-// the order you are on.
+// The delivery half of a Food Order / PaDeliver Store checkout, set exactly
+// the way Book a Ride sets a destination (2026-09-22):
+//   - a green "Where to?" search in the map's top row, whose no-match line
+//     offers Fill Address Form or Set on Map;
+//   - a green centre pin the map slides under, and "🏁 Set Destination here"
+//     under the map, with the order button straight below it;
+//   - in full screen, Where to (and the address form, when opened) along the
+//     top, Set Destination and the order button along the bottom.
+// No tap-to-place and no My GPS button, the same as Book a Ride now.
 //
-// A pin resolves through reverseGeocodeToPhAddress so the caller gets both a
+// A pin resolves through reverseGeocodeToPhAddress, so the caller gets both a
 // readable label for the vendor/driver and a province/city/barangay guess to
-// seed the dropdown form beneath it — the same contract PassengerPage's
+// seed its address form with — the same contract PassengerPage's
 // onPinDropoff follows.
 export function DeliveryMapPicker({
   vendor,
   deliveryAddress,
   onChange,
   city,
+  onOpenAddressForm,
+  addressForm,
+  action,
 }: {
   vendor: Pharmacy
   deliveryAddress: MockLocation | null
   onChange: (location: MockLocation, guess: PhAddressTags | null) => void
-  // Scopes the Find Barangay box on the map's button row — the same box
-  // Book a Ride has beside Legend, so a customer can jump the pin to their
-  // barangay and then drag it the last few metres. Defaults to the store's
-  // own city: the delivery almost always stays inside it.
+  // Scopes the Where to search. Defaults to the store's own city: a delivery
+  // almost always stays inside it.
   city?: string
+  // Fill Address Form, from Where to's no-match line.
+  onOpenAddressForm?: () => void
+  // The address form while it is open (null otherwise): under Where to in
+  // full screen, above the map in the page.
+  addressForm?: ReactNode
+  // The order button, under Set Destination here — in the page and in full
+  // screen alike.
+  action?: ReactNode
 }) {
   const [status, setStatus] = useState<'idle' | 'locating' | 'error'>('idle')
-  const { landmarks } = useRides()
-  const streetLines = streetLinesFor(deliveryAddress, landmarks)
   const [error, setError] = useState('')
+  const [centerGps, setCenterGps] = useState<GeoCoords | null>(null)
+  const [fullscreen, setFullscreen] = useState(false)
 
   async function placePin(gps: GeoCoords) {
     setStatus('locating')
@@ -59,18 +69,7 @@ export function DeliveryMapPicker({
       setStatus('idle')
     } catch {
       setStatus('error')
-      setError("Couldn't place that pin — try tapping again.")
-    }
-  }
-
-  async function pinMyGps() {
-    setStatus('locating')
-    setError('')
-    try {
-      await placePin(await getCurrentGeoPosition())
-    } catch (err) {
-      setStatus('error')
-      setError(err instanceof Error ? err.message : 'Could not get your location.')
+      setError("Couldn't set that spot — move the map a little and try again.")
     }
   }
 
@@ -79,65 +78,86 @@ export function DeliveryMapPicker({
   const points: MapPoint[] = [
     { id: 'store', gps: storeGps, color: '#ea580c', label: vendor.name, icon: storeIcon },
     ...(deliveryAddress?.gps
-      ? [{ id: 'dropoff', gps: deliveryAddress.gps, color: '#e11d48', label: `Deliver to — ${formatAddressLine(deliveryAddress.label)}` }]
+      ? [{ id: 'dropoff', gps: deliveryAddress.gps, color: DEST_GREEN, icon: 'dropoff' as const, label: formatAddressLine(deliveryAddress.label) }]
       : []),
   ]
 
+  // Book a Ride's Where to strip: faded green, a dot, the search inline.
+  const whereTo = (
+    <div className="relative flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-green-500/40 bg-green-500/15 px-3 py-1.5 shadow-sm">
+      <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-dest-dot" />
+      {deliveryAddress && (
+        <span className="sr-only">Delivering to {formatAddressLine(deliveryAddress.label)}</span>
+      )}
+      <DestinationSearch
+        city={city || vendor.city}
+        near={deliveryAddress?.gps ?? storeGps}
+        // A landmark is a named point already — no reverse-geocode round trip.
+        onSelect={(place) => onChange(createCustomLocation(place.name, place.gps), null)}
+        onOpenAddressForm={onOpenAddressForm}
+        // The centre pin is already the way to set it on the map.
+        onPinOnMap={() => undefined}
+        placeholder={deliveryAddress ? `Where to: ${formatAddressLine(deliveryAddress.label)}` : 'Where to?'}
+        className="min-w-0 flex-1"
+        resultsClassName="absolute inset-x-0 top-full z-[80] mt-1 max-h-72 overflow-y-auto"
+        inputClassName={`map-toolbar-input w-full min-w-0 bg-transparent text-sm font-semibold text-green-900 focus:outline-none ${
+          deliveryAddress ? 'placeholder:font-semibold placeholder:text-green-900' : 'placeholder:font-normal placeholder:text-green-800/70'
+        }`}
+      />
+    </div>
+  )
+
+  const setDestination = (
+    <button
+      type="button"
+      disabled={!centerGps || status === 'locating'}
+      onClick={() => centerGps && void placePin(centerGps)}
+      className="mt-1.5 w-full rounded-lg border border-green-500/40 bg-green-500/15 py-1.5 text-xs font-bold text-green-900 transition hover:bg-green-500/25 disabled:opacity-60"
+    >
+      {status === 'locating' ? '📍 Locating that spot…' : '🏁 Set Destination here'}
+    </button>
+  )
+
   return (
     <div className="space-y-1">
-      <div className="rounded-lg bg-slate-50 px-2 py-1 text-[11px] leading-tight">
-        <p className="truncate text-[#ea580c]">🍽️ {vendor.name}</p>
-        <p className={`truncate ${deliveryAddress ? 'font-semibold text-dest-accent' : 'text-slate-400'}`}>
-          🏁 {deliveryAddress ? formatAddressLine(deliveryAddress.label) : 'Deliver to — tap the map to pin it'}
-        </p>
-      </div>
-      {streetLines && (
-        <p className="rounded-md border border-green-300 bg-green-50 px-2 py-1 text-[11px] font-medium text-green-800">
-          🛣️ {STREET_PIN_NOTE}
-        </p>
-      )}
+      {!fullscreen && addressForm}
       <RealLiveMap
         points={points}
-        streetLines={streetLines ?? undefined}
-        frameLines={streetLines ?? undefined}
-        onMapClick={(gps) => void placePin(gps)}
-        draggableIds={deliveryAddress?.gps ? ['dropoff'] : []}
-        onPointDragEnd={(_, gps) => void placePin(gps)}
-        // Re-frame on every new pin so a fix that lands off-screen (the GPS
-        // button, a barangay picked in the form below) is brought into view.
+        hideLegend
+        centerPin
+        centerPinColor={DEST_GREEN}
+        onCenterChange={setCenterGps}
+        // Frame the store and the delivery point once; after that the
+        // customer moves the map, not the map the customer.
+        fitOnce
         refitSignal={deliveryAddress?.id ?? 'none'}
-        height="260px"
-        toolbarAction={
-          <>
-            <DestinationSearch
-              city={city || vendor.city}
-              near={deliveryAddress?.gps ?? storeGps}
-              // A barangay is a named point already — no reverse-geocode
-              // round trip; the pin lands on it and the customer drags it
-              // to the exact gate.
-              onSelect={(place) => onChange(createCustomLocation(place.name, place.gps), null)}
-              barangayOnly
-              noMatchNote="Search for barangay and move the pin (dot) to the desired location."
-              placeholder="🔍 Find Barangay"
-              className="relative z-[80] w-36 sm:w-44"
-              resultsClassName="absolute left-0 top-full mt-1 w-72 max-h-64 overflow-y-auto"
-              inputClassName="map-toolbar-input w-full rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-600 placeholder:font-normal"
-            />
-            <button
-              type="button"
-              onClick={() => void pinMyGps()}
-              disabled={status === 'locating'}
-              className="whitespace-nowrap rounded-md border border-brand-300 bg-brand-50 px-2 py-1 text-[11px] font-semibold text-brand-700 transition hover:bg-brand-100 disabled:opacity-60"
-            >
-              {status === 'locating' ? '📍 Locating…' : '📍 My GPS'}
-            </button>
-          </>
+        height="320px"
+        onFullscreenChange={setFullscreen}
+        // One Where to at a time: in the toolbar row normally, along the top
+        // in full screen (with the address form under it when open).
+        overlayTop={fullscreen ? undefined : whereTo}
+        overlayTopInline
+        fullscreenTop={
+          <div>
+            <div className="relative flex items-stretch gap-1">{whereTo}</div>
+            {addressForm && <div className="mt-1 rounded-lg bg-white/95 p-2 shadow-sm">{addressForm}</div>}
+          </div>
+        }
+        overlayBottom={(isFullscreen) =>
+          isFullscreen ? (
+            <div className="rounded-xl bg-white/95 p-1.5 pt-0 shadow-lg">
+              {setDestination}
+              {action && <div className="mt-1.5">{action}</div>}
+            </div>
+          ) : null
         }
       />
-      <p className="text-center text-[11px] text-slate-500">
-        Tap the map or drag the <span className="font-semibold text-dest-accent">🏁 pin</span> to where the food should be delivered.
-      </p>
-      {status === 'locating' && <p className="text-[11px] text-slate-400">📍 Locating that spot…</p>}
+      {!fullscreen && (
+        <>
+          {setDestination}
+          {action && <div className="mt-1.5">{action}</div>}
+        </>
+      )}
       {status === 'error' && <p className="text-[11px] text-amber-700">{error}</p>}
     </div>
   )

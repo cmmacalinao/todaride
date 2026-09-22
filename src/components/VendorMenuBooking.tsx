@@ -6,7 +6,6 @@ import { createCustomLocation, resolvePhAddress, reverseGeocodeToPhAddress, type
 import { getCurrentGeoPosition } from '../lib/geo'
 import { BarangayAddressPicker } from './BarangayAddressPicker'
 import { DeliveryMapPicker } from './DeliveryMapPicker'
-import { SAVED_LOCATION_LABELS, savedLocationButtonLabel } from '../lib/savedLocations'
 import { StoreRatingSheet } from './StoreRatingSheet'
 import { OrderStatusStrip, orderStageDetail } from './OrderStatusStrip'
 import { OrderChat } from './OrderChat'
@@ -134,7 +133,6 @@ export const VendorMenuBooking = forwardRef<
     cancelMedsOrder,
     ratePharmacy,
     quoteVendorDeliveryFare,
-    savePassengerLocation,
   } = useRides()
   const businessTypes = catalogTypes ?? VENDOR_BUSINESS_TYPES
   // Whether this screen is PaDeliver's goods marketplace rather than Food
@@ -165,7 +163,6 @@ export const VendorMenuBooking = forwardRef<
   const [addressFormOpen, setAddressFormOpen] = useState(false)
   // The delivery map is always on screen here (no form/map toggle), so a
   // no-match "Set on Map" just brings it into view rather than arming it.
-  const deliveryMapRef = useRef<HTMLDivElement>(null)
   // What the Province/City/Barangay dropdowns under the map are seeded with.
   // A map pin (or GPS fix) reverse-geocodes to a guess at those three, and
   // the picker is remounted (via `key`) to show it — otherwise the form would
@@ -344,21 +341,11 @@ export const VendorMenuBooking = forwardRef<
     }
   }
 
-  // A saved Home/School/Work/Favorite already carries a full address, not
-  // just a point — reseed the barangay form to match it instead of leaving
-  // the two disagreeing, the same as picking one on Book a Ride does.
-  function handleQuickPick(location: MockLocation) {
-    addressTouchedRef.current = true
-    setDeliveryAddress(location)
-    setDeliveryPinned(false)
-    setAddressSeed({ province: location.province, city: location.city, barangay: location.barangay, addressDetail: '' })
-    setAddressSeedKey((k) => k + 1)
-  }
-
   const passenger = passengers.find((p) => p.id === customerId)
-  const savedLocations = passenger?.savedLocations ?? []
 
-  const canPlaceOrder = cartLines.length > 0 && !!deliveryAddress && !!contactPhone.trim() && !!selectedVendor
+  // No Contact number box any more (2026-09-22): the customer's own saved
+  // number goes with the order, so only the cart and the address are needed.
+  const canPlaceOrder = cartLines.length > 0 && !!deliveryAddress && !!selectedVendor
 
   function handlePlaceOrder() {
     if (!canPlaceOrder || !deliveryAddress || !selectedVendor) return
@@ -382,7 +369,7 @@ export const VendorMenuBooking = forwardRef<
       // The vendor books the rider once the order is approved — see
       // PHARMACY_PROCESS_MEDS_ORDER — not a "book your own ride" order.
       deliveryMode: 'pharmacy_books',
-      contactPhone: contactPhone.trim(),
+      contactPhone: contactPhone.trim() || passenger?.phone || '',
       pricedFromMenu: true,
     })
     setCart({})
@@ -597,11 +584,76 @@ export const VendorMenuBooking = forwardRef<
             >
               ‹ Menu
             </button>
-            <p className="min-w-0 truncate text-sm font-semibold text-slate-800">
+            <p className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-800">
               Checkout <span className="font-normal text-slate-500">· {selectedVendor.name}</span>
             </p>
+            {/* Reach the store before ordering — a text or a call, straight to
+                the number the store registered. */}
+            {selectedVendor.contactPhone && (
+              <div className="flex shrink-0 items-center gap-1.5">
+                <a
+                  href={`sms:${selectedVendor.contactPhone}`}
+                  aria-label={`Message ${selectedVendor.name}`}
+                  title={`Message ${selectedVendor.name}`}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-brand-300 bg-brand-50 text-base hover:bg-brand-100"
+                >
+                  💬
+                </a>
+                <a
+                  href={`tel:${selectedVendor.contactPhone}`}
+                  aria-label={`Call ${selectedVendor.name}`}
+                  title={`Call ${selectedVendor.name}`}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-green-400 bg-green-50 text-base hover:bg-green-100"
+                >
+                  📞
+                </a>
+              </div>
+            )}
           </div>
 
+
+
+          {/* Where it goes, set the way Book a Ride sets a destination — Where
+              to on the map, the centre pin and Set Destination here, the order
+              button straight under it (see DeliveryMapPicker). The saved-place
+              chips and the Address form chip are gone (2026-09-22): Fill
+              Address Form, under a Where to search with no match, opens the
+              form now. */}
+          <DeliveryMapPicker
+            vendor={selectedVendor}
+            deliveryAddress={deliveryAddress}
+            onChange={handleMapPin}
+            city={addressSeed.city || defaultCity}
+            onOpenAddressForm={() => setAddressFormOpen(true)}
+            addressForm={
+              addressFormOpen ? (
+                <BarangayAddressPicker
+                  key={addressSeedKey}
+                  label="Delivery address"
+                  defaultProvince={addressSeed.province}
+                  defaultCity={addressSeed.city}
+                  defaultBarangay={addressSeed.barangay}
+                  defaultAddressDetail={addressSeed.addressDetail}
+                  pinned={deliveryPinned}
+                  onResolve={handleAddressResolve}
+                  onConfirm={() => setAddressFormOpen(false)}
+                />
+              ) : null
+            }
+            action={
+              <button
+                type="button"
+                onClick={handlePlaceOrder}
+                disabled={!canPlaceOrder}
+                className="w-full rounded-lg bg-[#ffe066] px-2.5 py-1.5 text-xs font-bold text-navy-900 transition hover:bg-[#ffd633] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+              >
+                Send order — about ₱{total}
+              </button>
+            }
+          />
+
+          {/* What is being ordered and what it comes to, under the map and the
+              order button (2026-09-22) — the map and Send order come first. */}
           <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs">
             {cartLines.map((l) => (
               <div key={l.product.id} className="flex items-center justify-between">
@@ -625,96 +677,11 @@ export const VendorMenuBooking = forwardRef<
             </div>
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Contact number</label>
-            <input
-              type="tel"
-              value={contactPhone}
-              onChange={(e) => setContactPhone(e.target.value)}
-              placeholder="09XX-XXX-XXXX"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            {/* The "Deliver to" landmark search box that sat here is gone
-                (2026-09-22): the delivery point is set with the saved-place
-                chips, the address form, or the map below. */}
-            <div className="-mx-1 flex flex-nowrap items-center gap-1 overflow-x-auto px-1 pb-0.5">
-              {SAVED_LOCATION_LABELS.filter((label) => label !== 'Favorite').map((label) => {
-                const saved = savedLocations.find((sl) => sl.label === label)
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    title={saved ? `Deliver to: ${saved.location.label}` : `Save this as ${label}`}
-                    onClick={() => (saved ? handleQuickPick(saved.location) : deliveryAddress && savePassengerLocation(customerId, label, deliveryAddress))}
-                    className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
-                      saved
-                        ? 'border-[#0f766e] bg-white text-[#0f766e] hover:bg-[#0f766e]/10'
-                        : 'border-slate-300 bg-white text-slate-500 hover:bg-slate-50'
-                    }`}
-                  >
-                    {saved ? savedLocationButtonLabel(label) : `+ ${savedLocationButtonLabel(label)}`}
-                  </button>
-                )
-              })}
-              {/* The barangay dropdown + detailed-address field below only
-                  show once this is tapped — see addressFormOpen. */}
-              <button
-                type="button"
-                onClick={() => setAddressFormOpen((v) => !v)}
-                aria-expanded={addressFormOpen}
-                title="Type a barangay and address instead"
-                className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
-                  addressFormOpen
-                    ? 'border-brand-600 bg-brand-600 text-white'
-                    : 'border-slate-300 bg-white text-slate-500 hover:bg-slate-50'
-                }`}
-              >
-                📝 Address form
-              </button>
-            </div>
-            {selectedVendor && (
-              <div ref={deliveryMapRef} className="mt-2 overflow-hidden rounded-lg border border-slate-200">
-                <DeliveryMapPicker
-                  vendor={selectedVendor}
-                  deliveryAddress={deliveryAddress}
-                  onChange={handleMapPin}
-                  city={addressSeed.city || defaultCity}
-                />
-              </div>
-            )}
-            {addressFormOpen && (
-              <div className="mt-2">
-                <BarangayAddressPicker
-                  key={addressSeedKey}
-                  label="Delivery address"
-                  defaultProvince={addressSeed.province}
-                  defaultCity={addressSeed.city}
-                  defaultBarangay={addressSeed.barangay}
-                  defaultAddressDetail={addressSeed.addressDetail}
-                  pinned={deliveryPinned}
-                  onResolve={handleAddressResolve}
-                />
-              </div>
-            )}
-          </div>
-
           <p className="rounded-lg bg-slate-50 p-2.5 text-[11px] text-slate-500">
             Nothing is charged yet. {selectedVendor.name} will confirm the rider fee and send you the final quotation —
             you approve it and choose <span className="font-semibold">cash on delivery</span> or{' '}
             <span className="font-semibold">pay online</span> before they start preparing.
           </p>
-
-          <button
-            type="button"
-            onClick={handlePlaceOrder}
-            disabled={!canPlaceOrder}
-            className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-          >
-            Send order — about ₱{total}
-          </button>
         </div>
       )}
 

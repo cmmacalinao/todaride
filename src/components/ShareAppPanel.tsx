@@ -23,8 +23,24 @@ export const APP_URL = PILOT_ORIGIN
 // deploys ago.
 export const SHARE_URL = `${APP_URL}/?fresh=1`
 
-export function ShareAppPanel({ onClose }: { onClose: () => void }) {
-  const url = SHARE_URL
+// A family member's personal invite (2026-09-22): the app's sign-up with
+// their invite code, so the account they make is linked to that family.
+export function familyInviteUrl(code: string): string {
+  return `${APP_URL}/book?role=passenger&auth=signup&family=${encodeURIComponent(code)}&fresh=1`
+}
+
+export function ShareAppPanel({
+  onClose,
+  url = SHARE_URL,
+  title = 'Get TODA Ride Mobility',
+  subtitle = 'Point a phone camera at the code. It clears out any old copy and opens the app.',
+}: {
+  onClose: () => void
+  // A personal link instead of the plain install link (see familyInviteUrl).
+  url?: string
+  title?: string
+  subtitle?: string
+}) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const canShare = typeof navigator !== 'undefined' && !!navigator.share
 
@@ -89,10 +105,8 @@ export function ShareAppPanel({ onClose }: { onClose: () => void }) {
       <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h2 className="text-base font-bold text-navy-900">Get TODA Ride Mobility</h2>
-            <p className="mt-0.5 text-xs text-slate-500">
-              Point a phone camera at the code. It clears out any old copy and opens the app.
-            </p>
+            <h2 className="text-base font-bold text-navy-900">{title}</h2>
+            <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>
           </div>
           <button
             type="button"
@@ -168,7 +182,7 @@ export function ShareAppPanel({ onClose }: { onClose: () => void }) {
           <p className="mb-1.5 text-[11px] font-semibold text-slate-500">Send the link</p>
           <div className="grid grid-cols-5 gap-1.5">
             {(() => {
-              const message = `Get TODA Ride Mobility: ${url}`
+              const message = `${title}: ${url}`
               const enc = encodeURIComponent
               const apps = [
                 { key: 'messenger', label: 'Messenger', icon: '💬', href: `fb-messenger://share?link=${enc(url)}`, tint: 'bg-[#0084ff]' },

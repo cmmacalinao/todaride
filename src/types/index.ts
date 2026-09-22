@@ -903,6 +903,14 @@ export interface FamilyMember {
   id: string
   name: string
   phone: string
+  // Their personal invite: the code in the QR/link sent to them. Signing up
+  // with it links their new account to this family (and lets a minor sign up
+  // at all — they cannot on their own).
+  inviteCode?: string
+  // Their own account, once they have signed up with the invite.
+  passengerId?: string | null
+  // Who pays their rides: the family owner (in the app) or themselves.
+  ownerPays?: boolean
 }
 
 export interface Passenger {
@@ -910,6 +918,9 @@ export interface Passenger {
   name: string
   // Saved from the Family tab. Optional so existing passengers parse.
   familyMembers?: FamilyMember[]
+  // Set when this account was created from a family invite: whose family it
+  // belongs to. Their trips show on that owner's Family trips.
+  familyOwnerId?: string | null
   age: number
   isStudent: boolean
   // PWD/Senior citizen discount — mutually exclusive with isStudent in
@@ -1471,6 +1482,9 @@ export interface Ride {
   // Book a Ride's Family tab (2026-09-22): who booked it, so they can follow
   // the trip from their own booking page. Optional so older rides parse.
   familyBookerId?: string | null
+  // Set when the family owner pays this ride (their member's "I pay" choice):
+  // the owner settles it in the app, the rider is not asked for the fare.
+  familyPayerId?: string | null
   // Links every ride created from one Group Ride booking together — each
   // rider going to their own destination gets their own Ride record (same
   // as an ordinary shared ride), but these were all requested at once by

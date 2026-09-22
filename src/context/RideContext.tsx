@@ -1171,6 +1171,10 @@ type RideAction =
       // just flagged for the student fare (see calculateFare). Distinct from
       // a child registered by a Parent, who gets no login of their own.
       isStudent: boolean
+      // Signing up from a family invite: whose family, and which invite. A
+      // minor can only sign up this way (2026-09-22).
+      familyOwnerId?: string | null
+      familyInviteCode?: string | null
     }
   | {
       type: 'REGISTER_GUARDIAN_FOR_STUDENT'
@@ -2718,6 +2722,18 @@ function reducer(state: RideState, action: RideAction): RideState {
         paymentProofDataUrl: action.paymentProofDataUrl,
         bookedByParentId: action.bookedByParentId,
         familyBookerId: action.familyBookerId ?? null,
+        // The family owner pays when that member is set to 'I pay' — whether the
+        // owner booked it for them (familyBookerId) or they booked it themselves
+        // on the account their invite created (familyOwnerId).
+        familyPayerId: (() => {
+          const rider = state.passengers.find((p) => p.id === action.passengerId)
+          const ownerId = action.familyBookerId ?? rider?.familyOwnerId ?? null
+          const owner = ownerId ? state.passengers.find((p) => p.id === ownerId) : undefined
+          const member = owner?.familyMembers?.find(
+            (m) => (rider && m.passengerId === rider.id) || (!!action.familyBookerId && m.name === action.passengerName),
+          )
+          return member?.ownerPays && owner ? owner.id : null
+        })(),
         specialPickupRequested: action.specialPickupRequested,
         specialTrip: action.specialTrip,
         bookedAtTerminal: action.bookedAtTerminal,
@@ -5522,7 +5538,7 @@ function reducer(state: RideState, action: RideAction): RideState {
         driverInvites: state.driverInvites.filter((inv) => inv.id !== action.inviteId || inv.usedByDriverId !== null),
       }
     case 'REGISTER_PASSENGER': {
-      if (action.age < MINOR_AGE_LIMIT) return state
+      if (action.age < MINOR_AGE_LIMIT && !action.familyOwnerId) return state
       const passenger: Passenger = {
         id: action.id,
         name: action.name,
@@ -5541,8 +5557,27 @@ function reducer(state: RideState, action: RideAction): RideState {
         guardianRelationship: action.guardianRelationship,
         favoriteDriverId: null,
         savedLocations: [],
+        familyOwnerId: action.familyOwnerId ?? null,
       }
-      return { ...state, passengers: [...state.passengers, passenger] }
+      // Joined from a family invite: the owner's member entry now points at
+      // this account, so the owner sees their trips.
+      const joined = action.familyOwnerId && action.familyInviteCode
+      return {
+        ...state,
+        passengers: [
+          ...state.passengers.map((p) =>
+            joined && p.id === action.familyOwnerId
+              ? {
+                  ...p,
+                  familyMembers: (p.familyMembers ?? []).map((m) =>
+                    m.inviteCode === action.familyInviteCode ? { ...m, passengerId: action.id } : m,
+                  ),
+                }
+              : p,
+          ),
+          passenger,
+        ],
+      }
     }
     // A student signing up for themselves named their parent/guardian. That
     // guardian becomes a real Parent record linked to the student, so they
@@ -7247,6 +7282,8 @@ interface RideContextValue extends RideState {
     guardianName: string | null
     guardianRelationship: string | null
     isStudent: boolean
+    // The code from a family invite link, if the sign-up came from one.
+    familyInviteCode?: string | null
   }) => string | null
   registerGuardianForStudent: (args: {
     studentPassengerId: string
@@ -8298,9 +8335,13 @@ export function RideProvider({ children }: { children: ReactNode }) {
     removeDriverInvite: (inviteId) => dispatch({ type: 'REMOVE_DRIVER_INVITE', inviteId }),
     addVendorSampleOrder: (pharmacyId) => dispatch({ type: 'ADD_VENDOR_SAMPLE_ORDER', pharmacyId }),
     registerPassenger: (args) => {
-      if (args.age < MINOR_AGE_LIMIT) return null
+      // A family invite makes the sign-up part of that family — and is the
+      // only way someone under ${MINOR_AGE_LIMIT} can have an account.
+      const code = args.familyInviteCode?.trim().toUpperCase() || null
+      const owner = code ? state.passengers.find((p) => (p.familyMembers ?? []).some((m) => m.inviteCode === code)) : undefined
+      if (args.age < MINOR_AGE_LIMIT && !owner) return null
       const id = `pax-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-      dispatch({ type: 'REGISTER_PASSENGER', id, ...args })
+      dispatch({ type: 'REGISTER_PASSENGER', id, ...args, familyOwnerId: owner?.id ?? null, familyInviteCode: owner ? code : null })
       return id
     },
     registerGuardianForStudent: (args) => {

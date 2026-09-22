@@ -1,5 +1,5 @@
 import { formatAddressLine } from '../lib/addressFormat'
-import { ShareAppPanel } from '../components/ShareAppPanel'
+import { ShareAppPanel, familyInviteUrl } from '../components/ShareAppPanel'
 import { streetLinesFor } from '../lib/streetPaths'
 import { formatTripRoute } from '../lib/addressFormat'
 import { isVendorDeliveryRide, rideServiceTag } from '../lib/vendorOrders'
@@ -1074,7 +1074,9 @@ export function PassengerPage() {
   // owe, and the figure would be wrong anyway: these trips often end with no
   // destination ever given, so the fare falls back to the base minimum.
   const unpaidRide = myRides.find(
-    (r) => r.status === 'completed' && !r.paymentAcknowledged && !r.safetyRecord,
+    // A ride the family owner pays (familyPayerId) is theirs to settle, not
+    // the rider's — see FamilyTrips.
+    (r) => r.status === 'completed' && !r.paymentAcknowledged && !r.safetyRecord && (!r.familyPayerId || r.familyPayerId === passenger.id),
   )
   const [showPayment, setShowPayment] = useState(false)
   // Coming back from Maya.
@@ -3414,6 +3416,14 @@ function ActiveRideCard({
 // The Family page's saved members (2026-09-22): tap a name to book for them,
 // ✕ to remove one, and "+ Add family member" to save a new one (name and a
 // PH mobile) without booking yet.
+// Six letters/digits, none that read alike (0/O, 1/I/L).
+function newInviteCode(): string {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+  let code = ''
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)]
+  return code
+}
+
 function FamilyMembersBar({
   passengerId,
   members,
@@ -3432,6 +3442,9 @@ function FamilyMembersBar({
   // The app's install QR, for a family member to scan and get it on their own
   // phone (the same sheet as the menu's Share the app).
   const [showQr, setShowQr] = useState(false)
+  // Which member's personal invite the QR sheet is showing (null = the plain
+  // install link).
+  const [inviteFor, setInviteFor] = useState<FamilyMember | null>(null)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const digits = (s: string) => s.replace(/\D/g, '')
@@ -3439,18 +3452,26 @@ function FamilyMembersBar({
   const canSave = name.trim().length > 0 && /^09\d{9}$/.test(localPhone)
   function save() {
     if (!canSave) return
-    const member = { id: `fam-${Date.now()}`, name: name.trim(), phone: localPhone }
+    const member = { id: `fam-${Date.now()}`, name: name.trim(), phone: localPhone, inviteCode: newInviteCode(), ownerPays: false }
     saveFamilyMember(passengerId, member)
     onPick(member)
     setName('')
     setPhone('')
     setAdding(false)
   }
+  // Members saved before invites existed get their code the first time it is needed.
+  function withCode(m: FamilyMember): FamilyMember {
+    if (m.inviteCode) return m
+    const next = { ...m, inviteCode: newInviteCode() }
+    saveFamilyMember(passengerId, next)
+    return next
+  }
+  const selected = members.find((m) => selectedName.trim() === m.name && digits(selectedPhone) === digits(m.phone))
   return (
     <div className="space-y-1.5">
       <div className="-mx-0.5 flex flex-wrap gap-1 px-0.5">
         {members.map((m) => {
-          const on = selectedName.trim() === m.name && digits(selectedPhone) === digits(m.phone)
+          const on = selected?.id === m.id
           return (
             <span
               key={m.id}
@@ -3459,6 +3480,7 @@ function FamilyMembersBar({
               }`}
             >
               <button type="button" onClick={() => onPick(m)} className="py-1 pl-2.5 pr-1.5">
+                {m.passengerId ? '✓ ' : ''}
                 {m.name}
               </button>
               <button
@@ -3484,14 +3506,63 @@ function FamilyMembersBar({
         )}
         <button
           type="button"
-          onClick={() => setShowQr(true)}
+          onClick={() => {
+            setInviteFor(null)
+            setShowQr(true)
+          }}
           title="Show the QR code so a family member can install the app"
           className="shrink-0 rounded-full border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-900 hover:bg-amber-100"
         >
           📲 QR
         </button>
       </div>
-      {showQr && <ShareAppPanel onClose={() => setShowQr(false)} />}
+      {/* The picked member: their personal invite, who pays their rides, and
+          whether they have joined with their own phone yet. */}
+      {selected && (
+        <div className="space-y-1.5 rounded-lg border border-amber-200 bg-white p-1.5 text-[11px]">
+          <div className="flex items-center gap-1.5">
+            <span className="min-w-0 flex-1 truncate font-semibold text-slate-700">
+              {selected.name} · {selected.passengerId ? '✓ has the app, linked' : 'not on the app yet'}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setInviteFor(withCode(selected))
+                setShowQr(true)
+              }}
+              className="shrink-0 rounded-full bg-brand-600 px-2.5 py-1 font-semibold text-white hover:bg-brand-700"
+            >
+              📲 Invite {selected.name.split(' ')[0]}
+            </button>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500">Rides paid by</span>
+            {([false, true] as const).map((mine) => (
+              <button
+                key={String(mine)}
+                type="button"
+                onClick={() => saveFamilyMember(passengerId, { ...selected, ownerPays: mine })}
+                className={`rounded-full border px-2.5 py-0.5 font-semibold ${
+                  !!selected.ownerPays === mine ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-white text-slate-600'
+                }`}
+              >
+                {mine ? 'Me' : selected.name.split(' ')[0]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {showQr &&
+        (inviteFor?.inviteCode ? (
+          <ShareAppPanel
+            onClose={() => setShowQr(false)}
+            url={familyInviteUrl(inviteFor.inviteCode)}
+            title={`Invite ${inviteFor.name} to the Family`}
+            subtitle={`${inviteFor.name} scans this (or opens the link) to install the app and sign up — their account is linked to your family. Code ${inviteFor.inviteCode}.`}
+          />
+        ) : (
+          <ShareAppPanel onClose={() => setShowQr(false)} />
+        ))}
       {adding && (
         <div className="space-y-1.5 rounded-lg border border-amber-200 bg-white p-1.5">
           <div className="grid grid-cols-2 gap-1.5">
@@ -3540,14 +3611,21 @@ function FamilyMembersBar({
 // while they are under way — one row each, and the live trip map on tap,
 // the same watching view a parent gets for a child (TripMonitor watching).
 function FamilyTrips({ bookerId }: { bookerId: string }) {
-  const { rides } = useRides()
+  const { rides, passengers, acknowledgeRidePayment } = useRides()
   const [openId, setOpenId] = useState<string | null>(null)
-  const live = rides.filter(
-    (r) =>
-      r.familyBookerId === bookerId &&
-      (r.status === 'requested' || r.status === 'driver_arriving' || r.status === 'ongoing'),
+  const [payingId, setPayingId] = useState<string | null>(null)
+  // Family members who joined with their own phone (their invite linked them).
+  const linkedIds = new Set(
+    (passengers.find((p) => p.id === bookerId)?.familyMembers ?? []).map((m) => m.passengerId).filter(Boolean) as string[],
   )
-  if (live.length === 0) return null
+  const isFamilyRide = (r: Ride) => r.familyBookerId === bookerId || linkedIds.has(r.passengerId)
+  const live = rides.filter(
+    (r) => isFamilyRide(r) && (r.status === 'requested' || r.status === 'driver_arriving' || r.status === 'ongoing'),
+  )
+  // Rides this owner pays for ("Rides paid by: Me"), finished and not yet settled.
+  const toPay = rides.filter((r) => r.familyPayerId === bookerId && r.status === 'completed' && !r.paymentAcknowledged)
+  const paying = toPay.find((r) => r.id === payingId)
+  if (live.length === 0 && toPay.length === 0) return null
   const statusLabel = (r: Ride) =>
     r.status === 'requested' ? 'Finding a driver' : r.status === 'driver_arriving' ? `${r.driverName ?? 'Driver'} is on the way` : 'On the way to the destination'
   return (
@@ -3556,6 +3634,41 @@ function FamilyTrips({ bookerId }: { bookerId: string }) {
         👨‍👩‍👧 Family trips
         <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">Free · intro promo</span>
       </p>
+      {toPay.map((r) => {
+        const total = r.fareEstimate + r.pabiliTip + (r.tipOffer || 0)
+        return (
+          <div key={r.id} className="flex items-center gap-2 rounded-lg border border-amber-300 bg-white px-2.5 py-2">
+            <span className="min-w-0 flex-1 text-[11px] text-slate-600">
+              <span className="block truncate text-sm font-semibold text-slate-800">{r.passengerName}'s trip is done</span>
+              to {formatAddressLine(r.dropoff.label)} · you pay
+            </span>
+            <button
+              type="button"
+              onClick={() => setPayingId(r.id)}
+              className="shrink-0 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-700"
+            >
+              Pay ₱{total}
+            </button>
+          </div>
+        )
+      })}
+      {paying && (
+        <RidePaymentForm
+          open
+          rideId={paying.id}
+          onClose={() => setPayingId(null)}
+          driverName={paying.driverName ?? 'the driver'}
+          fare={paying.fareEstimate}
+          tip={paying.pabiliTip + (paying.tipOffer || 0)}
+          total={paying.fareEstimate + paying.pabiliTip + (paying.tipOffer || 0)}
+          initialMethod={paying.paymentMethod}
+          kind="ride"
+          onConfirm={(method, referenceNo) => {
+            acknowledgeRidePayment(paying.id, method, referenceNo)
+            setPayingId(null)
+          }}
+        />
+      )}
       {live.map((r) => (
         <div key={r.id} className="rounded-lg border border-amber-200 bg-white">
           <button

@@ -2714,7 +2714,10 @@ function ActiveTripCard({
             {/* The label says what the tap does: for a cash booking it ends
                 the trip with the cash counted as received; for an e-wallet
                 booking it opens the one question that is left. */}
-            {ride.passengerArrivedAt
+            {/* A family owner paying in the app (2026-09-22): nothing to collect. */}
+            {ride.familyPayerId && (ride.passengerArrivedAt || atDropoff || passengerLeft)
+              ? `Complete trip — ₱${amountDue} paid by family in the app`
+              : ride.passengerArrivedAt
               ? bookedEWallet
                 ? `Passenger got off — take ₱${amountDue} payment`
                 : `Passenger got off — ₱${amountDue} cash received, complete trip`

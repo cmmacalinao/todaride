@@ -42,7 +42,25 @@ export function PassengerRegisterForm({
   onRegistered: (passengerId: string) => void
   asStudent?: boolean
 }) {
-  const { registerPassenger, registerGuardianForStudent, registerParentWithChild } = useRides()
+  const { registerPassenger, registerGuardianForStudent, registerParentWithChild, passengers } = useRides()
+  // A family invite (?family=CODE, from a member's personal QR/link — see the
+  // Family page, 2026-09-22). Kept on this phone as well (main.tsx saves it
+  // the moment the app opens), so it survives a redirect, the OTP step and a
+  // reload. A valid one links the new account to
+  // that family, and is the only way someone under the age limit can sign up.
+  const [inviteCode] = useState(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get('family')?.trim().toUpperCase() || ''
+    try {
+      if (fromUrl) localStorage.setItem('toda-family-invite', fromUrl)
+      return fromUrl || localStorage.getItem('toda-family-invite') || ''
+    } catch {
+      return fromUrl
+    }
+  })
+  const inviteOwner = inviteCode
+    ? passengers.find((p) => (p.familyMembers ?? []).some((m) => m.inviteCode === inviteCode))
+    : undefined
+  const inviteMember = inviteOwner?.familyMembers?.find((m) => m.inviteCode === inviteCode)
   const [step, setStep] = useState<'otp' | 'profile'>('otp')
   const [isStudent, setIsStudent] = useState(asStudent)
   const [name, setName] = useState('')
@@ -108,9 +126,9 @@ export function PassengerRegisterForm({
       setError('Enter your age.')
       return
     }
-    if (ageNum < MINOR_AGE_LIMIT) {
+    if (ageNum < MINOR_AGE_LIMIT && !inviteOwner) {
       setError(
-        `Passengers under ${MINOR_AGE_LIMIT} can't hold an account of their own — whoever books for them should register, then add them under "May isasama ka bang bata?".`,
+        `Passengers under ${MINOR_AGE_LIMIT} can't sign up alone. Ask your parent or a family member to send you your personal Family invite — open the link from it to sign up.`,
       )
       return
     }
@@ -165,10 +183,17 @@ export function PassengerRegisterForm({
       guardianName: primaryGuardian?.name.trim() || null,
       guardianRelationship: primaryGuardian?.relationship.trim() || null,
       isStudent,
+      familyInviteCode: inviteOwner ? inviteCode : null,
     })
     if (!id) {
       setError('Registration failed. Please try again.')
       return
+    }
+    // Used: the next account made on this phone is not part of that family.
+    try {
+      localStorage.removeItem('toda-family-invite')
+    } catch {
+      /* storage refused — nothing to clear */
     }
     // A student's parent/guardian becomes a real Parent record linked to
     // them — the same directory Admin monitors and the guardian can later
@@ -219,9 +244,11 @@ export function PassengerRegisterForm({
   if (step === 'otp') {
     return (
       <RegistrationOtpStep
-        title={asStudent ? 'Register as a student' : 'Register as a passenger'}
+        title={inviteOwner ? `Join ${inviteOwner.name}'s Family` : asStudent ? 'Register as a student' : 'Register as a passenger'}
         description={
-          asStudent
+          inviteOwner
+            ? `${inviteOwner.name} invited ${inviteMember?.name ?? 'you'} to their TODA Ride Family. Verify your number to make your account — it will be linked to their family, and they can follow your trips.`
+            : asStudent
             ? `Registering for yourself, as a student aged ${MINOR_AGE_LIMIT} or over — you'll get the discounted student fare. You can add your parents further down so they can follow your trips.`
             : `Registering for yourself. You can add a child, or anyone else you book for, further down — they join this account instead of needing one of their own.`
         }
@@ -232,6 +259,11 @@ export function PassengerRegisterForm({
 
   return (
     <div className="space-y-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3">
+      {inviteOwner && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-900">
+          👨‍👩‍👧 Joining {inviteOwner.name}'s Family{inviteMember ? ` as ${inviteMember.name}` : ''} — linked when you finish.
+        </p>
+      )}
       <div className="flex items-center justify-between text-xs">
         <span className="text-slate-500">
           {name} · {phone} · <span className="font-medium text-emerald-600">✓ verified</span>

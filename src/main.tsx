@@ -12,6 +12,15 @@ import { registerServiceWorkerUpdates } from './lib/swUpdate'
 // runs, so it applies the moment any of them loads.
 registerServiceWorkerUpdates()
 
+// A family invite (?family=CODE) is saved the moment the app opens, before any
+// redirect can drop it from the address — the sign-up form reads it back.
+try {
+  const familyCode = new URLSearchParams(window.location.search).get('family')?.trim().toUpperCase()
+  if (familyCode) localStorage.setItem('toda-family-invite', familyCode)
+} catch {
+  /* storage refused — the form still reads the address itself */
+}
+
 // A scanned or shared link arrives with ?fresh, meaning: bring this phone up
 // to the current build before showing it anything. Nothing is mounted in that
 // case — the page is about to be replaced, and mounting the stale app only to

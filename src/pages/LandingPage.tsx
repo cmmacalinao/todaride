@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { BrandFrame } from '../components/BrandFrame'
 import { AppLoginForm } from '../components/AppLoginForm'
 import { AndroidAppBanner } from '../components/AndroidAppBanner'
 import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
@@ -83,12 +84,7 @@ export function LandingPage() {
               it. */}
           {/* What TODA stands for sits inside the logo's own frame, right
               under the mark that says TODA; the frame widens to fit it. */}
-          <div className="flex flex-col items-center rounded-2xl border-2 border-white/25 px-[15px] pb-[9.5px] pt-[11.5px]">
-            <img src="/logo.png" alt="TODA Ride Mobility" className="h-[76px] w-auto object-contain" />
-            <p className="-mt-1 whitespace-nowrap text-center text-[17px] text-gold-400">
-              Transport &amp; Opportunity Digital Access
-            </p>
-          </div>
+          <BrandFrame />
           {/* Whichever TODA's terminal is nearest right now (or Super
               Admin's manual override) gets its ad-like card — see
               usePilotBranding. The app's generic "TODA Ride Mobility"

@@ -1,4 +1,5 @@
 import { Link, useSearchParams } from 'react-router-dom'
+import { BrandFrame } from '../components/BrandFrame'
 import { useRides } from '../context/RideContext'
 import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
 import { usePilotBranding } from '../lib/usePilotBranding'
@@ -114,12 +115,9 @@ export function RoleChooserPage() {
           <Link
             to="/"
             aria-label="Back to home"
-            className="flex flex-col items-center rounded-2xl border-2 border-white/25 px-[15px] pb-[9.5px] pt-[11.5px]"
+            className="rounded-2xl"
           >
-            <img src="/logo.png" alt="TODA Ride Mobility" className="h-[76px] w-auto object-contain" />
-            <span className="-mt-1 whitespace-nowrap text-center text-[17px] text-gold-400">
-              Transport &amp; Opportunity Digital Access
-            </span>
+            <BrandFrame />
           </Link>
           <p className="mt-3 text-center text-xs font-medium italic leading-snug text-white/70">
             Empowering Drivers. Protecting Passengers.

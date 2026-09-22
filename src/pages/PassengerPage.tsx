@@ -1729,7 +1729,7 @@ export function PassengerPage() {
           onOpenAddressForm={() => openAddressForm(padalaEnd)}
           onPinOnMap={() => undefined}
           placeholder={
-            chosen ? `${isPickupEnd ? 'Pickup' : 'Where to go'}: ${chosen}` : isPickupEnd ? 'Where to pickup?' : 'Where to go?'
+            chosen ? `${isPickupEnd ? 'Pickup' : 'Where to'}: ${chosen}` : isPickupEnd ? 'Where to pickup?' : 'Where to go?'
           }
           className="min-w-0 flex-1"
           resultsClassName="absolute inset-x-0 top-full z-[80] mt-1 max-h-72 overflow-y-auto"

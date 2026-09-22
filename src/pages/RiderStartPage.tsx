@@ -90,7 +90,7 @@ export function RiderStartPage() {
         <button
           type="button"
           onClick={() => navigate('/book')}
-          className="flex w-full items-center gap-3 rounded-xl border border-gold-400 bg-white p-4 text-left shadow-sm transition hover:bg-gold-50"
+          className="flex w-full items-center gap-3 rounded-xl border border-gold-400 bg-amber-50 p-4 text-left shadow-sm transition hover:bg-amber-100"
         >
           {/* The drawn tricycle, in the logo's green with the app's yellow
               (see TricycleIcon). A crop of the logo file itself was tried
@@ -127,7 +127,7 @@ export function RiderStartPage() {
             <button
               type="button"
               onClick={() => navigate('/book', { state: { section: 'food' } })}
-              className="flex h-full w-full flex-col items-start gap-1.5 rounded-xl border border-gold-400 bg-white p-3 text-left shadow-sm transition hover:bg-gold-50"
+              className="flex h-full w-full flex-col items-start gap-1.5 rounded-xl border border-gold-400 bg-amber-50 p-3 text-left shadow-sm transition hover:bg-amber-100"
             >
               {/* A photograph of food, from the same catalog the menus draw
                   their dishes from — a real plate of tapsilog rather
@@ -160,7 +160,7 @@ export function RiderStartPage() {
           <button
             type="button"
             onClick={() => navigate('/book', { state: { section: 'goods_store' } })}
-            className="flex h-full w-full flex-col items-start gap-1.5 rounded-xl border border-gold-400 bg-white p-3 text-left shadow-sm transition hover:bg-gold-50"
+            className="flex h-full w-full flex-col items-start gap-1.5 rounded-xl border border-gold-400 bg-amber-50 p-3 text-left shadow-sm transition hover:bg-amber-100"
           >
             {/* Same treatment as Food Order's — see the note there. */}
             <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center text-3xl leading-none">

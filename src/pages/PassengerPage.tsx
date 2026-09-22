@@ -1,4 +1,5 @@
 import { formatAddressLine } from '../lib/addressFormat'
+import { streetLinesFor } from '../lib/streetPaths'
 import { formatTripRoute } from '../lib/addressFormat'
 import { isVendorDeliveryRide, rideServiceTag } from '../lib/vendorOrders'
 import { useHeaderTabs } from '../context/HeaderSlotContext'
@@ -114,6 +115,7 @@ export function PassengerPage() {
     logAlertEvent,
     safetySettings,
     removeSafetyPhoto,
+    landmarks,
   } = useRides()
   // The "no booking app fee" promise, only where it is still true.
   const { currentPassengerId, setCurrentPassengerId, authedAccount } = useSession()
@@ -793,8 +795,11 @@ export function PassengerPage() {
     pickup?: { gps: GeoCoords; line: GeoCoords[][] } | null
     dropoff?: { gps: GeoCoords; line: GeoCoords[][] } | null
   }>({})
+  // Moves the map to an end just set from the search (see focusSignal).
+  const [mapFocus, setMapFocus] = useState<{ end: 'pickup' | 'dropoff'; key: number } | null>(null)
   function handlePickupLandmark(place: SelectedPlace) {
     setPickedStreetLines((s) => ({ ...s, pickup: place.line ? { gps: place.gps, line: place.line } : null }))
+    setMapFocus({ end: 'pickup', key: Date.now() })
     handlePinPickup(createCustomLocation(place.name, place.gps), null)
     setOpenEnd(null)
     setAddressFormOpen(null)
@@ -802,6 +807,7 @@ export function PassengerPage() {
 
   function handleDropoffLandmark(place: SelectedPlace) {
     setPickedStreetLines((s) => ({ ...s, dropoff: place.line ? { gps: place.gps, line: place.line } : null }))
+    setMapFocus({ end: 'dropoff', key: Date.now() })
     handlePinDropoff(createCustomLocation(place.name, place.gps), null)
     setOpenEnd(null)
     setAddressFormOpen(null)
@@ -1749,7 +1755,15 @@ export function PassengerPage() {
           city={cityScope}
           near={pickupGps ?? pickup.gps ?? null}
           onSelect={(place) =>
-            setPadalaPreview({ gps: place.gps, name: place.name, line: place.line, end: padalaEnd, key: Date.now() })
+            setPadalaPreview({
+              gps: place.gps,
+              name: place.name,
+              // A saved street (Romano, Rizal…) has its shape in streetPaths
+              // rather than on the search result.
+              line: place.line ?? streetLinesFor(createCustomLocation(place.name, place.gps), landmarks),
+              end: padalaEnd,
+              key: Date.now(),
+            })
           }
           onOpenAddressForm={() => openAddressForm(padalaEnd)}
           onPinOnMap={() => undefined}
@@ -1896,7 +1910,11 @@ export function PassengerPage() {
         target={mapTarget}
         onTargetChange={setMapTarget}
         flyTo={dualEndBox ? padalaPreview : null}
-        onEndSet={(end) => {
+        focusSignal={mapFocus}
+        onEndSet={(end, gps) => {
+          // The previewed street stays drawn on the end it was set on.
+          const line = padalaPreview?.end === end ? padalaPreview.line : null
+          setPickedStreetLines((s) => ({ ...s, [end]: line ? { gps, line } : null }))
           setPadalaPreview(null)
           // Book a Delivery then asks for the other end: pickup set -> Delivery?,
           // delivery set with no pickup yet -> Pickup?. Its destination starts

@@ -102,6 +102,7 @@ import type {
   RewardRules,
   Ride,
   RideMessage,
+  FamilyPlanActivation,
   RideCreditTier,
   RideStatus,
   RotaryProject,
@@ -649,6 +650,7 @@ type RideAction =
   | { type: 'REMOVE_FAMILY_TRUSTED_DRIVER'; passengerId: string; driverId: string }
   | { type: 'SET_FAMILY_DRIVER_INVITE'; passengerId: string; code: string }
   | { type: 'LINK_FAMILY_TRUSTED_DRIVER'; code: string; driverId: string }
+  | { type: 'ACTIVATE_FAMILY_PLAN'; passengerId: string; plan: FamilyPlanActivation }
   | { type: 'SET_PARENT_FAVORITE_DRIVER'; parentId: string; driverId: string | null }
   | { type: 'PROPOSE_TODA_COMMISSION'; todaOrgId: string; amount: number | null }
   | { type: 'SET_TODA_COMMISSION_MEMBER_APPROVAL'; todaOrgId: string; approved: boolean }
@@ -4270,6 +4272,11 @@ function reducer(state: RideState, action: RideAction): RideState {
       }
     // A driver signed in from a family's driver link: they become that
     // family's trusted driver.
+    case 'ACTIVATE_FAMILY_PLAN':
+      return {
+        ...state,
+        passengers: state.passengers.map((p) => (p.id === action.passengerId ? { ...p, familyPlan: action.plan } : p)),
+      }
     case 'LINK_FAMILY_TRUSTED_DRIVER':
       if (!state.drivers.some((d) => d.id === action.driverId)) return state
       return {
@@ -6885,6 +6892,7 @@ interface RideContextValue extends RideState {
   removeFamilyTrustedDriver: (passengerId: string, driverId: string) => void
   setFamilyDriverInvite: (passengerId: string, code: string) => void
   linkFamilyTrustedDriver: (code: string, driverId: string) => void
+  activateFamilyPlan: (passengerId: string, plan: FamilyPlanActivation) => void
   setParentFavoriteDriver: (parentId: string, driverId: string | null) => void
   proposeTodaCommission: (todaOrgId: string, amount: number | null) => void
   setTodaCommissionMemberApproval: (todaOrgId: string, approved: boolean) => void
@@ -8177,6 +8185,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     removeFamilyTrustedDriver: (passengerId, driverId) => dispatch({ type: 'REMOVE_FAMILY_TRUSTED_DRIVER', passengerId, driverId }),
     setFamilyDriverInvite: (passengerId, code) => dispatch({ type: 'SET_FAMILY_DRIVER_INVITE', passengerId, code }),
     linkFamilyTrustedDriver: (code, driverId) => dispatch({ type: 'LINK_FAMILY_TRUSTED_DRIVER', code, driverId }),
+    activateFamilyPlan: (passengerId, plan) => dispatch({ type: 'ACTIVATE_FAMILY_PLAN', passengerId, plan }),
     setParentFavoriteDriver: (parentId, driverId) => dispatch({ type: 'SET_PARENT_FAVORITE_DRIVER', parentId, driverId }),
     proposeTodaCommission: (todaOrgId, amount) => dispatch({ type: 'PROPOSE_TODA_COMMISSION', todaOrgId, amount }),
     setTodaCommissionMemberApproval: (todaOrgId, approved) =>

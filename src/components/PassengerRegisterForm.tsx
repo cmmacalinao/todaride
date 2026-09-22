@@ -57,8 +57,10 @@ export function PassengerRegisterForm({
       return fromUrl
     }
   })
+  // Only a family whose owner has activated the Family Plan — accepted its
+  // terms, including consent for minors — can bring a member in (2026-09-23).
   const inviteOwner = inviteCode
-    ? passengers.find((p) => (p.familyMembers ?? []).some((m) => m.inviteCode === inviteCode))
+    ? passengers.find((p) => !!p.familyPlan && (p.familyMembers ?? []).some((m) => m.inviteCode === inviteCode))
     : undefined
   const inviteMember = inviteOwner?.familyMembers?.find((m) => m.inviteCode === inviteCode)
   const [step, setStep] = useState<'otp' | 'profile'>('otp')

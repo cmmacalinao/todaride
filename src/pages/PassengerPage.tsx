@@ -1,5 +1,6 @@
 import { formatAddressLine } from '../lib/addressFormat'
 import { ShareAppPanel, familyInviteUrl } from '../components/ShareAppPanel'
+import { FamilyActivation, FamilyTermsText, familyPlanActive, formatPlanDate } from '../components/FamilyActivation'
 import { FamilyDriverRow, familyDriverPick, type FamilyDriverChoice } from '../components/FamilyTrustedDriver'
 import { streetLinesFor } from '../lib/streetPaths'
 import { formatTripRoute } from '../lib/addressFormat'
@@ -375,6 +376,7 @@ export function PassengerPage() {
   // into booking. The booking itself is its own page (/book in Family mode)
   // so the map and the box have the whole phone screen.
   const familyHome = location.pathname === '/book/family'
+  const [showFamilyTerms, setShowFamilyTerms] = useState(false)
   function openFamilyBooking(several = false) {
     navigate(several ? '/book/group?family=1' : '/book')
     if (!several) guestRider.setBookingFor('family')
@@ -548,6 +550,15 @@ export function PassengerPage() {
   }, [location.key])
 
   const passenger = passengers.find((p) => p.id === currentPassengerId) ?? passengers[0]
+  // Family Plan activated (terms accepted), by this account or — for a member
+  // who joined by invite — its owner. Family booking is locked until then.
+  const familyActive = familyPlanActive(passenger, passengers)
+  // Family booking without an active plan goes back to Family home, which
+  // shows the activation screen.
+  useEffect(() => {
+    if ((forFamily || familyGroup) && !familyActive && !familyHome) navigate('/book/family', { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forFamily, familyGroup, familyActive, familyHome])
   const familyTrustedPick =
     forFamily || familyGroup ? familyDriverPick(passenger, familyDriverChoice) : null
   // Who this passenger picked off the nearby list, for this booking only —
@@ -3096,6 +3107,13 @@ export function PassengerPage() {
   // Family home (2026-09-22): everything about the family on one page — who
   // is in it, their trusted drivers, their trips — and a tab into booking,
   // which opens on its own page so the map fills the phone screen.
+  if (familyHome && !familyActive) {
+    return (
+      <div className="mx-auto max-w-lg space-y-2 px-4 pb-6 pt-1">
+        <FamilyActivation passenger={passenger} />
+      </div>
+    )
+  }
   if (familyHome) {
     return (
       <div className="mx-auto max-w-lg space-y-2 px-4 pb-6 pt-1">
@@ -3104,6 +3122,23 @@ export function PassengerPage() {
             👨‍👩‍👧 Family
             <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">1-year free promo</span>
           </p>
+          {/* The plan's standing and the terms it was activated under. */}
+          {(() => {
+            const plan = passenger.familyPlan ?? passengers.find((o) => o.id === passenger.familyOwnerId)?.familyPlan
+            return plan ? (
+              <p className="text-[11px] text-slate-600">
+                ✅ Family Plan active · free until <span className="font-semibold">{formatPlanDate(plan.freeUntil)}</span> ·{' '}
+                <button type="button" onClick={() => setShowFamilyTerms((v) => !v)} className="font-semibold text-brand-700 hover:underline">
+                  {showFamilyTerms ? 'Hide terms' : 'Terms'}
+                </button>
+              </p>
+            ) : null
+          })()}
+          {showFamilyTerms && (
+            <div className="max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2">
+              <FamilyTermsText />
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-1.5">
             <button
               type="button"

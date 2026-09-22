@@ -930,6 +930,10 @@ export interface Passenger {
   // The code in that driver link — whoever signs in as a driver from it
   // becomes this family's trusted driver.
   familyDriverInviteCode?: string | null
+  // Family Plan activation (2026-09-23): when the account holder accepted
+  // the Family Plan Terms, which version, the name they signed with, and
+  // until when the intro promo makes it free. Absent = not activated.
+  familyPlan?: FamilyPlanActivation | null
   age: number
   isStudent: boolean
   // PWD/Senior citizen discount — mutually exclusive with isStudent in
@@ -2425,4 +2429,17 @@ export interface RideMessage {
   senderName: string
   text: string
   at: string
+}
+
+// A Family Plan activation — the account holder's recorded acceptance of the
+// Family Plan Terms (see lib/familyTerms).
+export interface FamilyPlanActivation {
+  activatedAt: string
+  freeUntil: string
+  termsVersion: string
+  signedName: string
+  // The three confirmations, as ticked.
+  confirmedAdultGuardian: boolean
+  acceptedTerms: boolean
+  consentedChildData: boolean
 }

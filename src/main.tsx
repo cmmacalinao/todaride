@@ -17,6 +17,10 @@ registerServiceWorkerUpdates()
 try {
   const familyCode = new URLSearchParams(window.location.search).get('family')?.trim().toUpperCase()
   if (familyCode) localStorage.setItem('toda-family-invite', familyCode)
+  // Same for a family's trusted-driver link (?trusted=CODE) — applied once
+  // the driver is signed in (see TrustedDriverLinker).
+  const trustedCode = new URLSearchParams(window.location.search).get('trusted')?.trim().toUpperCase()
+  if (trustedCode) localStorage.setItem('toda-trusted-driver-invite', trustedCode)
 } catch {
   /* storage refused — the form still reads the address itself */
 }

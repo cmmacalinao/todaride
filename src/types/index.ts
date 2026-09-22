@@ -921,6 +921,13 @@ export interface Passenger {
   // Set when this account was created from a family invite: whose family it
   // belongs to. Their trips show on that owner's Family trips.
   familyOwnerId?: string | null
+  // Family's trusted driver (2026-09-22): a driver the family invited with
+  // their driver link. Family bookings can go to them first; if they pass,
+  // the ride goes to other drivers as usual.
+  familyTrustedDriverIds?: string[]
+  // The code in that driver link — whoever signs in as a driver from it
+  // becomes this family's trusted driver.
+  familyDriverInviteCode?: string | null
   age: number
   isStudent: boolean
   // PWD/Senior citizen discount — mutually exclusive with isStudent in

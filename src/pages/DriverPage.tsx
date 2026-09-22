@@ -68,6 +68,7 @@ import { SosPeopleLocations } from '../components/SosPeopleLocations'
 import { DriverAccessThread } from '../components/DriverAccessThread'
 import { RIDE_CANCELLATION_REASON_LABELS } from '../types'
 import type { GeoCoords, PaymentMethod, Ride, RideCancellationReason } from '../types'
+import { TrustedDriverLinker } from '../components/FamilyTrustedDriver'
 
 type EarningsFilter = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'all'
 
@@ -1313,6 +1314,7 @@ export function DriverPage() {
       {/* The TODA name banner and the Location permission row used to sit
           here; both removed on request (2026-09-21) — the header already
           names the TODA. */}
+      <TrustedDriverLinker driverId={driver.id} />
       <AnnouncementFeed viewer="drivers" />
 
       {myLiveGps ? (

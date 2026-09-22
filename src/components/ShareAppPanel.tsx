@@ -29,6 +29,13 @@ export function familyInviteUrl(code: string): string {
   return `${APP_URL}/book?role=passenger&auth=signup&family=${encodeURIComponent(code)}&fresh=1`
 }
 
+// A family's trusted-driver invite: the driver sign-in, carrying the family's
+// driver code. Whoever signs in as a driver from it is that family's trusted
+// driver.
+export function familyDriverInviteUrl(code: string): string {
+  return `${APP_URL}/drive?role=driver&trusted=${encodeURIComponent(code)}&fresh=1`
+}
+
 export function ShareAppPanel({
   onClose,
   url = SHARE_URL,

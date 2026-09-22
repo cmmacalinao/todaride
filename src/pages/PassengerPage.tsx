@@ -1,5 +1,6 @@
 import { formatAddressLine } from '../lib/addressFormat'
 import { ShareAppPanel, familyInviteUrl } from '../components/ShareAppPanel'
+import { FamilyDriverRow, familyDriverPick, type FamilyDriverChoice } from '../components/FamilyTrustedDriver'
 import { streetLinesFor } from '../lib/streetPaths'
 import { formatTripRoute } from '../lib/addressFormat'
 import { isVendorDeliveryRide, rideServiceTag } from '../lib/vendorOrders'
@@ -359,6 +360,8 @@ export function PassengerPage() {
   // members as its riders — one tricycle, a stop per school. The owner books
   // it and is not riding.
   const familyGroup = groupRideOpen && new URLSearchParams(location.search).get('family') === '1'
+  // Family bookings: the family's trusted driver first, or anyone nearby.
+  const [familyDriverChoice, setFamilyDriverChoice] = useState<FamilyDriverChoice>('')
 
   // A Food Order/PaDeliver cart, mirrored up from VendorMenuBooking (see
   // VendorMenuBookingHandle) purely so the app-wide footer below can show a
@@ -514,6 +517,8 @@ export function PassengerPage() {
   }, [location.key])
 
   const passenger = passengers.find((p) => p.id === currentPassengerId) ?? passengers[0]
+  const familyTrustedPick =
+    forFamily || familyGroup ? familyDriverPick(passenger, familyDriverChoice) : null
   // Who this passenger picked off the nearby list, for this booking only —
   // cleared once the ride is placed, unlike the favourite which is saved on
   // the account. Kept in shared state rather than local so the other half of
@@ -1072,6 +1077,7 @@ export function PassengerPage() {
       paymentMethod,
       paySplit: familyGroup ? 'separate' : groupPaySplit,
       familyBookerId: familyGroup ? passenger.id : null,
+      requestedDriverId: familyGroup ? familyTrustedPick : null,
       riders: [...groupRiders].sort((a, b) => (groupStopNumbers[a.key] ?? 99) - (groupStopNumbers[b.key] ?? 99)).map((r) => ({
         passengerId: r.passengerId,
         passengerName: r.name.trim() || `Rider ${groupRiders.findIndex((x) => x.key === r.key) + 1}`,
@@ -1322,7 +1328,7 @@ export function PassengerPage() {
       tip: isErrand ? tip : 0,
       specialPickupRequested: specialPickupRequested && pickupGps !== null,
       specialTrip,
-      requestedDriverId,
+      requestedDriverId: familyTrustedPick ?? requestedDriverId,
       bookedAtTerminal: boardedAtTerminal,
     })
     // A family member booked for is kept on the booker's list for next time.
@@ -2363,6 +2369,8 @@ export function PassengerPage() {
                         </button>
                       </div>
                     </div>
+                    <FamilyDriverRow owner={passenger} choice={familyDriverChoice} onChoice={setFamilyDriverChoice} />
+
                   </div>
                 ) : (
                 <div className="flex items-center gap-1.5">

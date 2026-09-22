@@ -1047,8 +1047,13 @@ export function TripMonitor({
 
   // Same reasoning, same fix. Withdrawn once arrival is already confirmed —
   // see the block this replaced for why.
+  //
+  // Only once the rider's phone and the tricycle have actually parted — their
+  // GPS positions apart (seatsApart, see separation.ts) — rather than for the
+  // whole ride (2026-09-22). Once tapped it stays until answered, so the
+  // question does not vanish mid-answer if the two readings drift back.
   const gotOffCard =
-    allowGotOffCheck && isOngoingLeg && !openSos && !ride.passengerArrivedAt ? (
+    allowGotOffCheck && isOngoingLeg && !openSos && !ride.passengerArrivedAt && (seatsApart || gotOffAsked) ? (
       <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
         {!gotOffAsked ? (
           <button

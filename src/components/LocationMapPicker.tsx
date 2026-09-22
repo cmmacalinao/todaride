@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { RealLiveMap, type MapPoint } from './RealLiveMap'
 import { createCustomLocation, reverseGeocodeToPhAddress, type PhAddressTags } from '../lib/customLocation'
-import { STREET_PIN_NOTE, streetLinesFor } from '../lib/streetPaths'
+import { streetLinesFor } from '../lib/streetPaths'
 import type { GeoCoords, MockLocation, Terminal } from '../types'
 
 // Lets the passenger drop a pin directly on the map instead of (or in
@@ -511,12 +511,9 @@ export function LocationMapPicker({
   // renames the location (see streetLinesFor), the line goes, and the map
   // is left alone again from there.
   const streetEnd: "pickup" | "dropoff" | null = dropoffStreet ? "dropoff" : pickupStreet ? "pickup" : null
-  const streetNote =
-    streetLines.length > 0 ? (
-      <p className="mb-1 rounded-md border border-green-300 bg-green-50 px-2 py-1 text-[11px] font-medium text-green-800">
-        🛣️ {STREET_PIN_NOTE}
-      </p>
-    ) : null
+  // The green "Set the Pin on Map — drag the dot along the green line" note
+  // is gone from every page (2026-09-22); the green line itself stays.
+  const streetNote = null
 
   // Sets an end to whatever the centre pin is over. Two buttons rather than
   // one that follows the armed tab: with one, a passenger who has lined the

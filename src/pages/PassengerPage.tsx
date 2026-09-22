@@ -1690,7 +1690,9 @@ export function PassengerPage() {
   // the card above it — Group Ride too, where a place picked there fills the
   // next rider still without a stop (see handlePinDropoff). Not on an errand
   // (its form is different), not once a ride is booked.
-  const whereToOnMap = !isErrand && !activeRide
+  // Book a Delivery (PaDeliver) is booked exactly like Book a Ride for
+  // someone else (2026-09-22): Where to on the map too, and the pickup strip.
+  const whereToOnMap = (!isErrand || isPadala) && !activeRide
 
   // The Where to strip — tap it and it becomes the search, the way Grab and
   // Google Maps do. A function so the same strip can be drawn in the address
@@ -1759,7 +1761,7 @@ export function PassengerPage() {
                   {hasDestination ? (
                     <>
                       <span className="font-normal text-green-800/80">
-                        {isErrand ? 'Deliver to: ' : 'Where to: '}
+                        {isPabili ? 'Deliver to: ' : 'Where to: '}
                       </span>
                       {formatAddressLine(dropoff.label)}
                     </>
@@ -2165,7 +2167,9 @@ export function PassengerPage() {
                 comes back ahead of the destination: "where are they" is the
                 first question for somebody who isn't you, before "where are
                 they going". */}
-            {guestRider.bookingFor === 'other' && (
+            {/* Book a Delivery: City first, as on Book a Ride. */}
+            {isPadala && <div className="mb-1.5">{cityRowFor('dropoff')}</div>}
+            {(guestRider.bookingFor === 'other' || isPadala) && (
             <>
             {/* Paired with Group Ride on the booking screen, the way the
                 destination row is paired with Set on Map — the row takes the
@@ -2325,7 +2329,7 @@ export function PassengerPage() {
                 to — moved above the bar itself so the scope is set before
                 typing into it, instead of being buried in the panel that
                 only shows once the bar is already expanded. */}
-            {isErrand && <div className="mt-1.5">{cityRowFor('dropoff')}</div>}
+            {isErrand && !isPadala && <div className="mt-1.5">{cityRowFor('dropoff')}</div>}
             {/* The destination row. Second when the pickup row is showing
                 beside it — booking for someone else answers "where are
                 they" first — first on its own the rest of the time, which
@@ -2747,47 +2751,12 @@ export function PassengerPage() {
               Order medicine from a nearby participating pharmacy — your driver picks it up and delivers it to you.
             </p>
           )}
-          {isPadala && (
-            <p className="text-xs text-slate-500">
-              Already have the package? Tell us what it is and where it's going — your driver is just the courier,
-              nothing to buy.
-            </p>
-          )}
 
           {/* Padala has no "Create order" gate the way Pabili does — there is
               nothing to price or itemize, so the address form below is
               already open (see chooseErrand). This note is the only thing
               particular to Padala: what's in the package, for the driver's
               own sake. */}
-          {isPadala && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">What are you sending? (optional)</label>
-              <textarea
-                value={packageNote}
-                onChange={(e) => setPackageNote(e.target.value)}
-                placeholder="e.g. 1 box of pasalubong, for Ate Rosa"
-                rows={2}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              />
-              <p className="mt-1 text-[11px] text-slate-400">
-                Helps your driver know what they're carrying and who it's for.
-              </p>
-            </div>
-          )}
-          {isPadala && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">Pickup location name (optional)</label>
-              <input
-                value={storeName}
-                onChange={(e) => setStoreName(e.target.value)}
-                placeholder="e.g. Aling Nena's Store, 7-Eleven, or your own name"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              />
-              <p className="mt-1 text-[11px] text-slate-400">
-                Shows on the driver's ride card so they know whose package they're picking up.
-              </p>
-            </div>
-          )}
 
           {/* Buy Medicine has no "who is this for?" step — a pharmacy order
               is always the logged-in customer's, and the two fulfilment tabs
@@ -2855,6 +2824,22 @@ export function PassengerPage() {
                     </button>
                   ))}
               </div>
+            </div>
+          )}
+          {/* Book a Delivery's one addition to the Book a Ride layout: what is
+              being sent, right on top of the map, in a faded-yellow box. The
+              intro line, its hint and the Pickup location name box are gone
+              (2026-09-22). */}
+          {isPadala && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-2">
+              <label className="mb-1 block text-xs font-semibold text-amber-900">What are you sending? (optional)</label>
+              <textarea
+                value={packageNote}
+                onChange={(e) => setPackageNote(e.target.value)}
+                placeholder="e.g. 1 box of pasalubong, for Ate Rosa"
+                rows={2}
+                className="compact-input w-full rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 text-xs"
+              />
             </div>
           )}
           {/* Not rendered here while Terminal is open — see the sharedMap

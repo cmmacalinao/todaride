@@ -204,11 +204,6 @@ export function DeliveryMapPicker({
           {action && <div className="mt-1.5">{action}</div>}
         </>
       )}
-      {streetLine && !fullscreen && (
-        <p className="rounded-md border border-green-300 bg-green-50 px-2 py-1 text-[11px] font-medium text-green-800">
-          🛣️ Slide the map so the pin sits on the green line at the exact spot, then tap Set Destination here.
-        </p>
-      )}
       {status === 'error' && <p className="text-[11px] text-amber-700">{error}</p>}
     </div>
   )

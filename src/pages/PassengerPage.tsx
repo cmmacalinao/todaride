@@ -2153,7 +2153,11 @@ export function PassengerPage() {
                         ? `Request Delivery for ${guestRider.otherName.trim() || 'them'}`
                         : 'Request Delivery'
                       : isGuestBooking
-                        ? `Book a Ride for ${guestRider.otherName.trim() || 'them'}`
+                        ? guestRider.otherName.trim()
+                          ? `Book a Ride for ${guestRider.otherName.trim()}`
+                          : // The one thing Someone still needs — said on the
+                            // button it is holding back (2026-09-22).
+                            'Type their name above to book'
                         : 'Book a Ride'}
                 </span>
               </button>
@@ -2278,7 +2282,12 @@ export function PassengerPage() {
                       value={guestRider.otherName}
                       onChange={(e) => guestRider.setOtherName(e.target.value)}
                       placeholder="Their name"
-                      className="compact-input min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
+                      // Amber once both ends are set and only the name is missing.
+                      className={`compact-input min-w-0 rounded-lg border px-2.5 py-1.5 text-xs ${
+                        !guestRider.otherName.trim() && hasDestination && !endsAreSameSpot
+                          ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-300'
+                          : 'border-slate-300'
+                      }`}
                     />
                     <input
                       value={guestRider.otherPhone}

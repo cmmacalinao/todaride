@@ -12,7 +12,6 @@ import { OrderChat } from './OrderChat'
 import { TripMonitor } from './TripMonitor'
 import { VendorSearchRow, VendorStorefront } from './VendorStorefront'
 import { haversineDistanceMeters } from '../lib/geo'
-import { VendorNewsfeed } from './VendorFeed'
 import type { BusinessType, MedicineProduct, MedsOrder, MockLocation, PaymentMethod, Pharmacy } from '../types'
 
 const VENDOR_BUSINESS_TYPES: BusinessType[] = ['resto_food', 'other_commodity']
@@ -520,34 +519,9 @@ export const VendorMenuBooking = forwardRef<
             </div>
           )}
 
-          {/* The page is the newsfeed: every store's posts, newest first,
-              each under its own banner, with Like · Heart · Comment · Share
-              — see VendorNewsfeed. Tapping a post's photo or featured dish
-              opens that store's page to order. The list of all stores is
-              hidden; the search box above brings up matching stores. */}
-          {vendors.length > 0 && !query && (
-            <div>
-              <p className="mb-1.5 flex items-center gap-1 text-sm font-bold text-slate-700">
-                📣 {isGoods ? 'Merchant/Store Partners' : 'Merchant/Food Partners'}
-              </p>
-              {shownVendors.some((v) => (v.posts?.length ?? 0) > 0) ? (
-                <VendorNewsfeed
-                  vendors={shownVendors.filter((v) => (v.posts?.length ?? 0) > 0)}
-                  items={medicineProducts}
-                  viewer={{ id: customerId, name: customerName }}
-                  onOpenVendor={openVendor}
-                  onOrderItem={(vendorId, productId) => {
-                    openVendor(vendorId)
-                    setCart({ [productId]: 1 })
-                  }}
-                />
-              ) : (
-                <p className="rounded-lg bg-slate-50 p-3 text-center text-xs text-slate-400">
-                  No posts yet — search a store above to see its menu.
-                </p>
-              )}
-            </div>
-          )}
+          {/* The store newsfeed (Merchant/Food Partners posts) is no longer shown
+              here (2026-09-22) — the page is the stores' menus below. Each
+              store's posts still show on its own page. */}
 
           {/* Every store's menu, under the feed (2026-09-22): one row per
               store, its dishes as cards that slide sideways. Open stores

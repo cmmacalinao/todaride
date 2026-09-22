@@ -4208,7 +4208,13 @@ function reducer(state: RideState, action: RideAction): RideState {
           if (p.id !== action.passengerId) return p
           const list = p.familyMembers ?? []
           const digits = (s: string) => s.replace(/\D/g, '')
-          const same = list.find((m) => m.id === action.member.id || digits(m.phone) === digits(action.member.phone))
+          // Same mobile = same person, but only when there is one: children
+          // with no phone are told apart by id (2026-09-23).
+          const same = list.find(
+            (m) =>
+              m.id === action.member.id ||
+              (digits(action.member.phone).length > 0 && digits(m.phone) === digits(action.member.phone)),
+          )
           return {
             ...p,
             familyMembers: same

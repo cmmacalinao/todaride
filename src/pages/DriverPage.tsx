@@ -67,7 +67,7 @@ import { farDriverGap } from '../lib/farDriver'
 import { SosPeopleLocations } from '../components/SosPeopleLocations'
 import { DriverAccessThread } from '../components/DriverAccessThread'
 import { RIDE_CANCELLATION_REASON_LABELS } from '../types'
-import type { GeoCoords, PaymentMethod, Ride, RideCancellationReason } from '../types'
+import type { GeoCoords, Passenger, PaymentMethod, Ride, RideCancellationReason } from '../types'
 import { TrustedDriverLinker } from '../components/FamilyTrustedDriver'
 
 type EarningsFilter = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'all'
@@ -82,6 +82,15 @@ const EARNINGS_FILTER_LABELS: Record<EarningsFilter, string> = {
   monthly: 'This month',
   yearly: 'This year',
   all: 'All time',
+}
+
+// A Family ride (2026-09-23): the driver's contact is the parent or guardian
+// who booked it, never the child — the parent is the one who calls their
+// kids. Null for every other ride.
+function familyGuardianContact(ride: Ride, passengers: Passenger[]): { name: string; phone: string } | null {
+  if (!ride.familyBookerId) return null
+  const booker = passengers.find((p) => p.id === ride.familyBookerId)
+  return booker?.phone ? { name: booker.name, phone: booker.phone } : null
 }
 
 function matchesEarningsFilter(ride: Ride, filter: EarningsFilter): boolean {
@@ -1027,6 +1036,8 @@ export function DriverPage() {
   // screen the footer appears on rather than only the trip screen itself.
   const footerContact = (() => {
     if (!myActiveRide) return null
+    const guardian = familyGuardianContact(myActiveRide, passengers)
+    if (guardian) return { name: `${guardian.name} (parent/guardian)`, phone: guardian.phone }
     const passenger = passengers.find((p) => p.id === myActiveRide.passengerId)
     const phone = passenger?.phone ?? myActiveRide.passengerPhone
     const name = passenger?.name ?? myActiveRide.passengerName
@@ -2057,7 +2068,10 @@ function ActiveTripCard({
   const driverName = drivers.find((d) => d.id === ride.driverId)?.name ?? 'Driver'
   const parentLink = parentLinks.find((l) => l.studentPassengerId === ride.passengerId)
   const parent = parentLink ? parents.find((p) => p.id === parentLink.parentId) : null
-  const contacts = [
+  const guardian = familyGuardianContact(ride, passengers)
+  const contacts = guardian
+    ? [{ label: `Call ${guardian.name} (parent/guardian who booked)`, phone: guardian.phone }]
+    : [
     ...(passenger?.phone ? [{ label: `Call ${passenger.name}`, phone: passenger.phone }] : []),
     ...(parent?.phone ? [{ label: `Call ${parent.name} (${parentLink?.relationship})`, phone: parent.phone }] : []),
     // "Book for someone else" rides have no Passenger/Parent record to look
@@ -2440,13 +2454,13 @@ function ActiveTripCard({
             <SosPeopleLocations alert={passengerSosOnRide} ride={ride} passengerName={ride.passengerName} driverLabel="You" />
           </div>
           <div className="mt-2 flex gap-2">
-            {(passenger?.phone ?? ride.passengerPhone) && (
+            {(guardian?.phone ?? passenger?.phone ?? ride.passengerPhone) && (
               <a
-                href={`tel:${passenger?.phone ?? ride.passengerPhone}`}
-                onClick={() => logAlertEvent(passengerSosOnRide.id, 'call_passenger', `Driver called ${ride.passengerName}`, driverName, 'driver')}
+                href={`tel:${guardian?.phone ?? passenger?.phone ?? ride.passengerPhone}`}
+                onClick={() => logAlertEvent(passengerSosOnRide.id, 'call_passenger', `Driver called ${guardian?.name ?? ride.passengerName}`, driverName, 'driver')}
                 className="flex-1 rounded-lg bg-danger-600 py-2 text-center text-xs font-semibold text-white hover:bg-danger-700"
               >
-                📞 Call {ride.passengerName}
+                📞 Call {guardian ? `${guardian.name} (parent)` : ride.passengerName}
               </a>
             )}
             <a href="tel:911" onClick={() => logAlertEvent(passengerSosOnRide.id, 'call_911', 'Driver tapped Call 911', driverName, 'driver')} className="flex-1 rounded-lg border border-danger-600 bg-white py-2 text-center text-xs font-semibold text-danger-800 hover:bg-danger-50">

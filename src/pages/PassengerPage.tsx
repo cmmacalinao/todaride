@@ -1282,12 +1282,16 @@ export function PassengerPage() {
   // (2026-09-22).
   const guestPhoneDigits = guestRider.otherPhone.replace(/\D/g, '')
   const guestPhoneOk = /^09\d{9}$/.test(guestPhoneDigits.startsWith('63') ? `0${guestPhoneDigits.slice(2)}` : guestPhoneDigits)
+  // Family (2026-09-23): a child often has no phone of their own — the
+  // driver calls the parent who booked (see DriverPage), so the member's
+  // mobile is optional there; one typed in still has to be a real number.
+  const guestPhoneFine = guestPhoneOk || (forFamily && guestPhoneDigits.length === 0)
   const dualMissing: 'pickup' | 'dropoff' | null = dualEndBox ? (!boxSet.pickup ? 'pickup' : !boxSet.dropoff ? 'dropoff' : null) : null
   const canSubmit =
     hasDestination &&
     !endsAreSameSpot &&
     !dualMissing &&
-    (!isGuestBooking || (guestRider.otherName.trim().length > 0 && guestPhoneOk))
+    (!isGuestBooking || (guestRider.otherName.trim().length > 0 && guestPhoneFine))
 
   // How far away the nearest driver who could take this actually is.
   //
@@ -1359,7 +1363,7 @@ export function PassengerPage() {
     if (forFamily && !isErrand && guestRider.otherName.trim()) {
       const phoneDigits = guestRider.otherPhone.replace(/\D/g, '')
       const known = (passenger.familyMembers ?? []).some(
-        (m) => m.phone.replace(/\D/g, '') === phoneDigits || m.name === guestRider.otherName.trim(),
+        (m) => (phoneDigits.length > 0 && m.phone.replace(/\D/g, '') === phoneDigits) || m.name === guestRider.otherName.trim(),
       )
       if (!known) {
         saveFamilyMember(passenger.id, {
@@ -2446,13 +2450,13 @@ export function PassengerPage() {
                         ? `Request Delivery for ${guestRider.otherName.trim() || 'them'}`
                         : 'Request Delivery'
                       : isGuestBooking
-                        ? !guestRider.otherName.trim() && !guestPhoneOk
+                        ? !guestRider.otherName.trim() && !guestPhoneFine
                           ? // What Someone still needs — said on the button it
                             // is holding back (2026-09-22).
                             'Type their name and mobile above to book'
                           : !guestRider.otherName.trim()
                             ? 'Type their name above to book'
-                            : !guestPhoneOk
+                            : !guestPhoneFine
                               ? 'Type their mobile (09XXXXXXXXX) to book'
                               : `Book a Ride for ${guestRider.otherName.trim()}`
                         : 'Book a Ride'}
@@ -2662,12 +2666,12 @@ export function PassengerPage() {
                     <input
                       value={guestRider.otherPhone}
                       onChange={(e) => guestRider.setOtherPhone(e.target.value)}
-                      placeholder="Their mobile number"
+                      placeholder={forFamily ? "Their mobile (optional)" : "Their mobile number"}
                       inputMode="tel"
                       // Amber once both ends are set and the number is missing
                       // or not a PH mobile yet.
                       className={`compact-input min-w-0 rounded-lg border px-2.5 py-1.5 text-xs ${
-                        !guestPhoneOk && hasDestination && !endsAreSameSpot
+                        !guestPhoneFine && hasDestination && !endsAreSameSpot
                           ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-300'
                           : 'border-slate-300'
                       }`}
@@ -3794,7 +3798,8 @@ function FamilyMembersBar({
   const [phone, setPhone] = useState('')
   const digits = (s: string) => s.replace(/\D/g, '')
   const localPhone = digits(phone).startsWith('63') ? `0${digits(phone).slice(2)}` : digits(phone)
-  const canSave = name.trim().length > 0 && /^09\d{9}$/.test(localPhone)
+  // A child may have no phone — the driver calls the parent instead.
+  const canSave = name.trim().length > 0 && (localPhone.length === 0 || /^09\d{9}$/.test(localPhone))
   function save() {
     if (!canSave) return
     const member = { id: `fam-${Date.now()}`, name: name.trim(), phone: localPhone, inviteCode: newInviteCode(), ownerPays: false }
@@ -3933,7 +3938,7 @@ function FamilyMembersBar({
             <input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="Mobile (09XXXXXXXXX)"
+              placeholder="Mobile (optional)"
               inputMode="tel"
               className="compact-input min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
             />

@@ -881,6 +881,12 @@ export function TripMonitor({
   const favoriteDriver = favoriteDriverId ? drivers.find((d) => d.id === favoriteDriverId) : undefined
   // The family's trusted drivers — this passenger's own, or (for a member's
   // account) their family owner's. Ready to hand while a ride waits.
+  // The rules on the phone doing the watching — a child's account is narrowed
+  // down (see lib/familyLimits); a senior's or any adult's is not.
+  const viewerLimits = (() => {
+    const me = passengers.find((p) => p.id === sosActorId)
+    return me ? familyLimitsFor(me, passengers) : null
+  })()
   const familyTrustedDrivers = (() => {
     const me = passengers.find((p) => p.id === (ride.bookedByParentId ?? ride.passengerId))
     const owner = me?.familyOwnerId ? passengers.find((o) => o.id === me.familyOwnerId) : me
@@ -949,12 +955,16 @@ export function TripMonitor({
                   ⭐ Ask {d.name} to take it
                 </button>
               )}
-              <a
-                href={`tel:${d.phone}`}
-                className="shrink-0 rounded-lg border border-brand-300 bg-white px-2.5 py-1.5 text-xs font-bold text-brand-700 hover:bg-brand-50"
-              >
-                📞 Contact trusted driver
-              </a>
+              {/* A child never gets a driver's number — their parent has it
+                  (2026-09-23). Seniors and other adults do. */}
+              {!viewerLimits && (
+                <a
+                  href={`tel:${d.phone}`}
+                  className="shrink-0 rounded-lg border border-brand-300 bg-white px-2.5 py-1.5 text-xs font-bold text-brand-700 hover:bg-brand-50"
+                >
+                  📞 Contact trusted driver
+                </a>
+              )}
             </div>
           ))}
         </div>
@@ -1065,10 +1075,7 @@ export function TripMonitor({
           ride={ride}
           as="passenger"
           senderName={passengers.find((p) => p.id === sosActorId)?.name ?? ride.passengerName}
-          quickOnly={(() => {
-            const me = passengers.find((p) => p.id === sosActorId)
-            return !!me && !!familyLimitsFor(me, passengers)?.quickChatOnly
-          })()}
+          quickOnly={!!viewerLimits?.quickChatOnly}
           otherLabel={drivers.find((d) => d.id === ride.driverId)?.name ?? ride.driverName ?? "Your driver"}
         />
       )}

@@ -1956,6 +1956,9 @@ export function PassengerPage() {
                   <span className="font-semibold">Set on Map</span> above to pin your pickup yourself.
                 </div>
               )}
+              {/* How many are riding sits right of the button (2026-09-22),
+                  no "Passengers" label — the − n + and the face say it. */}
+              <div className="flex items-center gap-1.5">
               <button
                 onClick={() => handleRequest()}
                 disabled={!canSubmit}
@@ -1963,7 +1966,7 @@ export function PassengerPage() {
                 // turns a muted blue-grey under this theme and reads as
                 // disabled even when the button is live (same fix as the
                 // Terminal banner above).
-                className="w-full rounded-lg bg-[#ffe066] px-2.5 py-1.5 text-xs font-bold text-navy-900 transition hover:bg-[#ffd633] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                className="min-w-0 flex-1 rounded-lg bg-[#ffe066] px-2.5 py-1.5 text-xs font-bold text-navy-900 transition hover:bg-[#ffd633] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
               >
                 <span className="block truncate">
                   {isPabili
@@ -1979,6 +1982,8 @@ export function PassengerPage() {
                         : 'Book a Ride'}
                 </span>
               </button>
+              {!isErrand && <div className="flex shrink-0 items-center">{passengerCounter}</div>}
+              </div>
               {/* Said, not asked.
                   A kilometre on a tricycle is several minutes of standing on a
                   road wondering whether the app heard you, and that is worth
@@ -2291,20 +2296,14 @@ export function PassengerPage() {
                 row above this one. */}
             {/* Group Ride has no single destination — each rider has their own
                 stop in the panel below — so no Where to row at all there. */}
-            {groupRideOpen ? null : whereToOnMap ? (
-              // Where to lives in the map's top row now (see toolbarStrip); how
-              // many are riding keeps a small row of its own here.
-              <div className="mt-1 flex items-center justify-end gap-2">
-                <span className="text-[11px] font-medium text-slate-500">Passengers</span>
-                {passengerCounter}
-              </div>
-            ) : (
+            {/* Where to lives in the map's top row (see toolbarStrip), and how
+                many are riding sits beside Book a Ride — nothing left for here. */}
+            {groupRideOpen || whereToOnMap ? null : (
             <div className={guestRider.bookingFor === 'other' ? 'relative mt-1.5 flex items-stretch gap-1.5' : 'relative mt-1 flex items-stretch gap-1.5'}>
             {/* In full screen the strip rides at the top of the map instead
                 (see fullscreenTop) — one copy at a time, so its search box
                 is never mounted twice. */}
             {!mapIsFullscreen && destinationStrip(destinationOnly)}
-            {!isErrand && <div className="flex shrink-0 items-center">{passengerCounter}</div>}
             {/* The yellow "Set on Map" button beside Where to is gone
                 (2026-09-21): the map has a centre pin and its own Set
                 Destination button now, so arming the map from up here was a

@@ -6,7 +6,6 @@ import { createCustomLocation, resolvePhAddress, reverseGeocodeToPhAddress, type
 import { getCurrentGeoPosition } from '../lib/geo'
 import { BarangayAddressPicker } from './BarangayAddressPicker'
 import { DeliveryMapPicker } from './DeliveryMapPicker'
-import { DestinationSearch, type SelectedPlace } from './DestinationSearch'
 import { SAVED_LOCATION_LABELS, savedLocationButtonLabel } from '../lib/savedLocations'
 import { StoreRatingSheet } from './StoreRatingSheet'
 import { OrderStatusStrip, orderStageDetail } from './OrderStatusStrip'
@@ -345,13 +344,6 @@ export const VendorMenuBooking = forwardRef<
     }
   }
 
-  // A landmark already carries a real coordinate (see mock/data.ts), so this
-  // goes straight into the same pin handler the map itself uses, just
-  // without a reverse-geocoded guess to reseed the barangay form with.
-  function handleAddressLandmark(place: SelectedPlace) {
-    handleMapPin(createCustomLocation(place.name, place.gps), null)
-  }
-
   // A saved Home/School/Work/Favorite already carries a full address, not
   // just a point — reseed the barangay form to match it instead of leaving
   // the two disagreeing, the same as picking one on Book a Ride does.
@@ -645,15 +637,10 @@ export const VendorMenuBooking = forwardRef<
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Deliver to</label>
-            <DestinationSearch
-              city={addressSeed.city || defaultCity}
-              near={deliveryAddress?.gps ?? null}
-              onSelect={handleAddressLandmark}
-              onOpenAddressForm={() => setAddressFormOpen(true)}
-              onPinOnMap={() => deliveryMapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-            />
-            <div className="-mx-1 mt-2 flex flex-nowrap items-center gap-1 overflow-x-auto px-1 pb-0.5">
+            {/* The "Deliver to" landmark search box that sat here is gone
+                (2026-09-22): the delivery point is set with the saved-place
+                chips, the address form, or the map below. */}
+            <div className="-mx-1 flex flex-nowrap items-center gap-1 overflow-x-auto px-1 pb-0.5">
               {SAVED_LOCATION_LABELS.filter((label) => label !== 'Favorite').map((label) => {
                 const saved = savedLocations.find((sl) => sl.label === label)
                 return (

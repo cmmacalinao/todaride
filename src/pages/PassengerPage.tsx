@@ -362,6 +362,15 @@ export function PassengerPage() {
   // members as its riders — one tricycle, a stop per school. The owner books
   // it and is not riding.
   const familyGroup = groupRideOpen && new URLSearchParams(location.search).get('family') === '1'
+  // Several stops runs both ways (2026-09-23): 'drop' — one pickup (home),
+  // a drop-off for each member (their schools); 'pick' — a pickup for each
+  // member (their schools), one destination for everyone (home). Each
+  // member's own point is kept in their row's destination field either way.
+  const [familyDir, setFamilyDir] = useState<'drop' | 'pick'>('drop')
+  const pickRun = familyGroup && familyDir === 'pick'
+  // The shared end — the pickup of a drop-off run, the destination of a
+  // pick-up run — is being set on the map.
+  const [settingCommon, setSettingCommon] = useState(false)
   // Family home (2026-09-22): members, trusted driver and trips, with a tab
   // into booking. The booking itself is its own page (/book in Family mode)
   // so the map and the box have the whole phone screen.
@@ -1016,7 +1025,13 @@ export function PassengerPage() {
     requestAnimationFrame(() => showInMiddle(bookingMapRef.current))
   }
   const groupFares = groupRiders.map((r) =>
-    r.destination ? estimateFare(pickup, r.destination, tariffSettings, { isStudent: false, isPwdSenior: false, passengerCount: 1 }) : null,
+    r.destination
+      ? estimateFare(pickRun ? r.destination : pickup, pickRun ? dropoff : r.destination, tariffSettings, {
+          isStudent: false,
+          isPwdSenior: false,
+          passengerCount: 1,
+        })
+      : null,
   )
   // Every rider's own destination, on this same map at once — not just
   // whichever one is currently being pinned. Orange, same as the co-
@@ -1037,8 +1052,10 @@ export function PassengerPage() {
   const groupRoute = useRouteThrough(
     groupRideOpen
       ? [
-          ...(pickupGps ?? pickup.gps ? [(pickupGps ?? pickup.gps)!] : []),
+          ...(!pickRun && (pickupGps ?? pickup.gps) ? [(pickupGps ?? pickup.gps)!] : []),
           ...groupStopOrder.map((key) => groupRiders.find((r) => r.key === key)!.destination!.gps!),
+          // A pick-up run ends where everyone is going.
+          ...(pickRun && hasDestination && dropoff.gps ? [dropoff.gps] : []),
         ]
       : [],
   )
@@ -1056,10 +1073,10 @@ export function PassengerPage() {
       id: `group-${r.key}`,
       gps: r.destination!.gps!,
       color: '#f97316',
-      icon: 'dropoff' as const,
+      icon: (pickRun ? 'pickup' : 'dropoff') as 'pickup' | 'dropoff',
       // The stop number, whose it is, and where — the flag is the one place
       // the rider's address is shown now.
-      label: `${groupStopNumbers[r.key]} · ${groupRiderShortName(r.key)} · ${formatAddressLine(r.destination!.label).split(',')[0].trim()}`,
+      label: `${groupStopNumbers[r.key]} · ${groupRiderShortName(r.key)}${pickRun ? ' pickup' : ''} · ${formatAddressLine(r.destination!.label).split(',')[0].trim()}`,
       callout: true,
       alwaysLabel: true,
     }))
@@ -1088,7 +1105,7 @@ export function PassengerPage() {
   const groupCanSubmit =
     // Names are not required: a rider left unnamed goes on the booking as
     // their number ("Rider 3"), the same way the map pin called them.
-    groupRiders.length >= 2 && groupAllDestinationsSet && !activeRide && !groupSubmitting
+    groupRiders.length >= 2 && groupAllDestinationsSet && (!pickRun || hasDestination) && !activeRide && !groupSubmitting
   function submitGroupRide() {
     if (!groupCanSubmit) return
     setGroupSubmitting(true)
@@ -1104,7 +1121,10 @@ export function PassengerPage() {
         passengerId: r.passengerId,
         passengerName: r.name.trim() || `Rider ${groupRiders.findIndex((x) => x.key === r.key) + 1}`,
         passengerPhone: r.isGuest ? r.phone.trim() || null : null,
-        dropoff: r.destination!,
+        // Pick-up run: the member's own point is where they are collected,
+        // and everyone is taken to the one destination.
+        dropoff: pickRun ? dropoff : r.destination!,
+        pickup: pickRun ? r.destination! : null,
         isStudentRide: false,
         isPwdSeniorRide: false,
       })),
@@ -1436,8 +1456,20 @@ export function PassengerPage() {
     // In Group mode with no rider picked, the map's Set destination fills
     // the next rider still without one — so the stops can be set one after
     // another straight from the map, in the order the riders were added.
+    // Family Several stops: the shared end being set — the pickup of a
+    // drop-off run goes to the page's pickup, the destination of a pick-up
+    // run to its destination (below).
+    if (familyGroup && settingCommon) {
+      setSettingCommon(false)
+      if (!pickRun) {
+        handlePinPickup(location, guess)
+        return
+      }
+    }
     const groupTarget =
-      pickingForGroupRiderKey ?? (groupRideOpen ? groupRiders.find((r) => !r.destination)?.key ?? null : null)
+      familyGroup && settingCommon
+        ? null
+        : pickingForGroupRiderKey ?? (groupRideOpen ? groupRiders.find((r) => !r.destination)?.key ?? null : null)
     if (groupTarget) {
       const key = groupTarget
       setGroupRiders((prev) => prev.map((r) => (r.key === key ? { ...r, destination: location } : r)))
@@ -2184,6 +2216,102 @@ export function PassengerPage() {
       )}
     </div>
   )
+  // Family → Several stops (2026-09-23): the pickup and destination bar at
+  // the top of the map, and which way the run goes. A drop-off run has one
+  // pickup (tap to set) and a stop per member; a pick-up run has a pickup
+  // per member and one destination (tap to set). The shared end is set with
+  // the search box, a saved place, or the centre pin.
+  const shortPlace = (l: string) => formatAddressLine(l).split(',')[0].trim()
+  const familyStopsSet = groupRiders.filter((r) => r.destination).length
+  const familyEndsBar = (
+    <div className="min-w-0 flex-1 space-y-1">
+      <div className="flex gap-1 rounded-lg bg-slate-100 p-0.5">
+        {(
+          [
+            ['drop', '🏠→🏫 Drop-offs'],
+            ['pick', '🏫→🏠 Pick-ups'],
+          ] as const
+        ).map(([dir, label]) => (
+          <button
+            key={dir}
+            type="button"
+            onClick={() => {
+              if (dir === familyDir) return
+              setFamilyDir(dir)
+              setSettingCommon(false)
+              // Each member's point meant the other end before — start over.
+              setGroupRiders((prev) => prev.map((r) => ({ ...r, destination: null })))
+            }}
+            className={`flex-1 rounded-md py-1 text-[11px] font-semibold transition ${
+              familyDir === dir ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-1">
+        <button
+          type="button"
+          onClick={() => {
+            if (pickRun) {
+              setSettingCommon(false)
+              setGroupSettingStops(true)
+            } else setSettingCommon((v) => !v)
+          }}
+          className={`min-w-0 rounded-lg border px-2 py-1.5 text-left text-[11px] transition ${
+            !pickRun && settingCommon
+              ? 'border-red-500 bg-red-50 ring-2 ring-red-300'
+              : 'border-red-300/60 bg-red-50/70 hover:bg-red-50'
+          }`}
+        >
+          <span className="block font-bold text-red-800">📍 Pickup</span>
+          <span className="block truncate text-slate-700">
+            {pickRun ? `Each member · ${familyStopsSet}/${groupRiders.length} set` : pickupChosen || pickupGps ? shortPlace(pickup.label) : 'Tap to set'}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (pickRun) setSettingCommon((v) => !v)
+            else {
+              setSettingCommon(false)
+              setGroupSettingStops(true)
+            }
+          }}
+          className={`min-w-0 rounded-lg border px-2 py-1.5 text-left text-[11px] transition ${
+            pickRun && settingCommon
+              ? 'border-green-600 bg-green-50 ring-2 ring-green-300'
+              : 'border-green-500/40 bg-green-500/10 hover:bg-green-500/20'
+          }`}
+        >
+          <span className="block font-bold text-green-900">🏁 Destination</span>
+          <span className="block truncate text-slate-700">
+            {pickRun ? (hasDestination ? shortPlace(dropoff.label) : 'Tap to set') : `Each member · ${familyStopsSet}/${groupRiders.length} set`}
+          </span>
+        </button>
+      </div>
+      {settingCommon && savedLocations.length > 0 && (
+        <div className="-mx-1 flex flex-nowrap gap-1 overflow-x-auto px-1">
+          {savedLocations.map((sp) => (
+            <button
+              key={sp.id}
+              type="button"
+              onClick={() => {
+                if (pickRun) handleDropoffQuickPick(sp.location)
+                else handlePickupQuickPick(sp.location)
+                setSettingCommon(false)
+              }}
+              className="shrink-0 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-900 hover:bg-amber-100"
+            >
+              {SAVED_LOCATION_ICONS[sp.label]} {savedPlaceName(sp.label, sp.name ?? (sp.label === 'Favorite' ? shortPlace(sp.location.label) : undefined))}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="flex items-stretch">{destinationStrip(true)}</div>
+    </div>
+  )
   const sharedMap = (
     <div ref={bookingMapRef} className="scroll-mt-24">
       <LocationMapPicker
@@ -2262,6 +2390,10 @@ export function PassengerPage() {
         centerPinLabel={
           savingPlace
             ? `${SAVED_LOCATION_ICONS[savingPlace.label]} ${savedPlaceName(savingPlace.label, savingPlace.name)}`
+            : familyGroup && settingCommon
+              ? pickRun
+                ? 'Everyone to here'
+                : 'Pickup for everyone'
             : groupRideOpen && groupPinRider
               ? groupPinRider.label
               : undefined
@@ -2272,8 +2404,12 @@ export function PassengerPage() {
         dropoffLabel={
           savingPlace
             ? savedPlaceName(savingPlace.label, savingPlace.name)
+            : familyGroup && settingCommon
+              ? pickRun
+                ? "everyone's destination"
+                : "everyone's pickup"
             : groupRideOpen && groupPinRider
-              ? `${groupPinRider.label}'s stop`
+              ? `${groupPinRider.label}'s ${pickRun ? 'pickup' : 'stop'}`
               : dropoffLabel
         }
         bottomPanel={
@@ -2352,7 +2488,7 @@ export function PassengerPage() {
         // Where to, in the map's top row beside Full screen, in place of the
         // pickup/destination lines (see whereToOnMap).
         toolbarStrip={
-          whereToOnMap ? <div className="flex min-w-0 flex-1 items-stretch">{destinationStrip(true)}</div> : undefined
+          familyGroup && !activeRide ? familyEndsBar : whereToOnMap ? <div className="flex min-w-0 flex-1 items-stretch">{destinationStrip(true)}</div> : undefined
         }
         // A delivery starts somewhere other than here, so its pickup is named
         // on the map too.
@@ -2364,7 +2500,9 @@ export function PassengerPage() {
         // Where to, at the top of the full-screen map, so a destination can
         // be searched without leaving it. Not once a ride is booked.
         fullscreenTop={
-          whereToOnMap ? (
+          familyGroup && !activeRide ? (
+            familyEndsBar
+          ) : whereToOnMap ? (
             <div>
               <div className="relative flex items-stretch gap-1">{destinationStrip(true)}</div>
               {dropoffFormOpen && (

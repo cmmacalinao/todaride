@@ -133,6 +133,9 @@ export function RiderStartPage() {
               Sign up now and get the ₱500/month Family Plan <span className="font-bold">FREE for 1 year</span>.
             </span>
             <span className="block text-xs text-slate-700">Book rides for your loved ones and follow their trip live.</span>
+            <span className="mt-1 inline-block rounded-md bg-red-600 px-2 py-0.5 text-[11px] font-extrabold uppercase tracking-wide text-white">
+              Sign up now — while the promo lasts!
+            </span>
           </span>
           <span aria-hidden className="text-xl text-slate-500">›</span>
         </button>

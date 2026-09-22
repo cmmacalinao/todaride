@@ -38,7 +38,9 @@ export interface NearbyRequest {
   // Set when this card stands for a whole Group Ride: everyone in the same
   // booking, shown and taken as one job (see ACCEPT_RIDE). The money above is
   // then the group's total.
-  group: { count: number; names: string[]; stops: string[] } | null
+  // pickups: each rider's own pickup — they differ on a Family pick-up run
+  // (a stop at each school, one destination), and are all the same otherwise.
+  group: { count: number; names: string[]; stops: string[]; pickups: string[] } | null
 }
 
 // A rider's first name for the group card — but an unnamed rider, booked as
@@ -112,6 +114,7 @@ export function buildNearbyRequests(
                   count: 1,
                   names: [groupRiderName(card.ride.passengerName)],
                   stops: [card.ride.dropoff.label.split(',')[0].trim()],
+                  pickups: [card.ride.pickup.label.split(',')[0].trim()],
                 },
               }
             : card,
@@ -125,6 +128,7 @@ export function buildNearbyRequests(
       lead.group!.count += 1
       lead.group!.names.push(groupRiderName(card.ride.passengerName))
       lead.group!.stops.push(card.ride.dropoff.label.split(',')[0].trim())
+      lead.group!.pickups.push(card.ride.pickup.label.split(',')[0].trim())
       return cards
     }, [])
     .sort((a, b) => {
@@ -177,7 +181,10 @@ export function NearbyRequestsBoard({ requests, onAccept, onDecline, busyNote = 
                   </p>
                   <p className="mt-0.5 truncate text-xs text-slate-500">{group.names.join(', ')}</p>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    {ride.pickup.label.split(',')[0]} → {group.stops.map((s, i) => `${i + 1}. ${s}`).join(' · ')}
+                    {new Set(group.pickups).size > 1
+                      ? // Several pickups, one destination: collect each, then drop all.
+                        `Pick up ${group.pickups.map((s, i) => `${i + 1}. ${s} (${group.names[i]})`).join(' · ')} → ${group.stops[0]}`
+                      : `${ride.pickup.label.split(',')[0]} → ${group.stops.map((s, i) => `${i + 1}. ${s}`).join(' · ')}`}
                   </p>
                 </>
               ) : (

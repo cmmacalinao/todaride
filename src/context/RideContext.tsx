@@ -527,6 +527,9 @@ type RideAction =
         passengerName: string
         passengerPhone: string | null
         dropoff: MockLocation
+        // Family → Several stops, pick-up run (2026-09-23): this rider's own
+        // pickup (their school) — everyone else in the group shares one.
+        pickup?: MockLocation | null
         isStudentRide: boolean
         isPwdSeniorRide: boolean
       }[]
@@ -2827,7 +2830,7 @@ function reducer(state: RideState, action: RideAction): RideState {
         priorityTodaOrgId,
       )
       const fares = action.riders.map((r) =>
-        estimateFare(action.pickup, r.dropoff, groupTariff, {
+        estimateFare(r.pickup ?? action.pickup, r.dropoff, groupTariff, {
           isStudent: r.isStudentRide,
           isPwdSenior: r.isPwdSeniorRide,
           passengerCount: 1,
@@ -2852,7 +2855,7 @@ function reducer(state: RideState, action: RideAction): RideState {
           passengerPhone: r.passengerPhone,
           driverId: null,
           driverName: null,
-          pickup: action.pickup,
+          pickup: r.pickup ?? action.pickup,
           dropoff: r.dropoff,
           fareEstimate: isBookerPays ? (isPayer ? totalFare : 0) : fares[i],
           status: 'requested' as RideStatus,
@@ -2863,7 +2866,7 @@ function reducer(state: RideState, action: RideAction): RideState {
           completedAt: null,
           driverPosition: null,
           passengerPosition: null,
-          pickupGps: action.pickupGps,
+          pickupGps: r.pickup ? r.pickup.gps ?? null : action.pickupGps,
           driverLiveGps: null,
           driverLiveGpsAt: null,
           passengerLiveGps: null,
@@ -6760,6 +6763,7 @@ interface RideContextValue extends RideState {
       passengerName: string
       passengerPhone: string | null
       dropoff: MockLocation
+      pickup?: MockLocation | null
       isStudentRide: boolean
       isPwdSeniorRide: boolean
     }[]

@@ -30,6 +30,7 @@ import { GpsDiagnosticLine } from './GpsDiagnosticLine'
 import { SosPeopleLocations } from './SosPeopleLocations'
 import { RIDE_CANCELLATION_REASON_LABELS } from '../types'
 import type { EmergencyContact, GeoCoords, Ride } from '../types'
+import { RideChatButton } from './RideChat'
 
 interface CallContact {
   label: string
@@ -1023,6 +1024,14 @@ export function TripMonitor({
           </p>
         )}
       </div>
+      )}
+      {hasDriver && (
+        <RideChatButton
+          ride={ride}
+          as="passenger"
+          senderName={passengers.find((p) => p.id === sosActorId)?.name ?? ride.passengerName}
+          otherLabel={drivers.find((d) => d.id === ride.driverId)?.name ?? ride.driverName ?? "Your driver"}
+        />
       )}
       {!waitingForDriver && safetyButton}
     </div>

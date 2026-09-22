@@ -1494,6 +1494,9 @@ export interface Ride {
   // Set when the family owner pays this ride (their member's "I pay" choice):
   // the owner settles it in the app, the rider is not asked for the fare.
   familyPayerId?: string | null
+  // In-app chat between the driver and the passenger (or, on a Family ride,
+  // the parent who booked it) — 2026-09-23. Optional so older rides parse.
+  messages?: RideMessage[]
   // Links every ride created from one Group Ride booking together — each
   // rider going to their own destination gets their own Ride record (same
   // as an ordinary shared ride), but these were all requested at once by
@@ -2413,4 +2416,13 @@ export interface AdSenseSettings {
   enabled: boolean
   publisherId: string | null
   slots: AdSensePlacementSlots
+}
+
+// One message in a ride's in-app chat (see Ride.messages).
+export interface RideMessage {
+  id: string
+  from: 'driver' | 'passenger'
+  senderName: string
+  text: string
+  at: string
 }

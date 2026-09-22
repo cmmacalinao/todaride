@@ -69,6 +69,7 @@ import { DriverAccessThread } from '../components/DriverAccessThread'
 import { RIDE_CANCELLATION_REASON_LABELS } from '../types'
 import type { GeoCoords, Passenger, PaymentMethod, Ride, RideCancellationReason } from '../types'
 import { TrustedDriverLinker } from '../components/FamilyTrustedDriver'
+import { RideChatButton } from '../components/RideChat'
 
 type EarningsFilter = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'all'
 
@@ -2484,10 +2485,21 @@ function ActiveTripCard({
         </a>
       )}
 
-      {contacts.length > 0 && (
+      {/* Chat in the app (2026-09-23) as well as calling — on a Family ride
+          with the parent who booked it. */}
+      {(contacts.length > 0 || ride.status === 'driver_arriving' || ride.status === 'ongoing') && (
         // -mt-2 cancels most of the section's own space-y-3 so this sits with
         // the fare rather than floating between it and the map.
-        <div className="-mt-2 flex flex-wrap gap-2">
+        <div className="-mt-2 flex flex-wrap items-center gap-2">
+          {(ride.status === 'driver_arriving' || ride.status === 'ongoing') && (
+            <RideChatButton
+              ride={ride}
+              as="driver"
+              withLabel
+              senderName={driverName}
+              otherLabel={guardian ? `${guardian.name} (parent/guardian)` : ride.passengerName}
+            />
+          )}
           {contacts.map((c) => (
             <a
               key={c.phone}

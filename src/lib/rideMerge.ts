@@ -177,9 +177,26 @@ function mergeSafetyPhotos(result: Ride, ours: Ride | undefined, theirs: Ride): 
   return { ...result, safetyPhotos }
 }
 
+// Chat messages from both copies of a trip, by id — same reason as the
+// photos: the driver and the passenger each write their own, and whichever
+// copy wins must not drop the other side's.
+function mergeRideMessages(result: Ride, ours: Ride | undefined, theirs: Ride): Ride {
+  if (!ours || (!ours.messages?.length && !theirs.messages?.length)) return result
+  const byId = new Map<string, NonNullable<Ride['messages']>[number]>()
+  for (const m of [...(ours.messages ?? []), ...(theirs.messages ?? [])]) byId.set(m.id, m)
+  const messages = [...byId.values()].sort((a, b) => a.at.localeCompare(b.at))
+  return { ...result, messages }
+}
+
 export function mergeIncomingRides(local: Ride[], incoming: Ride[]): Ride[] {
   const mine = new Map(local.map((r) => [r.id, r]))
-  return incoming.map((theirs) => mergeSafetyPhotos(pickRide(mine.get(theirs.id), theirs), mine.get(theirs.id), theirs))
+  return incoming.map((theirs) =>
+    mergeRideMessages(
+      mergeSafetyPhotos(pickRide(mine.get(theirs.id), theirs), mine.get(theirs.id), theirs),
+      mine.get(theirs.id),
+      theirs,
+    ),
+  )
 }
 
 function pickRide(ours: Ride | undefined, theirs: Ride): Ride {

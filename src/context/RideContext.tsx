@@ -101,6 +101,7 @@ import type {
   ReferralStatus,
   RewardRules,
   Ride,
+  RideMessage,
   RideCreditTier,
   RideStatus,
   RotaryProject,
@@ -531,6 +532,7 @@ type RideAction =
       }[]
     }
   | { type: 'REPORT_DRIVER_GPS'; driverId: string; gps: GeoCoords }
+  | { type: 'SEND_RIDE_MESSAGE'; rideId: string; message: RideMessage }
   | { type: 'ACCEPT_RIDE'; rideId: string; driverId: string }
   | { type: 'DECLINE_RIDE'; rideId: string; driverId: string }
   | { type: 'PASSENGER_RELEASE_DRIVER'; rideId: string }
@@ -3099,6 +3101,13 @@ function reducer(state: RideState, action: RideAction): RideState {
       return { ...state, todaRadiusKm: Math.max(0, Number(action.km) || 0) }
     case 'SET_OUT_OF_AREA_PER_KM':
       return { ...state, outOfAreaPerKm: Math.max(0, Math.round(action.amount)) }
+    case 'SEND_RIDE_MESSAGE':
+      return {
+        ...state,
+        rides: state.rides.map((r) =>
+          r.id === action.rideId ? { ...r, messages: [...(r.messages ?? []), action.message] } : r,
+        ),
+      }
     case 'REPORT_DRIVER_GPS':
       // Where this tricycle is right now, published by the driver's own phone
       // while they are on duty. Before this existed the only position a
@@ -6756,6 +6765,7 @@ interface RideContextValue extends RideState {
     }[]
   }) => void
   reportDriverGps: (driverId: string, gps: GeoCoords) => void
+  sendRideMessage: (rideId: string, from: 'driver' | 'passenger', senderName: string, text: string) => void
   acceptRide: (rideId: string, driverId: string) => void
   declineRide: (rideId: string, driverId: string) => void
   // The passenger lets the accepted driver go (too far away) and the ride goes
@@ -7983,6 +7993,12 @@ export function RideProvider({ children }: { children: ReactNode }) {
     requestGroupRide: (args) =>
       dispatch({ type: 'REQUEST_GROUP_RIDE', requestedDriverId: null, ...args }),
     reportDriverGps: (driverId, gps) => dispatch({ type: 'REPORT_DRIVER_GPS', driverId, gps }),
+    sendRideMessage: (rideId, from, senderName, text) =>
+      dispatch({
+        type: 'SEND_RIDE_MESSAGE',
+        rideId,
+        message: { id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, from, senderName, text, at: new Date().toISOString() },
+      }),
     acceptRide: (rideId, driverId) => dispatch({ type: 'ACCEPT_RIDE', rideId, driverId }),
     declineRide: (rideId, driverId) => dispatch({ type: 'DECLINE_RIDE', rideId, driverId }),
     releaseDriver: (rideId) => dispatch({ type: 'PASSENGER_RELEASE_DRIVER', rideId }),

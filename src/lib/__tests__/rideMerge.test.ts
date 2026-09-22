@@ -247,3 +247,14 @@ describe('a paused driver talking to Admin', () => {
     expect(merged[0].accessStatus).toBe('active')
   })
 })
+
+describe('ride chat across devices', () => {
+  const msg = (id: string, at: string, from: 'driver' | 'passenger') => ({ id, at, from, senderName: from, text: id })
+  it('keeps both sides’ messages whichever copy wins, in time order', () => {
+    const merged = mergeIncomingRides(
+      [ride('r1', 'ongoing', { messages: [msg('p1', '2026-09-23T01:00:00Z', 'passenger')] })],
+      [ride('r1', 'ongoing', { messages: [msg('d1', '2026-09-23T00:59:00Z', 'driver')] })],
+    )
+    expect(merged[0].messages?.map((m) => m.id)).toEqual(['d1', 'p1'])
+  })
+})

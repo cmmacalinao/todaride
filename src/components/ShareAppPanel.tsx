@@ -160,6 +160,54 @@ export function ShareAppPanel({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
+        {/* Straight into the usual chat apps (2026-09-22), with the link
+            already in the message. Each opens that app on a phone that has
+            it; More… is the phone's own share sheet (or copies the link where
+            there is none). */}
+        <div className="mt-3">
+          <p className="mb-1.5 text-[11px] font-semibold text-slate-500">Send the link</p>
+          <div className="grid grid-cols-5 gap-1.5">
+            {(() => {
+              const message = `Get TODA Ride Mobility: ${url}`
+              const enc = encodeURIComponent
+              const apps = [
+                { key: 'messenger', label: 'Messenger', icon: '💬', href: `fb-messenger://share?link=${enc(url)}`, tint: 'bg-[#0084ff]' },
+                { key: 'viber', label: 'Viber', icon: '📞', href: `viber://forward?text=${enc(message)}`, tint: 'bg-[#7360f2]' },
+                { key: 'whatsapp', label: 'WhatsApp', icon: '🟢', href: `https://wa.me/?text=${enc(message)}`, tint: 'bg-[#25d366]' },
+                { key: 'sms', label: 'Messages', icon: '✉️', href: `sms:?&body=${enc(message)}`, tint: 'bg-slate-600' },
+              ]
+              return (
+                <>
+                  {apps.map((a) => (
+                    <a
+                      key={a.key}
+                      href={a.href}
+                      target={a.key === 'whatsapp' ? '_blank' : undefined}
+                      rel="noreferrer"
+                      className="flex flex-col items-center gap-1 rounded-lg border border-slate-200 bg-white py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      <span aria-hidden className={`flex h-8 w-8 items-center justify-center rounded-full text-base text-white ${a.tint}`}>
+                        {a.icon}
+                      </span>
+                      {a.label}
+                    </a>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => void (canShare ? shareLink() : copyLink())}
+                    className="flex flex-col items-center gap-1 rounded-lg border border-slate-200 bg-white py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    <span aria-hidden className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-base">
+                      ⋯
+                    </span>
+                    More…
+                  </button>
+                </>
+              )
+            })()}
+          </div>
+        </div>
+
         <p className="mt-3 border-t border-slate-100 pt-2 text-[11px] leading-snug text-slate-500">
           Opening the link from inside Messenger uses its own browser, which will not share location. Tap ⋯ and
           choose <span className="font-semibold">Open in Chrome</span> or{' '}

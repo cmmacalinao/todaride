@@ -549,7 +549,7 @@ export const VendorMenuBooking = forwardRef<
                         )}
                         <span className="ml-auto shrink-0 text-[11px] font-semibold text-brand-600">See all ›</span>
                       </button>
-                      <div className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1.5">
+                      <SwipeRow>
                         {dishes.map((d) => (
                           <button
                             key={d.id}
@@ -578,7 +578,7 @@ export const VendorMenuBooking = forwardRef<
                             </span>
                           </button>
                         ))}
-                      </div>
+                      </SwipeRow>
                     </div>
                   )
                 })}
@@ -1113,6 +1113,56 @@ function ActiveVendorOrderCard({
         otherPartyLabel={vendor?.name ?? 'the vendor'}
         onSend={(text) => sendMedsOrderMessage(order.id, 'customer', text)}
       />
+    </div>
+  )
+}
+
+// A row of dish cards that slides sideways (2026-09-22). A finger swipes it
+// natively; a mouse can drag it too. Either way a swipe only moves the row —
+// the click a drag ends in is swallowed, so a dish opens its store only on a
+// real tap, never at the end of a swipe.
+const SWIPE_SLOP_PX = 6
+function SwipeRow({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const drag = useRef<{ x: number; left: number; moved: boolean } | null>(null)
+  const [dragging, setDragging] = useState(false)
+  return (
+    <div
+      ref={ref}
+      onPointerDown={(e) => {
+        const el = ref.current
+        if (!el) return
+        drag.current = { x: e.clientX, left: el.scrollLeft, moved: false }
+      }}
+      onPointerMove={(e) => {
+        const el = ref.current
+        const d = drag.current
+        if (!el || !d) return
+        const dx = e.clientX - d.x
+        if (!d.moved && Math.abs(dx) > SWIPE_SLOP_PX) {
+          d.moved = true
+          // Only a mouse needs the row moved by hand; a finger scrolls it natively.
+          if (e.pointerType === 'mouse') setDragging(true)
+        }
+        if (d.moved && e.pointerType === 'mouse') el.scrollLeft = d.left - dx
+      }}
+      onPointerUp={() => setDragging(false)}
+      onPointerCancel={() => {
+        // The browser took over for a native swipe — that was a swipe, not a tap.
+        if (drag.current) drag.current.moved = true
+        setDragging(false)
+      }}
+      onPointerLeave={() => setDragging(false)}
+      onClickCapture={(e) => {
+        if (drag.current?.moved) {
+          e.preventDefault()
+          e.stopPropagation()
+        }
+        drag.current = null
+      }}
+      className={`-mx-1 flex gap-2 overflow-x-auto px-1 pb-1.5 ${dragging ? 'cursor-grabbing select-none' : 'snap-x snap-mandatory cursor-grab'}`}
+    >
+      {children}
     </div>
   )
 }

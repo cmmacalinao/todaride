@@ -147,3 +147,16 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .waiting-driver-drive { animation: none; left: 45%; }
 }
+
+/* A live dot on the map — the tricycle, the rider — gets a new position every
+   few seconds (see POLL_ON_TRIP_MS). Sliding it there instead of teleporting
+   is what makes the movement readable at that pace; the timing is a little
+   longer than the beat so the dot is still moving when the next fix lands.
+   Leaflet positions markers with transform, so this is all it takes. */
+.leaflet-marker-icon.toda-glide {
+  transition: transform 3.4s linear;
+}
+/* Zooming moves every marker at once — a glide there would smear the map. */
+.leaflet-zoom-anim .leaflet-marker-icon.toda-glide {
+  transition: none;
+}

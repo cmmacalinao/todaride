@@ -288,10 +288,15 @@ function routeLineStyle(routeIsReal: boolean | undefined, routeVariant: 'trip' |
     : { color: '#2563eb', weight: 4, opacity: 0.7 }
 }
 
-function dotIcon(color: string, pulse?: boolean, icon?: MarkerIcon, pointId?: string) {
+function dotIcon(color: string, pulse?: boolean, icon?: MarkerIcon, pointId?: string, glide?: boolean) {
   const box = markerBoxSize(icon)
   return L.divIcon({
-    className: '',
+    // A live dot — the tricycle, the rider — arrives every few seconds (see
+    // POLL_ON_TRIP_MS). Left alone it jumps a house-length at a time; the
+    // class slides it to the new fix so the movement reads as movement
+    // (2026-09-23). Only for dots that actually travel: a pin being dragged
+    // must follow the finger exactly.
+    className: glide ? 'toda-glide' : '',
     html: markerHtml({ color, pulse, icon, pointId }),
     iconSize: [box, box],
     iconAnchor: [box / 2, box / 2],
@@ -625,7 +630,7 @@ function OsmLiveMap({ points, routeLine, passedLine, hintLine, streetLines, fram
         <Marker
           key={`${p.id}${p.callout ? ':callout' : ''}`}
           position={[p.gps.lat, p.gps.lng]}
-          icon={dotIcon(p.color, p.pulse, p.icon, p.id)}
+          icon={dotIcon(p.color, p.pulse, p.icon, p.id, p.id === 'driver' || p.id === 'me' || p.icon === 'tricycle')}
           draggable={!!draggableIds?.includes(p.id)}
           eventHandlers={{
             ...(onPointClick ? { click: () => onPointClick(p.id) } : {}),

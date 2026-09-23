@@ -49,13 +49,16 @@ const POLL_WHILE_VISIBLE_MS = 45000
 // anything at all.
 //
 // So while this phone is on a live trip it reads every few seconds instead.
-// It costs a read per device per 6 seconds, for the minutes a trip lasts,
+// It costs one small read per device every few seconds, for the minutes a
+// trip lasts — and only the ride row, not the whole world (see onWake),
 // and only while the screen is on.
-const POLL_ON_TRIP_MS = 6000
+const POLL_ON_TRIP_MS = 3000
 
 // Set by the app when this device is on a live trip — see RideContext.
+let onTrip = false
 let syncPaceMs = POLL_WHILE_VISIBLE_MS
 export function setSyncPace(onLiveTrip: boolean) {
+  onTrip = onLiveTrip
   syncPaceMs = onLiveTrip ? POLL_ON_TRIP_MS : POLL_WHILE_VISIBLE_MS
 }
 
@@ -494,7 +497,12 @@ class SupabaseAdapter implements PersistenceAdapter {
     // rather than an afternoon.
     const onWake = () => {
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
-      refetch()
+      // On a trip this beat is only chasing positions, and those live on the
+      // ride row — reading that one table keeps a 3-second beat about as
+      // cheap as the old 45-second read of everything. Anything else (a
+      // sign-up, a settings change) still arrives by realtime, or on the
+      // next full read once the trip ends.
+      refetch(onTrip ? 'ride' : undefined)
     }
 
     // A heartbeat, because a websocket on a phone is a promise nobody can

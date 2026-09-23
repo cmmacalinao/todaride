@@ -16,7 +16,9 @@ import type { GeoCoords } from '../types'
 // a phone in a sidecar wanders, the route geometry is simplified, and a
 // divided highway puts the two carriageways tens of metres apart. Too tight
 // and the app re-routes continuously while following the route perfectly.
-export const OFF_ROUTE_METERS = 60
+// 100 m from pilot testing (2026-09-23): 60 asked about ordinary GPS wander
+// on a sidecar, and the question stopped meaning anything.
+export const OFF_ROUTE_METERS = 100
 
 // How many consecutive readings must agree before anything is re-fetched.
 //

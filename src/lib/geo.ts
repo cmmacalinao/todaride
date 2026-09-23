@@ -8,6 +8,15 @@ import type { GeoCoords, TodaOrganization } from '../types'
 // normal signal drift without being so loose it's meaningless.
 export const TERMINAL_PROXIMITY_METERS = 150
 
+// How close to the terminal a booking has to be for the Pila to decide who
+// gets it (2026-09-23, from pilot testing).
+//
+// The queue is fair to drivers waiting in line, and right for somebody
+// standing at the terminal. Further out it sends a tricycle past nearer ones
+// to reach a passenger — so beyond this radius the nearest driver is offered
+// the ride instead, and the line keeps its claim on the terminal itself.
+export const QUEUE_ORDER_RADIUS_METERS = 200
+
 // How near the pickup a driver has to be before the trip can be started.
 // Tighter than the terminal radius: a terminal is a whole yard you might be
 // parked anywhere in, while a pickup is one person standing in one spot.

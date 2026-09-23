@@ -177,7 +177,7 @@ import {
   orderByDispatchDistance,
   DOCUMENT_TYPES,
 } from '../mock/data'
-import { TERMINAL_PROXIMITY_METERS, haversineDistanceMeters } from '../lib/geo'
+import { QUEUE_ORDER_RADIUS_METERS, TERMINAL_PROXIMITY_METERS, haversineDistanceMeters } from '../lib/geo'
 import { SAFETY_DEFAULTS, appendEvent, buildIncident, isActiveAlert, markNotificationDelivery, transitionAlert, withSafetyDefaults } from '../lib/safety'
 import { getPersistence, setSyncPace } from '../lib/persistence'
 import { sendSosSms } from '../lib/sosSmsApi'
@@ -2526,13 +2526,14 @@ function nextQueueOffer(
   const terminals = ctx.terminals ?? []
   const pickupGps = ctx.pickupGps ?? null
   // Is the passenger standing at a terminal? If so, that terminal's own line
-  // is the order — not distance.
+  // is the order — not distance. Only within QUEUE_ORDER_RADIUS_METERS: a
+  // booking further out goes to the nearest driver (2026-09-23).
   const pickupTerminal = nearestTerminal(terminals, pickupGps)
   const atTerminal =
     pickupTerminal !== null &&
     pickupGps !== null &&
     pickupTerminal.gps !== null &&
-    haversineDistanceMeters(pickupTerminal.gps, pickupGps) <= TERMINAL_PROXIMITY_METERS &&
+    haversineDistanceMeters(pickupTerminal.gps, pickupGps) <= QUEUE_ORDER_RADIUS_METERS &&
     pickupTerminal.todaOrgId === priorityTodaOrgId
   const byDistance = atTerminal
     ? [

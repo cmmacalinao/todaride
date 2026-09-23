@@ -180,6 +180,7 @@ import {
 import { QUEUE_ORDER_RADIUS_METERS, TERMINAL_PROXIMITY_METERS, haversineDistanceMeters } from '../lib/geo'
 import { SAFETY_DEFAULTS, appendEvent, buildIncident, isActiveAlert, markNotificationDelivery, transitionAlert, withSafetyDefaults } from '../lib/safety'
 import { getPersistence, setSyncPace } from '../lib/persistence'
+import { useSession } from './SessionContext'
 import { sendSosSms } from '../lib/sosSmsApi'
 
 // The distance part of an errand's fare. Shared by the booking preview and
@@ -7719,6 +7720,10 @@ const RideContext = createContext<RideContextValue | null>(null)
 
 export function RideProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, loadInitialState)
+  // Who this device is signed in as — RideProvider sits inside
+  // SessionProvider (see App.tsx). Used to tell this phone's own live trip
+  // from the rest of the world's (see liveTripHere).
+  const session = useSession()
   // Set while the next render is showing state that arrived from another
   // document, so the persistence effect below knows not to echo it back.
   const justHydratedRef = useRef(false)
@@ -8009,13 +8014,26 @@ export function RideProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // While any trip on this device is live, the shared state is re-read every
-  // few seconds instead of every 45 (see setSyncPace). Pilot testing found
-  // the driver's position, the acceptance and the re-routing all waiting on
-  // that slow beat when realtime went quiet on mobile data.
-  const liveTripHere = state.rides.some(
-    (r) => r.status === 'requested' || r.status === 'accepted' || r.status === 'driver_arriving' || r.status === 'ongoing',
-  )
+  // While THIS phone is on a live trip, the shared state is re-read every few
+  // seconds instead of every 45 (see setSyncPace). Pilot testing found the
+  // driver's position, the acceptance and the re-routing all waiting on that
+  // slow beat when realtime went quiet on mobile data.
+  //
+  // Only trips this device is part of: every device holds every ride, so
+  // "any ride is running" would put the whole pilot on a 3-second beat
+  // whenever one tricycle was out. A driver watching for work is included —
+  // waiting on an offer is exactly when a slow beat is felt.
+  const liveTripHere = state.rides.some((r) => {
+    const live = r.status === 'requested' || r.status === 'accepted' || r.status === 'driver_arriving' || r.status === 'ongoing'
+    if (!live) return false
+    if (session.loggedInDriverId) return r.driverId === session.loggedInDriverId || (!r.driverId && r.status === 'requested')
+    return (
+      r.passengerId === session.currentPassengerId ||
+      r.bookedByParentId === session.currentParentId ||
+      r.familyBookerId === session.currentPassengerId ||
+      r.familyPayerId === session.currentPassengerId
+    )
+  })
   useEffect(() => {
     setSyncPace(liveTripHere)
     return () => setSyncPace(false)

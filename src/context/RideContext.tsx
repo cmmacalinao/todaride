@@ -479,6 +479,11 @@ type RideAction =
       bookedByParentId: string | null
       // Book a Ride → Family: the passenger who booked it for a family member.
       familyBookerId?: string | null
+      // Booking for someone else (2026-09-24): who booked, how old the rider
+      // is, and whether the number on the ride is the booker's.
+      bookedByPassengerId?: string | null
+      riderAge?: number | null
+      bookerIsContact?: boolean
       // A child's own booking, held until their parent approves it.
       awaitingFamilyApproval?: boolean
       specialPickupRequested: boolean
@@ -2755,6 +2760,9 @@ function reducer(state: RideState, action: RideAction): RideState {
         paymentProofDataUrl: action.paymentProofDataUrl,
         bookedByParentId: action.bookedByParentId,
         familyBookerId: action.familyBookerId ?? null,
+        bookedByPassengerId: action.bookedByPassengerId ?? null,
+        riderAge: action.riderAge ?? null,
+        bookerIsContact: action.bookerIsContact ?? false,
         awaitingFamilyApproval: action.awaitingFamilyApproval ?? false,
         // The family owner pays when that member is set to 'I pay' — whether the
         // owner booked it for them (familyBookerId) or they booked it themselves
@@ -6800,6 +6808,9 @@ interface RideContextValue extends RideState {
     tip?: number
     bookedByParentId?: string | null
     familyBookerId?: string | null
+    bookedByPassengerId?: string | null
+    riderAge?: number | null
+    bookerIsContact?: boolean
     awaitingFamilyApproval?: boolean
     specialPickupRequested?: boolean
     specialTrip?: boolean

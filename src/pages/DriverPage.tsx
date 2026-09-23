@@ -94,6 +94,15 @@ function familyGuardianContact(ride: Ride, passengers: Passenger[]): { name: str
   return booker?.phone ? { name: booker.name, phone: booker.phone } : null
 }
 
+// Booking for someone else (2026-09-24): a child rides on the number of the
+// adult who booked, so that is who the driver is given — never the child.
+function bookerContact(ride: Ride, passengers: Passenger[]): { name: string; phone: string } | null {
+  if (!ride.bookerIsContact || !ride.bookedByPassengerId) return null
+  const booker = passengers.find((p) => p.id === ride.bookedByPassengerId)
+  const phone = booker?.phone ?? ride.passengerPhone
+  return phone ? { name: booker?.name ?? 'the person who booked', phone } : null
+}
+
 function matchesEarningsFilter(ride: Ride, filter: EarningsFilter): boolean {
   if (filter === 'all') return true
   if (!ride.completedAt) return false
@@ -1039,8 +1048,8 @@ export function DriverPage() {
   // screen the footer appears on rather than only the trip screen itself.
   const footerContact = (() => {
     if (!myActiveRide) return null
-    const guardian = familyGuardianContact(myActiveRide, passengers)
-    if (guardian) return { name: `${guardian.name} (parent/guardian)`, phone: guardian.phone }
+    const guardian = familyGuardianContact(myActiveRide, passengers) ?? bookerContact(myActiveRide, passengers)
+    if (guardian) return { name: `${guardian.name} (booked this ride)`, phone: guardian.phone }
     const passenger = passengers.find((p) => p.id === myActiveRide.passengerId)
     const phone = passenger?.phone ?? myActiveRide.passengerPhone
     const name = passenger?.name ?? myActiveRide.passengerName
@@ -2071,9 +2080,9 @@ function ActiveTripCard({
   const driverName = drivers.find((d) => d.id === ride.driverId)?.name ?? 'Driver'
   const parentLink = parentLinks.find((l) => l.studentPassengerId === ride.passengerId)
   const parent = parentLink ? parents.find((p) => p.id === parentLink.parentId) : null
-  const guardian = familyGuardianContact(ride, passengers)
+  const guardian = familyGuardianContact(ride, passengers) ?? bookerContact(ride, passengers)
   const contacts = guardian
-    ? [{ label: `Call ${guardian.name} (parent/guardian who booked)`, phone: guardian.phone }]
+    ? [{ label: `Call ${guardian.name} (booked this ride)`, phone: guardian.phone }]
     : [
     ...(passenger?.phone ? [{ label: `Call ${passenger.name}`, phone: passenger.phone }] : []),
     ...(parent?.phone ? [{ label: `Call ${parent.name} (${parentLink?.relationship})`, phone: parent.phone }] : []),

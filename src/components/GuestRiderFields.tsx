@@ -12,6 +12,11 @@ export interface GuestRiderState {
   setOtherName: (v: string) => void
   otherPhone: string
   setOtherPhone: (v: string) => void
+  // Their age (2026-09-24). A child riding alone is booked by an adult, and
+  // it is that adult the driver must be able to reach — so a minor's own
+  // mobile is optional and the booker's number goes on the ride instead.
+  otherAge: string
+  setOtherAge: (v: string) => void
   reset: () => void
 }
 
@@ -19,12 +24,14 @@ export function useGuestRider(): GuestRiderState {
   const [bookingFor, setBookingFor] = useState<'self' | 'other' | 'family'>('self')
   const [otherName, setOtherName] = useState('')
   const [otherPhone, setOtherPhone] = useState('')
+  const [otherAge, setOtherAge] = useState('')
   function reset() {
     setBookingFor('self')
     setOtherName('')
     setOtherPhone('')
+    setOtherAge('')
   }
-  return { bookingFor, setBookingFor, otherName, setOtherName, otherPhone, setOtherPhone, reset }
+  return { bookingFor, setBookingFor, otherName, setOtherName, otherPhone, setOtherPhone, otherAge, setOtherAge, reset }
 }
 
 // Generated fresh per booking, not tied to any real account — a guest ride

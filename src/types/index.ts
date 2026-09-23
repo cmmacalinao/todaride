@@ -1558,6 +1558,13 @@ export interface Ride {
   // A child's ride held for the parent to approve before any driver is
   // offered it (Family "Ask me first", 2026-09-23).
   awaitingFamilyApproval?: boolean
+  // Booking for someone else: the account that made the booking, and the
+  // rider's age when it was given (2026-09-24). A minor rides on the
+  // booker's number — see bookerIsContact.
+  bookedByPassengerId?: string | null
+  riderAge?: number | null
+  // The number on this ride belongs to whoever booked it, not to the rider.
+  bookerIsContact?: boolean
   // In-app chat between the driver and the passenger (or, on a Family ride,
   // the parent who booked it) — 2026-09-23. Optional so older rides parse.
   messages?: RideMessage[]

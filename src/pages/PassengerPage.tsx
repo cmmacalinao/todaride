@@ -1381,13 +1381,19 @@ export function PassengerPage() {
   // Family (2026-09-23): a child often has no phone of their own — the
   // driver calls the parent who booked (see DriverPage), so the member's
   // mobile is optional there; one typed in still has to be a real number.
-  const guestPhoneFine = guestPhoneOk || (forFamily && guestPhoneDigits.length === 0)
+  // Someone (2026-09-24): an age is asked for, and a minor's own mobile is
+  // not required — the driver is given the number of the adult booking the
+  // ride instead, the same rule Family already follows.
+  const guestAgeNum = Number(guestRider.otherAge)
+  const guestAgeGiven = Number.isFinite(guestAgeNum) && guestAgeNum > 0
+  const guestIsMinor = guestAgeGiven && guestAgeNum < MINOR_AGE
+  const guestPhoneFine = guestPhoneOk || ((forFamily || guestIsMinor) && guestPhoneDigits.length === 0)
   const dualMissing: 'pickup' | 'dropoff' | null = dualEndBox ? (!boxSet.pickup ? 'pickup' : !boxSet.dropoff ? 'dropoff' : null) : null
   const canSubmit =
     hasDestination &&
     !endsAreSameSpot &&
     !dualMissing &&
-    (!isGuestBooking || (guestRider.otherName.trim().length > 0 && guestPhoneFine)) &&
+    (!isGuestBooking || (guestRider.otherName.trim().length > 0 && (forFamily || guestAgeGiven) && guestPhoneFine)) &&
     // A child cannot book during their family's curfew hours.
     !inCurfew
 
@@ -1437,7 +1443,14 @@ export function PassengerPage() {
     requestRide({
       passengerId: isGuestBooking ? makeGuestPassengerId() : passenger.id,
       passengerName: isGuestBooking ? guestRider.otherName.trim() : passenger.name,
-      passengerPhone: isGuestBooking ? guestRider.otherPhone.trim() || null : null,
+      // A minor with no number of their own rides on the booker's: that is
+      // the number the driver is shown (see DriverPage's contacts).
+      passengerPhone: isGuestBooking
+        ? guestRider.otherPhone.trim() || (guestIsMinor ? passenger.phone : null)
+        : null,
+      bookedByPassengerId: isGuestBooking ? passenger.id : null,
+      riderAge: isGuestBooking && guestAgeGiven ? guestAgeNum : null,
+      bookerIsContact: isGuestBooking && guestIsMinor && !guestRider.otherPhone.trim(),
       familyBookerId: forFamily && !isErrand ? passenger.id : null,
       pickup: isErrand && storeName.trim() ? { ...pickup, label: storeName.trim() } : pickup,
       dropoff,
@@ -2886,7 +2899,7 @@ export function PassengerPage() {
                     "+ Add family member", which has its own boxes. The pair
                     stays for a plain Someone booking. */}
                 {forOther && !forFamily && (
-                  <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                  <div className="mt-1.5 grid grid-cols-[1fr_4.5rem_1fr] gap-1.5">
                     <input
                       value={guestRider.otherName}
                       onChange={(e) => guestRider.setOtherName(e.target.value)}
@@ -2899,9 +2912,20 @@ export function PassengerPage() {
                       }`}
                     />
                     <input
+                      value={guestRider.otherAge}
+                      onChange={(e) => guestRider.setOtherAge(e.target.value.replace(/D/g, '').slice(0, 3))}
+                      placeholder="Age"
+                      inputMode="numeric"
+                      className={`compact-input min-w-0 rounded-lg border px-2 py-1.5 text-center text-xs ${
+                        !guestAgeGiven && hasDestination && !endsAreSameSpot
+                          ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-300'
+                          : 'border-slate-300'
+                      }`}
+                    />
+                    <input
                       value={guestRider.otherPhone}
                       onChange={(e) => guestRider.setOtherPhone(e.target.value)}
-                      placeholder={forFamily ? "Their mobile (optional)" : "Their mobile number"}
+                      placeholder={guestIsMinor ? 'Their mobile (optional)' : 'Their mobile number'}
                       inputMode="tel"
                       // Amber once both ends are set and the number is missing
                       // or not a PH mobile yet.

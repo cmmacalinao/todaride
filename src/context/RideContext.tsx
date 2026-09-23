@@ -179,7 +179,7 @@ import {
 } from '../mock/data'
 import { TERMINAL_PROXIMITY_METERS, haversineDistanceMeters } from '../lib/geo'
 import { SAFETY_DEFAULTS, appendEvent, buildIncident, isActiveAlert, markNotificationDelivery, transitionAlert, withSafetyDefaults } from '../lib/safety'
-import { getPersistence } from '../lib/persistence'
+import { getPersistence, setSyncPace } from '../lib/persistence'
 import { sendSosSms } from '../lib/sosSmsApi'
 
 // The distance part of an errand's fare. Shared by the booking preview and
@@ -8007,6 +8007,18 @@ export function RideProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [])
+
+  // While any trip on this device is live, the shared state is re-read every
+  // few seconds instead of every 45 (see setSyncPace). Pilot testing found
+  // the driver's position, the acceptance and the re-routing all waiting on
+  // that slow beat when realtime went quiet on mobile data.
+  const liveTripHere = state.rides.some(
+    (r) => r.status === 'requested' || r.status === 'accepted' || r.status === 'driver_arriving' || r.status === 'ongoing',
+  )
+  useEffect(() => {
+    setSyncPace(liveTripHere)
+    return () => setSyncPace(false)
+  }, [liveTripHere])
 
   // Keep separate tabs/roles (e.g. student on one device, parent on another)
   // in sync so alerts like SOS and safety photos show up immediately everywhere.

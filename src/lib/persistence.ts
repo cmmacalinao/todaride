@@ -37,6 +37,28 @@ export interface PersistenceAdapter {
 // passenger gives up and reloads.
 const POLL_WHILE_VISIBLE_MS = 45000
 
+// The same heartbeat while a trip is actually running (2026-09-23).
+//
+// Pilot testing on two phones: the driver's dot stayed put on the passenger's
+// map, the tricycle banner lagged behind the real tricycle, an acceptance
+// took most of a minute to show, and re-routing never fired because the
+// position it judges had not moved. All of it is this number. Positions are
+// published every 3 seconds (see LIVE_GPS_PUBLISH_MS) and realtime is meant
+// to deliver them at once — but on a carrier network that socket goes quiet
+// without saying so, and then 45 seconds is how often a phone learns
+// anything at all.
+//
+// So while this phone is on a live trip it reads every few seconds instead.
+// It costs a read per device per 6 seconds, for the minutes a trip lasts,
+// and only while the screen is on.
+const POLL_ON_TRIP_MS = 6000
+
+// Set by the app when this device is on a live trip — see RideContext.
+let syncPaceMs = POLL_WHILE_VISIBLE_MS
+export function setSyncPace(onLiveTrip: boolean) {
+  syncPaceMs = onLiveTrip ? POLL_ON_TRIP_MS : POLL_WHILE_VISIBLE_MS
+}
+
 const HOT: { key: string; table: string; columns: (row: Record<string, unknown>) => Record<string, unknown> }[] = [
   {
     key: 'rides',
@@ -493,7 +515,12 @@ class SupabaseAdapter implements PersistenceAdapter {
     // This does not replace the subscription -- when the socket is healthy
     // updates still arrive in a moment rather than on the next beat. It is
     // the floor under it.
-    const heartbeat = setInterval(onWake, POLL_WHILE_VISIBLE_MS)
+    // Self-rescheduling rather than a fixed interval, so the pace can change
+    // the moment a trip starts or ends.
+    let heartbeat: ReturnType<typeof setTimeout> = setTimeout(function beat() {
+      onWake()
+      heartbeat = setTimeout(beat, syncPaceMs)
+    }, syncPaceMs)
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onWake)
     if (typeof window !== 'undefined') {
       window.addEventListener('focus', onWake)
@@ -505,7 +532,7 @@ class SupabaseAdapter implements PersistenceAdapter {
     const unsubLocal = this.local.subscribe(onRemote)
     return () => {
       if (timer) clearTimeout(timer)
-      clearInterval(heartbeat)
+      clearTimeout(heartbeat)
       if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onWake)
       if (typeof window !== 'undefined') {
         window.removeEventListener('focus', onWake)

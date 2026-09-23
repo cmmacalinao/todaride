@@ -268,7 +268,14 @@ export async function geocodeAddress(query: string): Promise<GeocodeResult | nul
 // `near` ranks the closest first. Returns [] on any failure, like the rest.
 const STREET_SEARCH_BBOX = '120.55,15.20,121.40,16.25'
 const NOT_A_STREET = new Set(['bus_stop', 'crossing', 'traffic_signals', 'street_lamp', 'stop', 'give_way', 'milestone', 'speed_camera', 'elevator'])
-export async function searchStreets(query: string, near: GeoCoords | null, limit = 6): Promise<PlaceSuggestion[]> {
+export async function searchStreets(
+  query: string,
+  near: GeoCoords | null,
+  limit = 6,
+  // The town picked in the City row: a street in another town is not an
+  // answer to "where in Pantabangan?" (2026-09-23).
+  city?: string,
+): Promise<PlaceSuggestion[]> {
   const q = query.trim()
   if (q.length < 3) return []
   const bias = near ? `&lat=${near.lat}&lon=${near.lng}` : ''
@@ -287,6 +294,8 @@ export async function searchStreets(query: string, near: GeoCoords | null, limit
     for (const f of data.features ?? []) {
       const p = f.properties
       if (!p.name || (p.osm_value && NOT_A_STREET.has(p.osm_value))) continue
+      const [lngHere, latHere] = f.geometry.coordinates
+      if (!sameTown(city, p, { lat: latHere, lng: lngHere }, near)) continue
       const label = [p.name, p.district, p.city ?? p.county].filter(Boolean).join(', ')
       // One row per street and place — a long road comes back as several pieces.
       if (seen.has(label)) continue
@@ -299,6 +308,96 @@ export async function searchStreets(query: string, near: GeoCoords | null, limit
   } catch {
     return []
   }
+}
+
+// Everything else OpenStreetMap knows about a town — restaurants, sari-sari
+// stores, schools, clinics, resorts, offices (2026-09-23). The seeded
+// landmark list is a snapshot and a small municipality like Pantabangan has
+// very little of it; this asks the live map instead, the same source the
+// tiles are drawn from, so whatever a passenger can see on the map can be
+// searched for by name.
+//
+// Same Photon service as searchStreets, minus the highway filter and minus
+// the roads themselves (those have their own section in the box). Results are
+// kept to the town being booked in: by the name Photon reports, or — where it
+// reports none — by being within reach of that town's centre.
+const PLACE_NEAR_KM = 12
+export async function searchOsmPlaces(
+  query: string,
+  near: GeoCoords | null,
+  city: string | undefined,
+  limit = 6,
+): Promise<PlaceSuggestion[]> {
+  const q = query.trim()
+  if (q.length < 3) return []
+  const bias = near ? `&lat=${near.lat}&lon=${near.lng}` : ''
+  const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=${limit + 10}&bbox=${STREET_SEARCH_BBOX}${bias}`
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 6000)
+    const res = await fetch(url, { signal: controller.signal })
+    clearTimeout(timeout)
+    if (!res.ok) return []
+    const data = (await res.json()) as {
+      features: {
+        geometry: { coordinates: [number, number] }
+        properties: { name?: string; osm_key?: string; osm_value?: string; street?: string; district?: string; city?: string; county?: string; type?: string }
+      }[]
+    }
+    const seen = new Set<string>()
+    const out: PlaceSuggestion[] = []
+    for (const f of data.features ?? []) {
+      const pr = f.properties
+      // Roads are the Streets section's job, and a bare house number is not
+      // a place anybody searches for by name.
+      if (!pr.name || pr.osm_key === 'highway' || pr.osm_key === 'place') continue
+      const [lng, lat] = f.geometry.coordinates
+      if (!sameTown(city, pr, { lat, lng }, near)) continue
+      const label = [pr.name, pr.street, pr.district, pr.city ?? pr.county].filter(Boolean).join(', ')
+      if (seen.has(label)) continue
+      seen.add(label)
+      out.push({ label, gps: { lat, lng } })
+      if (out.length >= limit) break
+    }
+    return out
+  } catch {
+    return []
+  }
+}
+
+// Is this result in the town the passenger picked? OSM writes town names its
+// own way — "San Jose" for San Jose City, "Muñoz" for Science City of Muñoz —
+// so the comparison drops the City/Science City wording and the ñ. A result
+// carrying no town at all is kept only if it is close to the town centre.
+export function sameTown(
+  city: string | undefined,
+  props: { city?: string; county?: string; district?: string },
+  gps: GeoCoords,
+  cityCentre: GeoCoords | null,
+): boolean {
+  if (!city) return true
+  const plain = (n: string) =>
+    n
+      .toLowerCase()
+      .replace(/ñ/g, 'n')
+      .replace(/(science|city|of|municipality)/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+  const want = plain(city)
+  const named = [props.city, props.county, props.district].filter(Boolean).map((n) => plain(n as string))
+  if (named.length > 0) return named.some((n) => n === want || n.includes(want) || want.includes(n))
+  if (!cityCentre) return true
+  return haversineKm(cityCentre, gps) <= PLACE_NEAR_KM
+}
+
+function haversineKm(a: GeoCoords, b: GeoCoords): number {
+  const toRad = (d: number) => (d * Math.PI) / 180
+  const dLat = toRad(b.lat - a.lat)
+  const dLng = toRad(b.lng - a.lng)
+  const lat1 = toRad(a.lat)
+  const lat2 = toRad(b.lat)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
+  return 6371 * 2 * Math.asin(Math.sqrt(h))
 }
 
 // The shape of a street picked from searchStreets, so the map can draw it as

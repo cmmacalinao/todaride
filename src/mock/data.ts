@@ -1122,9 +1122,19 @@ const PANTA_BARANGAY_GPS: Record<string, GeoCoords> = {
   Conversion: { lat: 15.8977011, lng: 121.1270802 },
   Fatima: { lat: 15.8120986, lng: 121.0938877 },
   Ganduz: { lat: 15.731173, lng: 121.1064531 },
+  // The six that had no point (2026-09-23): OpenStreetMap does not name them
+  // inside the municipality, so these come from PhilAtlas's own barangay
+  // coordinates (philatlas.com/luzon/r03/nueva-ecija/pantabangan), whose
+  // figures match the barangays already placed here to within ~100 m.
+  Liberty: { lat: 15.8795, lng: 121.168 },
+  Malbang: { lat: 15.7579, lng: 121.2005 },
   Marikit: { lat: 15.7983438, lng: 121.2511545 },
+  'Napon-Napon': { lat: 15.7608, lng: 121.2642 },
+  'Poblacion East': { lat: 15.8069, lng: 121.1436 },
+  'Poblacion West': { lat: 15.8227, lng: 121.1393 },
   Sampaloc: { lat: 15.7568835, lng: 121.1004093 },
   'San Juan': { lat: 15.7544879, lng: 121.1304849 },
+  Villarica: { lat: 15.8075, lng: 121.1564 },
 }
 
 const PENARANDA_BARANGAY_GPS: Record<string, GeoCoords> = {

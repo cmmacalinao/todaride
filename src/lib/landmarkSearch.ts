@@ -148,19 +148,19 @@ export function searchLandmarksNearCity(
   city: string | undefined,
   near: GeoCoords | null,
   limit = 8,
-  // Where town centres are worked out from. The full gazetteer, when the
-  // caller is searching a filtered slice of it (barangays only, say): the
-  // centres come out the same either way, and the full list is one stable
-  // array, so they are worked out once rather than on every keystroke.
-  allLandmarks: Landmark[] = landmarks,
+  // Kept for callers that pass the full gazetteer; the town centres it used
+  // to feed are no longer needed now that search stays inside one town.
+  _allLandmarks: Landmark[] = landmarks,
 ): LandmarkMatch[] {
   if (!city) return searchLandmarks(query, landmarks, near, limit)
-  const scope = new Set([city, ...nearbyCities(city, allLandmarks)])
-  const ranked = searchLandmarks(
+  // The town that was picked, and nothing else (2026-09-23). Neighbouring
+  // towns used to follow the city's own places, which put a Muñoz result in
+  // front of somebody standing in Pantabangan looking for a Pantabangan one.
+  // Booking to another town still works — change the City row first.
+  return searchLandmarks(
     query,
-    landmarks.filter((l) => scope.has(l.city)),
+    landmarks.filter((l) => l.city === city),
     near,
-    limit * 4,
+    limit,
   )
-  return [...ranked.filter((m) => m.landmark.city === city), ...ranked.filter((m) => m.landmark.city !== city)].slice(0, limit)
 }

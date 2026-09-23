@@ -32,9 +32,12 @@ describe('searchLandmarksNearCity', () => {
     place('c', 'Poblacion', 'Town C', 15.2, 121.0), // ~67 km away: too far
   ]
 
-  it('puts the chosen city first, then its neighbours, and never a far town', () => {
+  // 2026-09-23: a chosen town means that town only. Neighbours used to follow
+  // the town's own places, which answered "where in Pantabangan?" with a
+  // result in Muñoz.
+  it('keeps to the chosen town, neighbour or not', () => {
     const found = searchLandmarksNearCity('poblacion', landmarks, 'Town A', null)
-    expect(found.map((m) => m.landmark.city)).toEqual(['Town A', 'Town B'])
+    expect(found.map((m) => m.landmark.city)).toEqual(['Town A'])
   })
 
   it('searches everything when no city is chosen', () => {

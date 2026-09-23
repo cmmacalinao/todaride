@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { searchLandmarksNearCity } from '../lib/landmarkSearch'
-import { searchNearbyPlaces, searchStreets, fetchStreetLine, resolveGooglePlaceGps, type PlaceSuggestion } from '../lib/geocode'
+import {
+  searchNearbyPlaces,
+  searchOsmPlaces,
+  searchStreets,
+  fetchStreetLine,
+  resolveGooglePlaceGps,
+  type PlaceSuggestion,
+} from '../lib/geocode'
 import { LANDMARK_CATEGORY_ICONS } from '../types'
 import type { GeoCoords } from '../types'
 
@@ -115,6 +122,11 @@ export function DestinationSearch({
 
   const trimmed = query.trim()
   const shouldTryLive = !barangayOnly && matches.length === 0 && trimmed.length >= MIN_LIVE_QUERY_LENGTH
+  // Whatever the live map has in this town — restaurants, stores, schools,
+  // resorts (2026-09-23). Runs beside the seeded list rather than instead of
+  // it: a small municipality has almost nothing seeded, and the places are on
+  // the map the passenger is looking at.
+  const shouldSearchOsm = !barangayOnly && trimmed.length >= MIN_LIVE_QUERY_LENGTH
 
   useEffect(() => {
     if (!shouldTryLive) {
@@ -134,6 +146,23 @@ export function DestinationSearch({
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldTryLive, trimmed, city])
+
+  const [osmPlaces, setOsmPlaces] = useState<PlaceSuggestion[]>([])
+  const osmRequestRef = useRef(0)
+  useEffect(() => {
+    if (!shouldSearchOsm) {
+      setOsmPlaces([])
+      return
+    }
+    const requestId = ++osmRequestRef.current
+    const timer = setTimeout(() => {
+      void searchOsmPlaces(trimmed, near ?? null, city).then((results) => {
+        if (osmRequestRef.current === requestId) setOsmPlaces(results)
+      })
+    }, LIVE_SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldSearchOsm, trimmed, city])
 
   // Streets by name, alongside the landmarks rather than only when those come
   // up empty (2026-09-22): a partial landmark match used to hide every street.
@@ -156,18 +185,19 @@ export function DestinationSearch({
     }
     const requestId = ++streetRequestRef.current
     const timer = setTimeout(() => {
-      void searchStreets(trimmed, near ?? null).then((results) => {
+      void searchStreets(trimmed, near ?? null, 6, city).then((results) => {
         if (streetRequestRef.current === requestId) setStreets(results)
       })
     }, LIVE_SEARCH_DEBOUNCE_MS)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trimmed, barangayOnly])
+  }, [trimmed, barangayOnly, city])
 
   function pick(place: SelectedPlace) {
     onSelect(place)
     setQuery('')
     setStreets([])
+    setOsmPlaces([])
     setLiveResults([])
     setLiveStatus('idle')
   }
@@ -263,16 +293,16 @@ export function DestinationSearch({
               </p>
             )}
           </div>
-        ) : streets.length > 0 ? null : (
+        ) : streets.length > 0 || osmPlaces.length > 0 ? null : (
           <p className="mt-1 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-400">
             {noMatchNote ? (
               <>
-                No {barangayOnly ? 'barangay' : 'landmark'} matches "{trimmed}"{city ? ` in ${city} or the towns next to it` : ''}
+                No {barangayOnly ? 'barangay' : 'landmark'} matches "{trimmed}"{city ? ` in ${city}` : ''}
                 {shouldTryLive && liveStatus === 'done' ? ' and no nearby place found' : ''} — {noMatchNote}
               </>
             ) : (
               <>
-                No landmark matches "{trimmed}"{city ? ` in ${city} or the towns next to it` : ''}
+                No landmark matches "{trimmed}"{city ? ` in ${city}` : ''}
                 {shouldTryLive && liveStatus === 'done' ? ', and no nearby place found either' : ''} —{' '}
                 {onOpenAddressForm ? (
                   <button
@@ -304,6 +334,24 @@ export function DestinationSearch({
             )}
           </p>
         ))}
+      {trimmed && osmPlaces.length > 0 && (
+        <div className="mt-1 space-y-0.5 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+          <p className="px-2 pt-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            📍 Places on the map{city ? ` in ${city}` : ''}
+          </p>
+          {osmPlaces.map((pl, i) => (
+            <button
+              key={`${pl.label}-${i}`}
+              type="button"
+              onClick={() => pl.gps && pick({ name: pl.label, gps: pl.gps })}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-slate-50"
+            >
+              <span aria-hidden className="text-sm leading-none">📍</span>
+              <span className="min-w-0 flex-1 truncate text-xs text-slate-700">{pl.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {trimmed && streets.length > 0 && (
         <div className="mt-1 space-y-0.5 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
           <p className="px-2 pt-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">🛣️ Streets</p>

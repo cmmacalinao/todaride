@@ -2926,11 +2926,14 @@ export function PassengerPage() {
                         the driver rings the adult booking the ride, and the
                         phone icon here is what says so. */}
                     {guestIsMinor ? (
-                      <span className="flex min-w-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] leading-snug text-slate-600">
+                      <span
+                        title={`The driver is given your number, ${passenger.phone}`}
+                        className="flex min-w-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] leading-snug text-slate-700"
+                      >
                         <span aria-hidden className="text-sm leading-none">
                           📞
                         </span>
-                        <span className="min-w-0 truncate">Driver calls you</span>
+                        <span className="min-w-0 truncate font-semibold">{passenger.phone}</span>
                       </span>
                     ) : (
                       <input

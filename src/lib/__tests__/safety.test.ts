@@ -155,3 +155,20 @@ describe('withSafetyDefaults', () => {
     expect(withSafetyDefaults(undefined).channels.sms).toBe(false)
   })
 })
+
+describe('Phase 2 switch-on (2026-09-24)', () => {
+  it('turns SOS alerts on for settings saved during Phase 1', () => {
+    const before = { sosAlertsEnabled: false, sosCountdownSeconds: 3 }
+    expect(withSafetyDefaults(before).sosAlertsEnabled).toBe(true)
+    expect(withSafetyDefaults(before).phase2SwitchedOn).toBe(true)
+  })
+
+  it('leaves SOS off once Super Admin has turned it off after the switch-on', () => {
+    const chosen = { sosAlertsEnabled: false, phase2SwitchedOn: true }
+    expect(withSafetyDefaults(chosen).sosAlertsEnabled).toBe(false)
+  })
+
+  it('has SOS alerts on for a brand new install', () => {
+    expect(withSafetyDefaults(null).sosAlertsEnabled).toBe(true)
+  })
+})

@@ -11,7 +11,10 @@
 // several things — and guesswork that nothing checks tends to rot.
 import { isNativeApp } from './platform'
 
-export const APK_PATH = '/TODARideMobility.apk'
+// The build number rides along (2026-09-24): Android and the browser both
+// cache a downloaded APK happily, and without this a phone that installed an
+// older build could be handed that same file again from its own cache.
+export const APK_PATH = `/TODARideMobility.apk?v=${__BUILD_CODE__}`
 
 interface DeviceFacts {
   userAgent: string

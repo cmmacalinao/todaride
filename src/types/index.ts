@@ -1210,6 +1210,10 @@ export interface SafetySettings {
   // them. Every call button (911, family, driver, TODA) stays. On: the full
   // alert system as built.
   sosAlertsEnabled: boolean
+  // Set once, when Phase 2 was switched on for pilot testing (2026-09-24).
+  // Its presence is what stops the switch-on happening again, so Super Admin
+  // turning SOS back off stays off.
+  phase2SwitchedOn?: boolean
   sosCountdownSeconds: number
   notifyTodaOn: { passengerSos: boolean; driverSos: boolean; possibleCrash: boolean }
   notifyGuardian: boolean

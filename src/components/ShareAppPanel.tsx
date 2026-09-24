@@ -158,6 +158,9 @@ export function ShareAppPanel({
           </button>
         </div>
 
+        <p className="mt-2 text-center text-[11px] font-semibold text-emerald-700">
+          ✓ Always opens the latest version — {__BUILD_LABEL__}
+        </p>
         <div className="mt-3 flex justify-center rounded-xl border-2 border-gold-400 bg-white p-3">
           {/* Level H so it still scans with a thumbprint on the screen or a
               crease through a printed copy. */}

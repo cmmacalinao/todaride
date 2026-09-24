@@ -32,9 +32,12 @@ import type {
 import { haversineDistanceMeters } from './geo'
 
 export const SAFETY_DEFAULTS: SafetySettings = {
-  // Phase 1: off until the safety desk has a responder and hours. A stored
-  // settings object from before this existed reads as off too.
-  sosAlertsEnabled: false,
+  // Phase 2 is on for the pilot (2026-09-24): SEND SOS, the safety desk and
+  // the alert routing are all live so they can be tested on real phones. The
+  // desk still has to be staffed for this to mean anything — Super Admin can
+  // switch it off at any time, and that choice sticks (see phase2SwitchedOn).
+  sosAlertsEnabled: true,
+  phase2SwitchedOn: true,
   // Long enough to stop a stray thumb, short enough not to matter in a real
   // emergency. Zero would make SOS instant again.
   sosCountdownSeconds: 3,
@@ -55,12 +58,20 @@ export const SAFETY_DEFAULTS: SafetySettings = {
 // Fills in anything a stored settings object predates.
 export function withSafetyDefaults(stored: Partial<SafetySettings> | null | undefined): SafetySettings {
   if (!stored) return SAFETY_DEFAULTS
-  return {
+  const merged: SafetySettings = {
     ...SAFETY_DEFAULTS,
     ...stored,
     notifyTodaOn: { ...SAFETY_DEFAULTS.notifyTodaOn, ...(stored.notifyTodaOn ?? {}) },
     channels: { ...SAFETY_DEFAULTS.channels, ...(stored.channels ?? {}) },
   }
+  // Switching Phase 2 on reaches settings already saved (2026-09-24).
+  //
+  // Changing the default alone would not: the live database holds a settings
+  // object from Phase 1, and a stored false wins over any default. So a
+  // settings object that predates the switch is moved on once, and marked, so
+  // that Super Admin turning SOS off again is never undone by this.
+  if (stored.phase2SwitchedOn === undefined) return { ...merged, sosAlertsEnabled: true, phase2SwitchedOn: true }
+  return merged
 }
 
 export const INCIDENT_STATUS_LABEL: Record<SosAlertStatus, string> = {

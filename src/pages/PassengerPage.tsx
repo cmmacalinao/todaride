@@ -2913,7 +2913,7 @@ export function PassengerPage() {
                     />
                     <input
                       value={guestRider.otherAge}
-                      onChange={(e) => guestRider.setOtherAge(e.target.value.replace(/D/g, '').slice(0, 3))}
+                      onChange={(e) => guestRider.setOtherAge(e.target.value.replace(/\D/g, '').slice(0, 3))}
                       placeholder="Age"
                       inputMode="numeric"
                       className={`compact-input min-w-0 rounded-lg border px-2 py-1.5 text-center text-xs ${
@@ -2922,19 +2922,31 @@ export function PassengerPage() {
                           : 'border-slate-300'
                       }`}
                     />
-                    <input
-                      value={guestRider.otherPhone}
-                      onChange={(e) => guestRider.setOtherPhone(e.target.value)}
-                      placeholder={guestIsMinor ? 'Their mobile (optional)' : 'Their mobile number'}
-                      inputMode="tel"
-                      // Amber once both ends are set and the number is missing
-                      // or not a PH mobile yet.
-                      className={`compact-input min-w-0 rounded-lg border px-2.5 py-1.5 text-xs ${
-                        !guestPhoneFine && hasDestination && !endsAreSameSpot
-                          ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-300'
-                          : 'border-slate-300'
-                      }`}
-                    />
+                    {/* A child's number is not asked for at all (2026-09-24):
+                        the driver rings the adult booking the ride, and the
+                        phone icon here is what says so. */}
+                    {guestIsMinor ? (
+                      <span className="flex min-w-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] leading-snug text-slate-600">
+                        <span aria-hidden className="text-sm leading-none">
+                          📞
+                        </span>
+                        <span className="min-w-0 truncate">Driver calls you</span>
+                      </span>
+                    ) : (
+                      <input
+                        value={guestRider.otherPhone}
+                        onChange={(e) => guestRider.setOtherPhone(e.target.value)}
+                        placeholder="Their mobile number"
+                        inputMode="tel"
+                        // Amber once both ends are set and the number is missing
+                        // or not a PH mobile yet.
+                        className={`compact-input min-w-0 rounded-lg border px-2.5 py-1.5 text-xs ${
+                          !guestPhoneFine && hasDestination && !endsAreSameSpot
+                            ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-300'
+                            : 'border-slate-300'
+                        }`}
+                      />
+                    )}
                   </div>
                 )}
                 {myLimits && !activeRide && (

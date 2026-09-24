@@ -2227,9 +2227,14 @@ function ActiveTripCard({
   const navCenter = simulateMovementEnabled && driverGpsInfo ? driverGpsInfo.gps : liveDriverGps
   // The phone's own direction first; otherwise the direction the tricycle is
   // actually moving on screen (see useMotionFromPositions).
-  const centerMotion = useMotionFromPositions(ride.status === 'ongoing' ? navCenter : null)
+  // Driving is driving: the map faces the road on the way to the pickup as
+  // well as on the trip itself (2026-09-24). It used to wait for 'ongoing',
+  // so a driver following the arrow to a passenger had a north-up map — the
+  // half of the job where they most need to know which turn is theirs.
+  const driving = ride.status === 'ongoing' || ride.status === 'driver_arriving'
+  const centerMotion = useMotionFromPositions(driving ? navCenter : null)
   const navCamera =
-    ride.status === 'ongoing' && navCenter
+    driving && navCenter
       ? {
           center: navCenter,
           heading: liveDriverHeading ?? centerMotion.headingDegrees,

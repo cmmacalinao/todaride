@@ -336,6 +336,11 @@ export function TripMonitor({
   // nobody was on for the rest of the trip, along with the distance and the
   // arrival time resting on it.
   const [rerouteFrom, setRerouteFrom] = useState<GeoCoords | null>(null)
+  // Where a new route would start, once the passenger says yes (2026-09-24).
+  // The route used to be replaced the moment the tricycle strayed; the line
+  // on the map then changed under somebody who had not agreed to a detour,
+  // which is exactly the moment they most want the old one to compare against.
+  const [pendingReroute, setPendingReroute] = useState<GeoCoords | null>(null)
   const route = useRoute(rerouteFrom ?? routeLineOriginForRoute ?? null, routeLineDestinationForRoute ?? null)
   // Independent of ride status/leg — always the pickup→destination trip
   // itself, so "how long will the actual ride take" stays visible even
@@ -709,7 +714,10 @@ export function TripMonitor({
     const decision = nextRerouteDecision(followedGps ?? null, route?.points, strayRef.current)
     strayRef.current = { strayCount: decision.strayCount }
     if (decision.reroute && followedGps) {
-      setRerouteFrom(followedGps)
+      // The passenger is asked; a watching parent is only told (see the
+      // dialog below, which gives them OK rather than Accept).
+      if (watching) setRerouteFrom(followedGps)
+      else setPendingReroute(followedGps)
       setOffRouteMeters(Math.round(decision.metersOff))
     }
   }, [followedGps, route, ride.status])
@@ -1307,11 +1315,41 @@ export function TripMonitor({
                   ? farOffRoute.reason === 'far'
                     ? `${tricycleLabel ?? 'The tricycle'} is about ${formatKm(farOffRoute.meters)} from the road planned to ${formatAddressLine(ride.dropoff.label)}. ${ride.passengerName} has been asked if they are okay.`
                     : `${tricycleLabel ?? 'The tricycle'} has been moving away from ${formatAddressLine(ride.dropoff.label)} for a few minutes. ${ride.passengerName} has been asked if they are okay.`
-                  : `${tricycleLabel ?? 'The tricycle'} is now ${offRouteMeters}m off the planned road. A new way to ${formatAddressLine(ride.dropoff.label)} is already being found.`}
+                  : watching
+                    ? `${tricycleLabel ?? 'The tricycle'} is now ${offRouteMeters}m off the planned road. A new way to ${formatAddressLine(ride.dropoff.label)} is already being found.`
+                    : `${tricycleLabel ?? 'The tricycle'} is now ${offRouteMeters}m off the planned road. Take a new way to ${formatAddressLine(ride.dropoff.label)}, or stay on the one you agreed?`}
               </p>
             </div>
 
             <div className="space-y-2 px-4 py-3">
+              {pendingReroute && !watching ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRerouteFrom(pendingReroute)
+                      setPendingReroute(null)
+                      setOffRouteMeters(null)
+                    }}
+                    className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-bold text-white transition hover:bg-brand-700"
+                  >
+                    ✅ Accept the new route
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // The drawn route stays as it was. Straying again
+                      // raises this once more, which is the point: a detour
+                      // nobody agreed to should keep asking.
+                      setPendingReroute(null)
+                      setOffRouteMeters(null)
+                    }}
+                    className="w-full rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Keep the planned route
+                  </button>
+                </>
+              ) : (
               <button
                 type="button"
                 onClick={() => {
@@ -1322,6 +1360,7 @@ export function TripMonitor({
               >
                 ✅ OK
               </button>
+              )}
               <p className="text-center text-[11px] text-slate-500">
                 If something feels wrong, tap 🛡️ {sosEnabled ? 'SOS' : 'Safety'} on the trip screen.
               </p>

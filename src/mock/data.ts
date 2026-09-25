@@ -7994,7 +7994,10 @@ export const APP_SUPER_ADMIN_EMAIL = 'cmmacalinao@gmail.com'
 // address rather than a generic username.
 // Where Contact us messages are addressed. Change this one line to point at
 // a different support mailbox.
-export const APP_SUPPORT_EMAIL = 'support@todasaferide.ph'
+// The pilot's own mailbox (2026-09-26): forwarded to the operator's inbox,
+// with SPF and DMARC in place. It replaced support@todasaferide.ph, whose
+// domain was retired — mail sent there reached nobody.
+export const APP_SUPPORT_EMAIL = 'support@todaridemobility.com'
 
 export const APP_SUPER_ADMIN_CREDENTIALS = { username: 'superadmin', password: 'super321' }
 // Who that email belongs to — shown on the login screen and the Accounting

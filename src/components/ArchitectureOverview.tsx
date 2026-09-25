@@ -18,7 +18,7 @@ const FACTS = [
 ]
 
 const STACK: [string, string, string][] = [
-  ['Web app', 'React 18 · TypeScript · Vite 5', 'Deployed to todasaferide.com on Netlify'],
+  ['Web app', 'React 18 · TypeScript · Vite 5', 'Deployed to todaridemobility.com on Netlify'],
   ['Android app', 'Capacitor 8', 'Wraps the same web build and bundles its own copy — a site deploy does not reach it'],
   ['State', 'React reducer', 'One context, 146 actions, the source of truth'],
   ['Database', 'Supabase Postgres', 'One app_state blob plus five hot tables'],

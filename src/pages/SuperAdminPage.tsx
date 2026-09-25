@@ -833,7 +833,7 @@ function PublicAddressPanel({
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="https://todasaferide.example.com"
+          placeholder="https://todaridemobility.com"
           className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
         />
         <button

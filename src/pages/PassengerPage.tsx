@@ -4367,7 +4367,12 @@ function FamilyTrips({ bookerId }: { bookerId: string }) {
   const linkedIds = new Set(
     (passengers.find((p) => p.id === bookerId)?.familyMembers ?? []).map((m) => m.passengerId).filter(Boolean) as string[],
   )
-  const isFamilyRide = (r: Ride) => r.familyBookerId === bookerId || linkedIds.has(r.passengerId)
+  // Trips this account booked for somebody else: a family member, or a guest
+  // booked through Someone (2026-09-25). A Someone ride belongs to a guest
+  // id, so without this the person who booked it — the one the driver rings,
+  // when the rider is a child — had no way to follow it at all.
+  const isFamilyRide = (r: Ride) =>
+    r.familyBookerId === bookerId || r.bookedByPassengerId === bookerId || linkedIds.has(r.passengerId)
   const live = rides.filter(
     (r) => isFamilyRide(r) && (r.status === 'requested' || r.status === 'driver_arriving' || r.status === 'ongoing'),
   )
@@ -4384,9 +4389,16 @@ function FamilyTrips({ bookerId }: { bookerId: string }) {
       : r.status === 'requested' ? 'Finding a driver' : r.status === 'driver_arriving' ? `${r.driverName ?? 'Driver'} is on the way` : 'On the way to the destination'
   return (
     <section className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/80 p-2.5 shadow-sm">
+      {/* Family, or anyone else this account booked for. */}
       <p className="flex items-center gap-1.5 text-sm font-bold text-amber-900">
-        👨‍👩‍👧 Family trips
-        <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">1-year free promo</span>
+        {live.some((r) => r.familyBookerId === bookerId) || toPay.length > 0 ? (
+          <>
+            👨‍👩‍👧 Family trips
+            <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">1-year free promo</span>
+          </>
+        ) : (
+          <>🛺 Trips you booked</>
+        )}
       </p>
       {toApprove.map((r) => (
         <div key={r.id} className="rounded-lg border-2 border-amber-400 bg-white px-2.5 py-2">

@@ -2,10 +2,8 @@ import { Link } from 'react-router-dom'
 import { BrandFrame } from '../components/BrandFrame'
 import { AppLoginForm } from '../components/AppLoginForm'
 import { AndroidAppBanner } from '../components/AndroidAppBanner'
-import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
 import { BuildLabel } from '../components/BuildLabel'
 import { VisionMission } from '../components/VisionMission'
-import { usePilotBranding } from '../lib/usePilotBranding'
 import { useRides } from '../context/RideContext'
 
 // Trimmed from ten to the four the brand board leads with — a first screen
@@ -32,7 +30,6 @@ const MORE_FEATURES = [
 ]
 
 export function LandingPage() {
-  const pilotBranding = usePilotBranding()
   // The Rotary partnership card — a Super Admin switch (see
   // SuperAdminPage.tsx's "Sign-in screen branding"), not the per-Operator
   // banner upload below. That upload feature (operator.bannerDataUrl) stays
@@ -90,9 +87,9 @@ export function LandingPage() {
               usePilotBranding. The app's generic "TODA Ride Mobility"
               wordmark that used to show otherwise was removed (2026-09-21):
               the logo above already says it. */}
-          {pilotBranding.specific && (
-            <NearbyTodaAdCard name={pilotBranding.name} showNearYouTag={pilotBranding.showNearYouTag} />
-          )}
+          {/* The nearest TODA's card was taken off every screen (2026-09-28).
+              NearbyTodaAdCard and usePilotBranding stay in the tree, so a
+              sponsor banner can come back by rendering it again. */}
           <p className="mt-3 text-center text-xs font-medium italic leading-snug text-white/70">
             Empowering Drivers. Protecting Passengers.
             <br />

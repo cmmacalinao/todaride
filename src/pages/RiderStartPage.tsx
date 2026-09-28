@@ -3,9 +3,7 @@ import { useRides } from '../context/RideContext'
 import { useSession } from '../context/SessionContext'
 import { familyLimitsFor } from '../lib/familyLimits'
 import { terminalRideIsFree } from '../lib/terminalFee'
-import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
 import { TricycleIcon } from '../components/TricycleIcon'
-import { usePilotBranding } from '../lib/usePilotBranding'
 
 // The screen a passenger lands on after signing in. Two ways to get a ride,
 // and they are genuinely different journeys rather than two buttons for the
@@ -20,7 +18,6 @@ export function RiderStartPage() {
   // A child sees Food Order and PaDeliver only if their parent allows them.
   const me = passengers.find((p) => p.id === currentPassengerId)
   const limits = me ? familyLimitsFor(me, passengers) : null
-  const pilotBranding = usePilotBranding()
   // Only the Food & Vendor partners switch matters here. Food Order and
   // PaDeliver's Store both check out through VendorMenuBooking and end up
   // as their own 'vendor_order' ride type (see buildMedsDeliveryRide in
@@ -71,13 +68,9 @@ export function RiderStartPage() {
         </Link>
         {/* Same resolution as the launch and role-chooser screens before
             this one — see usePilotBranding. */}
-        {pilotBranding.specific ? (
-          <NearbyTodaAdCard name={pilotBranding.name} showNearYouTag={pilotBranding.showNearYouTag} />
-        ) : (
-          // The generic "TODA Ride Mobility" wordmark was removed (2026-09-21) —
-          // the logo already says it; only what TODA stands for stays.
-          <p className="whitespace-nowrap text-center text-[17px] text-gold-400">Transport &amp; Opportunity Digital Access</p>
-        )}
+        {/* The TODA card was taken off every screen (2026-09-28); what TODA
+            stands for stays. */}
+        <p className="whitespace-nowrap text-center text-[17px] text-gold-400">Transport &amp; Opportunity Digital Access</p>
 
         {/* No ServiceTabs strip here — this screen's own three tiles below
             already are the "switch service" UI. The pill is for the Food

@@ -1,8 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { BrandFrame } from '../components/BrandFrame'
 import { useRides } from '../context/RideContext'
-import { NearbyTodaAdCard } from '../components/NearbyTodaAdCard'
-import { usePilotBranding } from '../lib/usePilotBranding'
 
 interface RoleTile {
   icon: string
@@ -29,7 +27,6 @@ export function RoleChooserPage() {
   const { medsEnabled, vendorsEnabled } = useRides()
   const [searchParams] = useSearchParams()
   const startOn: 'login' | 'signup' = searchParams.get('mode') === 'signup' ? 'signup' : 'login'
-  const pilotBranding = usePilotBranding()
 
   const tiles: RoleTile[] = [
     // Student used to be a tile of its own here. It was never a separate
@@ -127,10 +124,8 @@ export function RoleChooserPage() {
           {/* Same resolution as the launch screen behind this one — see
               usePilotBranding — so the two doors into the app never
               disagree about which TODA a visitor is looking at. */}
-          {pilotBranding.specific ? (
-            <NearbyTodaAdCard name={pilotBranding.name} showNearYouTag={pilotBranding.showNearYouTag} />
-          ) : null /* The generic "TODA Ride Mobility" wordmark was removed
-            (2026-09-21) — the framed logo above already says it all. */}
+          {/* The TODA card was taken off every screen (2026-09-28); the
+              framed logo above already says whose app this is. */}
           <h1 className="mt-4 text-sm font-semibold text-white">Who are you?</h1>
           <p className="mt-1 text-xs text-white/50">Pick your account — you log in or sign up on the next page.</p>
         </div>

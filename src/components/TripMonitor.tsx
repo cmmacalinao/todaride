@@ -372,7 +372,33 @@ export function TripMonitor({
   const tripRoute = useRoute(ride.pickup.gps ?? null, ride.dropoff.gps ?? null)
   const tripDurationSeconds = tripRoute?.durationSeconds ?? ETA_SECONDS_PER_LEG
 
-  const driverGpsInfo = sharedDriverMapGps(ride, rides, route)
+  const sharedDriverGps = sharedDriverMapGps(ride, rides, route)
+  // Riding: this phone is in the tricycle, so this phone's own GPS is the
+  // tricycle.
+  //
+  // It was drawing a copy instead — the driver's position, published to the
+  // database and read back — and so the rider watched a tricycle that lagged
+  // behind the one they were sitting in. Measured on 2026-09-29: whichever
+  // phone was being looked at published every 4 seconds and the other fell to
+  // 50-60, which is what a mobile platform does to a page that is off screen.
+  // No amount of syncing beats not needing to sync: aboard, the answer is
+  // already on this phone, at whatever rate its own GPS manages.
+  //
+  // Only while actually riding, and only on a phone that is really in the
+  // vehicle. A parent watching from home has no tricycle around them
+  // (watching), a Pabili errand has nobody aboard at all (allowGotOffCheck),
+  // and before pickup the two are in different places — there the driver's
+  // published position is the only thing that can answer "where is it", which
+  // is why the background service exists on the driver's side.
+  // And only while the two are still together: the moment the rider and the
+  // tricycle have parted (seatsApart — they got off, or were left behind)
+  // this phone stops standing for the vehicle and the driver's published
+  // position is the only thing that knows where it went. That is the case the
+  // separation check exists to catch, and it would be undetectable if the
+  // tricycle were defined as wherever the rider is.
+  const aboard =
+    !watching && allowGotOffCheck && ride.status === 'ongoing' && !seatsApart && livePassengerGps != null
+  const driverGpsInfo = aboard ? { gps: livePassengerGps, isLive: true } : sharedDriverGps
   // Road and minutes still ahead, from where the tricycle actually is —
   // shrinking as it moves. See lib/legRemaining.
   const remaining = remainingLeg({
@@ -586,7 +612,12 @@ export function TripMonitor({
           },
         ]
       : []),
-    ...(passengerGpsInfo
+    // Not while aboard: the tricycle marker is already drawn from this very
+    // phone (see the aboard branch above), so a second dot would be the same
+    // reading twice — and the map, which spreads markers that land on top of
+    // each other, would push the two apart and invent a gap between a
+    // passenger and the tricycle they are sitting in.
+    ...(passengerGpsInfo && !aboard
       ? [
           {
             id: 'passenger',
@@ -617,7 +648,12 @@ export function TripMonitor({
     // runs to catch up. While the two are together the tricycle, labelled
     // with the rider's name, is where the rider is; their own dot appears only
     // once they have actually parted (seatsApart).
-    ...(onBoard && livePassengerGps && !(watching && !seatsApart)
+    // Nor while aboard, for the same reason as the passenger pin above: the
+    // tricycle marker is now this phone's own reading, so this would be the
+    // identical coordinate drawn twice. It comes back the instant the two
+    // part, which is when it starts meaning something different from the
+    // tricycle again.
+    ...(onBoard && livePassengerGps && !aboard && !(watching && !seatsApart)
       ? [
           {
             id: 'me',

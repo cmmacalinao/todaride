@@ -1675,15 +1675,33 @@ export function TripMonitor({
 
       {hasDriver &&
         (driver ? (
-          <div className="flex items-center gap-3 rounded-lg bg-white p-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700">
-              {driver.name.charAt(0)}
-            </div>
-            <div className="text-sm">
-              <p className="font-medium text-slate-800">{driver.name}</p>
-              <p className="text-xs text-slate-500">
-                Plate {driver.plateNumber} · ★ {driver.rating}
+          // Accepting is an event, and it used to arrive as a state: the
+          // waiting animation stopped, a small pill changed from "Waiting for
+          // driver" to "Driver arriving", and this card appeared with a name
+          // in it. A passenger standing on a kerb read that as the trip
+          // having started rather than as a driver having said yes — pilot
+          // testing 2026-09-29. So the card now says which of the two it is,
+          // until the tricycle is actually moving with them aboard.
+          <div
+            className={`rounded-lg bg-white ${
+              ride.status === 'driver_arriving' ? 'overflow-hidden border-2 border-emerald-400' : 'p-3'
+            }`}
+          >
+            {ride.status === 'driver_arriving' && (
+              <p className="bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white">
+                ✅ Ride accepted — {driver.name} is coming to pick you up
               </p>
+            )}
+            <div className={`flex items-center gap-3 ${ride.status === 'driver_arriving' ? 'p-3' : ''}`}>
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700">
+                {driver.name.charAt(0)}
+              </div>
+              <div className="text-sm">
+                <p className="font-medium text-slate-800">{driver.name}</p>
+                <p className="text-xs text-slate-500">
+                  Plate {driver.plateNumber} · ★ {driver.rating}
+                </p>
+              </div>
             </div>
           </div>
         ) : null)}

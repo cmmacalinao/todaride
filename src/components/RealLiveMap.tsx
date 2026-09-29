@@ -795,10 +795,29 @@ export function RealLiveMap({ points, centerPin, centerPinColor, centerPinLabel,
   // back to the OSM/Leaflet canvas instead of showing an empty map.
   const [googleFailed, setGoogleFailed] = useState(false)
   // Same idea for the navigation view: no WebGL, no vector tiles, no signal —
-  // the rider gets the north-up map rather than an empty box. It never tries
-  // again on its own, because a view that flickers between two different maps
-  // mid-trip is worse than one that quietly settles for the plainer one.
+  // the rider gets the north-up map rather than an empty box.
+  //
+  // Two tries first, though. Only the vector map can rotate, so giving up on
+  // it is giving up on the heading-up map for the whole trip — and the
+  // commonest reason it fails is a moment of bad signal while the style
+  // downloads, at the kerb, which is exactly when a trip starts. Pilot
+  // testing 2026-09-29: the driver's map never faced the road. A short delay
+  // before each retry keeps the flickering this once guarded against from
+  // turning into a loop; after the last one it settles for the plainer map
+  // and stays there.
+  const NAV_RETRIES = 2
+  const NAV_RETRY_MS = 2500
+  const [navAttempt, setNavAttempt] = useState(0)
   const [navFailed, setNavFailed] = useState(false)
+  const navRetryRef = useRef(0)
+  const onNavFailed = () => {
+    if (navRetryRef.current >= NAV_RETRIES) {
+      setNavFailed(true)
+      return
+    }
+    navRetryRef.current += 1
+    setTimeout(() => setNavAttempt((a) => a + 1), NAV_RETRY_MS)
+  }
   // The map filling the phone, for following a route rather than glancing at
   // one. Local to the map, so every screen that draws one gets it.
   const [fullscreen, setFullscreen] = useState(false)
@@ -1006,8 +1025,11 @@ export function RealLiveMap({ points, centerPin, centerPinColor, centerPinLabel,
           anchor to the map itself, which is what keeps them on screen when it
           goes full screen. */}
       <div className={`relative ${fullscreen || fill ? "min-h-0 flex-1" : ""}`}>
+      {/* navAttempt in the boundary's key: a retry has to build a fresh map,
+          since the boundary and the map it caught are both holding the
+          failure. */}
       {useVector ? (
-        <NavMapBoundary onFailed={() => setNavFailed(true)}>
+        <NavMapBoundary key={navAttempt} onFailed={onNavFailed}>
           <Suspense
             fallback={
               <div
@@ -1058,7 +1080,7 @@ export function RealLiveMap({ points, centerPin, centerPinColor, centerPinLabel,
                     }
                   : undefined
               }
-              onFailed={() => setNavFailed(true)}
+              onFailed={onNavFailed}
             />
           </Suspense>
         </NavMapBoundary>

@@ -57,7 +57,7 @@ import {
   haversineDistanceMeters,
 } from '../lib/geo'
 import { LIVE_GPS_PUBLISH_MS, useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
-import { useRoute } from '../lib/routing'
+import { snapForRouting, useRoute } from '../lib/routing'
 import { isApart, nextSeparationDecision, positionAt, type SeparationState } from '../lib/separation'
 import { TodaAdminPage } from './TodaAdminPage'
 import { alertsForToda } from '../lib/alertRouting'
@@ -2039,7 +2039,8 @@ function ActiveTripCard({
     if (status !== 'ongoing' && status !== 'driver_arriving') return
     const decision = nextRerouteDecision(liveDriverGps ?? null, route?.points, strayRef.current)
     strayRef.current = { strayCount: decision.strayCount }
-    if (decision.reroute && liveDriverGps) setRerouteFrom(liveDriverGps)
+    // Snapped to the routing grid — see snapForRouting.
+    if (decision.reroute && liveDriverGps) setRerouteFrom(snapForRouting(liveDriverGps))
   }, [liveDriverGps, route, legRide?.status])
   // A new leg is a new route: forget where the last reroute started.
   useEffect(() => {

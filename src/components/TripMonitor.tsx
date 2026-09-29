@@ -23,7 +23,7 @@ import { formatKm, haversineDistanceMeters } from '../lib/geo'
 import { remainingLeg } from '../lib/legRemaining'
 import { reverseGeocodeToPhAddress } from '../lib/customLocation'
 import { LIVE_GPS_PUBLISH_MS, useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
-import { useRoute } from '../lib/routing'
+import { snapForRouting, useRoute } from '../lib/routing'
 import { FAR_OFF_ROUTE_START, metersFromRoute, nextFarOffRouteDecision, nextRerouteDecision, type FarOffRouteState } from '../lib/reroute'
 import { isApart, nextSeparationDecision, positionAt, type SeparationState } from '../lib/separation'
 import { GpsDiagnosticLine } from './GpsDiagnosticLine'
@@ -714,10 +714,13 @@ export function TripMonitor({
     const decision = nextRerouteDecision(followedGps ?? null, route?.points, strayRef.current)
     strayRef.current = { strayCount: decision.strayCount }
     if (decision.reroute && followedGps) {
+      // Snapped to the routing grid so straying twice in the same place asks
+      // the router once — see snapForRouting.
+      const from = snapForRouting(followedGps)
       // The passenger is asked; a watching parent is only told (see the
       // dialog below, which gives them OK rather than Accept).
-      if (watching) setRerouteFrom(followedGps)
-      else setPendingReroute(followedGps)
+      if (watching) setRerouteFrom(from)
+      else setPendingReroute(from)
       setOffRouteMeters(Math.round(decision.metersOff))
     }
   }, [followedGps, route, ride.status])

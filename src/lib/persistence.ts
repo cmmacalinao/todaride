@@ -329,7 +329,21 @@ class SupabaseAdapter implements PersistenceAdapter {
   }
 
   save(next: Record<string, unknown>, prev: Record<string, unknown> | null) {
-    this.saveSeq += 1
+    // saveSeq is bumped inside saveAsync, and only when rows are actually
+    // sent.
+    //
+    // It used to be bumped here, on every call. A read in flight is discarded
+    // when this number moves (see subscribe), and the caller saves on any
+    // state change at all — so a read landing changed the state, which called
+    // save, which invalidated the next read, which landed, which changed the
+    // state. Two phones on a trip spent most of their reads throwing them
+    // away and asking again, and positions arrived several beats late and in
+    // bursts: the driver's dot trailing the real tricycle, an acceptance
+    // still showing "waiting", the off-route streak only completing near the
+    // end of the trip. Pilot testing 2026-09-29.
+    //
+    // A save that writes nothing cannot make a read stale, so it no longer
+    // claims to.
     // saveAsync never rejects (it catches and warns), but the guard must hold
     // even if that changes — a refetch waiting on a rejected save would hang.
     const run = this.saveAsync(next, prev).catch(() => {})
@@ -391,6 +405,10 @@ class SupabaseAdapter implements PersistenceAdapter {
       )
     }
     if (work.length === 0) return
+
+    // From here this save really is writing something, so a read that began
+    // before now is genuinely stale — see save() and subscribe().
+    this.saveSeq += 1
 
     try {
       await Promise.all(work)

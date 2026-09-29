@@ -16,11 +16,22 @@ import { TricycleIcon } from './TricycleIcon'
 export function WaitingForDriverStrip({
   requestedAt,
   offeredTo,
+  acceptedDriver,
   children,
 }: {
   requestedAt: string
   // Whose phone it is ringing on right now, when the terminal queue says.
   offeredTo?: string | null
+  // Set once somebody takes the ride. The strip then answers the question it
+  // has been asking, in the same place, instead of vanishing.
+  //
+  // The acceptance used to be announced everywhere except here: the strip
+  // simply disappeared and a driver card appeared further down the page. A
+  // passenger watching this box — which is what it is for — saw the thing
+  // they were watching end, which reads as the request failing rather than
+  // succeeding. Pilot testing 2026-09-29: "i did not see the message that
+  // edward already accepted the trip".
+  acceptedDriver?: { name: string; plateNumber: string } | null
   // Drawn along the bottom of the strip — the tip offer, on the ride screen.
   children?: ReactNode
 }) {
@@ -37,15 +48,23 @@ export function WaitingForDriverStrip({
     <div
       role="status"
       aria-live="polite"
-      className="overflow-hidden rounded-xl border border-green-500/40 bg-green-500/10 px-2.5 py-2"
+      className={`overflow-hidden rounded-xl px-2.5 py-2 ${
+        acceptedDriver ? 'border-2 border-emerald-500 bg-emerald-500/15' : 'border border-green-500/40 bg-green-500/10'
+      }`}
     >
       <div className="flex items-center gap-2">
         <div className="relative flex h-9 w-9 shrink-0 items-center justify-center">
-          <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-green-500/30" />
-          <span
-            aria-hidden
-            className="absolute inset-0 animate-ping rounded-full bg-green-500/20 [animation-delay:600ms]"
-          />
+          {/* The rings are the request going out to drivers. Once one has
+              taken it there is nothing still going out, so they stop. */}
+          {!acceptedDriver && (
+            <>
+              <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-green-500/30" />
+              <span
+                aria-hidden
+                className="absolute inset-0 animate-ping rounded-full bg-green-500/20 [animation-delay:600ms]"
+              />
+            </>
+          )}
           {/* A person with a small tricycle badge: "a driver". Not the
               🧑‍✈️ emoji, which is a pilot — an airline captain on most
               phones, and on fonts without that combination a face with an
@@ -58,21 +77,38 @@ export function WaitingForDriverStrip({
           </span>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="flex items-baseline gap-1 text-xs font-bold leading-tight text-green-900">
-            Finding your driver
-            <span aria-hidden className="inline-flex gap-0.5">
-              <span className="h-1 w-1 animate-bounce rounded-full bg-green-700" />
-              <span className="h-1 w-1 animate-bounce rounded-full bg-green-700 [animation-delay:150ms]" />
-              <span className="h-1 w-1 animate-bounce rounded-full bg-green-700 [animation-delay:300ms]" />
-            </span>
-          </p>
-          <p className="truncate text-[10px] leading-tight text-green-800/80">
-            {offeredTo ? `Asking ${offeredTo} now` : 'Asking the nearest TODA drivers'}
-          </p>
+          {acceptedDriver ? (
+            <>
+              <p className="text-xs font-extrabold leading-tight text-emerald-900">
+                ✅ {acceptedDriver.name} accepted your ride
+              </p>
+              <p className="truncate text-[10px] leading-tight text-emerald-800/80">
+                Plate {acceptedDriver.plateNumber} · coming to pick you up
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="flex items-baseline gap-1 text-xs font-bold leading-tight text-green-900">
+                Finding your driver
+                <span aria-hidden className="inline-flex gap-0.5">
+                  <span className="h-1 w-1 animate-bounce rounded-full bg-green-700" />
+                  <span className="h-1 w-1 animate-bounce rounded-full bg-green-700 [animation-delay:150ms]" />
+                  <span className="h-1 w-1 animate-bounce rounded-full bg-green-700 [animation-delay:300ms]" />
+                </span>
+              </p>
+              <p className="truncate text-[10px] leading-tight text-green-800/80">
+                {offeredTo ? `Asking ${offeredTo} now` : 'Asking the nearest TODA drivers'}
+              </p>
+            </>
+          )}
         </div>
-        <span className="shrink-0 rounded-md bg-white px-1.5 py-0.5 font-mono text-xs font-semibold text-green-800 shadow-sm">
-          {clock}
-        </span>
+        {/* The clock counted how long the wait had lasted. Once the wait is
+            over it would only be counting something nobody is waiting for. */}
+        {!acceptedDriver && (
+          <span className="shrink-0 rounded-md bg-white px-1.5 py-0.5 font-mono text-xs font-semibold text-green-800 shadow-sm">
+            {clock}
+          </span>
+        )}
       </div>
 
       {/* A tricycle making its way along a road, over and over — the one

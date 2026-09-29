@@ -191,13 +191,27 @@ export function TripMonitor({
   // would just be in the way. A parent watching is told by the card rather
   // than stopped by a dialog — it is not their ride to acknowledge.
   const [acceptedPopup, setAcceptedPopup] = useState(false)
+  // The waiting strip stays on screen a little past the acceptance so it can
+  // answer its own question — see WaitingForDriverStrip's acceptedDriver.
+  const [justAccepted, setJustAccepted] = useState(false)
   const lastStatusRef = useRef(ride.status)
   useEffect(() => {
     const was = lastStatusRef.current
     lastStatusRef.current = ride.status
     if (!watching && was !== 'ongoing' && ride.status === 'ongoing') setAcceptedSignal((n) => n + 1)
-    if (!watching && was === 'requested' && ride.status === 'driver_arriving') setAcceptedPopup(true)
+    if (!watching && was === 'requested' && ride.status === 'driver_arriving') {
+      setAcceptedPopup(true)
+      setJustAccepted(true)
+    }
   }, [ride.status, watching])
+  // Long enough to be read by somebody who glanced away, short enough that
+  // the screen settles into the ordinary on-the-way view while the tricycle
+  // is still on its way.
+  useEffect(() => {
+    if (!justAccepted) return
+    const id = window.setTimeout(() => setJustAccepted(false), 15000)
+    return () => window.clearTimeout(id)
+  }, [justAccepted])
   const {
     position: ownGps,
     error: ownGpsError,
@@ -1083,7 +1097,7 @@ export function TripMonitor({
       {hasDriver && (
         <PhotoCaptureButton onCapture={(dataUrl) => addSafetyPhoto(ride.id, dataUrl, sosActorId)} />
       )}
-      {waitingForDriver ? (
+      {waitingForDriver || (justAccepted && driver) ? (
         // While nobody has taken the ride yet, this row is the wait itself —
         // beside the Safety button, just under the map — in place of the
         // route length and the note that the map will fill in later, which
@@ -1092,8 +1106,12 @@ export function TripMonitor({
           <WaitingForDriverStrip
             requestedAt={ride.requestedAt}
             offeredTo={drivers.find((d) => d.id === ride.priorityQueueOfferedDriverId)?.name ?? null}
+            acceptedDriver={
+              justAccepted && driver ? { name: driver.name, plateNumber: driver.plateNumber } : null
+            }
           >
-            {tipControls}
+            {/* Nothing left to sweeten once somebody has taken the ride. */}
+            {justAccepted && driver ? null : tipControls}
           </WaitingForDriverStrip>
         </div>
       ) : (

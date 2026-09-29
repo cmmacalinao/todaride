@@ -310,7 +310,7 @@ export function useWatchPosition(enabled: boolean): {
     // to their terminal's coordinates. Two different drivers both pinned to
     // CLSU main gate, which is that fallback, not a location.
     if (Capacitor.isNativePlatform()) {
-      let nativeId: string | null = null
+      const watchIds: string[] = []
       let cancelled = false
       void (async () => {
         try {
@@ -319,25 +319,56 @@ export function useWatchPosition(enabled: boolean): {
             setError('Location permission is off for this app. Turn it on in Settings to be tracked.')
             return
           }
-          const id = await Geolocation.watchPosition(
-            { enableHighAccuracy: true, timeout: 15000 },
+
+          // A cold GPS fix is slow, and giving up on it publishes nothing.
+          //
+          // This asked for high accuracy with a 15-second deadline. On a
+          // mid-range phone in a sidecar that is not enough time for the GNSS
+          // chip to lock from cold — the plugin returned "Could not obtain
+          // location in time", the driver's position stayed null for the whole
+          // trip, and the passenger's map had no tricycle on it because there
+          // was never one to send. Pilot testing 2026-09-29, measured against
+          // the server: the passenger's phone published every 3 seconds all
+          // trip, the driver's published nothing at all.
+          //
+          // So: a minute to find the satellites, and a coarse watch running
+          // alongside it rather than instead of it. A network fix is accurate
+          // to a block or so, which is worlds better than an empty map, and
+          // accept() already prefers the sharper reading whenever both are
+          // available — so the precise fix takes over by itself the moment it
+          // arrives, and nothing here has to choose between them.
+          const preciseId = await Geolocation.watchPosition(
+            { enableHighAccuracy: true, timeout: 60000, maximumAge: 2000 },
             (pos, err) => {
+              // A timeout on the precise watch is not worth a red banner while
+              // the coarse one is feeding the map. Only say something if this
+              // phone has no position at all.
               if (err) {
-                setError(err.message || 'Could not get your location.')
+                if (!acceptedRef.current) setError(err.message || 'Could not get your location.')
                 return
               }
               if (pos) accept(pos.coords)
             },
           )
-          if (cancelled) void Geolocation.clearWatch({ id })
-          else nativeId = id
+          watchIds.push(preciseId)
+
+          const coarseId = await Geolocation.watchPosition(
+            { enableHighAccuracy: false, timeout: 60000, maximumAge: 10000 },
+            (pos, err) => {
+              if (err) return
+              if (pos) accept(pos.coords)
+            },
+          )
+          watchIds.push(coarseId)
+
+          if (cancelled) watchIds.forEach((id) => void Geolocation.clearWatch({ id }))
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Could not get your location.')
         }
       })()
       return () => {
         cancelled = true
-        if (nativeId) void Geolocation.clearWatch({ id: nativeId })
+        watchIds.forEach((id) => void Geolocation.clearWatch({ id }))
       }
     }
 
@@ -347,11 +378,19 @@ export function useWatchPosition(enabled: boolean): {
     }
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => accept(pos.coords),
-      (err) => setError(err.message || 'Could not get your location.'),
-      // maximumAge 0: never hand back a cached fix. Five seconds of cache is
-      // five seconds of a marker sitting still while the person holding it is
-      // walking, which is the difference between a live map and a stale one.
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
+      // Same as the native watch above: a phone that has a position and then
+      // misses a fix is not a phone with no location, and saying so in red
+      // while the map is still tracking is just alarming.
+      (err) => {
+        if (!acceptedRef.current) setError(err.message || 'Could not get your location.')
+      },
+      // maximumAge was 0 — never hand back a cached fix — on the reasoning
+      // that a cached fix is a marker standing still while its owner walks.
+      // True, but it also means a cold start has to produce a brand-new fix
+      // inside the deadline or produce nothing, and nothing is what a driver
+      // got (2026-09-29). Two seconds of cache cannot show a tricycle in the
+      // wrong street, and a minute is long enough to actually find a signal.
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 60000 },
     )
     return () => {
       if (watchIdRef.current !== null) {

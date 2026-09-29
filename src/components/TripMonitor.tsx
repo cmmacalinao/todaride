@@ -24,6 +24,7 @@ import { remainingLeg } from '../lib/legRemaining'
 import { reverseGeocodeToPhAddress } from '../lib/customLocation'
 import { LIVE_GPS_PUBLISH_MS, useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { snapForRouting, useRoute } from '../lib/routing'
+import { tripHasNotMoved } from '../lib/stuckTrip'
 import { FAR_OFF_ROUTE_START, metersFromRoute, nextFarOffRouteDecision, nextRerouteDecision, type FarOffRouteState } from '../lib/reroute'
 import { isApart, nextSeparationDecision, positionAt, type SeparationState } from '../lib/separation'
 import { GpsDiagnosticLine } from './GpsDiagnosticLine'
@@ -415,6 +416,9 @@ export function TripMonitor({
   // Ticks while a driver is on the way, so "late" becomes true on its own
   // rather than waiting for something else to redraw the screen.
   const now = useNow(10000, ride.status === 'driver_arriving')
+  // And while riding, so a trip that never moves offers its own way out
+  // without the passenger having to touch anything first — see stuckOngoing.
+  const stuckNow = useNow(15000, ride.status === 'ongoing')
   // Faster, and only while riding: the strip below counts the seconds since
   // the driver's last published fix, and a ten-second tick would make a
   // healthy feed look like it was stalling.
@@ -999,8 +1003,19 @@ export function TripMonitor({
   // strip is shorter without it squeezed in. Once a driver is found (or the
   // strip is not shown), Safety is back in its usual place in this row.
   const waitingForDriver = !driver && !isTerminal && ride.status === 'requested'
+  // A trip marked ongoing that has not actually gone anywhere — see
+  // tripHasNotMoved. Cancelling stays off the screen for a trip that is
+  // genuinely under way; this is the one that is not.
+  const stuckOngoing =
+    ride.status === 'ongoing' &&
+    tripHasNotMoved({
+      startedAt: ride.startedAt ?? null,
+      pickup: ride.pickup.gps ?? null,
+      vehicle: driverGpsInfo?.isLive ? driverGpsInfo.gps : livePassengerGps,
+      now: stuckNow,
+    })
   const cancelControl =
-    showCancel && onCancel && (ride.status === 'requested' || ride.status === 'driver_arriving') ? (
+    showCancel && onCancel && (ride.status === 'requested' || ride.status === 'driver_arriving' || stuckOngoing) ? (
       <div className="space-y-1">
         <button
           type="button"
@@ -1012,6 +1027,11 @@ export function TripMonitor({
         {ride.status === 'driver_arriving' && (
           <p className="text-center text-[11px] text-slate-500">
             {ride.driverName ?? 'Your driver'} is already on the way — cancel only if you really cannot ride.
+          </p>
+        )}
+        {stuckOngoing && (
+          <p className="text-center text-[11px] text-slate-500">
+            This trip has not moved since it started. Cancel it if you are not riding.
           </p>
         )}
       </div>

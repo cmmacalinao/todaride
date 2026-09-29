@@ -24,6 +24,7 @@ import { remainingLeg } from '../lib/legRemaining'
 import { reverseGeocodeToPhAddress } from '../lib/customLocation'
 import { LIVE_GPS_PUBLISH_MS, useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { snapForRouting, useRoute } from '../lib/routing'
+import { snapToRoad } from '../lib/snapToRoad'
 import { tripHasNotMoved } from '../lib/stuckTrip'
 import { FAR_OFF_ROUTE_START, metersFromRoute, nextFarOffRouteDecision, nextRerouteDecision, type FarOffRouteState } from '../lib/reroute'
 import { isApart, nextSeparationDecision, positionAt, type SeparationState } from '../lib/separation'
@@ -185,11 +186,17 @@ export function TripMonitor({
   // opens on a trip already under way, and never for someone watching (a
   // parent at home) rather than riding.
   const [acceptedSignal, setAcceptedSignal] = useState(0)
+  // Raised on the change from waiting to accepted, and only on the change: a
+  // screen opened on an already-accepted ride is not news, and the dialog
+  // would just be in the way. A parent watching is told by the card rather
+  // than stopped by a dialog — it is not their ride to acknowledge.
+  const [acceptedPopup, setAcceptedPopup] = useState(false)
   const lastStatusRef = useRef(ride.status)
   useEffect(() => {
     const was = lastStatusRef.current
     lastStatusRef.current = ride.status
     if (!watching && was !== 'ongoing' && ride.status === 'ongoing') setAcceptedSignal((n) => n + 1)
+    if (!watching && was === 'requested' && ride.status === 'driver_arriving') setAcceptedPopup(true)
   }, [ride.status, watching])
   const {
     position: ownGps,
@@ -514,7 +521,10 @@ export function TripMonitor({
       ? [
           {
             id: 'driver',
-            gps: driverGpsInfo.gps,
+            // Drawn on the road it is driving down — see snapToRoad. Only the
+            // marker: driverGpsInfo.gps itself stays the real reading
+            // everywhere else on this screen, including the off-route check.
+            gps: snapToRoad(driverGpsInfo.gps, route?.points),
             color: '#2563eb',
             // Riding: the plate, which is the thing being checked. It no
             // longer says "Me" as well — there is a separate dot for that
@@ -1222,6 +1232,34 @@ export function TripMonitor({
       </button>
     </div>
   )
+  // Accepting, said out loud over the whole screen.
+  //
+  // A green header inside the driver card was still something a passenger had
+  // to be looking at the right part of the screen to notice — and they are
+  // standing on a kerb, phone half-watched, waiting to know whether anyone is
+  // coming at all. Pilot testing 2026-09-29 called it "not popping up". So it
+  // pops up: once, on the change from waiting to accepted, over whatever else
+  // is on screen.
+  const acceptedAlert =
+    acceptedPopup && driver ? (
+      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/60 p-4" role="alertdialog" aria-modal="true">
+        <div className="w-full max-w-sm rounded-2xl border-2 border-emerald-400 bg-white p-4 text-center shadow-2xl">
+          <p className="text-3xl">🛺</p>
+          <p className="mt-1 text-base font-extrabold text-emerald-700">Ride accepted</p>
+          <p className="mt-1 text-sm text-slate-700">
+            <span className="font-bold">{driver.name}</span> is coming to pick you up.
+          </p>
+          <p className="mt-0.5 text-xs text-slate-500">Plate {driver.plateNumber} · ★ {driver.rating}</p>
+          <button
+            type="button"
+            onClick={() => setAcceptedPopup(false)}
+            className="mt-3 w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    ) : null
   // The pop-up (2026-09-22): when this phone and the tricycle's GPS part —
   // see the separation effect — the question comes up over the whole screen,
   // full-screen map included, instead of only opening inside the card.
@@ -1254,6 +1292,7 @@ export function TripMonitor({
 
   return (
     <section className="space-y-3 rounded-xl border border-brand-200 bg-brand-50 p-4 shadow-sm">
+      {acceptedAlert}
       {separationAlert}
       {/* The tricycle has plainly left the planned road.
           A quiet reroute already fixed the route the moment this fired — see

@@ -57,6 +57,7 @@ import {
   haversineDistanceMeters,
 } from '../lib/geo'
 import { LIVE_GPS_PUBLISH_MS, useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
+import { useIncomingRequestAlert } from '../lib/alertSound'
 import { snapForRouting, useRoute } from '../lib/routing'
 import { isApart, nextSeparationDecision, positionAt, type SeparationState } from '../lib/separation'
 import { TodaAdminPage } from './TodaAdminPage'
@@ -534,6 +535,10 @@ export function DriverPage() {
   const incomingJobs = incoming.filter(
     (r, i) => !r.groupBookingId || incoming.findIndex((x) => x.groupBookingId === r.groupBookingId) === i,
   )
+  // Heard as well as seen. The bell in the banner below goes from 🔕 to 🔔
+  // when work arrives, which is no use at all to a driver who is watching the
+  // road — and a request nobody notices goes to the next in the queue.
+  useIncomingRequestAlert(incomingJobs.length)
   // Admin-configurable — see AdminPage's "Trip history retention" setting.
   // Older rides aren't lost, they just drop out of this list (earnings
   // totals below still see the full history regardless). "Clear history"

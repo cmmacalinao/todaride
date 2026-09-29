@@ -47,4 +47,21 @@
     <!-- Pickup point, nearby-driver matching, terminal-queue proximity check (@capacitor/geolocation) -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <!--
+      A driver's phone is mounted on the handlebars and nobody is looking at
+      it, which is precisely when Android throttles a web page's location to
+      about once a minute. Measured 2026-09-29: the watched phone published
+      every 4 seconds and the unwatched one every 50-60, and it swapped over
+      when the two testers swapped roles. A foreground service is the only
+      way the passenger keeps seeing the tricycle move with the screen off.
+
+      Only ever while a trip is actually running — see
+      lib/backgroundLocation.ts. The notification Android requires is not a
+      formality worth resenting: it is the driver's own sight of the fact
+      that the app is tracking them, and it disappears when the job does.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 </manifest>

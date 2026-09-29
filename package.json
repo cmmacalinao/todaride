@@ -19,6 +19,7 @@
     "deploy:web": "npm run bump:version && npm run build && npm run stage:apk && npx netlify deploy --prod --no-build --dir=dist --site=ba8344f4-9179-4a14-856f-084e2c49e8ac"
   },
   "dependencies": {
+    "@capacitor-community/background-geolocation": "^1.2.26",
     "@capacitor/android": "^8.5.0",
     "@capacitor/camera": "^8.2.2",
     "@capacitor/core": "^8.5.0",

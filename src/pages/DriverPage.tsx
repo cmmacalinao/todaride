@@ -58,6 +58,7 @@ import {
 } from '../lib/geo'
 import { LIVE_GPS_PUBLISH_MS, useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { useIncomingRequestAlert } from '../lib/alertSound'
+import { useBackgroundDriverLocation } from '../lib/backgroundLocation'
 import { snapForRouting, useRoute } from '../lib/routing'
 import { isApart, nextSeparationDecision, positionAt, type SeparationState } from '../lib/separation'
 import { TodaAdminPage } from './TodaAdminPage'
@@ -2002,6 +2003,22 @@ function ActiveTripCard({
     speedMps: liveDriverSpeed,
   } = useWatchPosition(effectiveShareGps)
   const ride = rides.find((r) => r.id === rideId)
+  // And the same position from the background service, which keeps coming
+  // with the screen off — see backgroundLocation.ts. Running only for the
+  // length of a live trip: a driver between jobs is not tracked.
+  const onLiveTrip = ride?.status === 'ongoing' || ride?.status === 'driver_arriving'
+  const { fix: backgroundFix, error: backgroundGpsError } = useBackgroundDriverLocation(
+    onLiveTrip && effectiveShareGps,
+  )
+  // Whichever reading is newer wins. With the screen on, the foreground watch
+  // is the faster of the two and nothing changes; with the screen off it
+  // stops arriving and the service takes over without the map noticing a
+  // handover happened.
+  const bgIsFresher = backgroundFix != null && Date.now() - backgroundFix.at < 8000
+  const driverGps = bgIsFresher ? backgroundFix.gps : liveDriverGps
+  const driverAccuracy = bgIsFresher ? backgroundFix.accuracy : liveDriverAccuracy
+  const driverHeading = bgIsFresher ? backgroundFix.headingDegrees ?? liveDriverHeading : liveDriverHeading
+  const driverSpeed = bgIsFresher ? backgroundFix.speedMps ?? liveDriverSpeed : liveDriverSpeed
   // Card settles at checkout; everything else is money that physically has to
   // reach the driver, so the driver is the one who confirms it arrived.
   const needsDriverPaymentCheck = ride ? ride.paymentMethod !== 'card' : false
@@ -2042,11 +2059,11 @@ function ActiveTripCard({
   useEffect(() => {
     const status = legRide?.status
     if (status !== 'ongoing' && status !== 'driver_arriving') return
-    const decision = nextRerouteDecision(liveDriverGps ?? null, route?.points, strayRef.current)
+    const decision = nextRerouteDecision(driverGps ?? null, route?.points, strayRef.current)
     strayRef.current = { strayCount: decision.strayCount }
     // Snapped to the routing grid — see snapForRouting.
-    if (decision.reroute && liveDriverGps) setRerouteFrom(snapForRouting(liveDriverGps))
-  }, [liveDriverGps, route, legRide?.status])
+    if (decision.reroute && driverGps) setRerouteFrom(snapForRouting(driverGps))
+  }, [driverGps, route, legRide?.status])
   // A new leg is a new route: forget where the last reroute started.
   useEffect(() => {
     setRerouteFrom(null)
@@ -2063,16 +2080,16 @@ function ActiveTripCard({
   const lastDriverPublishRef = useRef(0)
   useEffect(() => {
     if (!ride) return
-    if (!effectiveShareGps || !liveDriverGps) {
+    if (!effectiveShareGps || !driverGps) {
       updateDriverLiveGps(ride.id, null)
       return
     }
     const now = Date.now()
     if (now - lastDriverPublishRef.current < LIVE_GPS_PUBLISH_MS) return
     lastDriverPublishRef.current = now
-    updateDriverLiveGps(ride.id, liveDriverGps)
+    updateDriverLiveGps(ride.id, driverGps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveDriverGps, effectiveShareGps, ride?.id])
+  }, [driverGps, effectiveShareGps, ride?.id])
 
   if (!ride) return null
 
@@ -2107,7 +2124,7 @@ function ActiveTripCard({
   // phone's fix first, the drawn marker otherwise. See lib/legRemaining.
   const remaining = remainingLeg({
     route,
-    vehicleGps: liveDriverGps ?? driverGpsInfo?.gps ?? null,
+    vehicleGps: driverGps ?? driverGpsInfo?.gps ?? null,
     destination: routeLineDestination ?? null,
     legProgress: ride.legProgress,
   })
@@ -2193,7 +2210,7 @@ function ActiveTripCard({
   // Real shared GPS is preferred; the simulated position is the fallback so
   // this stays demonstrable with movement simulation on and nothing to
   // actually drive.
-  const driverGpsForPickup = liveDriverGps ?? driverGpsInfo?.gps ?? null
+  const driverGpsForPickup = driverGps ?? driverGpsInfo?.gps ?? null
   const metersFromPickup =
     driverGpsForPickup && ride.pickup.gps
       ? Math.round(haversineDistanceMeters(driverGpsForPickup, ride.pickup.gps))
@@ -2230,7 +2247,7 @@ function ActiveTripCard({
   // Same as the passenger's monitor: while movement is simulated the
   // tricycle marker is the thing moving, so the camera follows it rather
   // than this phone.
-  const navCenter = simulateMovementEnabled && driverGpsInfo ? driverGpsInfo.gps : liveDriverGps
+  const navCenter = simulateMovementEnabled && driverGpsInfo ? driverGpsInfo.gps : driverGps
   // The phone's own direction first; otherwise the direction the tricycle is
   // actually moving on screen (see useMotionFromPositions).
   // Driving is driving: the map faces the road on the way to the pickup as
@@ -2243,8 +2260,8 @@ function ActiveTripCard({
     driving && navCenter
       ? {
           center: navCenter,
-          heading: liveDriverHeading ?? centerMotion.headingDegrees,
-          speedMps: liveDriverSpeed ?? centerMotion.speedMps,
+          heading: driverHeading ?? centerMotion.headingDegrees,
+          speedMps: driverSpeed ?? centerMotion.speedMps,
           rotatePointId: 'driver',
         }
       : null
@@ -2627,9 +2644,13 @@ function ActiveTripCard({
           holding the phone can fix any of them. */}
       <GpsDiagnosticLine
         enabled={effectiveShareGps}
-        position={liveDriverGps}
-        accuracy={liveDriverAccuracy}
-        error={liveGpsError}
+        position={driverGps}
+        accuracy={driverAccuracy}
+        // The background service's refusal comes first when there is one: a
+        // driver whose foreground GPS is fine still needs to know that the
+        // passenger loses them the moment the screen goes off, and that is
+        // the one thing they can only fix in Settings.
+        error={backgroundGpsError ?? liveGpsError}
       />
 
       {ride.status === 'driver_arriving' && shoppingList.length > 0 && atPickup && (

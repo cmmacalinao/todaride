@@ -1551,7 +1551,17 @@ export function TripMonitor({
       {/* An everyday detour: said, not asked. The note closes with OK; help
           stays where it always is — the Help/SOS button on the trip screen —
           rather than a red button under a thumb on every wrong turn. */}
-      {(offRouteMeters !== null || (farOffRoute && watching)) && !(farOffRoute && !watching) && !gotOffAsked && !openSos && (
+      {/* Not held back by the "did you get off?" question any more.
+          Tapping "I've gotten off the tricycle" set a flag that suppressed
+          this dialog, and that flag is only cleared by answering or by the
+          ride changing status — so a rider who tapped it mid-trip, for any
+          reason, silenced every route warning for the rest of the journey.
+          Those are two different questions about two different things, and
+          the safety one has no business muting the other. The separation
+          pop-up still takes the screen while it is up (openSos and the
+          far-off dialog below both still do), so they cannot stack.
+          Pilot, 2026-10-01. */}
+      {(offRouteMeters !== null || (farOffRoute && watching)) && !(farOffRoute && !watching) && !separationPopup && !openSos && (
         <div
           className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-900/60 p-3 sm:items-center"
           role="dialog"

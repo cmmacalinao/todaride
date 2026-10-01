@@ -24,6 +24,7 @@ import { remainingLeg } from '../lib/legRemaining'
 import { reverseGeocodeToPhAddress } from '../lib/customLocation'
 import { LIVE_GPS_PUBLISH_MS, useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { snapForRouting, useRoute } from '../lib/routing'
+import { shortName } from '../lib/personName'
 import { snapToRoad } from '../lib/snapToRoad'
 import { tripHasNotMoved } from '../lib/stuckTrip'
 import { FAR_OFF_ROUTE_START, metersFromRoute, nextFarOffRouteDecision, nextRerouteDecision, type FarOffRouteState } from '../lib/reroute'
@@ -582,11 +583,33 @@ export function TripMonitor({
             // Once you and the tricycle have parted it is just the tricycle:
             // your name on a marker driving away from you is the one thing on
             // the map that is not true.
-            label: `${driver?.plateNumber?.match(/\d+/)?.[0] ?? driver?.plateNumber ?? 'Tricycle'}${
-              // Watching from home, the rider is only on the tricycle once the trip
-              // has started — before pickup it is on its way to them.
-              seatsApart || (watching && !onBoard) ? '' : `-${ride.passengerName?.trim().split(/\s+/)[0] ?? 'You'}`
-            }${onBoard && sharingWith > 0 ? ` · +${sharingWith}` : ''}`,
+            label: (() => {
+              const plate = driver?.plateNumber?.match(/\d+/)?.[0] ?? driver?.plateNumber ?? 'Tricycle'
+              const alsoRiding = onBoard && sharingWith > 0 ? ` · +${sharingWith}` : ''
+              // Watching from home, the rider is only on the tricycle once the
+              // trip has started — before pickup it is on its way to them. And
+              // once the two have parted, the rider's name on a marker driving
+              // away from them is the one thing on the map that is not true.
+              if (seatsApart || (watching && !onBoard)) return `${plate}${alsoRiding}`
+              // Under way: the two people, and no plate.
+              //
+              // The plate answers "which tricycle is mine", and that question
+              // is over the moment you are sitting in it — from then on the
+              // marker is the two of you. It also has to name the driver now,
+              // because the rider's separate dot is gone while they are aboard
+              // (see the aboard branch): if this callout does not say who is
+              // driving, nothing on the map does.
+              //
+              // shortName, not the first word: most drivers here are "Kuya
+              // Marlon" or "Mang Elmer", where the first word is a title
+              // rather than a person.
+              if (onBoard) {
+                return `${shortName(driver?.name, 'Driver')} & ${shortName(ride.passengerName, 'You')}${alsoRiding}`
+              }
+              // On the way to you: the plate is exactly what you check against
+              // the sidecar pulling up.
+              return `${plate}-${shortName(ride.passengerName, 'You')}${alsoRiding}`
+            })(),
             // Named without waiting for the Names toggle, and named from the
             // moment a driver is assigned rather than only once aboard.
             //

@@ -959,6 +959,11 @@ export function PassengerPage() {
   // pickup someone has deliberately set for a booking they have not made yet
   // is never pulled out from under them.
   const hadLiveRideRef = useRef(running.length > 0)
+  // Whether this booking form has already asked the phone where it is — see
+  // the auto-locate effect further down. Cleared by the reset below, so the
+  // next booking starts from where the passenger is then, not where the last
+  // trip began.
+  const autoLocatedRef = useRef(false)
   const hasLiveRide = running.length > 0
   useEffect(() => {
     const had = hadLiveRideRef.current
@@ -967,8 +972,26 @@ export function PassengerPage() {
       setPickupGps(null)
       setPickupId(CLSU_MAIN_GATE_LOCATION.id)
       setPickupChosen(false)
+      autoLocatedRef.current = false
     }
   }, [hasLiveRide])
+  // A booking starts from where the passenger actually is.
+  //
+  // The pickup defaulted to CLSU Main Gate — a seeded point, and the nearest
+  // thing the app had to "somewhere" before anybody had tapped anything. Real
+  // coordinates only arrived if the passenger thought to press "my location"
+  // or drop the pin themselves, so a booking made without doing either sent
+  // the driver to a gate rather than to the person. Reported from the pilot,
+  // 2026-10-01: a trip booked from inside CLSU had its pickup set at a
+  // different place inside CLSU.
+  //
+  // So the fix asks the phone, once, exactly as that button does — same
+  // reverse-geocode, same filled-in address field. Only while nothing has
+  // been chosen: a passenger who has picked a pickup, or is booking for
+  // somebody else standing somewhere else, is never overridden.
+  // The effect itself lives further down, where handleUseMyGps and
+  // isGuestBooking are both in scope; only the flag has to be up here, so the
+  // reset above can clear it.
   // The direct driver on the current job, once one is assigned — from the
   // moment a request is accepted (driver_arriving), not only once the trip
   // is under way, so "running a little late" or "which gate" can be said
@@ -1745,13 +1768,19 @@ export function PassengerPage() {
   // would be a worse start than leaving the field empty for them to set by
   // hand. Not marked as done in that case, so switching back to booking for
   // yourself still gets the one automatic try.
-  const autoLocatedRef = useRef(false)
   useEffect(() => {
     if (autoLocatedRef.current) return
-    if (pickupChosen || isErrand || activeRide || forOther) return
+    // hasLiveRide, not activeRide. activeRide falls back to the most recent
+    // ride even when it is finished, so after a passenger's very first trip
+    // there was always one — and this never ran again for the life of the
+    // screen. Every booking after the first kept the seeded CLSU Main Gate as
+    // its pickup, and sent the driver to a gate rather than to the person.
+    // Reported from the pilot, 2026-10-01: a trip booked inside CLSU had its
+    // pickup set at a different place inside CLSU.
+    if (pickupChosen || isErrand || hasLiveRide || forOther) return
     autoLocatedRef.current = true
     void handleUseMyGps('pickup')
-  }, [pickupChosen, isErrand, activeRide, guestRider.bookingFor])
+  }, [pickupChosen, isErrand, hasLiveRide, guestRider.bookingFor])
 
   // Admin-configurable — see AdminPage's "Trip history retention" setting.
   // Older rides aren't lost, they just drop out of this list (earnings

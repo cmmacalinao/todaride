@@ -392,6 +392,9 @@ interface RideState {
   // Rewards, promos and the passenger wallet — a Super Admin switch, off
   // by default: the Rewards tab, drawer item and page stay hidden until on.
   rewardsEnabled: boolean
+  // The terminal line deciding bookings made at a terminal. Off by default
+  // for the pilot — see DispatchContext.pilaQueueEnabled.
+  pilaQueueEnabled: boolean
   medsEnabled: boolean
   // Food/Resto and other-commodity partner vendors — Food Order and the
   // merchant sign-up path. Always true now (see fromStored) — kept apart
@@ -624,6 +627,7 @@ type RideAction =
   | { type: 'SET_BANNER_AD_SLOT'; index: number; ad: BannerAd | null }
   | { type: 'SET_PABILI_ENABLED'; enabled: boolean }
   | { type: 'SET_REWARDS_ENABLED'; enabled: boolean }
+  | { type: 'SET_PILA_QUEUE_ENABLED'; enabled: boolean }
   | { type: 'SET_MEDS_ENABLED'; enabled: boolean }
   | { type: 'SET_PARTNER_BANNER_ENABLED'; enabled: boolean }
   | { type: 'SET_SIMULATED_OTP_ENABLED'; enabled: boolean }
@@ -1642,6 +1646,7 @@ interface StoredState {
   bannerAds?: (BannerAd | null)[]
   pabiliEnabled?: boolean
   rewardsEnabled?: boolean
+  pilaQueueEnabled?: boolean
   medsEnabled?: boolean
   vendorsEnabled?: boolean
   partnerBannerEnabled?: boolean
@@ -1915,6 +1920,7 @@ function fromStored(parsed: StoredState): RideState {
     ),
     pabiliEnabled: parsed.pabiliEnabled ?? false,
     rewardsEnabled: parsed.rewardsEnabled ?? false,
+    pilaQueueEnabled: parsed.pilaQueueEnabled ?? false,
     medsEnabled: parsed.medsEnabled ?? false,
     // Food Order and the vendor/merchant sign-up path — permanently on,
     // not a real Super Admin switch any more (see the matching removal in
@@ -2256,6 +2262,7 @@ function loadInitialState(): RideState {
     bannerAds: MOCK_BANNER_ADS,
     pabiliEnabled: false,
     rewardsEnabled: false,
+    pilaQueueEnabled: false,
     medsEnabled: false,
     vendorsEnabled: true,
     partnerBannerEnabled: false,
@@ -2485,6 +2492,18 @@ interface DispatchContext {
   orgs?: TodaOrganization[]
   // Drivers already on a trip — they are not candidates, however close.
   busyDriverIds?: Set<string>
+  // Whether the terminal line decides a booking made at a terminal.
+  //
+  // Off for the pilot (2026-10-01), by request: while two people are testing,
+  // the line sends the job to whichever driver happens to be at the front
+  // rather than to the one standing there, and every run turns into a hunt
+  // for the right account to log in as. Nearest driver throughout until the
+  // Super Admin switches the Pila back on.
+  //
+  // Deferred, not deleted: the queue is the fair thing for real drivers
+  // waiting their turn, and the whole of it still works — see the atTerminal
+  // branch below, which this flag is the only gate on.
+  pilaQueueEnabled?: boolean
 }
 
 // Finds who should be offered this ride next. Three rules, in order:
@@ -2537,6 +2556,8 @@ function nextQueueOffer(
   // booking further out goes to the nearest driver (2026-09-23).
   const pickupTerminal = nearestTerminal(terminals, pickupGps)
   const atTerminal =
+    // Switched off for the pilot — see DispatchContext.pilaQueueEnabled.
+    ctx.pilaQueueEnabled === true &&
     pickupTerminal !== null &&
     pickupGps !== null &&
     pickupTerminal.gps !== null &&
@@ -2663,6 +2684,7 @@ function dispatchCtx(state: RideState, pickupGps: GeoCoords | null) {
     terminals: state.terminals,
     orgs: state.todaOrganizations,
     busyDriverIds: busyDriverIds(state.rides),
+    pilaQueueEnabled: state.pilaQueueEnabled,
   }
 }
 
@@ -4152,6 +4174,8 @@ function reducer(state: RideState, action: RideAction): RideState {
       return { ...state, pabiliEnabled: action.enabled }
     case 'SET_REWARDS_ENABLED':
       return { ...state, rewardsEnabled: action.enabled }
+    case 'SET_PILA_QUEUE_ENABLED':
+      return { ...state, pilaQueueEnabled: action.enabled }
     case 'SET_MEDS_ENABLED':
       return { ...state, medsEnabled: action.enabled }
     case 'SET_PARTNER_BANNER_ENABLED':
@@ -6948,6 +6972,8 @@ interface RideContextValue extends RideState {
   setBannerAdSlot: (index: number, ad: BannerAd | null) => void
   setPabiliEnabled: (enabled: boolean) => void
   setRewardsEnabled: (enabled: boolean) => void
+  // The Pila. Off through the pilot — see DispatchContext.pilaQueueEnabled.
+  setPilaQueueEnabled: (enabled: boolean) => void
   setMedsEnabled: (enabled: boolean) => void
   setPartnerBannerEnabled: (enabled: boolean) => void
   setSimulatedOtpEnabled: (enabled: boolean) => void
@@ -7897,6 +7923,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           bannerAds: state.bannerAds,
           pabiliEnabled: state.pabiliEnabled,
           rewardsEnabled: state.rewardsEnabled,
+          pilaQueueEnabled: state.pilaQueueEnabled,
           medsEnabled: state.medsEnabled,
           vendorsEnabled: state.vendorsEnabled,
           partnerBannerEnabled: state.partnerBannerEnabled,
@@ -8277,6 +8304,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setBannerAdSlot: (index, ad) => dispatch({ type: 'SET_BANNER_AD_SLOT', index, ad }),
     setPabiliEnabled: (enabled) => dispatch({ type: 'SET_PABILI_ENABLED', enabled }),
     setRewardsEnabled: (enabled) => dispatch({ type: 'SET_REWARDS_ENABLED', enabled }),
+    setPilaQueueEnabled: (enabled) => dispatch({ type: 'SET_PILA_QUEUE_ENABLED', enabled }),
     setMedsEnabled: (enabled) => dispatch({ type: 'SET_MEDS_ENABLED', enabled }),
     setPartnerBannerEnabled: (enabled) => dispatch({ type: 'SET_PARTNER_BANNER_ENABLED', enabled }),
     setSimulatedOtpEnabled: (enabled) => dispatch({ type: 'SET_SIMULATED_OTP_ENABLED', enabled }),

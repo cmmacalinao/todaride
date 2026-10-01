@@ -38,6 +38,8 @@ export function SuperAdminPage() {
     franchises,
     rewardsEnabled,
     setRewardsEnabled,
+    pilaQueueEnabled,
+    setPilaQueueEnabled,
     medsEnabled,
     partnerBannerEnabled,
     setPartnerBannerEnabled,
@@ -270,6 +272,13 @@ export function SuperAdminPage() {
               description="The passenger's Rewards tab and page, the drawer item, and the Income & Promotion tools. Off hides them on every page."
               enabled={rewardsEnabled}
               onChange={setRewardsEnabled}
+            />
+            <FeatureToggleRow
+              icon="🚏"
+              label="TODA Terminal Pila (queue order)"
+              description="On: a booking made at a terminal goes to whoever is first in that terminal's line. Off: the nearest free driver is offered every booking, wherever it was made. Deferred during pilot testing — the line sends jobs to whichever account is at the front rather than to the driver who is actually standing there."
+              enabled={pilaQueueEnabled}
+              onChange={setPilaQueueEnabled}
             />
             {/* Food & Vendor partners had its own switch here — removed
                 along with vendorsEnabled ever being settable to false (see

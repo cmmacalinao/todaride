@@ -37,6 +37,7 @@ import type {
   TodaOrganization,
 } from '../types'
 import { haversineDistanceMeters } from '../lib/geo'
+import { crowFliesSpeedMps, dispatchCostSeconds } from '../lib/roadDistance'
 
 export const DOCUMENT_TYPES: DocumentType[] = ['nbiClearance', 'driversLicense', 'ltoRegistration', 'lguRegistration']
 
@@ -12041,12 +12042,27 @@ export function driverDispatchGps(
   return getTerminalGps(org)
 }
 
-// Orders dispatch candidates by how far each one is from the pickup, nearest
-// first — the rule a passenger actually feels, since the shortest distance is
-// the shortest wait. Two drivers at the same terminal come out at the same
-// distance, and because Array.prototype.sort is stable (ES2019+) the line at
-// that terminal keeps its own join order among themselves. A driver the app
-// cannot place goes to the back rather than to the front.
+// Orders dispatch candidates by how long each one will take to reach the
+// pickup, soonest first — the rule a passenger actually feels, since what
+// they experience is the wait. Two drivers at the same terminal come out at
+// the same cost, and because Array.prototype.sort is stable (ES2019+) the
+// line at that terminal keeps its own join order among themselves. A driver
+// the app cannot place goes to the back rather than to the front.
+//
+// It ranks on travel time, not on distance of either kind. Ten driver
+// positions measured around CLSU on 2026-10-02 showed that neither the
+// straight line nor the road distance answers the question: the spot that
+// looked nearest of all took twice as long as one further out, and a driver
+// 320 m further by road still arrived sooner because his road was the
+// highway. 14 of the 45 pairs ranked differently by straight line than by
+// road. See lib/roadDistance.ts for the measurements.
+//
+// Durations come from a synchronous cache read, filled by one Matrix call
+// from an effect — precisely so this function can stay pure and keep running
+// inside the reducer. A candidate the router has not measured is converted
+// from its straight-line distance at the local rate, so every candidate is
+// ranked on one scale; when nothing at all has been measured that ordering
+// is identical to the plain straight-line ordering this used to do.
 export function orderByDispatchDistance(
   candidates: Driver[],
   pickupGps: GeoCoords | null,
@@ -12054,12 +12070,26 @@ export function orderByDispatchDistance(
   orgs: TodaOrganization[],
 ): Driver[] {
   if (!pickupGps) return candidates
-  const distanceOf = new Map<string, number>()
+  const positionOf = new Map<string, GeoCoords | null>()
   for (const d of candidates) {
-    const gps = driverDispatchGps(d, terminals, orgs)
-    distanceOf.set(d.id, gps ? haversineDistanceMeters(gps, pickupGps) : Number.POSITIVE_INFINITY)
+    positionOf.set(d.id, driverDispatchGps(d, terminals, orgs))
   }
-  return [...candidates].sort((a, b) => distanceOf.get(a.id)! - distanceOf.get(b.id)!)
+  const placed: GeoCoords[] = []
+  for (const d of candidates) {
+    const gps = positionOf.get(d.id)
+    if (gps) placed.push(gps)
+  }
+  const crowSpeed = crowFliesSpeedMps(placed, pickupGps)
+
+  const costOf = new Map<string, number>()
+  for (const d of candidates) {
+    const gps = positionOf.get(d.id)
+    costOf.set(
+      d.id,
+      gps ? dispatchCostSeconds(gps, pickupGps, crowSpeed) : Number.POSITIVE_INFINITY,
+    )
+  }
+  return [...candidates].sort((a, b) => costOf.get(a.id)! - costOf.get(b.id)!)
 }
 
 // Members of a TODA who are free to take work but are not standing in the

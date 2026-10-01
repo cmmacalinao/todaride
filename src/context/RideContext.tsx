@@ -175,11 +175,13 @@ import {
   getTerminalGps,
   getTodaQueue,
   orderByDispatchDistance,
+  driverDispatchGps,
   DOCUMENT_TYPES,
 } from '../mock/data'
 import { QUEUE_ORDER_RADIUS_METERS, TERMINAL_PROXIMITY_METERS, haversineDistanceMeters } from '../lib/geo'
 import { SAFETY_DEFAULTS, appendEvent, buildIncident, isActiveAlert, markNotificationDelivery, transitionAlert, withSafetyDefaults } from '../lib/safety'
 import { getPersistence, setSyncPace } from '../lib/persistence'
+import { warmRoadDistances } from '../lib/roadDistance'
 import { useSession } from './SessionContext'
 import { sendSosSms } from '../lib/sosSmsApi'
 
@@ -8162,6 +8164,46 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setSyncPace(liveTripHere, liveRideIdsHere ? liveRideIdsHere.split(',') : [])
     return () => setSyncPace(false)
   }, [liveTripHere, liveRideIdsHere])
+
+  // Ask the router how far the candidate drivers really are from a pickup
+  // that is still waiting for an answer.
+  //
+  // Dispatch ranks drivers by road distance (orderByDispatchDistance), but it
+  // runs inside the reducer, where nothing may be asynchronous. So the
+  // measuring happens out here: one Matrix request covering every candidate
+  // at once, cached, and read back synchronously on the next evaluation. An
+  // offer rotates every few seconds, so an answer that misses the first pass
+  // lands well before the ride is assigned.
+  //
+  // Keyed by pickup rather than by ride: two bookings from the same corner
+  // warm the same legs, and the effect should not fire twice for them.
+  const pendingPickups = state.rides
+    .filter((r) => r.status === 'requested' && !r.driverId)
+    .map((r) => `${r.pickup.gps.lat.toFixed(4)},${r.pickup.gps.lng.toFixed(4)}`)
+    .sort()
+    .join(';')
+  useEffect(() => {
+    if (!pendingPickups) return
+    // Anyone who could actually be offered the ride, queued or roaming.
+    // Warming every driver in the province would spend the matrix quota on
+    // tricycles that are off duty or not cleared to drive.
+    const candidates = state.drivers.filter(
+      (d) => d.online && d.verificationStatus === 'approved' && d.accessStatus === 'active',
+    )
+    if (candidates.length === 0) return
+    const positions = candidates
+      .map((d) => driverDispatchGps(d, state.terminals, state.todaOrganizations))
+      .filter((gps): gps is GeoCoords => gps !== null)
+    if (positions.length === 0) return
+    for (const key of pendingPickups.split(';')) {
+      const [lat, lng] = key.split(',').map(Number)
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
+      // Deliberately not awaited and never surfaced: a failed measurement
+      // just means dispatch keeps using straight-line distances, which is
+      // what it did before any of this existed.
+      void warmRoadDistances(positions, { lat, lng })
+    }
+  }, [pendingPickups, state.drivers, state.terminals, state.todaOrganizations])
 
   // Keep separate tabs/roles (e.g. student on one device, parent on another)
   // in sync so alerts like SOS and safety photos show up immediately everywhere.

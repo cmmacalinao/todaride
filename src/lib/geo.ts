@@ -15,7 +15,12 @@ export const TERMINAL_PROXIMITY_METERS = 150
 // standing at the terminal. Further out it sends a tricycle past nearer ones
 // to reach a passenger — so beyond this radius the nearest driver is offered
 // the ride instead, and the line keeps its claim on the terminal itself.
-export const QUEUE_ORDER_RADIUS_METERS = 200
+//
+// 200 m at first, halved after the 2026-10-01 pilot: it was still holding
+// bookings for the line well past the terminal's own apron, when a nearer
+// driver could have been there sooner. A hundred metres is the terminal and
+// the road outside it — what "at the terminal" means to anyone standing there.
+export const QUEUE_ORDER_RADIUS_METERS = 100
 
 // How near the pickup a driver has to be before the trip can be started.
 // Tighter than the terminal radius: a terminal is a whole yard you might be

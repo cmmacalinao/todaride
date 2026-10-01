@@ -24,7 +24,7 @@ import { remainingLeg } from '../lib/legRemaining'
 import { reverseGeocodeToPhAddress } from '../lib/customLocation'
 import { LIVE_GPS_PUBLISH_MS, useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { snapForRouting, useRoute } from '../lib/routing'
-import { shortName } from '../lib/personName'
+import { firstName } from '../lib/names'
 import { snapToRoad } from '../lib/snapToRoad'
 import { tripHasNotMoved } from '../lib/stuckTrip'
 import { FAR_OFF_ROUTE_START, metersFromRoute, nextFarOffRouteDecision, nextRerouteDecision, type FarOffRouteState } from '../lib/reroute'
@@ -593,14 +593,13 @@ export function TripMonitor({
             // your name on a marker driving away from you is the one thing on
             // the map that is not true.
             label: (() => {
-              const plate = driver?.plateNumber?.match(/\d+/)?.[0] ?? driver?.plateNumber ?? 'Tricycle'
               const alsoRiding = onBoard && sharingWith > 0 ? ` · +${sharingWith}` : ''
               // Watching from home, the rider is only on the tricycle once the
               // trip has started — before pickup it is on its way to them. And
               // once the two have parted, the rider's name on a marker driving
               // away from them is the one thing on the map that is not true.
-              if (seatsApart || (watching && !onBoard)) return `${plate}${alsoRiding}`
-              // Under way: the two people, and no plate.
+              if (seatsApart || (watching && !onBoard)) return `Driver${alsoRiding}`
+              // Under way: the two people, by name.
               //
               // The plate answers "which tricycle is mine", and that question
               // is over the moment you are sitting in it — from then on the
@@ -613,11 +612,14 @@ export function TripMonitor({
               // Marlon" or "Mang Elmer", where the first word is a title
               // rather than a person.
               if (onBoard) {
-                return `${shortName(driver?.name, 'Driver')} & ${shortName(ride.passengerName, 'You')}${alsoRiding}`
+                return `${driver?.name ? firstName(driver.name) : 'Driver'} & ${ride.passengerName ? firstName(ride.passengerName) : 'You'}${alsoRiding}`
               }
-              // On the way to you: the plate is exactly what you check against
-              // the sidecar pulling up.
-              return `${plate}-${shortName(ride.passengerName, 'You')}${alsoRiding}`
+              // Still on the way: just the role. Names belong to the trip
+              // itself — before it starts, what the rider needs from this
+              // marker is which dot is the tricycle, and the plate to check
+              // against the sidecar is on the driver card above the map
+              // already, where it is readable (2026-10-01).
+              return `Driver${alsoRiding}`
             })(),
             // Named without waiting for the Names toggle, and named from the
             // moment a driver is assigned rather than only once aboard.
@@ -655,7 +657,11 @@ export function TripMonitor({
             id: 'passenger',
             gps: passengerGpsInfo.gps,
             color: '#4f46e5',
-            label: passengerGpsInfo.isLive ? 'You — live GPS' : 'You — shared pin',
+            // "Me" on your own dot, the role on the other person's — the same
+            // pair of words on both accounts, so neither screen has to be
+            // read differently from the other (2026-10-01). A parent watching
+            // is not in the tricycle, so for them it is the rider, not "me".
+            label: watching ? 'Passenger' : passengerGpsInfo.isLive ? 'Me' : 'Me — shared pin',
             pulse: passengerGpsInfo.isLive,
           },
         ]
@@ -694,7 +700,11 @@ export function TripMonitor({
             // Your own name, not "You": the same map is read over a
             // passenger's shoulder and by a parent watching from home, and
             // "You are here" answers a different question for each of them.
-            label: passengerDisplayName,
+            // "Me" on this phone's own dot. It carried the rider's name, which
+            // is the right word on a parent's screen and the wrong one on the
+            // rider's — they know who they are; what they are looking for is
+            // which dot is them (2026-10-01).
+            label: watching ? passengerDisplayName : 'Me',
             // No callout of its own. The tricycle above already floats one
             // reading "<plate digits>-<your first name>", so a second bubble
             // naming the passenger put the same name on the map twice, on two

@@ -29,7 +29,7 @@ import { ClearHistoryControl, isClearedFromHistory } from '../components/ClearHi
 import { MarketingPartnerCard } from '../components/MarketingPartnerCard'
 import { DriverAuthGate } from '../components/DriverAuthGate'
 import { alongTheWayFit, isSpecialTrip, seatsLeft } from '../lib/alongTheWay'
-import { aboardLabel, shortName } from '../lib/names'
+import { aboardLabel, firstName, shortName } from '../lib/names'
 import { EmergencyNumbersButton, EmergencyNumbersPanel } from '../components/EmergencyNumbersPanel'
 import { getActiveTodaCommission, DRIVER_BASE_GPS, estimateOutOfAreaBreakdown, getTerminalGps, getTodaQueue, nearestTerminal, PAYMENT_METHODS, terminalsForOrg } from '../mock/data'
 import {
@@ -2170,14 +2170,11 @@ function ActiveTripCard({
   // switched off mid-journey and the first passenger vanished from the map.
   const onBoard = rides.some((r) => r.driverId === ride.driverId && r.status === 'ongoing')
   const aboardRides = rides.filter((r) => r.driverId === ride.driverId && r.status === 'ongoing')
-  // Just the digits. A callout floating over a moving map has room for one
-  // fact, and "TRC-" is on every plate in the pilot — it is the number that
-  // tells two tricycles apart, and the prefix was pushing the passenger's
-  // name off the edge of the bubble. Same choice the passenger's own map
-  // already makes (see TripMonitor). Falls back to the whole plate if it
-  // carries no digits at all.
-  const cardPlateFull = drivers.find((d) => d.id === ride.driverId)?.plateNumber
-  const cardPlate = cardPlateFull?.match(/\d+/)?.[0] ?? cardPlateFull ?? 'Tricycle'
+  // The plate used to be the driver's own callout, shortened to its digits so
+  // it would fit. It is off the map now: this is the driver's own phone, and
+  // they know which tricycle they are driving — the marker says "Me" until
+  // somebody is aboard, then both names (2026-10-01). The plate is still on
+  // the trip card, where it is read rather than glanced at.
   // "Cut the trip": the passenger said para, so the ride ends where the
   // tricycle is, not where the booking said. Recorded as an early drop-off
   // with the distance it fell short — the same thing the passenger's own
@@ -2416,7 +2413,14 @@ function ActiveTripCard({
             // sidecar, pinned open the way it is on their phone — the driver
             // carrying two trips needs to see at a glance which one this
             // moving dot is, not just that it is them.
-            label: onBoard && aboardNames ? `${cardPlate} · 🧍 ${aboardNames}` : `You · ${cardPlate}`,
+            // "Me" until somebody is aboard, then both of you by name — the
+            // same rule as the passenger's screen, so the two accounts read
+            // alike (2026-10-01). The plate came off: this is the driver's own
+            // phone, and they know which tricycle they are driving.
+            label:
+              onBoard && aboardNames
+                ? `${ride.driverName ? firstName(ride.driverName) : 'Me'} & ${aboardNames}`
+                : 'Me',
             // Named from the moment there is a trip, not only once somebody is
             // aboard. Two moving dots on one map with only one of them
             // labelled reads as a bug: whichever is unnamed is the one you
@@ -2438,9 +2442,14 @@ function ActiveTripCard({
             id: 'passenger',
             gps: passengerGpsInfo.gps,
             color: '#4f46e5',
-            // The name first and the qualifier after it, because the name is
-            // what the driver is looking for on a street with people on it.
-            label: `${ride.passengerName}${passengerGpsInfo.isLive ? '' : ' (shared pin)'}`,
+            // The role on the way, the name once they are aboard — matching
+            // the passenger's screen. Before pickup the driver is looking for
+            // a dot to drive to, and the name is already on the trip card; a
+            // shared pin still says so, because driving to a pin somebody
+            // dropped is a different job from driving to a live position.
+            label: onBoard
+              ? ride.passengerName
+              : `Passenger${passengerGpsInfo.isLive ? '' : ' (shared pin)'}`,
             callout: true,
             alwaysLabel: true,
             pulse: passengerGpsInfo.isLive,

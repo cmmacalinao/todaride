@@ -14,11 +14,19 @@ import type { GeoCoords } from '../types'
 
 // How far apart is "not in the same tricycle".
 //
-// A tricycle is about two metres of vehicle, so ten is generous — which it has
-// to be, because the two phones are not measuring from the same place. Each
-// has its own fix with its own error, and the gap between two readings taken
-// side by side is routinely several metres before anybody has moved at all.
-export const SEPARATION_METERS = 10
+// A tricycle is about two metres of vehicle, so ten looked generous. It was
+// not remotely. Measured on the pilot's own phones, 2026-10-01: the driver and
+// the passenger read 50 m apart while sitting in the same tricycle, with the
+// driver's phone reporting ±24 m — a good fix by phone standards. Two such
+// fixes can disagree by fifty metres with nobody having moved, so a ten-metre
+// rule declared the passenger gone on every trip, and the driver was asked
+// whether they were getting off before the ride had properly begun.
+//
+// Sixty metres is past what two phones' error can invent between them, and
+// still far short of a passenger who has walked away: a tricycle pulling off
+// at 20 km/h opens that gap in eleven seconds, so the case this exists for is
+// still caught almost at once.
+export const SEPARATION_METERS = 60
 
 // How many consecutive readings must agree before anyone is asked.
 //
@@ -36,7 +44,10 @@ export const SEPARATION_STREAK = 3
 // sooner than the separation was: one reading close again clears the streak.
 // The alternative is a prompt that lingers after the passenger has got back
 // in, or after the fix that caused it turns out to have been a glitch.
-export const REUNION_METERS = 8
+//
+// Kept a clear margin under SEPARATION_METERS so the two cannot chatter at
+// each other across one threshold.
+export const REUNION_METERS = 40
 
 export interface SeparationState {
   // Consecutive readings with the two phones apart.

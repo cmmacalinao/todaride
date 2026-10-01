@@ -392,7 +392,8 @@ export function TripMonitor({
   // The route used to be replaced the moment the tricycle strayed; the line
   // on the map then changed under somebody who had not agreed to a detour,
   // which is exactly the moment they most want the old one to compare against.
-  const [pendingReroute, setPendingReroute] = useState<GeoCoords | null>(null)
+  // (pendingReroute lived here, holding a new route until the rider accepted
+  // it. Nothing is held back any more — see the detection effect.)
   const route = useRoute(rerouteFrom ?? routeLineOriginForRoute ?? null, routeLineDestinationForRoute ?? null)
   // Independent of ride status/leg — always the pickup→destination trip
   // itself, so "how long will the actual ride take" stays visible even
@@ -864,8 +865,8 @@ export function TripMonitor({
     lastRerouteAtRef.current = at
     if (!at || at === was || !ride.rerouteFromGps) return
     if (ride.status !== 'ongoing' && ride.status !== 'driver_arriving') return
-    if (watching) setRerouteFrom(ride.rerouteFromGps)
-    else setPendingReroute(ride.rerouteFromGps)
+    // Applied, never offered — see the detection effect below for why.
+    setRerouteFrom(ride.rerouteFromGps)
     setOffRouteMeters(ride.rerouteMetersOff ?? 100)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ride.rerouteAt])
@@ -882,10 +883,21 @@ export function TripMonitor({
       // Snapped to the routing grid so straying twice in the same place asks
       // the router once — see snapForRouting.
       const from = snapForRouting(followedGps)
-      // The passenger is asked; a watching parent is only told (see the
-      // dialog below, which gives them OK rather than Accept).
-      if (watching) setRerouteFrom(from)
-      else setPendingReroute(from)
+      // Applied at once, for everybody. Nobody is asked.
+      //
+      // This used to offer the rider "Accept the new route" or "Keep the
+      // planned route", and the map only redrew if they tapped Accept. Two
+      // things were wrong with that. The rider does not choose the route —
+      // the driver drives — so it is a decision they cannot act on; and
+      // until somebody tapped, the map went on drawing a road the tricycle
+      // was demonstrably not on. Seen on the pilot, 2026-10-01: the dialog
+      // was there, nobody tapped it, and the line never moved. A map's job
+      // is to show where the tricycle is.
+      //
+      // What is worth saying is still said — see the note below, which now
+      // tells rather than asks. The deviation is still recorded on the ride,
+      // and a long one still reaches the guardian, who can act.
+      setRerouteFrom(from)
       setOffRouteMeters(Math.round(decision.metersOff))
     }
   }, [followedGps, route, ride.status])
@@ -1617,41 +1629,18 @@ export function TripMonitor({
                   ? farOffRoute.reason === 'far'
                     ? `${tricycleLabel ?? 'The tricycle'} is about ${formatKm(farOffRoute.meters)} from the road planned to ${formatAddressLine(ride.dropoff.label)}. Usually traffic or a closed road — call ${firstName(ride.passengerName ?? '') || 'them'} if you want to be sure.`
                     : `${tricycleLabel ?? 'The tricycle'} has been moving away from ${formatAddressLine(ride.dropoff.label)} for a few minutes. Usually traffic or a closed road — call ${firstName(ride.passengerName ?? '') || 'them'} if you want to be sure.`
-                  : watching
-                    ? `${tricycleLabel ?? 'The tricycle'} is now ${offRouteMeters}m off the planned road. A new way to ${formatAddressLine(ride.dropoff.label)} is already being found.`
-                    : `${tricycleLabel ?? 'The tricycle'} is now ${offRouteMeters}m off the planned road. Take a new way to ${formatAddressLine(ride.dropoff.label)}, or stay on the one you agreed?`}
+                  : // Told, both of them. The rider's copy used to end with a
+                    // question — take a new way, or stay on the one you
+                    // agreed? — which is not theirs to answer.
+                    `${tricycleLabel ?? 'The tricycle'} is now ${offRouteMeters}m off the planned road. The map is following the new way to ${formatAddressLine(ride.dropoff.label)}.`}
               </p>
             </div>
 
             <div className="space-y-2 px-4 py-3">
-              {pendingReroute && !watching ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRerouteFrom(pendingReroute)
-                      setPendingReroute(null)
-                      setOffRouteMeters(null)
-                    }}
-                    className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-bold text-white transition hover:bg-brand-700"
-                  >
-                    ✅ Accept the new route
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      // The drawn route stays as it was. Straying again
-                      // raises this once more, which is the point: a detour
-                      // nobody agreed to should keep asking.
-                      setPendingReroute(null)
-                      setOffRouteMeters(null)
-                    }}
-                    className="w-full rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-                  >
-                    Keep the planned route
-                  </button>
-                </>
-              ) : (
+              {/* One button. The two that used to be here — Accept the new
+                  route, Keep the planned route — asked the rider to decide
+                  something only the driver decides, and the map stayed on the
+                  old road until one was tapped. */}
               <button
                 type="button"
                 onClick={() => {
@@ -1662,7 +1651,6 @@ export function TripMonitor({
               >
                 ✅ OK
               </button>
-              )}
               <p className="text-center text-[11px] text-slate-500">
                 If something feels wrong, tap 🛡️ {sosEnabled ? 'SOS' : 'Safety'} on the trip screen.
               </p>

@@ -563,6 +563,9 @@ type RideAction =
       // Where the driver actually is as they start. The pickup moves to it —
       // see the reducer.
       driverGps?: GeoCoords | null
+      // What the route said this trip would take, in seconds, at the moment it
+      // began — see Ride.predictedDurationSeconds.
+      predictedDurationSeconds?: number | null
     }
   | { type: 'PASSENGER_CONFIRM_ARRIVAL'; rideId: string; actualDropoff?: Ride['actualDropoff'] }
   | { type: 'RIDER_CONFIRM_SAFE'; rideId: string }
@@ -3417,6 +3420,9 @@ function reducer(state: RideState, action: RideAction): RideState {
             // that is the part worth keeping: it is the evidence, and moving
             // the pin was destroying it.
             startedAwayFromPickupMeters: movedMeters,
+            // The promise, kept beside the outcome — see
+            // Ride.predictedDurationSeconds.
+            predictedDurationSeconds: action.predictedDurationSeconds ?? null,
             driverPosition: r.pickup.coords,
             passengerPosition: null,
             legProgress: 0,
@@ -6921,7 +6927,11 @@ interface RideContextValue extends RideState {
   // drive to the pickup — see PASSENGER_KEEP_FAR_DRIVER and farPickupQuote.
   keepFarDriver: (rideId: string, meters: number) => void
   quoteFarPickupFee: (rideId: string, meters: number) => { km: number; fee: number } | null
-  startRide: (rideId: string, driverGps?: GeoCoords | null) => void
+  startRide: (
+    rideId: string,
+    driverGps?: GeoCoords | null,
+    predictedDurationSeconds?: number | null,
+  ) => void
   // The passenger saying they are off — hands the ride to the driver for
   // payment confirmation rather than completing it.
   confirmPassengerArrival: (rideId: string, actualDropoff?: Ride['actualDropoff']) => void
@@ -8225,7 +8235,8 @@ export function RideProvider({ children }: { children: ReactNode }) {
       const ride = state.rides.find((r) => r.id === rideId)
       return ride ? farPickupQuote(state, ride, meters) : null
     },
-    startRide: (rideId, driverGps) => dispatch({ type: 'START_RIDE', rideId, driverGps }),
+    startRide: (rideId, driverGps, predictedDurationSeconds) =>
+      dispatch({ type: 'START_RIDE', rideId, driverGps, predictedDurationSeconds }),
     confirmPassengerArrival: (rideId, actualDropoff) =>
       dispatch({ type: 'PASSENGER_CONFIRM_ARRIVAL', rideId, actualDropoff }),
     confirmRiderSafe: (rideId) => dispatch({ type: 'RIDER_CONFIRM_SAFE', rideId }),

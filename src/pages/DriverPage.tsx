@@ -1656,7 +1656,7 @@ export function DriverPage() {
         {myActiveRide ? (
           <ActiveTripCard
             rideId={myActiveRide.id}
-            onStart={(gps) => startRide(myActiveRide.id, gps)}
+            onStart={(gps, predicted) => startRide(myActiveRide.id, gps, predicted)}
             onComplete={(paidMethod) => completeRide(myActiveRide.id, paidMethod)}
             extraPoints={sharedStopPoints}
             hintLine={sharedHintLine}
@@ -1692,7 +1692,7 @@ export function DriverPage() {
         <ActiveTripCard
           key={extra.id}
           rideId={extra.id}
-          onStart={(gps) => startRide(extra.id, gps)}
+          onStart={(gps, predicted) => startRide(extra.id, gps, predicted)}
           onComplete={(paidMethod) => completeRide(extra.id, paidMethod)}
           showMap={false}
         />
@@ -1968,8 +1968,9 @@ function ActiveTripCard({
   onFullscreenChange,
 }: {
   rideId: string
-  // Handed the driver's own fix, which becomes the pickup - see START_RIDE.
-  onStart: (driverGps: GeoCoords | null) => void
+  // Handed the driver's own fix, and what the route predicted this trip would
+  // take — see START_RIDE and Ride.predictedDurationSeconds.
+  onStart: (driverGps: GeoCoords | null, predictedDurationSeconds: number | null) => void
   onComplete: (paidMethod?: PaymentMethod) => void
   // One tricycle, one map. The other passengers' stops are drawn on this
   // driver's map rather than each trip bringing a second map of the same
@@ -2450,7 +2451,7 @@ function ActiveTripCard({
     autoStartRef.current = ride.id
     // This fires because the driver reached the passenger, so the driver's own
     // fix is the truest pickup there is.
-    onStart(driverGpsForPickup)
+    onStart(driverGpsForPickup, tripRoute?.durationSeconds ?? null)
   }, [ride, metersFromPassenger, shoppingDone, onStart, driverGpsForPickup])
   // One tricycle, one marker — so it names everybody in it, not just the
   // passenger whose card this happens to be. Less this card's passenger once
@@ -2795,7 +2796,7 @@ function ActiveTripCard({
       {ride.status === 'driver_arriving' && (
         <>
           <button
-            onClick={() => onStart(driverGpsForPickup)}
+            onClick={() => onStart(driverGpsForPickup, tripRoute?.durationSeconds ?? null)}
             disabled={!shoppingDone || !withPassenger}
             className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
           >

@@ -1437,6 +1437,21 @@ export interface Ride {
   // itself worth recording.
   routeChangeReason?: string | null
   routeChangeReasonAt?: string | null
+  // What the route predicted this trip would take, in seconds, recorded as it
+  // began.
+  //
+  // The ETA was worked out on a phone, shown on screen and then thrown away,
+  // so there was never anything to check it against: 84 completed rides in
+  // the database on 2026-10-01 and not one of them could say whether the app
+  // had guessed well. Actual durations alone cannot answer that — a trip took
+  // eleven minutes, and nobody can say whether eleven was the promise.
+  //
+  // Kept so the two can be compared. OSRM has no traffic model, so its times
+  // are free-flow guesses on roads that are not free-flowing, and a few weeks
+  // of real pairs would say by how much. It also tells a genuine trip from a
+  // tapped-through demo, which nothing in the data currently does — 39 of
+  // those 84 "completed" rides imply speeds a tricycle cannot reach.
+  predictedDurationSeconds?: number | null
   passengerLiveGps: GeoCoords | null
   passengerLiveGpsAt: string | null
   legProgress: number

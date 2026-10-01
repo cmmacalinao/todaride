@@ -62,8 +62,23 @@ const POLL_ON_TRIP_MS = 1000
 // Set by the app when this device is on a live trip — see RideContext.
 let onTrip = false
 let syncPaceMs = POLL_WHILE_VISIBLE_MS
-export function setSyncPace(onLiveTrip: boolean) {
+// The rides this phone is actually on, while it is on them.
+//
+// The trip poll reads the ride table, which it does to avoid dragging the
+// whole world across a carrier connection every second. It was still reading
+// every row of it: measured 2026-10-01, that is 551 KB of ride history per
+// read, 162 rides deep and growing. At a one-second beat with two phones on a
+// trip, a ten-minute ride moves 631 MB — about eight rides before a 5 GB
+// monthly egress allowance is gone, and almost certainly what was behind the
+// Supabase timeouts in September.
+//
+// Naming the rides turns that 551 KB into about 3. The cost of a fast beat
+// was never the beat; it was reading the archive to find one row.
+let liveRideIds: string[] = []
+
+export function setSyncPace(onLiveTrip: boolean, rideIds: string[] = []) {
   onTrip = onLiveTrip
+  liveRideIds = rideIds
   syncPaceMs = onLiveTrip ? POLL_ON_TRIP_MS : POLL_WHILE_VISIBLE_MS
 }
 
@@ -317,13 +332,35 @@ class SupabaseAdapter implements PersistenceAdapter {
     const wanted = HOT.filter((h) => tables.has(h.table) && !missingTables.has(h.table))
     if (wanted.length === 0) return null
     try {
-      const results = await Promise.all(wanted.map((h) => db.from(h.table).select('data')))
+      // On a trip, the ride table is read by name — see liveRideIds. Every
+      // other table, and the ride table at any other time, is read whole as
+      // before.
+      const narrowed = (table: string) => table === 'ride' && onTrip && liveRideIds.length > 0
+      const results = await Promise.all(
+        wanted.map((h) =>
+          narrowed(h.table) ? db.from(h.table).select('data').in('id', liveRideIds) : db.from(h.table).select('data'),
+        ),
+      )
       // Read after the queries return, so a write of ours that finished in
       // the meantime is already part of it.
       const merged: Record<string, unknown> = { ...this.lastShared }
       results.forEach((res, i) => {
         if (res.error) throw res.error
-        merged[wanted[i].key] = (res.data ?? []).map((row) => (row as { data: unknown }).data)
+        const rows = (res.data ?? []).map((row) => (row as { data: unknown }).data)
+        if (!narrowed(wanted[i].table)) {
+          merged[wanted[i].key] = rows
+          return
+        }
+        // A named read answers for those rides only, so it is merged over the
+        // list rather than replacing it — otherwise every ride this phone is
+        // not on would vanish from its world for as long as the trip lasted.
+        const existing = (merged[wanted[i].key] as { id?: string }[] | undefined) ?? []
+        const byId = new Map(rows.map((r) => [(r as { id?: string }).id, r]))
+        const next = existing.map((r) => byId.get(r.id) ?? r)
+        for (const [id, row] of byId) {
+          if (!existing.some((r) => r.id === id)) next.push(row as { id?: string })
+        }
+        merged[wanted[i].key] = next
       })
       this.lastShared = merged
       return merged

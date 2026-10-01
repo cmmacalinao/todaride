@@ -8095,7 +8095,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
   // be settled. Long enough for a passenger to find their wallet, short
   // enough that a forgotten ride stops costing reads.
   const SETTLING_WINDOW_MS = 15 * 60 * 1000
-  const liveTripHere = state.rides.some((r) => {
+  const ridesHere = state.rides.filter((r) => {
     // A trip whose fare is not settled yet is still live, whatever its status
     // says.
     //
@@ -8127,10 +8127,16 @@ export function RideProvider({ children }: { children: ReactNode }) {
       r.familyPayerId === session.currentPassengerId
     )
   })
+  const liveTripHere = ridesHere.length > 0
+  // Named, not merely counted. The trip poll reads these rides by id instead
+  // of every row of the ride table — see setSyncPace, where the measurement
+  // is. Joined into a string so the effect below compares by value: a fresh
+  // array each render would restart the heartbeat every render.
+  const liveRideIdsHere = ridesHere.map((r) => r.id).sort().join(',')
   useEffect(() => {
-    setSyncPace(liveTripHere)
+    setSyncPace(liveTripHere, liveRideIdsHere ? liveRideIdsHere.split(',') : [])
     return () => setSyncPace(false)
-  }, [liveTripHere])
+  }, [liveTripHere, liveRideIdsHere])
 
   // Keep separate tabs/roles (e.g. student on one device, parent on another)
   // in sync so alerts like SOS and safety photos show up immediately everywhere.

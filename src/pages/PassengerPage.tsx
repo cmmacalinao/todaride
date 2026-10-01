@@ -1434,10 +1434,27 @@ export function PassengerPage() {
   const guestIsMinor = guestAgeGiven && guestAgeNum < MINOR_AGE
   const guestPhoneFine = guestPhoneOk || ((forFamily || guestIsMinor) && guestPhoneDigits.length === 0)
   const dualMissing: 'pickup' | 'dropoff' | null = dualEndBox ? (!boxSet.pickup ? 'pickup' : !boxSet.dropoff ? 'dropoff' : null) : null
+  // The pickup is still the seeded placeholder: nobody has chosen one and the
+  // phone has not supplied one either.
+  //
+  // CLSU Main Gate is what sits in the form before anything is known, and it
+  // carries real coordinates — which is why a booking left on it sailed past
+  // every "is the pickup set?" check and sent a driver to a gate. It is a
+  // placeholder, and from here on it is treated as one.
+  const pickupIsSeedDefault =
+    !isGuestBooking && !isErrand && !pickupChosen && !pickupGps && pickupId === CLSU_MAIN_GATE_LOCATION.id
+  // Asking the phone right now. Worth the second's wait: it is the difference
+  // between the right pickup and a gate, and the form is otherwise ready to
+  // be tapped before the fix lands.
+  const locatingPickup = pickupIsSeedDefault && gpsStatus === 'locating'
+  // Asked and failed, or never able to ask. Said out loud rather than left to
+  // pass as a pickup somebody chose.
+  const pickupUnknown = pickupIsSeedDefault && !locatingPickup
   const canSubmit =
     hasDestination &&
     !endsAreSameSpot &&
     !dualMissing &&
+    !locatingPickup &&
     (!isGuestBooking || (guestRider.otherName.trim().length > 0 && (forFamily || guestAgeGiven) && guestPhoneFine)) &&
     // A child cannot book during their family's curfew hours.
     !inCurfew
@@ -2700,10 +2717,17 @@ export function PassengerPage() {
             )
           ) : (
             <div className="space-y-1">
-              {pickupMissingNotice && (
+              {/* Said before the tap, not after it.
+                  This notice only ever appeared once a booking had been
+                  refused — and it never appeared for the case that actually
+                  bites, because the seeded gate carries real coordinates and
+                  so passed the check it was guarding. A pickup nobody set is
+                  now called out while it can still be corrected. */}
+              {(pickupMissingNotice || pickupUnknown) && (
                 <div className="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] leading-snug text-amber-800">
-                  📍 We couldn't get your location. Reload the page and choose{' '}
-                  <span className="font-semibold">Allow</span> when it asks, or tap{' '}
+                  📍 We couldn't get your location, so the pickup is still{' '}
+                  <span className="font-semibold">{formatAddressLine(CLSU_MAIN_GATE_LOCATION.label)}</span> — not where you are. Reload and
+                  choose <span className="font-semibold">Allow</span> when it asks, or tap{' '}
                   <span className="font-semibold">Set on Map</span> above to pin your pickup yourself.
                 </div>
               )}
@@ -2723,6 +2747,11 @@ export function PassengerPage() {
                   {/* What is still missing, said on the button (2026-09-22). */}
                   {inCurfew
                     ? `No booking ${myLimits?.curfewFrom}–${myLimits?.curfewTo} — ask your parent`
+                    : // A second's wait rather than a wrong pickup: the form is
+                      // ready before the phone has answered, and a quick tap
+                      // used to book from the seeded gate.
+                      locatingPickup
+                    ? '📍 Finding your location…'
                     : dualMissing
                     ? dualMissing === 'pickup'
                       ? `Set the pickup to ${isPadala ? 'request' : 'book'}`

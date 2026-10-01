@@ -248,7 +248,16 @@ export function TripMonitor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [livePassengerGps, shareLiveGps, ride.status, ride.id])
 
-  const driver = ride.driverId ? MOCK_DRIVERS.find((d) => d.id === ride.driverId) : null
+  // The live roster first, the seeds second.
+  //
+  // This looked only in MOCK_DRIVERS, so a driver who had actually registered
+  // — which every real driver in the pilot is — was not found at all: their
+  // marker read "Tricycle" for the plate and "Driver" for the name, with the
+  // real values sitting in the shared state the whole time. Seen on a live
+  // trip 2026-10-01, where the callout said "Driver & Celeste".
+  const driver = ride.driverId
+    ? drivers.find((d) => d.id === ride.driverId) ?? MOCK_DRIVERS.find((d) => d.id === ride.driverId) ?? null
+    : null
   // Who is driving and which tricycle it is, shown together while the trip
   // runs. The plate is the thing a passenger can check against the number in
   // front of them, and the thing they would give to anyone who asked where

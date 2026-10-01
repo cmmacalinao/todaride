@@ -2304,6 +2304,28 @@ function ActiveTripCard({
     driverGpsForPickup && passengerGpsInfo?.gps
       ? Math.round(haversineDistanceMeters(driverGpsForPickup, passengerGpsInfo.gps))
       : null
+  // Whether the driver is actually WITH the passenger — the real question
+  // behind "can this trip start".
+  //
+  // Judged against the passenger's own live position rather than the booked
+  // pin. The pin is what somebody typed into a form and can be a kilometre
+  // out, which is why the old 100 m lock on it had to be removed: it stranded
+  // drivers standing beside their passenger. A passenger's phone cannot be
+  // wrong about where the passenger is.
+  //
+  // Only a LIVE position counts. The fallback getPassengerMapGps returns when
+  // nothing is being shared is a pin, not a whereabouts, and blocking a
+  // driver on it would be the old mistake in a new place.
+  //
+  // Unknown never blocks, the rule everywhere else here: with nothing to
+  // judge, holding the button would strand a real trip over a permission
+  // prompt. So this stops a start only where there is evidence the two are
+  // apart — which is what happened on 2026-10-01, when a trip started 2.6
+  // seconds after being accepted, from wherever the tricycle happened to be.
+  const withPassenger =
+    passengerGpsInfo?.isLive && metersFromPassenger !== null
+      ? metersFromPassenger <= PICKUP_PROXIMITY_METERS
+      : atPickup
   // Noticing that the passenger has got out.
   //
   // A trip ends at the kerb, where nobody is looking at a phone: the fare is
@@ -2699,7 +2721,7 @@ function ActiveTripCard({
         <>
           <button
             onClick={() => onStart(driverGpsForPickup)}
-            disabled={!shoppingDone}
+            disabled={!shoppingDone || !withPassenger}
             className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
           >
             {/* The checklist only appears at the store (see atPickup), so
@@ -2708,7 +2730,15 @@ function ActiveTripCard({
               ? !atPickup
                 ? `Drive to ${formatAddressLine(ride.pickup.label)} first${metersFromPickup !== null ? ` · ${formatKm(metersFromPickup)} away` : ''}`
                 : `Buy all ${shoppingList.length} item(s) first — ${boughtCount} done`
-              : 'Start trip'}
+              : // Starting means the passenger is aboard, so it waits until
+                // the two phones agree they are in the same place. The
+                // distance shown is to the passenger, not to the pin: it is
+                // the one the driver can close by driving.
+                withPassenger
+                ? 'Start trip'
+                : `Pick up ${ride.passengerName?.trim().split(/\s+/)[0] ?? 'your passenger'} first${
+                    metersFromPassenger !== null ? ` · ${formatKm(metersFromPassenger)} away` : ''
+                  }`}
           </button>
           {/* The distance is a warning now, not a lock.
               It used to disable this button until the driver was within 100m
@@ -2724,10 +2754,10 @@ function ActiveTripCard({
               where they actually are. The number stays on screen, because
               starting a fare a long way from where it was booked is worth a
               second look before tapping. */}
-          {shoppingDone && !atPickup && !forgotStart.movedAway && metersFromPickup !== null && (
+          {shoppingDone && withPassenger && !atPickup && !forgotStart.movedAway && metersFromPickup !== null && (
             <p className="text-center text-[11px] leading-snug text-amber-700">
-              You are {formatKm(metersFromPickup)} from the booked pickup ({formatAddressLine(ride.pickup.label)}).
-              Starting here sets the pickup to where you are now.
+              You are {formatKm(metersFromPickup)} from the booked pickup ({formatAddressLine(ride.pickup.label)}),
+              but beside your passenger. The booked pin stays where it is.
             </p>
           )}
         </>

@@ -3376,7 +3376,22 @@ function reducer(state: RideState, action: RideAction): RideState {
             ...r,
             status: 'ongoing',
             startedAt: new Date().toISOString(),
-            pickup: action.driverGps ? { ...r.pickup, gps: action.driverGps } : r.pickup,
+            // The pickup stays where it was booked.
+            //
+            // It used to be moved here, to wherever the driver stood when
+            // they tapped Start — the escape hatch for a mistyped pin that
+            // would otherwise lock the button. Start is no longer pressable
+            // from across town (see the driver page: it is judged against the
+            // passenger's own live position, which a wrong pin cannot spoil),
+            // so the hatch has nothing left to rescue — and it was rewriting
+            // a correct pickup every time a driver started early. Pilot
+            // testing 2026-10-01: the pin jumped to the tricycle as soon as
+            // the ride was accepted, while the passenger was still standing
+            // where they had booked.
+            //
+            // How far from it the trip actually began is still recorded, and
+            // that is the part worth keeping: it is the evidence, and moving
+            // the pin was destroying it.
             startedAwayFromPickupMeters: movedMeters,
             driverPosition: r.pickup.coords,
             passengerPosition: null,

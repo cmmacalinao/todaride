@@ -93,6 +93,58 @@ async function getRouteFromGoogle(origin: GeoCoords, destination: GeoCoords): Pr
   })
 }
 
+// OpenRouteService, run by HeiGIT at Heidelberg — a keyed service with a free
+// tier, tried before OSRM's public demo server.
+//
+// The demo server is exactly that: no uptime guarantee, explicitly not meant
+// for production, and nobody to tell when it stops. On 2026-10-02 it stopped
+// answering this machine entirely while ORS replied in the same second, which
+// is the failure it was always going to have eventually — and when it does,
+// every trip loses the line on its map.
+//
+// The free key allows about 2,000 Directions requests a day, against a
+// handful per trip. No card, and no bill to be surprised by: it refuses rather
+// than charges.
+//
+// Absent a key this returns null immediately and nothing changes at all — the
+// app routes on OSRM exactly as it did before.
+function orsApiKey(): string | undefined {
+  const key = import.meta.env.VITE_ORS_API_KEY as string | undefined
+  return key && key.trim() ? key.trim() : undefined
+}
+
+async function getRouteFromOrs(origin: GeoCoords, destination: GeoCoords): Promise<RouteInfo | null> {
+  const key = orsApiKey()
+  if (!key) return null
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 8000)
+  try {
+    // api.heigit.org, not api.openrouteservice.org: the old host was shut off
+    // on 2026-09-28, and a request to it now fails rather than redirecting.
+    const url =
+      `https://api.heigit.org/openrouteservice/v2/directions/driving-car` +
+      `?api_key=${encodeURIComponent(key)}` +
+      `&start=${origin.lng},${origin.lat}&end=${destination.lng},${destination.lat}`
+    const res = await fetch(url, { signal: controller.signal })
+    if (!res.ok) return null
+    const data = await res.json()
+    const feature = data?.features?.[0]
+    const coords = feature?.geometry?.coordinates
+    if (!Array.isArray(coords) || coords.length < 2) return null
+    return {
+      points: coords.map(([lng, lat]: [number, number]) => ({ lat, lng })),
+      distanceMeters: feature.properties?.summary?.distance ?? 0,
+      durationSeconds: feature.properties?.summary?.duration ?? 0,
+    }
+  } catch {
+    // Never throws: the caller falls through to OSRM, and failures are
+    // retried on their own clock (see useRoute).
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 // Free, keyless road-network routing via OSRM's public demo server — the
 // same "free tier, no API key" pattern already used for OpenStreetMap tiles
 // (Leaflet) and address geocoding (Nominatim) elsewhere in this app. It's a
@@ -135,6 +187,11 @@ export async function getRoute(origin: GeoCoords, destination: GeoCoords): Promi
 async function fetchRoute(origin: GeoCoords, destination: GeoCoords): Promise<RouteInfo | null> {
   const googleRoute = await getRouteFromGoogle(origin, destination)
   if (googleRoute) return googleRoute
+
+  // Then OpenRouteService, which is keyed and answerable, before falling back
+  // to a demo server that is neither.
+  const orsRoute = await getRouteFromOrs(origin, destination)
+  if (orsRoute) return orsRoute
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 8000)

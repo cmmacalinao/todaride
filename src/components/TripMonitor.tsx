@@ -25,6 +25,7 @@ import { reverseGeocodeToPhAddress } from '../lib/customLocation'
 import { LIVE_GPS_PUBLISH_MS, useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { snapForRouting, useRoute } from '../lib/routing'
 import { firstName } from '../lib/names'
+import { routeChangeReasonLabel } from '../lib/routeChange'
 import { snapToRoad } from '../lib/snapToRoad'
 import { tripHasNotMoved } from '../lib/stuckTrip'
 import { FAR_OFF_ROUTE_START, metersFromRoute, nextFarOffRouteDecision, nextRerouteDecision, type FarOffRouteState } from '../lib/reroute'
@@ -1626,13 +1627,33 @@ export function TripMonitor({
                     above); a guardian at home cannot see out of the window,
                     and calling is something only they can do. */}
                 {farOffRoute && watching
-                  ? farOffRoute.reason === 'far'
-                    ? `${tricycleLabel ?? 'The tricycle'} is about ${formatKm(farOffRoute.meters)} from the road planned to ${formatAddressLine(ride.dropoff.label)}. Usually traffic or a closed road — call ${firstName(ride.passengerName ?? '') || 'them'} if you want to be sure.`
-                    : `${tricycleLabel ?? 'The tricycle'} has been moving away from ${formatAddressLine(ride.dropoff.label)} for a few minutes. Usually traffic or a closed road — call ${firstName(ride.passengerName ?? '') || 'them'} if you want to be sure.`
+                  ? // The driver's own answer, when they gave one. That is the
+                    // thing a guardian wanted: "road closed" settles it, and
+                    // "no reason given" is information too — more than a
+                    // screen that simply says nothing.
+                    `${tricycleLabel ?? 'The tricycle'} ${
+                      farOffRoute.reason === 'far'
+                        ? `is about ${formatKm(farOffRoute.meters)} from the road planned to ${formatAddressLine(ride.dropoff.label)}.`
+                        : `has been moving away from ${formatAddressLine(ride.dropoff.label)} for a few minutes.`
+                    } ${
+                      routeChangeReasonLabel(ride.routeChangeReason)
+                        ? `Driver says: ${routeChangeReasonLabel(ride.routeChangeReason)}.`
+                        : ride.routeChangeReason === 'none'
+                          ? 'The driver gave no reason.'
+                          : 'Usually traffic or a closed road.'
+                    } Call ${firstName(ride.passengerName ?? '') || 'them'} if you want to be sure.`
                   : // Told, both of them. The rider's copy used to end with a
                     // question — take a new way, or stay on the one you
                     // agreed? — which is not theirs to answer.
-                    `${tricycleLabel ?? 'The tricycle'} is now ${offRouteMeters}m off the planned road. The map is following the new way to ${formatAddressLine(ride.dropoff.label)}.`}
+                    //
+                    // With the driver's own reason on it when there is one:
+                    // "road closed" answers the question this dialog actually
+                    // raises, and no amount of metres does.
+                    `${tricycleLabel ?? 'The tricycle'} is now ${offRouteMeters}m off the planned road.${
+                      routeChangeReasonLabel(ride.routeChangeReason)
+                        ? ` Driver says: ${routeChangeReasonLabel(ride.routeChangeReason)}.`
+                        : ''
+                    } The map is following the new way to ${formatAddressLine(ride.dropoff.label)}.`}
               </p>
             </div>
 

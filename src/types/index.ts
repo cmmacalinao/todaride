@@ -1429,6 +1429,14 @@ export interface Ride {
   rerouteFromGps?: GeoCoords | null
   rerouteAt?: string | null
   rerouteMetersOff?: number | null
+  // Why the road changed, in the driver's own words — one of
+  // ROUTE_CHANGE_REASONS. Asked of the driver, because the driver is the only
+  // person who knows; shown to the passenger and to whoever is watching from
+  // home, because they are the ones who wanted to know. Null while nothing has
+  // been asked; 'none' once a driver has been asked and said nothing, which is
+  // itself worth recording.
+  routeChangeReason?: string | null
+  routeChangeReasonAt?: string | null
   passengerLiveGps: GeoCoords | null
   passengerLiveGpsAt: string | null
   legProgress: number

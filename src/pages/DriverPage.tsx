@@ -59,6 +59,7 @@ import {
 import { LIVE_GPS_PUBLISH_MS, useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { useIncomingRequestAlert } from '../lib/alertSound'
 import { useBackgroundDriverLocation } from '../lib/backgroundLocation'
+import { ROUTE_CHANGE_REASONS, ROUTE_CHANGE_START, nextRouteChangeDecision, type RouteChangeState } from '../lib/routeChange'
 import { snapForRouting, useRoute } from '../lib/routing'
 import { isApart, nextSeparationDecision, positionAt, type SeparationState } from '../lib/separation'
 import { TodaAdminPage } from './TodaAdminPage'
@@ -1988,6 +1989,7 @@ function ActiveTripCard({
     parentLinks,
     updateDriverLiveGps,
     driverRerouted,
+    setRouteChangeReason,
     simulateMovementEnabled,
     liveGpsEnabled,
     driverCancelRide,
@@ -2344,6 +2346,23 @@ function ActiveTripCard({
   // The button stays exactly where it was. A driver who is holding the phone
   // can still start the trip themselves, and must be able to: GPS can be off,
   // refused, or simply wrong, and this must never be the only way in.
+  // Has the trip turned back, or gone a long way off its road? The one shape
+  // on a map that geometry cannot explain — see lib/routeChange.
+  const routeChangeRef = useRef<RouteChangeState>(ROUTE_CHANGE_START)
+  const [routeChangeAsk, setRouteChangeAsk] = useState(false)
+  useEffect(() => {
+    if (ride?.status !== 'ongoing') return
+    const decision = nextRouteChangeDecision(routeChangeRef.current, {
+      vehicle: driverGps ?? null,
+      pickup: ride.pickup.gps ?? null,
+      // The reroute this screen has already recorded is the "long way off"
+      // half of the trigger; no need to measure it twice.
+      farOffRoute: (ride.rerouteMetersOff ?? 0) >= 500,
+    })
+    routeChangeRef.current = { furthestFromPickup: decision.furthestFromPickup, asked: decision.asked }
+    if (decision.ask) setRouteChangeAsk(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [driverGps, ride?.status, ride?.rerouteMetersOff])
   const metersFromPassenger =
     driverGpsForPickup && passengerGpsInfo?.gps
       ? Math.round(haversineDistanceMeters(driverGpsForPickup, passengerGpsInfo.gps))
@@ -2817,6 +2836,47 @@ function ActiveTripCard({
             </p>
           )}
         </>
+      )}
+      {/* Why the road changed — one tap, no typing, no reading twice.
+          Laid out the way a reporting sheet is in a driving app: six big
+          tiles, icon over a short word, thumb-sized and the same size as each
+          other so none of them has to be aimed at. A driver reads this at a
+          junction, if at all — so it is skippable, and skipping is recorded
+          too ("none"), because a guardian seeing "no reason given" learns
+          something a blank screen does not tell them.
+          Only ever after a reversal or a long deviation, and only once per
+          trip: a prompt that fires on ordinary detours gets the first tile
+          tapped without reading, and then the answers are noise that looks
+          like data. See lib/routeChange. */}
+      {routeChangeAsk && !ride.routeChangeReason && (
+        <div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-3">
+          <p className="text-sm font-bold text-amber-900">🛣️ The route changed — why?</p>
+          <p className="mt-0.5 text-[11px] leading-snug text-amber-800">
+            One tap. {ride.passengerName?.trim().split(/\s+/)[0] ?? 'Your passenger'} and their family see this.
+          </p>
+          <div className="mt-2 grid grid-cols-3 gap-1.5">
+            {ROUTE_CHANGE_REASONS.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => setRouteChangeReason(ride.id, r.id)}
+                className="flex flex-col items-center gap-0.5 rounded-lg border border-amber-300 bg-white px-1 py-2 text-[10px] font-semibold leading-tight text-amber-900 transition hover:bg-amber-100"
+              >
+                <span aria-hidden className="text-xl leading-none">
+                  {r.icon}
+                </span>
+                <span className="text-center">{r.label}</span>
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setRouteChangeReason(ride.id, 'none')}
+            className="mt-1.5 w-full rounded-lg py-1.5 text-[11px] font-medium text-amber-700 hover:bg-amber-100"
+          >
+            Skip
+          </button>
+        </div>
       )}
       {/* Arrived.
           The Complete button unlocks itself on reaching the drop-off, which is

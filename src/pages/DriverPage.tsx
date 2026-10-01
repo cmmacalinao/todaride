@@ -558,6 +558,27 @@ export function DriverPage() {
     .slice()
     .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
   const myCompletedRides = rides.filter((r) => r.driverId === currentDriverId && r.status === 'completed')
+  // The job that has just finished, for the few seconds after it does — see
+  // the banner below. Raised on the change from having a trip to not having
+  // one, so reopening the app on a quiet afternoon never announces a trip
+  // from yesterday.
+  const [justCompleted, setJustCompleted] = useState<Ride | null>(null)
+  const hadActiveRideRef = useRef(false)
+  useEffect(() => {
+    const had = hadActiveRideRef.current
+    hadActiveRideRef.current = !!myActiveRide
+    if (!had || myActiveRide) return
+    const latest = [...myCompletedRides].sort((a, b) =>
+      (b.payment?.paidAt ?? b.requestedAt ?? '').localeCompare(a.payment?.paidAt ?? a.requestedAt ?? ''),
+    )[0]
+    if (latest) setJustCompleted(latest)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myActiveRide?.id])
+  useEffect(() => {
+    if (!justCompleted) return
+    const id = window.setTimeout(() => setJustCompleted(null), 20000)
+    return () => window.clearTimeout(id)
+  }, [justCompleted])
   const filteredCompletedRides = myCompletedRides.filter((r) => matchesEarningsFilter(r, earningsFilter))
   const totalEarnings = filteredCompletedRides.reduce((sum, r) => sum + (r.payment?.driverPayout ?? 0), 0)
 
@@ -1616,6 +1637,20 @@ export function DriverPage() {
         </div>
       )}
 
+      {/* The trip ended and the card holding it vanished, which is a strange
+          way to be told a job is done — especially when the tap that did it
+          also took the payment. Said plainly for a few seconds, with the fare
+          on it, then it clears itself. Asked for after the 2026-10-01 pilot. */}
+      {justCompleted && (
+        <div className="rounded-lg border-2 border-emerald-400 bg-emerald-50 px-3 py-2.5">
+          <p className="text-sm font-bold text-emerald-900">✅ Trip completed</p>
+          <p className="mt-0.5 text-[11px] leading-snug text-emerald-800">
+            {justCompleted.passengerName} · {formatAddressLine(justCompleted.dropoff.label)} · ₱
+            {justCompleted.fareEstimate + justCompleted.pabiliTip + justCompleted.tipOffer}. It is on your
+            earnings now, and you are free for the next job.
+          </p>
+        </div>
+      )}
       <div ref={currentOrRequestsSectionRef}>
         {myActiveRide ? (
           <ActiveTripCard
@@ -2781,10 +2816,10 @@ function ActiveTripCard({
           confirmed getting off, when the button itself is already shouting. */}
       {ride.status === 'ongoing' && atDropoff && !passengerLeft && !ride.passengerArrivedAt && (
         <div className="rounded-lg border-2 border-emerald-400 bg-emerald-50 px-3 py-2.5">
-          <p className="text-sm font-bold text-emerald-900">🏁 You have reached {formatAddressLine(ride.dropoff.label)}</p>
+          <p className="text-sm font-bold text-emerald-900">🏁 You have reached your destination</p>
           <p className="mt-0.5 text-[11px] leading-snug text-emerald-800">
-            Tap <span className="font-semibold">Complete trip</span> below to close the fare so your next job can
-            start.
+            {formatAddressLine(ride.dropoff.label)} — tap <span className="font-semibold">Complete trip</span> below
+            to close the fare so your next job can start.
           </p>
         </div>
       )}

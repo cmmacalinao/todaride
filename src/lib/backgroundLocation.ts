@@ -1,4 +1,5 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
+import { PushNotifications } from '@capacitor/push-notifications'
 import { useEffect, useRef, useState } from 'react'
 import type { GeoCoords } from '../types'
 
@@ -92,6 +93,25 @@ export function useBackgroundDriverLocation(active: boolean): { fix: BackgroundF
 
     void (async () => {
       try {
+        // Ask for notification permission first.
+        //
+        // Android 13 and later will not show a notification without
+        // POST_NOTIFICATIONS, and a foreground service of type "location"
+        // has to show one — so without this the service either refuses to
+        // start or starts invisibly, which is the same thing from the
+        // driver's seat. The plugin declares the permission in its manifest
+        // but only auto-requests the two location ones (see its
+        // @CapacitorPlugin annotation), so nobody was asking for this at
+        // runtime. Pilot, 2026-10-01: no notification ever appeared.
+        //
+        // Routed through the push-notifications plugin because it is already
+        // installed and its requestPermissions is the same Android dialog.
+        // It does not register for push — that is a separate call.
+        try {
+          await PushNotifications.requestPermissions()
+        } catch {
+          // Older Android has no such permission and nothing to ask for.
+        }
         const id = await BackgroundGeolocation.addWatcher(
           {
             backgroundTitle: NOTIFICATION_TITLE,
@@ -104,11 +124,18 @@ export function useBackgroundDriverLocation(active: boolean): { fix: BackgroundF
           },
           (position, err) => {
             if (err) {
-              // NOT_AUTHORIZED is the one worth saying out loud: the driver
-              // has to change it in Settings, and nothing here can.
-              if (err.code === 'NOT_AUTHORIZED') {
-                setError('Background location is off for this app. Turn it on so your passenger can still see you with the screen off.')
-              }
+              // Every refusal, not only the one we guessed at.
+              //
+              // This reported NOT_AUTHORIZED and dropped everything else on
+              // the floor, so a service that failed for any other reason was
+              // indistinguishable from one that was working. On the pilot
+              // that cost two runs: no notification appeared and nothing on
+              // the phone would say why.
+              setError(
+                err.code === 'NOT_AUTHORIZED'
+                  ? 'Background location is off for this app. Open Settings → Location and choose "Allow all the time", so your passenger can still see you with the screen off.'
+                  : `Background location stopped: ${err.message ?? err.code ?? 'unknown error'}`,
+              )
               return
             }
             if (!position) return
@@ -127,9 +154,20 @@ export function useBackgroundDriverLocation(active: boolean): { fix: BackgroundF
           return
         }
         watcherRef.current = id
-      } catch {
-        // No plugin in this build, or the platform refused. The foreground
-        // watch carries on exactly as before.
+      } catch (err) {
+        // Said out loud, not swallowed.
+        //
+        // This was a bare catch with a comment about the foreground watch
+        // carrying on — which it does, but it meant a service that never
+        // started looked exactly like one that started fine. Two pilot runs
+        // were spent inferring from the absence of a notification what the
+        // phone could have said in a sentence. Whatever Android refused
+        // with now reaches the driver's screen.
+        setError(
+          `Background location could not start: ${
+            err instanceof Error ? err.message : String(err)
+          }. Your passenger will lose you when the screen goes off.`,
+        )
       }
     })()
 

@@ -181,6 +181,12 @@ export function VectorLiveMap({
   // effects fire on a schedule this state can lag behind by a render — and
   // the state is only there to show or hide the Recenter button.
   const navOverriddenRef = useRef(false)
+  // The same fact as state, because the badge below has to render it. A map
+  // the rider has taken over is not facing anywhere — and a badge saying
+  // "Facing your direction" over a map that has stopped turning is exactly
+  // the lie navCamera warns about: one the rider finds out about at a
+  // junction. Reported from the pilot, 2026-10-01.
+  const [navOverridden, setNavOverridden] = useState(false)
   const navRef = useRef(nav)
   navRef.current = nav
   const followAllRef = useRef(followAll)
@@ -283,6 +289,7 @@ export function VectorLiveMap({
       if (!e.originalEvent) return
       if (navRef.current) {
         navOverriddenRef.current = true
+        setNavOverridden(true)
       } else if (followAllRef.current) {
         fitOverriddenRef.current = true
       }
@@ -476,6 +483,7 @@ export function VectorLiveMap({
       // A finished trip, or one that has not started yet — either way there
       // is no camera left to have taken over from.
       navOverriddenRef.current = false
+      setNavOverridden(false)
       return
     }
     // The rider is holding the view where they put it. Left alone until they
@@ -979,7 +987,16 @@ export function VectorLiveMap({
           would be a piece of furniture explaining nothing. */}
       {(nav || facingHeadingUp) && (
         <div className={`pointer-events-none absolute left-[48px] ${showRecenter ? 'top-[46px]' : 'top-2'} rounded-lg bg-white/92 px-2 py-1 text-[10px] font-semibold text-slate-700 shadow-sm`}>
-          {nav && !camera.headingUp ? '🧭 Waiting for direction…' : '🧭 Facing your direction'}
+          {/* Three states, not two. The map can be following and facing; it
+              can be following and not yet know which way (standing still, or
+              no heading yet); and it can have been taken over by the rider,
+              in which case it is not following anything and says so — with
+              the Recenter button right there to hand it back. */}
+          {nav && navOverridden
+            ? '🧭 Map moved — tap Recenter to face your direction'
+            : nav && !camera.headingUp
+              ? '🧭 Waiting for direction…'
+              : '🧭 Facing your direction'}
         </div>
       )}
 
@@ -997,6 +1014,7 @@ export function VectorLiveMap({
           onClick={() => {
             if (nav) {
               navOverriddenRef.current = false
+              setNavOverridden(false)
               recenterOnNav()
             } else {
               fitOverriddenRef.current = false

@@ -456,6 +456,20 @@ export function TripMonitor({
   // a coordinate.
   const EARLY_DROPOFF_METERS = 150
 
+  // Arrived — said on this screen too.
+  //
+  // The driver's page announces reaching the drop-off; the rider's did not,
+  // and the rider is the one who has to gather their things, get their fare
+  // out and step off. Asked for after the 2026-10-01 pilot. Measured from
+  // whichever position stands for the tricycle, which while aboard is this
+  // very phone.
+  const metersToDropoffHere =
+    (driverGpsInfo?.gps ?? livePassengerGps) && ride.dropoff.gps
+      ? haversineDistanceMeters((driverGpsInfo?.gps ?? livePassengerGps)!, ride.dropoff.gps)
+      : null
+  const arrivedAtDropoff =
+    ride.status === 'ongoing' && metersToDropoffHere !== null && metersToDropoffHere <= EARLY_DROPOFF_METERS
+
   // The passenger is in the tricycle, so the vehicle's position is theirs.
   async function confirmArrivalHere() {
     const here = driverGpsInfo?.gps ?? null
@@ -1460,6 +1474,21 @@ export function TripMonitor({
         </div>
       </div>
     ) : null
+  // Drawn in the card AND in the full-screen map's overlay — the two places
+  // gotOffCard appears below. A card sits in the page, and the full-screen
+  // map covers the page, so anything rendered only inline is simply absent
+  // for a rider watching the map full screen. Dialogs do not have this
+  // problem, being fixed over everything at z-90; cards do.
+  const arrivedCard =
+    arrivedAtDropoff && !ride.passengerArrivedAt && !openSos ? (
+      <div className="rounded-xl border-2 border-emerald-400 bg-emerald-50 p-3">
+        <p className="text-sm font-bold text-emerald-900">🏁 You have reached your destination</p>
+        <p className="mt-0.5 text-[11px] leading-snug text-emerald-800">
+          {formatAddressLine(ride.dropoff.label)} — get your fare ready. Your driver closes the trip, then you say how
+          you paid.
+        </p>
+      </div>
+    ) : null
   const gotOffCard =
     allowGotOffCheck && isOngoingLeg && !openSos && !ride.passengerArrivedAt ? (
       <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
@@ -1512,36 +1541,44 @@ export function TripMonitor({
           aria-label="Far off route"
         >
           <div className="w-full max-w-sm rounded-xl border border-amber-400 bg-white shadow-xl">
+            {/* Told, not interrogated.
+                This asked "Are you okay?" over two buttons, I'm okay and I
+                need help. The app cannot tell danger from traffic — it knows
+                geometry, not intent — and nearly every long detour is a
+                closed road, a jeepney, a shortcut or another passenger picked
+                up on the way. Asking on those teaches a rider to dismiss the
+                question, and a question everyone dismisses is worse than
+                none: the one time it matters, it is dismissed too. On a child
+                riding alone it is worse again, frightening them about a
+                detour around a tricycle.
+                So the rider is told plainly what the app actually knows, and
+                SOS is named where it already lives rather than put under
+                their thumb. The alarm itself is not dropped — it goes to the
+                guardian, who cannot see out of the window and can act. See
+                the watcher's copy of this dialog below. 2026-10-01. */}
             <div className="border-b border-amber-200 bg-amber-50 px-4 py-2.5">
-              <p className="text-sm font-bold text-amber-900">🚧 Your trip has gone far off route</p>
+              <p className="text-sm font-bold text-amber-900">🚧 This trip has left the planned road</p>
               <p className="mt-0.5 text-[11px] leading-snug text-amber-800">
                 {farOffRoute.reason === 'far'
                   ? `${tricycleLabel ?? 'The tricycle'} is about ${formatKm(farOffRoute.meters)} from the road planned to ${formatAddressLine(ride.dropoff.label)}.`
                   : `${tricycleLabel ?? 'The tricycle'} has been moving away from ${formatAddressLine(ride.dropoff.label)} for a few minutes.`}{' '}
-                Are you okay?
+                That is usually traffic or a closed road. If anything feels wrong, Safety is at the bottom of this
+                screen.
               </p>
             </div>
             <div className="space-y-2 px-4 py-3">
               <button
                 type="button"
                 onClick={() => {
+                  // Still recorded as seen: a guardian's screen says whether
+                  // the rider acknowledged it, and that is worth keeping even
+                  // though they are no longer being asked a question.
                   confirmRiderSafe(ride.id)
                   setFarOffRoute(null)
                 }}
-                className="w-full rounded-lg border-2 border-emerald-500 bg-emerald-50 py-2.5 text-sm font-bold text-emerald-800 hover:bg-emerald-100"
+                className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-bold text-white transition hover:bg-brand-700"
               >
-                ✅ I'm okay
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setFarOffRoute(null)
-                  setEmergencyCountdown(sosEnabled)
-                  setEmergencyOpen(true)
-                }}
-                className="w-full rounded-lg border border-danger-500 bg-danger-600 py-2.5 text-sm font-bold text-white hover:bg-danger-700"
-              >
-                {sosEnabled ? '🆘 I need help' : '📞 I need help'}
+                OK
               </button>
             </div>
           </div>
@@ -1572,10 +1609,14 @@ export function TripMonitor({
             <div className="border-b border-amber-200 bg-amber-50 px-4 py-2.5">
               <p className="text-sm font-bold text-amber-900">{farOffRoute && watching ? '🚧 FAR OFF ROUTE' : '🚧 OFF WAY'}</p>
               <p className="mt-0.5 text-[11px] leading-snug text-amber-800">
+                {/* The alarm points here, at the person who can act. The
+                    rider is told what happened and left alone (see their copy
+                    above); a guardian at home cannot see out of the window,
+                    and calling is something only they can do. */}
                 {farOffRoute && watching
                   ? farOffRoute.reason === 'far'
-                    ? `${tricycleLabel ?? 'The tricycle'} is about ${formatKm(farOffRoute.meters)} from the road planned to ${formatAddressLine(ride.dropoff.label)}. ${ride.passengerName} has been asked if they are okay.`
-                    : `${tricycleLabel ?? 'The tricycle'} has been moving away from ${formatAddressLine(ride.dropoff.label)} for a few minutes. ${ride.passengerName} has been asked if they are okay.`
+                    ? `${tricycleLabel ?? 'The tricycle'} is about ${formatKm(farOffRoute.meters)} from the road planned to ${formatAddressLine(ride.dropoff.label)}. Usually traffic or a closed road — call ${firstName(ride.passengerName ?? '') || 'them'} if you want to be sure.`
+                    : `${tricycleLabel ?? 'The tricycle'} has been moving away from ${formatAddressLine(ride.dropoff.label)} for a few minutes. Usually traffic or a closed road — call ${firstName(ride.passengerName ?? '') || 'them'} if you want to be sure.`
                   : watching
                     ? `${tricycleLabel ?? 'The tricycle'} is now ${offRouteMeters}m off the planned road. A new way to ${formatAddressLine(ride.dropoff.label)} is already being found.`
                     : `${tricycleLabel ?? 'The tricycle'} is now ${offRouteMeters}m off the planned road. Take a new way to ${formatAddressLine(ride.dropoff.label)}, or stay on the one you agreed?`}
@@ -2067,6 +2108,7 @@ export function TripMonitor({
                           <div className="rounded-lg bg-white/90 p-1.5 shadow-lg backdrop-blur-sm">
                             {photoRouteSosRow}
                           </div>
+                          {arrivedCard}
                           {gotOffCard}
                         </>
                       )}
@@ -2159,6 +2201,7 @@ export function TripMonitor({
           question sitting right next to "Tapusin ang biyahe" — the fallback
           for a driver who never closed the ride — as if nothing had
           happened yet. */}
+      {arrivedCard}
       {gotOffCard}
 
       {driverSos && !openSos && (

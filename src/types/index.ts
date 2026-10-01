@@ -1413,6 +1413,22 @@ export interface Ride {
   // which case the map falls back to interpolating along legProgress.
   driverLiveGps: GeoCoords | null
   driverLiveGpsAt: string | null
+  // Where the driver's own phone decided it had left the planned road, and
+  // when.
+  //
+  // Both phones used to work this out separately, each from the position it
+  // had — and the passenger's copy of the driver's position is exactly the
+  // thing that goes stale. On the 2026-10-01 pilot the driver's map rerouted
+  // and the passenger was never asked, because her phone was judging a
+  // tricycle whose last reported position was a minute old and still sitting
+  // on the planned road.
+  //
+  // So the phone that knows says so, once, and the other screens react to the
+  // fact rather than re-deriving it. The passenger is still the one who
+  // accepts — this carries the news, not the decision.
+  rerouteFromGps?: GeoCoords | null
+  rerouteAt?: string | null
+  rerouteMetersOff?: number | null
   passengerLiveGps: GeoCoords | null
   passengerLiveGpsAt: string | null
   legProgress: number

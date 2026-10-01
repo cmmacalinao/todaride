@@ -811,6 +811,31 @@ export function TripMonitor({
   // deserve to know that in the same moment the app does, not by noticing the
   // line on the map has moved.
   const [offRouteMeters, setOffRouteMeters] = useState<number | null>(null)
+  // The driver's own phone said it had left the road — take its word for it.
+  //
+  // This screen also works it out for itself, below, and that is the right
+  // thing when the rider is aboard and judging from the phone in their own
+  // hand. Before pickup it is not: the only position this screen has for the
+  // tricycle is whatever the driver's phone last published, and a copy that
+  // is a minute old is still sitting on the planned road while the tricycle
+  // is two streets away. That is why the driver's map rerouted on the
+  // 2026-10-01 pilot and the passenger was never asked.
+  //
+  // So the phone that knows announces it, and this one reacts. The rider
+  // still decides — this changes who noticed, not who accepts.
+  const lastRerouteAtRef = useRef<string | null>(ride.rerouteAt ?? null)
+  useEffect(() => {
+    const at = ride.rerouteAt ?? null
+    const was = lastRerouteAtRef.current
+    lastRerouteAtRef.current = at
+    if (!at || at === was || !ride.rerouteFromGps) return
+    if (ride.status !== 'ongoing' && ride.status !== 'driver_arriving') return
+    if (watching) setRerouteFrom(ride.rerouteFromGps)
+    else setPendingReroute(ride.rerouteFromGps)
+    setOffRouteMeters(ride.rerouteMetersOff ?? 100)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ride.rerouteAt])
+
   // Folded away until asked for. The dialog's real job is answered in one
   // line — a new way is already being found — so a full directory of numbers
   // sitting open by default would make the one time it is actually needed

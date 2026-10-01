@@ -1987,6 +1987,7 @@ function ActiveTripCard({
     parents,
     parentLinks,
     updateDriverLiveGps,
+    driverRerouted,
     simulateMovementEnabled,
     liveGpsEnabled,
     driverCancelRide,
@@ -2097,7 +2098,13 @@ function ActiveTripCard({
     const decision = nextRerouteDecision(driverGps ?? null, route?.points, strayRef.current)
     strayRef.current = { strayCount: decision.strayCount }
     // Snapped to the routing grid — see snapForRouting.
-    if (decision.reroute && driverGps) setRerouteFrom(snapForRouting(driverGps))
+    if (decision.reroute && driverGps && legRide) {
+      setRerouteFrom(snapForRouting(driverGps))
+      // And told to everyone else on this ride, rather than leaving each
+      // screen to notice it separately from a copy of this position that may
+      // be a minute old. See Ride.rerouteFromGps.
+      driverRerouted(legRide.id, snapForRouting(driverGps), Math.round(decision.metersOff))
+    }
   }, [driverGps, route, legRide?.status])
   // A new leg is a new route: forget where the last reroute started.
   useEffect(() => {

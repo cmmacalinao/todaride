@@ -579,6 +579,7 @@ type RideAction =
   | { type: 'TICK_POSITIONS' }
   | { type: 'UPDATE_DRIVER_LIVE_GPS'; rideId: string; gps: GeoCoords | null }
   | { type: 'UPDATE_PASSENGER_LIVE_GPS'; rideId: string; gps: GeoCoords | null }
+  | { type: 'DRIVER_REROUTED'; rideId: string; gps: GeoCoords; metersOff: number }
   | { type: 'TRIGGER_SOS'; rideId: string; triggeredBy: string; source?: SosTriggerSource; location?: GeoCoords | null }
   | { type: 'TRIGGER_DRIVER_SOS'; driverId: string; location: GeoCoords | null; notes: string | null; source?: SosTriggerSource }
   // A passenger's SOS before any trip exists — standing at a terminal,
@@ -3741,6 +3742,18 @@ function reducer(state: RideState, action: RideAction): RideState {
             : r,
         ),
       }
+    // The driver's phone has left the planned road and said so, once. Every
+    // other screen on this ride reacts to the fact rather than working it out
+    // again from a position that may be a minute old — see Ride.rerouteFromGps.
+    case 'DRIVER_REROUTED':
+      return {
+        ...state,
+        rides: state.rides.map((r) =>
+          r.id === action.rideId
+            ? { ...r, rerouteFromGps: action.gps, rerouteAt: new Date().toISOString(), rerouteMetersOff: action.metersOff }
+            : r,
+        ),
+      }
     case 'UPDATE_PASSENGER_LIVE_GPS':
       return {
         ...state,
@@ -6885,6 +6898,8 @@ interface RideContextValue extends RideState {
   offerRideToFavorite: (rideId: string, driverId?: string) => void
   acknowledgeRidePayment: (rideId: string, method: PaymentMethod, referenceNo?: string | null) => void
   updateDriverLiveGps: (rideId: string, gps: GeoCoords | null) => void
+  // Said once by the phone that knows — see Ride.rerouteFromGps.
+  driverRerouted: (rideId: string, gps: GeoCoords, metersOff: number) => void
   updatePassengerLiveGps: (rideId: string, gps: GeoCoords | null) => void
   triggerSos: (rideId: string, triggeredBy: string, source?: SosTriggerSource, location?: GeoCoords | null) => void
   triggerDriverSos: (driverId: string, location: GeoCoords | null, notes?: string | null, source?: SosTriggerSource) => void
@@ -8152,6 +8167,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     acknowledgeRidePayment: (rideId, method, referenceNo) =>
       dispatch({ type: 'ACKNOWLEDGE_RIDE_PAYMENT', rideId, method, referenceNo }),
     updateDriverLiveGps: (rideId, gps) => dispatch({ type: 'UPDATE_DRIVER_LIVE_GPS', rideId, gps }),
+    driverRerouted: (rideId, gps, metersOff) => dispatch({ type: 'DRIVER_REROUTED', rideId, gps, metersOff }),
     updatePassengerLiveGps: (rideId, gps) => dispatch({ type: 'UPDATE_PASSENGER_LIVE_GPS', rideId, gps }),
     triggerSos: (rideId, triggeredBy, source, location) => dispatch({ type: 'TRIGGER_SOS', rideId, triggeredBy, source, location }),
     triggerPassengerSos: (passengerId, location, notes = null) =>

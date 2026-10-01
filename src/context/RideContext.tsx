@@ -8091,8 +8091,33 @@ export function RideProvider({ children }: { children: ReactNode }) {
   // "any ride is running" would put the whole pilot on a 3-second beat
   // whenever one tricycle was out. A driver watching for work is included —
   // waiting on an offer is exactly when a slow beat is felt.
+  // How long after a trip ends the two phones keep listening for the fare to
+  // be settled. Long enough for a passenger to find their wallet, short
+  // enough that a forgotten ride stops costing reads.
+  const SETTLING_WINDOW_MS = 15 * 60 * 1000
   const liveTripHere = state.rides.some((r) => {
-    const live = r.status === 'requested' || r.status === 'accepted' || r.status === 'driver_arriving' || r.status === 'ongoing'
+    // A trip whose fare is not settled yet is still live, whatever its status
+    // says.
+    //
+    // The fast beat used to stop the instant the driver tapped Complete — and
+    // the one thing both phones are then waiting for, the passenger saying how
+    // they paid, had to cross a 45-second poll. That is the delay on "Bayad na
+    // si Celeste" from the 2026-10-01 pilot: not a payment slow to register, a
+    // phone that had stopped looking.
+    //
+    // Bounded by time as well as by payment, so a single ancient unpaid ride
+    // in the history cannot hold every phone at the fast pace for ever.
+    const settling =
+      r.status === 'completed' &&
+      r.payment?.status !== 'paid' &&
+      !!r.completedAt &&
+      Date.now() - Date.parse(r.completedAt) < SETTLING_WINDOW_MS
+    const live =
+      r.status === 'requested' ||
+      r.status === 'accepted' ||
+      r.status === 'driver_arriving' ||
+      r.status === 'ongoing' ||
+      settling
     if (!live) return false
     if (session.loggedInDriverId) return r.driverId === session.loggedInDriverId || (!r.driverId && r.status === 'requested')
     return (

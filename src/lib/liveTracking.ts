@@ -30,7 +30,17 @@ const MIN_MOVE_METERS = 3
 // passenger pace — the two phones overwriting each other's newest position —
 // no longer applies: each position now carries its own time and the newer
 // one wins when copies meet (see rideMerge).
-export const LIVE_GPS_PUBLISH_MS = 3000
+// 3000 at first, then 1000 by request after the 2026-10-01 pilot, where both
+// phones held the 3-second pace cleanly and the tricycle still read as
+// stepping rather than gliding.
+//
+// It is the knob with a bill attached: every phone on a trip publishes at
+// this rate and reads at the matching one (POLL_ON_TRIP_MS), so a third of
+// the interval is three times the database traffic per trip. Fine for a
+// pilot, and the first thing to put back to 3000 if reads start timing out
+// under several concurrent trips — which is the shape that failed before, in
+// September.
+export const LIVE_GPS_PUBLISH_MS = 1000
 
 // Above this, a reading is not a position — it is a glitch.
 //

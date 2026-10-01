@@ -192,6 +192,7 @@ export function TripMonitor({
   // would just be in the way. A parent watching is told by the card rather
   // than stopped by a dialog — it is not their ride to acknowledge.
   const [acceptedPopup, setAcceptedPopup] = useState(false)
+  const [payPrompt, setPayPrompt] = useState(false)
   // The waiting strip stays on screen a little past the acceptance so it can
   // answer its own question — see WaitingForDriverStrip's acceptedDriver.
   const [justAccepted, setJustAccepted] = useState(false)
@@ -203,6 +204,13 @@ export function TripMonitor({
     if (!watching && was === 'requested' && ride.status === 'driver_arriving') {
       setAcceptedPopup(true)
       setJustAccepted(true)
+    }
+    // The driver has closed the trip and the fare is now owed. Said over the
+    // whole screen, with the amount on it: the payment form is further down a
+    // page the passenger may not be looking at, and a trip that ends with
+    // money changing hands should not end quietly. Pilot, 2026-10-01.
+    if (!watching && was !== 'completed' && ride.status === 'completed' && ride.payment?.status !== 'paid') {
+      setPayPrompt(true)
     }
   }, [ride.status, watching])
   // Long enough to be read by somebody who glanced away, short enough that
@@ -349,10 +357,22 @@ export function TripMonitor({
   // beside it.
   const legRide = primaryAboardRide(ride, rides)
   const legOngoing = legRide.status === 'ongoing'
+  // Snapped to the routing grid, because while the driver is on their way
+  // this origin is a live GPS reading.
+  //
+  // useRoute keys its cache on the endpoints, so an origin that changes with
+  // every publish is a brand-new route request with every publish. At the
+  // 3-second pace that was merely wasteful; at one second (2026-10-01) it is
+  // a request per second per phone to a public router that answers a few and
+  // refuses the rest — which is a passenger watching a blue line that keeps
+  // arriving late. Snapping asks again only once the tricycle has moved about
+  // 28 m, which is also the only time the answer would differ.
   const routeLineOriginForRoute = legOngoing
     ? legRide.pickup.gps
     : hasDriver
-      ? legRide.driverLiveGps ?? legRide.driverOriginGps ?? DRIVER_BASE_GPS
+      ? legRide.driverLiveGps
+        ? snapForRouting(legRide.driverLiveGps)
+        : legRide.driverOriginGps ?? DRIVER_BASE_GPS
       : legRide.pickup.gps
   const routeLineDestinationForRoute = legOngoing
     ? legRide.dropoff.gps
@@ -1381,6 +1401,53 @@ export function TripMonitor({
         </div>
       </div>
     ) : null
+  // The bill, over the whole screen, the moment the driver closes the trip.
+  const payAlert =
+    payPrompt && ride.payment?.status !== 'paid' ? (
+      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/60 p-4" role="alertdialog" aria-modal="true">
+        <div className="w-full max-w-sm rounded-2xl border-2 border-brand-500 bg-white p-4 text-center shadow-2xl">
+          <p className="text-3xl">🧾</p>
+          <p className="mt-1 text-base font-extrabold text-brand-800">Trip completed — time to pay</p>
+          <div className="mt-3 space-y-1 rounded-lg bg-slate-50 p-3 text-left text-xs text-slate-700">
+            <div className="flex justify-between">
+              <span>Fare</span>
+              <span className="font-semibold">₱{ride.fareEstimate}</span>
+            </div>
+            {ride.pabiliTip > 0 && (
+              <div className="flex justify-between">
+                <span>Errand fee</span>
+                <span className="font-semibold">₱{ride.pabiliTip}</span>
+              </div>
+            )}
+            {ride.tipOffer > 0 && (
+              <div className="flex justify-between">
+                <span>Tip</span>
+                <span className="font-semibold">₱{ride.tipOffer}</span>
+              </div>
+            )}
+            <div className="flex justify-between border-t border-slate-200 pt-1 text-sm font-extrabold text-slate-900">
+              <span>Total</span>
+              <span>₱{ride.fareEstimate + ride.pabiliTip + ride.tipOffer}</span>
+            </div>
+          </div>
+          <p className="mt-2 text-[11px] text-slate-500">
+            {ride.driverName ? `Hand it to ${firstName(ride.driverName)}` : 'Hand it to your driver'}, or pay in the
+            app — then tap how you paid below.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setPayPrompt(false)
+              // Straight to the form rather than leaving them to find it.
+              mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+            }}
+            className="mt-3 w-full rounded-lg bg-brand-600 py-2.5 text-sm font-bold text-white transition hover:bg-brand-700"
+          >
+            Pay now
+          </button>
+        </div>
+      </div>
+    ) : null
   // The pop-up (2026-09-22): when this phone and the tricycle's GPS part —
   // see the separation effect — the question comes up over the whole screen,
   // full-screen map included, instead of only opening inside the card.
@@ -1414,6 +1481,7 @@ export function TripMonitor({
   return (
     <section className="space-y-3 rounded-xl border border-brand-200 bg-brand-50 p-4 shadow-sm">
       {acceptedAlert}
+      {payAlert}
       {separationAlert}
       {/* The tricycle has plainly left the planned road.
           A quiet reroute already fixed the route the moment this fired — see
@@ -1438,7 +1506,7 @@ export function TripMonitor({
           can answer for themselves. */}
       {farOffRoute && !watching && !gotOffAsked && !openSos && !emergencyOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-3 sm:items-center"
+          className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-900/60 p-3 sm:items-center"
           role="dialog"
           aria-modal="true"
           aria-label="Far off route"
@@ -1485,7 +1553,7 @@ export function TripMonitor({
           rather than a red button under a thumb on every wrong turn. */}
       {(offRouteMeters !== null || (farOffRoute && watching)) && !(farOffRoute && !watching) && !gotOffAsked && !openSos && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-3 sm:items-center"
+          className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-900/60 p-3 sm:items-center"
           role="dialog"
           aria-modal="true"
           aria-label="Off the planned route"
@@ -1925,6 +1993,20 @@ export function TripMonitor({
           <RealLiveMap
             points={mapPoints}
             routeLine={routeLine}
+            // The trip itself, kept on the map while the driver is still on
+            // their way to you.
+            //
+            // Accepting used to erase it: the drawn route switches to
+            // driver→pickup, so the pickup→destination line the passenger had
+            // been looking at since booking simply vanished — the moment a
+            // driver took the job, the journey disappeared from the map.
+            // Drawn underneath as the faint line now, which is exactly what it
+            // is: the road after this one. Pilot, 2026-10-01.
+            hintLine={
+              ride.status === 'driver_arriving' && tripRoute && tripRoute.points.length > 1
+                ? tripRoute.points
+                : undefined
+            }
             progressPointId="driver"
             fullscreenSignal={acceptedSignal}
             // Both ends are settled on a trip screen; the pickup/destination

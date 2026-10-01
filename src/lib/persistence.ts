@@ -52,7 +52,12 @@ const POLL_WHILE_VISIBLE_MS = 45000
 // It costs one small read per device every few seconds, for the minutes a
 // trip lasts — and only the ride row, not the whole world (see onWake),
 // and only while the screen is on.
-const POLL_ON_TRIP_MS = 3000
+// Matched to LIVE_GPS_PUBLISH_MS: reading slower than the other phone writes
+// just means seeing every second or third position, which is the lag this
+// whole mechanism exists to remove. 1000 from 2026-10-01, with the same
+// caveat recorded there — it is three times the read traffic of the 3-second
+// pace, and the first thing to put back if reads start timing out.
+const POLL_ON_TRIP_MS = 1000
 
 // Set by the app when this device is on a live trip — see RideContext.
 let onTrip = false

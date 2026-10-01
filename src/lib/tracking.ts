@@ -144,9 +144,21 @@ export function tripMapFraming(status: RideStatus, legProgress: number): {
   // gets one fit the moment the screen appears — see the fallback below
   // followAll gates in VectorLiveMap's FitBounds — it just does not keep
   // reasserting that fit as the driver's estimated position ticks forward.
-  if (status === 'ongoing') return { phase: 'ongoing', followAll: true, frozen: false }
+  // Under way, the frame is the journey: where you got on, where you are
+  // going, and the tricycle somewhere between them. The driver is named
+  // alongside the two fixed ends because a frame built from the ends alone
+  // lets the one thing actually moving slide out of it.
+  if (status === 'ongoing')
+    return { phase: 'ongoing', fitPointIds: ['driver', 'pickup', 'dropoff'], followAll: true, frozen: false }
   if (status === 'driver_arriving' && legProgress >= 1) return { phase: 'at-pickup', frozen: false }
-  if (status === 'driver_arriving') return { phase: 'driver_arriving', frozen: false }
+  // On the way to you, the frame is that approach and nothing else: the
+  // tricycle and the pickup, re-fitting as the gap closes. It used to fit
+  // everything on the map — which since 2026-10-01 includes the whole trip
+  // line as well — so the one thing the passenger is watching, a tricycle
+  // getting nearer, was drawn at whatever scale a far-off destination
+  // demanded.
+  if (status === 'driver_arriving')
+    return { phase: 'driver_arriving', fitPointIds: ['driver', 'pickup'], followAll: true, frozen: false }
   return { phase: status, frozen: false }
 }
 

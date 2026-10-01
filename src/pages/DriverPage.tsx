@@ -2077,10 +2077,15 @@ function ActiveTripCard({
   // traces another, and the vehicle appears to float beside the route.
   const legRide = ride ? primaryAboardRide(ride, rides) : null
   const isOngoingLeg = legRide?.status === 'ongoing'
+  // Snapped for the same reason as the passenger's copy: a live reading as a
+  // route endpoint means a fresh request to the router on every publish, and
+  // at a one-second cadence that is a request a second from every phone.
   const routeLineOrigin = legRide
     ? isOngoingLeg
       ? legRide.pickup.gps
-      : legRide.driverLiveGps ?? legRide.driverOriginGps ?? DRIVER_BASE_GPS
+      : legRide.driverLiveGps
+        ? snapForRouting(legRide.driverLiveGps)
+        : legRide.driverOriginGps ?? DRIVER_BASE_GPS
     : null
   const routeLineDestination = legRide ? (isOngoingLeg ? legRide.dropoff.gps : legRide.pickup.gps) : null
   // Where the drawn route starts from. The leg's own origin, until this

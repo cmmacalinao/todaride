@@ -2771,6 +2771,23 @@ function ActiveTripCard({
           )}
         </>
       )}
+      {/* Arrived.
+          The Complete button unlocks itself on reaching the drop-off, which is
+          correct and completely silent — a driver pulling up has no reason to
+          look down, and the trip then runs on while the passenger is already
+          walking away. Asked for after the 2026-10-01 pilot: say it.
+          Not while the passenger has plainly left (the card below says more,
+          and two notices stacked is one too many), and not once they have
+          confirmed getting off, when the button itself is already shouting. */}
+      {ride.status === 'ongoing' && atDropoff && !passengerLeft && !ride.passengerArrivedAt && (
+        <div className="rounded-lg border-2 border-emerald-400 bg-emerald-50 px-3 py-2.5">
+          <p className="text-sm font-bold text-emerald-900">🏁 You have reached {formatAddressLine(ride.dropoff.label)}</p>
+          <p className="mt-0.5 text-[11px] leading-snug text-emerald-800">
+            Tap <span className="font-semibold">Complete trip</span> below to close the fare so your next job can
+            start.
+          </p>
+        </div>
+      )}
       {/* Said as soon as the two phones part, which is when it is true and
           while the driver is still beside the passenger. */}
       {ride.status === 'ongoing' && passengerLeft && (

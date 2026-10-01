@@ -947,6 +947,28 @@ export function PassengerPage() {
     .filter((r) => r.status !== 'completed' && r.status !== 'cancelled')
     .sort(byNewest)
   const activeRide = running[0] ?? [...candidates].sort(byNewest)[0]
+  // A finished trip leaves the booking form behind it.
+  //
+  // The pickup is component state, so it outlived the ride that used it: book
+  // again and the pin was still at the last trip's pickup — which by then is
+  // where the passenger was an hour ago, not where they are standing now.
+  // From the pilot, 2026-10-01: "completed the ride but still the pickup pin
+  // is on the previous ride position".
+  //
+  // Cleared on the change from having a live trip to not having one, so a
+  // pickup someone has deliberately set for a booking they have not made yet
+  // is never pulled out from under them.
+  const hadLiveRideRef = useRef(running.length > 0)
+  const hasLiveRide = running.length > 0
+  useEffect(() => {
+    const had = hadLiveRideRef.current
+    hadLiveRideRef.current = hasLiveRide
+    if (had && !hasLiveRide) {
+      setPickupGps(null)
+      setPickupId(CLSU_MAIN_GATE_LOCATION.id)
+      setPickupChosen(false)
+    }
+  }, [hasLiveRide])
   // The direct driver on the current job, once one is assigned — from the
   // moment a request is accepted (driver_arriving), not only once the trip
   // is under way, so "running a little late" or "which gate" can be said

@@ -73,7 +73,13 @@ export function GroupRideInlinePanel({
   return (
     // No heading of its own: it sits in the map's swipe-up sheet, whose
     // header already says Group Ride and how many stops are set.
-    <section className="space-y-2 pt-1">
+    // Spacing and type match the booking screen around it: 6px between
+    // blocks, 4px between rider cards, and py-1.5/text-xs on the buttons.
+    // This panel had been built a size looser than everything else —
+    // space-y-2 and py-2 text-sm — which on a phone pushed Payment and the
+    // Request button off the bottom of the sheet with only one rider in the
+    // list.
+    <section className="space-y-1.5 pt-1">
 
       {hasActiveRide && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
@@ -81,7 +87,7 @@ export function GroupRideInlinePanel({
         </p>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-1">
         {/* In route order: once stops are set the cards line up 1, 2, 3 —
             the order the tricycle drops everyone off — and a rider still
             without a stop stays after them, in the order they were added.
@@ -189,7 +195,7 @@ export function GroupRideInlinePanel({
         <button
           type="button"
           onClick={onAddRider}
-          className="w-full rounded-lg border border-dashed border-slate-300 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          className="w-full rounded-lg border border-dashed border-slate-300 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
         >
           + Add another rider
         </button>
@@ -202,7 +208,7 @@ export function GroupRideInlinePanel({
         <button
           type="button"
           onClick={onSetStopsOnMap}
-          className="w-full rounded-lg border border-green-500/40 bg-green-500/15 py-2 text-sm font-bold text-green-900 transition hover:bg-green-500/25"
+          className="w-full rounded-lg border border-green-500/40 bg-green-500/15 py-1.5 text-xs font-bold text-green-900 transition hover:bg-green-500/25"
         >
           🏁 Set everyone's stop on the map
         </button>

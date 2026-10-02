@@ -840,6 +840,16 @@ export function PassengerPage() {
   const dropoffLabel = isErrand ? 'Deliver to' : 'Destination'
   // The single question the rest of the form asks: is there a destination yet?
   const hasDestination = isErrand || dropoffChosen
+  // Whether the booking is still being set up, which decides whether the
+  // controls that only help while choosing a destination are on screen.
+  //
+  // Once a destination is set they are a row of controls for a job already
+  // done, directly above the map, where the space is worth more than the
+  // shortcut. But they come straight back the moment the Where to bar is
+  // reopened to search — the city picker in particular scopes that search,
+  // so hiding it for good would strand anyone changing their mind to a
+  // different city.
+  const settingUpBooking = !hasDestination || openEnd === 'dropoff'
   // The travel/fare row means something only once there is a real trip to
   // price: a pickup the passenger chose and a destination (an errand's
   // destination is the pickup itself).
@@ -2196,7 +2206,7 @@ export function PassengerPage() {
                   // Anchored to the row (relative above), so the list spans
                   // the bar and Set on Map together and names read in full.
                   resultsClassName="absolute inset-x-0 top-full z-[80] mt-1 max-h-72 overflow-y-auto"
-                  inputClassName="w-full min-w-0 bg-transparent text-sm font-semibold text-green-900 placeholder:font-normal placeholder:text-green-800/70 focus:outline-none"
+                  inputClassName="compact-input w-full min-w-0 bg-transparent text-xs font-semibold text-green-900 placeholder:font-normal placeholder:text-green-800/70 focus:outline-none"
                 />
               </div>
             ) : (
@@ -2217,7 +2227,7 @@ export function PassengerPage() {
               <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-600" />
               <span className="min-w-0 flex-1">
                 <span
-                  className={`block truncate text-sm ${
+                  className={`block truncate text-[11px] ${
                     hasDestination ? 'font-semibold text-green-900' : 'font-normal text-green-800/70'
                   }`}
                 >
@@ -2682,10 +2692,18 @@ export function PassengerPage() {
               <div className="flex min-w-0 items-stretch gap-1.5">
                 {/* Narrow and fixed: a city name is short and the destination
                     field is the one that needs the room to show an address. */}
-                <div className="w-[38%] shrink-0 items-center">{cityRowFor('dropoff')}</div>
+                {settingUpBooking && (
+                  <div className="w-[38%] shrink-0 items-center">{cityRowFor('dropoff')}</div>
+                )}
                 <div className="flex min-w-0 flex-1 items-stretch">{destinationStrip(true)}</div>
               </div>
-              {!activeRide && !groupRideOpen && savedPlacesRow}
+              {/* Gone once a destination is set. These chips exist to fill
+                  the Where to bar in one tap, so after it is filled they are
+                  a row of controls for a job already done — and this row
+                  sits directly above the map, where the space is worth more
+                  than the shortcut. Changing your mind still works: tap the
+                  Where to bar itself. */}
+              {!activeRide && !groupRideOpen && settingUpBooking && savedPlacesRow}
             </div>
           ) : undefined
         }

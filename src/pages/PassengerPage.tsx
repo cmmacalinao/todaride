@@ -2950,11 +2950,17 @@ export function PassengerPage() {
   // invites somebody to answer something that is about to be answered
   // better, and a Swap button between one real row and one about-to-be
   // filled row swaps nothing worth swapping.
-  const addressCard = (showStrip: boolean, destinationOnly = false) => (
-        <section
-          ref={addressSectionRef}
-          className="scroll-mt-2 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm"
-        >
+  // bare omits this block's own card, so it can sit inside another one.
+  //
+  // On the booking screen it does: the "who is this ride for" row had a
+  // bordered card to itself, directly above the card holding the city, the
+  // Where to bar, the map and the fare. Two cards, two borders and the gap
+  // between them cost about 17px to say one line — and when a ride was
+  // running, the card below was hidden while this one stayed, leaving the
+  // toggle floating above nothing. Rendered inside that card instead, it
+  // reads as the first question of the same form, which is what it is.
+  const addressCard = (showStrip: boolean, destinationOnly = false, bare = false) => {
+    const inner = (
           <div className="relative" ref={endpointsRef}>
             {/* Who this ride is for, asked before either address. It decides
                 whether the pickup row below has anything to do: booking for
@@ -3443,9 +3449,18 @@ export function PassengerPage() {
               </>
             )}
           </div>
-  
-        </section>
-  )
+    )
+    return bare ? (
+      inner
+    ) : (
+      <section
+        ref={addressSectionRef}
+        className="scroll-mt-2 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm"
+      >
+        {inner}
+      </section>
+    )
+  }
 
   // Group Ride, as its own screen. The map comes with it: setting each
   // rider's destination is done by pinning on that same map, so a panel
@@ -3763,9 +3778,8 @@ export function PassengerPage() {
           with food:true, already gated on vendorsEnabled) — so this used to
           also check "!isPabili || showErrandBooking" for the freeform form's
           own reveal step, which no longer applies. */}
-      {pageTab === 'book' && !mapFirstBooking && !isBuyMedicine && !showVendorMenu && (
-        addressCard(true)
-      )}
+      {/* Drawn inside the booking card below now (see its first child), not
+          as a card of its own above it. */}
 
       {pageTab === 'rewards' && rewardsEnabled && <PassengerRewardsCard passenger={passenger} />}
 
@@ -3866,6 +3880,10 @@ export function PassengerPage() {
       {(!activeRide || searchingAgain || rideIsOver) && (
         <section className="space-y-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm">
             <>
+          {/* "Who is this ride for" — the first question of this form, drawn
+              inside it rather than in a bordered card of its own above. Same
+              conditions it carried when it stood alone. */}
+          {!mapFirstBooking && !isBuyMedicine && !showVendorMenu && addressCard(true, false, true)}
           {/* The Ride/Pabili/Medicine row that used to live here is gone: the
               two mode cards and the errand tiles at the top of the page now
               make that choice, and two competing switches for one piece of

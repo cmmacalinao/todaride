@@ -42,6 +42,32 @@ const MIN_MOVE_METERS = 3
 // September.
 export const LIVE_GPS_PUBLISH_MS = 1000
 
+// How long to wait before publishing the fix now in hand: nothing if the
+// window has already passed, otherwise the remainder of it.
+//
+// Both phones used to throttle by returning early — "too soon, skip this
+// one" — which quietly threw the fix away. Nothing retried it, because the
+// next publish waited on the next GPS event. With fixes arriving a little
+// under a second apart and a one-second window, that discards roughly every
+// other one and halves the real publish rate. It is the mechanism behind the
+// driver's phone measuring a 3.0 s median against this 1 s target in the
+// 2026-10-01 pilot, and behind "sobrang nahuhuli ang signal" generally: not
+// a phone failing to get a position, a phone getting one and dropping it.
+//
+// So the caller waits out the remainder and publishes instead of skipping.
+// Returning a delay rather than doing the work keeps this testable and
+// leaves the timer to the effect, whose cleanup already cancels a pending
+// publish when a newer fix arrives — so the newest position always wins and
+// no more than one is ever in flight.
+export function publishDelayMs(lastPublishedAt: number, now: number, intervalMs = LIVE_GPS_PUBLISH_MS): number {
+  const since = now - lastPublishedAt
+  // A clock that has gone backwards (a device correcting its time mid-trip)
+  // must not park the next publish an hour in the future.
+  if (since < 0) return 0
+  if (since >= intervalMs) return 0
+  return intervalMs - since
+}
+
 // Above this, a reading is not a position — it is a glitch.
 //
 // 40 m/s is about 144 km/h, far beyond anything a tricycle does and beyond

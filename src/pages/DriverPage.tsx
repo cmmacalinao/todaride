@@ -56,7 +56,7 @@ import {
   getCurrentGeoPosition,
   haversineDistanceMeters,
 } from '../lib/geo'
-import { LIVE_GPS_PUBLISH_MS, useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
+import { publishDelayMs, useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { useIncomingRequestAlert } from '../lib/alertSound'
 import { useBackgroundDriverLocation } from '../lib/backgroundLocation'
 import { ROUTE_CHANGE_REASONS, ROUTE_CHANGE_START, nextRouteChangeDecision, type RouteChangeState } from '../lib/routeChange'
@@ -2127,6 +2127,11 @@ function ActiveTripCard({
 
   // Shared at the same pace as the passenger's phone — see
   // LIVE_GPS_PUBLISH_MS. Turning sharing off goes out at once.
+  //
+  // A fix that arrives inside the window waits out the remainder instead of
+  // being dropped (see publishDelayMs). The cleanup cancels that pending
+  // publish whenever a newer fix arrives, so the newest position always wins
+  // and only ever one is in flight.
   const lastDriverPublishRef = useRef(0)
   useEffect(() => {
     if (!ride) return
@@ -2134,10 +2139,18 @@ function ActiveTripCard({
       updateDriverLiveGps(ride.id, null)
       return
     }
-    const now = Date.now()
-    if (now - lastDriverPublishRef.current < LIVE_GPS_PUBLISH_MS) return
-    lastDriverPublishRef.current = now
-    updateDriverLiveGps(ride.id, driverGps)
+    const rideId = ride.id
+    const send = () => {
+      lastDriverPublishRef.current = Date.now()
+      updateDriverLiveGps(rideId, driverGps)
+    }
+    const wait = publishDelayMs(lastDriverPublishRef.current, Date.now())
+    if (wait === 0) {
+      send()
+      return
+    }
+    const timer = setTimeout(send, wait)
+    return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [driverGps, effectiveShareGps, ride?.id])
 

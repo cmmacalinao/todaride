@@ -22,7 +22,7 @@ import { buildTimeline, driverPickupOverdue, formatArrivalClock, formatEta, getL
 import { formatKm, haversineDistanceMeters } from '../lib/geo'
 import { remainingLeg } from '../lib/legRemaining'
 import { reverseGeocodeToPhAddress } from '../lib/customLocation'
-import { LIVE_GPS_PUBLISH_MS, useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
+import { publishDelayMs, useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { snapForRouting, useRoute } from '../lib/routing'
 import { firstName } from '../lib/names'
 import { routeChangeReasonLabel } from '../lib/routeChange'
@@ -241,6 +241,11 @@ export function TripMonitor({
 
   // Publish this phone's position at the same pace the driver's phone does —
   // see LIVE_GPS_PUBLISH_MS for why the two must match.
+  //
+  // A fix that arrives inside the window waits out the remainder instead of
+  // being dropped (see publishDelayMs). The cleanup cancels that pending
+  // publish whenever a newer fix arrives, so the newest position always wins
+  // and only ever one is in flight.
   const lastPublishedAtRef = useRef(0)
   useEffect(() => {
     // A watcher's phone never writes the rider's position — it would put the
@@ -250,10 +255,18 @@ export function TripMonitor({
       updatePassengerLiveGps(ride.id, null)
       return
     }
-    const now = Date.now()
-    if (now - lastPublishedAtRef.current < LIVE_GPS_PUBLISH_MS) return
-    lastPublishedAtRef.current = now
-    updatePassengerLiveGps(ride.id, livePassengerGps)
+    const rideId = ride.id
+    const send = () => {
+      lastPublishedAtRef.current = Date.now()
+      updatePassengerLiveGps(rideId, livePassengerGps)
+    }
+    const wait = publishDelayMs(lastPublishedAtRef.current, Date.now())
+    if (wait === 0) {
+      send()
+      return
+    }
+    const timer = setTimeout(send, wait)
+    return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [livePassengerGps, shareLiveGps, ride.status, ride.id])
 

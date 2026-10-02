@@ -2888,8 +2888,13 @@ export function PassengerPage() {
                 answered. Booking for someone else has no such answer; their
                 phone isn't this one, so the pickup has to be set by hand,
                 and their name has to go on the ride somewhere. */}
+            {/* No bottom margin on the row below: everything that can follow
+                it — the family-limits line, the name/age boxes — carries its
+                own mt-1.5, so a margin here either doubled the gap or, when
+                nothing followed, left 6px of white inside the card for
+                nothing. */}
             {!isErrand && (
-              <div className="mb-1.5">
+              <div>
                 {/* Group Ride joins this row as a third segment instead of
                     sitting on its own line further down — it's a peer
                     choice, not an afterthought: "who is this booking for"
@@ -3440,7 +3445,13 @@ export function PassengerPage() {
     // min-h + flex-col is what lets the ad box claim the leftover screen:
     // mt-auto pushes it to the bottom and flex-1 lets it grow, so on a tall
     // phone it fills the gap instead of leaving dead space under the form.
-    <div className="mx-auto flex min-h-[calc(100vh-70px)] max-w-lg flex-col space-y-2 px-4 pb-[72px] pt-1">
+    //
+    // space-y-1, not 2: the cards down this page each carry their own border,
+    // padding and shadow, so 8px between them on top of all that read as a
+    // gap rather than a join, and pushed the fare and the Book button below
+    // the fold on a small phone. 4px still separates them — the borders do
+    // most of that work already.
+    <div className="mx-auto flex min-h-[calc(100vh-70px)] max-w-lg flex-col space-y-1 px-4 pb-[72px] pt-1">
       {/* One consistent place to switch services, above every self-contained
           booking screen (Ride/Padala, Food Order, PaDeliver's Store) instead
           of nested inside each one's own bordered card (that's what

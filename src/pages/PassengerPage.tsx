@@ -2759,24 +2759,19 @@ export function PassengerPage() {
                   now called out while it can still be corrected. */}
               {(pickupMissingNotice || pickupUnknown) && (
                 <div className="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] leading-snug text-amber-800">
-                  {/* Two lines, not four. The long version explained how to
-                      move the map, how to tap, and how to re-grant location —
-                      a paragraph of instructions above a button that is
-                      already sitting right there in red.
+                  {/* One line. It used to explain how to move the map, how to
+                      tap, and how to re-grant location — a paragraph of
+                      instructions above a button already sitting right there
+                      in red.
 
-                      What it keeps is the place name. "We couldn't get your
-                      location" alone reads as a warning about a thing that
-                      might happen; naming the gate is what makes a passenger
-                      see that a wrong pickup is already filled in and ready
-                      to book. That is the part that actually costs somebody
-                      a ride from the wrong place.
-
-                      The "reload and choose Allow" hint is gone with it:
-                      re-granting location is a phone settings trip on a
-                      denied permission, and tapping the button below is the
-                      shorter way out of this booking either way. */}
-                  📍 We couldn&apos;t get your location — pickup is still{' '}
-                  <span className="font-semibold">{formatAddressLine(CLSU_MAIN_GATE_LOCATION.label)}</span>. Tap{' '}
+                      It does not name the pickup it is warning about either:
+                      the map directly above shows that pin with its own
+                      label on it, so the text was repeating what the screen
+                      already says. (And naming it meant naming the seeded
+                      gate, which was only ever right for one of the two
+                      cases this notice covers — the other is a pickup with
+                      no coordinates at all, whose label can be anything.) */}
+                  📍 We couldn&apos;t get your location. Tap{' '}
                   <span className="font-semibold">📍 Set {pickupLabel} here</span>.
                 </div>
               )}

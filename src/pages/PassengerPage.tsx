@@ -2258,6 +2258,35 @@ export function PassengerPage() {
   // with no match). One copy at a time, since it holds what has been typed:
   // under the Where to strip at the top of the map in full screen, in the
   // card above the map otherwise.
+  // The destination bar with its clear control — one definition, because it
+  // is drawn in two places: the row above the map, and the top of the
+  // full-screen map. The ✕ was added to the first only, so going full screen
+  // took it away again (2026-10-02).
+  //
+  // A sibling of the strip rather than a child: the strip is itself a button
+  // that reopens the search, and a button inside a button is invalid and
+  // swallows the tap.
+  //
+  // Deliberately not called Cancel. A moment later in this same flow, once
+  // Book a Ride is tapped, Cancel means calling off a real booking a driver
+  // is already riding toward — one word should not mean both.
+  const destinationStripClearable = (
+    <div className="relative flex min-w-0 flex-1 items-stretch">
+      {destinationStrip(true)}
+      {hasDestination && (
+        <button
+          type="button"
+          onClick={() => setDropoffChosen(false)}
+          aria-label="Clear the destination"
+          title="Clear the destination"
+          className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-[11px] font-bold text-green-900/70 transition hover:bg-green-600/15 hover:text-green-900"
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  )
+
   const dropoffFormOpen = openEnd === 'dropoff' && addressFormOpen === 'dropoff'
   const dropoffAddressForm = (
           <BarangayAddressPicker
@@ -2696,28 +2725,7 @@ export function PassengerPage() {
                 {settingUpBooking && (
                   <div className="w-[38%] shrink-0 items-center">{cityRowFor('dropoff')}</div>
                 )}
-                {/* Clear, on the destination it clears.
-                    A sibling of the strip rather than inside it: the strip
-                    is itself a button (tap to search again), and a button
-                    inside a button is not valid and swallows the tap.
-                    Deliberately not called Cancel. A moment later in this
-                    same flow, once Book a Ride is tapped, Cancel means
-                    calling off a real booking a driver is already coming
-                    for — one word should not mean both. */}
-                <div className="relative flex min-w-0 flex-1 items-stretch">
-                  {destinationStrip(true)}
-                  {hasDestination && (
-                    <button
-                      type="button"
-                      onClick={() => setDropoffChosen(false)}
-                      aria-label="Clear the destination"
-                      title="Clear the destination"
-                      className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-[11px] font-bold text-green-900/70 transition hover:bg-green-600/15 hover:text-green-900"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
+                {destinationStripClearable}
               </div>
               {/* Gone once a destination is set. These chips exist to fill
                   the Where to bar in one tap, so after it is filled they are
@@ -2743,7 +2751,7 @@ export function PassengerPage() {
             familyEndsBar
           ) : whereToOnMap ? (
             <div>
-              <div className="relative flex items-stretch gap-1">{destinationStrip(true)}</div>
+              <div className="relative flex items-stretch gap-1">{destinationStripClearable}</div>
               {dropoffFormOpen && (
                 <div className="mt-1 rounded-lg bg-white/95 p-2 shadow-sm">{dropoffAddressForm}</div>
               )}
@@ -3153,6 +3161,10 @@ export function PassengerPage() {
                 width and the secondary control sits beside it, rather than
                 each taking a line of its own. */}
             <div className="relative mt-1.5 flex items-stretch gap-1.5">
+            {/* Its own relative box, not the row's: the row also holds Set on
+                Map, so a ✕ pinned to the row's right edge would sit on that
+                button instead of on the address it clears. */}
+            <div className="relative flex min-w-0 flex-1 items-stretch">
             {openEnd === 'pickup' ? (
               // Typed straight into the bar, the same way Where to works below:
               // tap the strip, it becomes the search, the matches drop under
@@ -3183,7 +3195,9 @@ export function PassengerPage() {
               type="button"
               onClick={() => openAddressPicker('pickup')}
               className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-red-500/40 bg-red-500/15 px-3 py-1.5 text-left shadow-sm filter transition hover:bg-red-500/25 ${
-                destinationOnly ? '' : 'pr-14'
+                // pr-8 leaves room for the ✕ when there is an address to
+                // clear, so a long one does not run under it.
+                destinationOnly ? (pickupChosen ? 'pr-8' : '') : 'pr-14'
               }`}
             >
               <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-600" />
@@ -3230,6 +3244,26 @@ export function PassengerPage() {
               </span>
             </button>
             )}
+            {/* Same clear as the destination's, and it only ever appears
+                where the pickup is a real question — this strip is drawn for
+                a booking for someone else, an errand, or a self-booking
+                whose location could not be found. A self-booking with
+                working GPS never sees it, and should not: clearing there
+                would either silently refill from auto-locate, or drop the
+                booking back onto the seeded gate, which is the wrong-pickup
+                bug all over again. */}
+            {pickupChosen && (
+              <button
+                type="button"
+                onClick={() => setPickupChosen(false)}
+                aria-label="Clear the pickup"
+                title="Clear the pickup"
+                className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-[11px] font-bold text-red-900/70 transition hover:bg-red-600/15 hover:text-red-900"
+              >
+                ✕
+              </button>
+            )}
+            </div>
             {/* The pickup gets the same map route as the destination. Booking
                 for somebody else is exactly the case where an address is hard
                 to type and easy to point at — a sitio, a corner, a house with

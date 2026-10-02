@@ -2215,8 +2215,9 @@ export function PassengerPage() {
               onClick={() => openAddressPicker('dropoff')}
               className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-green-500/40 bg-green-500/15 px-3 py-1.5 text-left shadow-sm filter transition hover:brightness-95 ${
                 // pr-14 clears the swap control, which only exists when both
-                // ends are shown.
-                destinationOnly ? '' : 'pr-14'
+                // ends are shown. pr-8 clears the ✕ that replaces it when the
+                // destination row stands alone and has something to clear.
+                destinationOnly ? (hasDestination ? 'pr-8' : '') : 'pr-14'
               }`}
             >
               {/* dest-fill is pale under dark teal text in the default theme,
@@ -2695,7 +2696,28 @@ export function PassengerPage() {
                 {settingUpBooking && (
                   <div className="w-[38%] shrink-0 items-center">{cityRowFor('dropoff')}</div>
                 )}
-                <div className="flex min-w-0 flex-1 items-stretch">{destinationStrip(true)}</div>
+                {/* Clear, on the destination it clears.
+                    A sibling of the strip rather than inside it: the strip
+                    is itself a button (tap to search again), and a button
+                    inside a button is not valid and swallows the tap.
+                    Deliberately not called Cancel. A moment later in this
+                    same flow, once Book a Ride is tapped, Cancel means
+                    calling off a real booking a driver is already coming
+                    for — one word should not mean both. */}
+                <div className="relative flex min-w-0 flex-1 items-stretch">
+                  {destinationStrip(true)}
+                  {hasDestination && (
+                    <button
+                      type="button"
+                      onClick={() => setDropoffChosen(false)}
+                      aria-label="Clear the destination"
+                      title="Clear the destination"
+                      className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-[11px] font-bold text-green-900/70 transition hover:bg-green-600/15 hover:text-green-900"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
               {/* Gone once a destination is set. These chips exist to fill
                   the Where to bar in one tap, so after it is filled they are

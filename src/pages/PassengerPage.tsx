@@ -202,6 +202,19 @@ export function PassengerPage() {
   // fields. Only one at a time: the card stays short, and it mirrors how the
   // map picker already scopes itself to one end.
   const [openEnd, setOpenEnd] = useState<'pickup' | 'dropoff' | null>(null)
+  // Whether "who is this ride for" is showing all three choices, or just the
+  // answer.
+  //
+  // Booking for yourself is the overwhelming common case and carries no
+  // follow-up fields, so three segments and a card of their own spend a row
+  // of a phone screen restating a question nobody asked. Collapsed it is one
+  // line: For: Myself, tap to change.
+  //
+  // It is never collapsed for Someone or Group, and not because of tidiness:
+  // the name, age and phone boxes live inside that block, and canSubmit needs
+  // the name. Hiding it there would leave Book a Ride disabled with the
+  // fields that would enable it off screen.
+  const [whoExpanded, setWhoExpanded] = useState(false)
   // The barangay dropdown + detailed-address field (BarangayAddressPicker)
   // within whichever end is open — typing an address is the slow path next
   // to the landmark search, quick chips, and map tap that sit above it, so
@@ -3036,6 +3049,22 @@ export function PassengerPage() {
                     )}
                   </div>
                 ) : (
+                /* Collapsed: the answer, not the question. Only for a plain
+                   self-booking — Someone and Group keep every choice on
+                   screen, since their follow-up fields hang off this block. */
+                !whoExpanded && !forOther && !groupRideOpen ? (
+                  <button
+                    type="button"
+                    onClick={() => setWhoExpanded(true)}
+                    aria-expanded={false}
+                    className="flex w-full items-center justify-between rounded-lg bg-slate-100 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-200"
+                  >
+                    <span>
+                      For: <span className="font-bold text-slate-800">Myself</span>
+                    </span>
+                    <span className="text-[11px] font-normal text-slate-500">Change ✎</span>
+                  </button>
+                ) : (
                 <div className="flex items-center gap-1.5">
                 {/* City has moved up into the map's toolbar, beside the Where
                     to bar it scopes (see toolbarStrip) — so this row is now
@@ -3046,6 +3075,9 @@ export function PassengerPage() {
                     onClick={() => {
                       if (groupRideOpen) setGroupRideOpen(false)
                       guestRider.setBookingFor('self')
+                      // Back to the common case, so the row folds away again
+                      // rather than sitting open on an answered question.
+                      setWhoExpanded(false)
                     }}
                     className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
                       !groupRideOpen && guestRider.bookingFor === 'self'
@@ -3082,6 +3114,7 @@ export function PassengerPage() {
                   </button>
                 </div>
                 </div>
+                )
                 )}
                 {forFamily && (
                   <div className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50/80 p-1.5">

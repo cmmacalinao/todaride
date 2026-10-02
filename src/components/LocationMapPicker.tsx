@@ -80,6 +80,8 @@ export function LocationMapPicker({
   streetGuide = true,
   pickedStreetLines,
   pickupAutomatic = false,
+  onUseMyLocation,
+  useMyLocationError,
   pinPicking = true,
   toolbarStrip,
   bottomPanel,
@@ -202,6 +204,12 @@ export function LocationMapPicker({
   // pickup marker drawn but not draggable. Book for someone, Group Ride and
   // PaDeliver leave this off, since there the pickup is somewhere else.
   pickupAutomatic?: boolean
+  // Hands the pickup back to the phone, for a self-booking whose pickup was
+  // set by hand. Absent when there is nothing to undo.
+  onUseMyLocation?: () => void
+  // What the phone said when that failed, so the failure is visible beside
+  // the button that caused it.
+  useMyLocationError?: string | null
   // Whether the map is for choosing places at all. Off once a ride is booked
   // or under way: the pickup and destination are settled, so the centre pin
   // and its Set buttons would only invite moving a trip that is already
@@ -570,7 +578,29 @@ export function LocationMapPicker({
   }
 
   const setFromCenter = (
+    <>
     <div className="mt-1.5 flex gap-1.5">
+      {/* Undo, for a pickup the passenger set by hand on their own booking.
+          Booking for yourself normally needs no pickup control at all — the
+          phone answers it — so this only exists once somebody has overridden
+          that answer, and all it does is hand the question back to the
+          phone. Offered beside the button that set it, which is where
+          somebody looks to undo it.
+
+          Deliberately not a ✕. An empty pickup is not a state worth being
+          able to reach here: it falls back to the seeded gate, which is the
+          wrong-pickup bug this screen already carries a notice about. "Use
+          my location" names what actually happens instead. */}
+      {onUseMyLocation && (
+        <button
+          type="button"
+          onClick={onUseMyLocation}
+          title="Put the pickup back where your phone says you are"
+          className="shrink-0 rounded-lg border border-slate-300 bg-white px-2 py-2 text-[11px] font-bold leading-tight text-slate-600 shadow-sm transition hover:bg-slate-50"
+        >
+          ↺ My location
+        </button>
+      )}
       {!pickupAutomatic && (
       <button
         type="button"
@@ -600,6 +630,14 @@ export function LocationMapPicker({
           {dropoffButtonText ?? `🏁 Set ${dropoffLabel} here`}
         </button>
     </div>
+      {/* Said where the tap happened. Every other place this page reports a
+          location failure is gated to the two-ended layout or an errand, so
+          on a plain booking "↺ My location" could fail and leave nothing on
+          screen at all — the one outcome worse than not offering it. */}
+      {useMyLocationError && (
+        <p className="mt-1 text-[11px] leading-snug text-amber-700">{useMyLocationError}</p>
+      )}
+    </>
   )
 
   const map = (

@@ -2584,11 +2584,39 @@ export function PassengerPage() {
         // them to tap a button, and no such button anywhere on the page
         // (2026-10-02). So a pickup we could not find turns the manual
         // controls back on — the button under the map, and a draggable pin.
+        //
+        // And once a pickup has been set by hand it stays manual for the rest
+        // of the booking (!pickupChosen). Without that it was a one-shot: the
+        // moment you pinned your own pickup, pickupUnknown went false, this
+        // went true again, and the button and the draggable pin vanished —
+        // leaving no way to correct a pin that landed a street out. Only a
+        // deliberate choice sets pickupChosen; auto-locate bails on it rather
+        // than setting it, so this cannot be tripped by the phone answering.
         pickupAutomatic={
           !isErrand &&
           !pickupMissingNotice &&
           !pickupUnknown &&
+          !pickupChosen &&
           (guestRider.bookingFor === 'self' || groupRideOpen)
+        }
+        // Hand the pickup back to the phone. Only for a self-booking whose
+        // pickup was overridden by hand — there is nothing to undo otherwise,
+        // and for someone else's ride this phone's position is not an answer.
+        //
+        // It just asks the phone; it does not clear anything first. Clearing
+        // pickupChosen up front looked right and was wrong twice over: on
+        // success handleUseMyGps sets it again anyway (through handlePinPickup),
+        // and on failure it left the worst state on this screen — the old
+        // hand-picked pickup still in place, the manual controls gone with it,
+        // and nothing on the page saying the undo had not worked. Asking and
+        // leaving the old answer alone until a new one arrives loses nothing.
+        onUseMyLocation={
+          pickupChosen && !forOther && !isErrand
+            ? () => void handleUseMyGps('pickup')
+            : undefined
+        }
+        useMyLocationError={
+          pickupChosen && !forOther && !isErrand && gpsStatus === 'error' ? gpsError || null : null
         }
         // Map-first on the booking screen: the map takes the height and the
         // From/Destination card rides over it in a draggable sheet. Not while

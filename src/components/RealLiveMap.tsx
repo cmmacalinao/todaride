@@ -739,14 +739,16 @@ function PanLock({ unlocked, onToggle }: { unlocked: boolean; onToggle: () => vo
       aria-pressed={unlocked}
       aria-label={unlocked ? 'Lock the map' : 'Unlock the map to move it'}
       title={unlocked ? 'Map unlocked — scroll the page to lock it again' : 'Tap to move the map'}
-      // Sits directly under Leaflet's +/- stack: that control is 10px from
-      // the top-left corner and two 30px buttons tall, so 78px clears it with
-      // a hair of breathing room. Same column, so the three map controls read
-      // as one group rather than two ideas at opposite corners.
+      // Last in the top-left column, under Leaflet's +/- stack. That stack
+      // now starts at 45px rather than 10px, because Full screen floats in
+      // the corner above it (see index.css), and it is two 30px buttons
+      // tall — so 113px clears it with a hair of breathing room. Same
+      // column throughout, so the four controls read as one group rather
+      // than loose buttons scattered over the corner.
       //
       // z-[1000] clears Leaflet's own panes and controls, which run to 1000
       // inside the container's stacking context.
-      className={`absolute left-[10px] top-[78px] z-[1000] flex h-[30px] w-[30px] items-center justify-center rounded border shadow-md transition ${
+      className={`absolute left-[10px] top-[113px] z-[1000] flex h-[30px] w-[30px] items-center justify-center rounded border shadow-md transition ${
         unlocked
           ? 'border-brand-700 bg-brand-600 text-white'
           : 'border-slate-300 bg-white/95 text-slate-600 hover:bg-white'
@@ -941,37 +943,35 @@ export function RealLiveMap({ points, centerPin, centerPinColor, centerPinLabel,
           : `relative z-0 flex flex-col overflow-hidden rounded-lg border border-slate-200 ${fill ? 'h-full' : ''} ${frozen ? 'map-frozen' : ''}`
       }
     >
-      {/* Full screen, and the names, in one row above the map.
-          A 320px strip is enough to glance at and not enough to look at
-          properly — following a route or checking which street is coming
-          wants the whole phone. The names are off by default because on a
-          small map the pills cover the roads they are labelling; tapping
-          shows them. */}
+      {/* The names, and whatever the page puts in this row.
+          Full screen used to lead it; it floats over the map's top-left
+          corner now, above Recenter, where a map's own controls live and
+          where it costs no strip of a phone screen. The row is drawn only
+          when something is actually in it, so a map with nothing to say
+          here does not show an empty white band above itself.
+
+          The names are off by default because on a small map the pills
+          cover the roads they are labelling; tapping shows them. */}
       {/* relative: a search box in this row (the booking page's Where to)
           drops its matches the full width of the map, not just its own. */}
+      {((overlayTopInline && overlayTop) || toolbarAction || onScanQr) && (
       <div className="relative flex flex-wrap items-center gap-1 border-b border-slate-200 bg-white px-2 py-1 text-[11px]">
-        <button
-          type="button"
-          onClick={() => setFullscreen((v) => !v)}
-          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
-        >
-          {fullscreen ? '✕ Close' : '⛶ Full screen'}
-        </button>
-        {overlayTopInline && overlayTop && <div className="min-w-0 flex-1 pl-1">{overlayTop}</div>}
+        {overlayTopInline && overlayTop && <div className="min-w-0 flex-1">{overlayTop}</div>}
         {toolbarAction}
         {/* The way to a trip already under way, offered right where a
             passenger deciding how to get one is already looking. Pushed to
             the far side of the row (ml-auto) rather than queued after
             Legend, so it reads as a separate path rather than a third view
-            option alongside Full screen and Legend. Named for the outcome
-            ("Record my Trip"), not the mechanism the camera icon already
-            says — kept short so the row stays one line on a phone screen. */}
+            option. Named for the outcome ("Record my Trip"), not the
+            mechanism the camera icon already says — kept short so the row
+            stays one line on a phone screen. */}
         {onScanQr && (
           <button type="button" onClick={onScanQr} className="ml-auto whitespace-nowrap rounded-md border border-brand-300 bg-brand-50 px-2 py-1 text-[11px] font-semibold text-brand-700 transition hover:bg-brand-100">
             📷 Track my Trip
           </button>
         )}
       </div>
+      )}
       {fullscreen && fullscreenTop && (
         <div className="border-b border-slate-200 bg-white px-2 py-1.5">{fullscreenTop}</div>
       )}
@@ -1025,6 +1025,24 @@ export function RealLiveMap({ points, centerPin, centerPinColor, centerPinLabel,
           anchor to the map itself, which is what keeps them on screen when it
           goes full screen. */}
       <div className={`relative ${fullscreen || fill ? "min-h-0 flex-1" : ""}`}>
+      {/* Full screen, floating in the map's own top-left corner, directly
+          above Recenter — a map control among the map's controls, rather
+          than a button in a white strip that costs a line of a phone screen
+          for one word.
+
+          Inside this container, not the frame above it, so it comes along
+          into full screen and keeps working as the way back out. z-20 puts
+          it over the tiles and over Recenter's z-10 should they ever meet;
+          Recenter sits below it rather than under it (see its top offset in
+          VectorLiveMap). */}
+      <button
+        type="button"
+        onClick={() => setFullscreen((v) => !v)}
+        title={fullscreen ? 'Leave full screen' : 'Make the map fill the phone'}
+        className="absolute left-[10px] top-[10px] z-20 flex h-[29px] items-center gap-1 rounded border border-slate-300 bg-white/95 px-2 text-[11px] font-semibold leading-none text-slate-700 shadow-md transition hover:bg-white"
+      >
+        {fullscreen ? '✕ Close' : '⛶ Full screen'}
+      </button>
       {/* navAttempt in the boundary's key: a retry has to build a fresh map,
           since the boundary and the map it caught are both holding the
           failure. */}

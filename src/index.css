@@ -25,6 +25,19 @@ body {
   display: none;
 }
 
+/* The Leaflet map's controls share the top-left corner with Full screen,
+   which floats over every map at 10px and is 29px tall (see RealLiveMap).
+   Leaflet puts its zoom stack at 10px too, so without this the two land on
+   each other.
+
+   45px starts it clear of Full screen; the palm below it is positioned to
+   clear this in turn (see PanLock). The vector map does the same thing in
+   JavaScript rather than CSS, because MapLibre positions its own control
+   container — the offsets there are kept in step with these by hand. */
+.leaflet-top.leaflet-left .leaflet-control-zoom {
+  margin-top: 45px;
+}
+
 /* The label pinned to the tricycle a passenger is riding in. Leaflet's own
    tooltip styling is a pale hover hint; this one has to be readable at a
    glance on a moving road, so it is the app's navy on white with the arrow

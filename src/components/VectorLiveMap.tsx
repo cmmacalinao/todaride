@@ -896,9 +896,17 @@ export function VectorLiveMap({
     })
   }, [ready, areaKey])
 
-  // Recenter heads the control column when it is showing, so the zoom
-  // buttons, the pan lock and the compass label all step down under it —
-  // one column, top to bottom, rather than a pill appearing mid-stack.
+  // One column down the map's top-left corner, every control clearing the
+  // one above it:
+  //
+  //   Full screen   top 10px, 29px tall  (RealLiveMap, always drawn)
+  //   Recenter      top 45px, 29px tall  (below, only when showRecenter)
+  //   zoom +/-      top 80px or 45px     (this effect)
+  //
+  // The offsets are plain numbers rather than a layout because MapLibre owns
+  // the control container and positions it absolutely itself; the only way
+  // in is to set its top. So they have to be kept in step by hand with the
+  // two buttons above — which is why all three are written out here.
   //
   // Showing at all times, on every map. It used to appear only once the
   // viewer had dragged a trip map out of frame (everMoved), which reads as a
@@ -910,7 +918,9 @@ export function VectorLiveMap({
   const showRecenter = nav != null || points.length > 0 || frameCoords.length > 0
   useEffect(() => {
     const ctrl = mapRef.current?.getContainer().querySelector<HTMLElement>('.maplibregl-ctrl-top-left')
-    if (ctrl) ctrl.style.top = showRecenter ? '38px' : ''
+    // Never the bare default any more: Full screen occupies the corner on
+    // every map, so even with no Recenter the zoom buttons start below it.
+    if (ctrl) ctrl.style.top = showRecenter ? '80px' : '45px'
   }, [ready, showRecenter])
 
   return (
@@ -1029,7 +1039,13 @@ export function VectorLiveMap({
           // A pill with the word on it. It was icon-only while the
           // pickup/destination label floated over this corner of the map;
           // that label is a row above the map now, so the word fits.
-          className="absolute left-[10px] top-[10px] z-10 flex h-[29px] items-center gap-1 rounded border border-slate-300 bg-white/95 px-2 text-[11px] font-semibold leading-none text-slate-700 shadow-md hover:bg-white"
+          //
+          // Second in the corner, not first: Full screen floats at 10px and
+          // this sits the pill's height plus a gap below it (10 + 29 + 6),
+          // so the two stack down the left edge instead of landing on each
+          // other. Both are 29px tall and left-aligned so the column reads
+          // as one control stack rather than two loose buttons.
+          className="absolute left-[10px] top-[45px] z-10 flex h-[29px] items-center gap-1 rounded border border-slate-300 bg-white/95 px-2 text-[11px] font-semibold leading-none text-slate-700 shadow-md hover:bg-white"
         >
           <span aria-hidden className="text-[15px]">🎯</span>
           Recenter

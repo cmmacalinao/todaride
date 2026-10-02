@@ -2533,7 +2533,23 @@ export function PassengerPage() {
         // "Deliver to" inside its own checkout — see VendorMenuBooking.)
         // Group Ride as well: the whole group boards where the booker is, so
         // the pickup is this phone's own position and only the stops are set.
-        pickupAutomatic={!isErrand && (guestRider.bookingFor === 'self' || groupRideOpen)}
+        // Automatic only while it is actually working. Booking for yourself
+        // normally has no pickup question — the auto-locate effect fills it
+        // with wherever you are standing — so the Set Pickup button is
+        // hidden and the pin is not draggable.
+        //
+        // But when the phone will not give up a location, the pickup falls
+        // back to the seeded CLSU gate and nothing about it is automatic any
+        // more: the passenger was left with a wrong pickup, a notice telling
+        // them to tap a button, and no such button anywhere on the page
+        // (2026-10-02). So a pickup we could not find turns the manual
+        // controls back on — the button under the map, and a draggable pin.
+        pickupAutomatic={
+          !isErrand &&
+          !pickupMissingNotice &&
+          !pickupUnknown &&
+          (guestRider.bookingFor === 'self' || groupRideOpen)
+        }
         // Map-first on the booking screen: the map takes the height and the
         // From/Destination card rides over it in a draggable sheet. Not while
         // the Terminal panel has borrowed this map — that screen has its own
@@ -2650,10 +2666,28 @@ export function PassengerPage() {
               )
             : undefined
         }
-        // Where to, in the map's top row beside Full screen, in place of the
-        // pickup/destination lines (see whereToOnMap).
+        // City, then Where to, in one row over the map, with the saved
+        // places under them: the city scopes what the search will match, so
+        // the first line reads left to right as one sentence — which city,
+        // then where in it — and Home/School/Work sit directly under the
+        // field they fill in, which is the whole point of a one-tap place.
+        //
+        // All three used to be rows at the top of the page, a map's width
+        // away from each other and from the field they govern.
         toolbarStrip={
-          familyGroup && !activeRide ? familyEndsBar : whereToOnMap ? <div className="flex min-w-0 flex-1 items-stretch">{destinationStrip(true)}</div> : undefined
+          familyGroup && !activeRide ? (
+            familyEndsBar
+          ) : whereToOnMap ? (
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="flex min-w-0 items-stretch gap-1.5">
+                {/* Narrow and fixed: a city name is short and the destination
+                    field is the one that needs the room to show an address. */}
+                <div className="w-[38%] shrink-0 items-center">{cityRowFor('dropoff')}</div>
+                <div className="flex min-w-0 flex-1 items-stretch">{destinationStrip(true)}</div>
+              </div>
+              {!activeRide && !groupRideOpen && savedPlacesRow}
+            </div>
+          ) : undefined
         }
         // A delivery starts somewhere other than here, so its pickup is named
         // on the map too.
@@ -2725,10 +2759,17 @@ export function PassengerPage() {
                   now called out while it can still be corrected. */}
               {(pickupMissingNotice || pickupUnknown) && (
                 <div className="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] leading-snug text-amber-800">
-                  📍 We couldn't get your location, so the pickup is still{' '}
-                  <span className="font-semibold">{formatAddressLine(CLSU_MAIN_GATE_LOCATION.label)}</span> — not where you are. Reload and
-                  choose <span className="font-semibold">Allow</span> when it asks, or tap{' '}
-                  <span className="font-semibold">Set on Map</span> above to pin your pickup yourself.
+                  {/* Names the button that is actually on the screen. It used
+                      to say "tap Set on Map above" — there is no control by
+                      that name, and the one it meant was hidden by
+                      pickupAutomatic precisely when this notice was showing,
+                      so it sent people looking for something that was not
+                      there (2026-10-02). */}
+                  📍 We couldn&apos;t get your location, so the pickup is still{' '}
+                  <span className="font-semibold">{formatAddressLine(CLSU_MAIN_GATE_LOCATION.label)}</span> — not where you are.
+                  Move the map so the centre pin is on your pickup, then tap{' '}
+                  <span className="font-semibold">📍 Set {pickupLabel} here</span> under it. Or reload and choose{' '}
+                  <span className="font-semibold">Allow</span> when your phone asks for location.
                 </div>
               )}
               {/* How many are riding sits right of the button (2026-09-22),
@@ -2912,9 +2953,9 @@ export function PassengerPage() {
                   </div>
                 ) : (
                 <div className="flex items-center gap-1.5">
-                {/* City first: which city the trip is in comes before who it is
-                    for, and it scopes the search in the Where to bar below. */}
-                <div className="w-[42%] shrink-0">{cityRowFor('dropoff')}</div>
+                {/* City has moved up into the map's toolbar, beside the Where
+                    to bar it scopes (see toolbarStrip) — so this row is now
+                    just who the ride is for, and takes the full width. */}
                 <div className="flex min-w-0 flex-1 gap-1 rounded-lg bg-slate-100 p-1">
                   <button
                     type="button"
@@ -3040,7 +3081,6 @@ export function PassengerPage() {
                     {myLimits.curfew && ` · no booking ${myLimits.curfewFrom}–${myLimits.curfewTo}`}
                   </p>
                 )}
-                {!activeRide && !groupRideOpen && savedPlacesRow}
               </div>
             )}
             {/* The dotted connector between the two rows is gone. It drew a

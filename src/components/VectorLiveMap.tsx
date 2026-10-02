@@ -976,9 +976,17 @@ export function VectorLiveMap({
           aria-pressed={panLock.unlocked}
           aria-label={panLock.unlocked ? 'Lock the map' : 'Unlock the map to move it'}
           title={panLock.unlocked ? 'Map unlocked — scroll the page to lock it again' : 'Tap to move the map'}
-          // Directly under MapLibre's +/- stack, same column, so the three
-          // controls read as one group rather than two ideas in two corners.
-          className={`absolute left-[10px] ${showRecenter ? 'top-[116px]' : 'top-[78px]'} z-10 flex h-[29px] w-[29px] items-center justify-center rounded border shadow-md transition ${
+          // Last in the top-left column, under MapLibre's +/- stack, so the
+          // four controls read as one group rather than loose buttons.
+          //
+          // The numbers follow the stack above and have to move with it.
+          // MapLibre's zoom control is two 34px buttons (68px), and it now
+          // starts at 80px with Recenter showing or 45px without (see the
+          // effect that sets its top) — so this clears it at 154 or 119.
+          // It was 116/78, which matched the old 38/10 offsets; when Full
+          // screen took the corner and everything stepped down, this button
+          // was left sitting inside the zoom buttons.
+          className={`absolute left-[10px] ${showRecenter ? 'top-[154px]' : 'top-[119px]'} z-10 flex h-[29px] w-[29px] items-center justify-center rounded border shadow-md transition ${
             panLock.unlocked
               ? 'border-brand-700 bg-brand-600 text-white'
               : 'border-slate-300 bg-white/95 text-slate-600 hover:bg-white'

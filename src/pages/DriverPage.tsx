@@ -59,6 +59,7 @@ import {
 import { publishDelayMs, useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { useIncomingRequestAlert } from '../lib/alertSound'
 import { useBackgroundDriverLocation } from '../lib/backgroundLocation'
+import { openTrackingSettings, shouldWarnDriver, useDriverTrackingReadiness } from '../lib/driverTrackingReadiness'
 import { ROUTE_CHANGE_REASONS, ROUTE_CHANGE_START, nextRouteChangeDecision, type RouteChangeState } from '../lib/routeChange'
 import { snapForRouting, useRoute } from '../lib/routing'
 import { isApart, nextSeparationDecision, positionAt, type SeparationState } from '../lib/separation'
@@ -177,6 +178,13 @@ export function DriverPage() {
   // watch has produced nothing. Everything downstream reads myLiveGps and
   // does not care which of the two answered.
   const { position: watchedGps, accuracy: gpsAccuracy } = useWatchPosition(true)
+  // Can this phone still be followed once the driver stops looking at it?
+  //
+  // Asked here rather than inside a running trip: null for the service error
+  // because the service is not running yet, and the point of this check is to
+  // catch a missing permission in the driveway. A failure during a trip has
+  // its own route to the screen — see backgroundGpsError in ActiveTripCard.
+  const trackingReady = useDriverTrackingReadiness(null)
   const [tappedGps, setTappedGps] = useState<GeoCoords | null>(null)
   const myLiveGps = watchedGps ?? tappedGps
 
@@ -1393,6 +1401,49 @@ export function DriverPage() {
         </div>
       ) : null /* No GPS: the map already shows the driver at the terminal; the
          amber Walang GPS card is gone (asked 2026-09-21). */}
+
+      {/* Whether this phone can keep sharing once the driver stops looking
+          at it — said here, before a trip, rather than discovered halfway to
+          the pickup.
+          Three pilot runs were lost to this being invisible: the driver's
+          screen looked normal the whole time while the passenger watched a
+          pin that had stopped moving. Only shown when something is actually
+          wrong; a banner that is always there is one nobody reads. */}
+      {shouldWarnDriver(trackingReady) && (
+        <div
+          // Three voices, loudest first: red for a phone that cannot be
+          // followed at all, amber for one that is simply about to be asked,
+          // and slate for the website — where nothing is broken, nothing can
+          // be granted, and the only true thing to say is "keep the screen
+          // on, or install the app".
+          className={`rounded-lg px-3 py-1.5 text-[11px] leading-snug ${
+            trackingReady.status === 'blocked'
+              ? 'bg-red-50 text-red-900'
+              : trackingReady.status === 'will-ask'
+                ? 'bg-amber-50 text-amber-900'
+                : 'bg-slate-100 text-slate-700'
+          }`}
+        >
+          <p className="font-semibold">
+            {trackingReady.status === 'blocked'
+              ? '⚠️ '
+              : trackingReady.status === 'will-ask'
+                ? '🔔 '
+                : '📱 '}
+            {trackingReady.title}
+          </p>
+          <p className="mt-0.5">{trackingReady.detail}</p>
+          {trackingReady.offerSettings && (
+            <button
+              type="button"
+              onClick={openTrackingSettings}
+              className="mt-1 rounded-md border border-red-300 bg-white px-2 py-1 text-[11px] font-bold text-red-800 transition hover:bg-red-50"
+            >
+              Open Settings
+            </button>
+          )}
+        </div>
+      )}
 
       {justPaidRide?.payment && (
         <div

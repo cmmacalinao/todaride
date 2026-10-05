@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { EmergencyContact, GeoCoords, Ride, SosAlert, SosEventKind } from '../types'
 import { INCIDENT_STATUS_LABEL, isActiveAlert } from '../lib/safety'
 import { formatAddressLine } from '../lib/addressFormat'
+import { sosDeliveryStatus, sosSmsHref, sosSmsText } from '../lib/sosDelivery'
 
 // The emergency screen, for a passenger or a driver. Four things and no
 // more: send an SOS (after a short countdown that a stray thumb cannot
@@ -99,7 +100,13 @@ export function EmergencySheet({
     if (alertLive) onLogEvent(alertLive.id, kind, summary)
   }
 
-  const delivered = (alertLive?.notifications ?? []).filter((n) => n.status === 'delivered')
+
+  // What actually happened to the alert, as opposed to what has landed.
+  // See lib/sosDelivery: the old test was "is the delivered list empty", so a
+  // send that could not happen at all was indistinguishable from one still in
+  // progress, and said "Sending…" for ever.
+  const delivery = sosDeliveryStatus(alertLive?.notifications ?? [])
+  const delivered = delivery.delivered
   const told: string[] = []
   if (delivered.some((n) => n.recipientKind === 'admin')) told.push('TODARide Mobility Admin')
   if (delivered.some((n) => n.recipientKind === 'toda')) told.push('your TODA')
@@ -107,6 +114,15 @@ export function EmergencySheet({
   if (delivered.some((n) => n.recipientKind === 'counterpart')) told.push(role === 'passenger' ? 'your driver' : 'your passenger')
   const nearby = delivered.filter((n) => n.recipientKind === 'nearby_driver').length
   if (nearby > 0) told.push(`${nearby} nearby TODA driver${nearby === 1 ? '' : 's'}`)
+
+  // Who the self-sent text can go to: the people already on this screen as
+  // call buttons. The same numbers, the same order — nothing new to curate,
+  // and nobody appears here who would not already have been rung.
+  const smsTargets: { label: string; phone: string }[] = [
+    ...contacts.map((c) => ({ label: c.name, phone: c.phone })),
+    ...(counterpart ? [{ label: counterpart.label, phone: counterpart.phone }] : []),
+    ...(toda ? [{ label: toda.name, phone: toda.phone }] : []),
+  ].filter((t) => !!t.phone)
 
   const tripLine = ride
     ? `${formatAddressLine(ride.pickup.label)} → ${formatAddressLine(ride.dropoff.label)}`
@@ -134,11 +150,51 @@ export function EmergencySheet({
         <div className="rounded-xl border-2 border-danger-600 bg-danger-50 p-3">
           <p className="animate-pulse text-sm font-extrabold text-danger-900">🚨 SOS sent · {INCIDENT_STATUS_LABEL[alertLive.status]}</p>
           <p className="mt-1 text-xs text-danger-800">
-            {told.length > 0 ? `Notified: ${told.join(', ')}.` : 'Sending…'}
+            {delivery.tone === 'sending' && 'Sending…'}
+            {delivery.tone === 'delivered' && `Notified: ${told.join(', ')}.`}
+            {delivery.tone === 'partial' &&
+              (told.length > 0
+                ? `Notified: ${told.join(', ')}. Some messages did not go through — call as well.`
+                : 'Some messages did not go through — call instead.')}
+            {/* Said plainly. The alert is recorded and the safety desk will
+                see it in the app, but nothing was texted to anybody, and the
+                buttons below are the way to reach a person right now. */}
+            {delivery.tone === 'failed' &&
+              'Your alert is logged, but no message could be sent. Call for help using the buttons below.'}
             {alertLive.status === 'acknowledged' && ' The safety desk has seen it.'}
             {alertLive.status === 'responding' && ' Help is being organised.'}
           </p>
           <p className="mt-1 text-[11px] text-danger-700">Stay where it is safe. Keep your phone on you.</p>
+          {/* The way out when the server could not text anybody: the phone's
+              own messaging app, with the number and the message already
+              filled in, and the person pressing send.
+
+              No API key, no account, no credits — it needs nothing
+              configured, which is the whole point, because what failed above
+              is exactly the thing that needs configuring. One tap more than
+              an automatic text, and infinitely more than one that never
+              goes.
+
+              Only when the sending is over and somebody is still unreached;
+              while messages are in flight this would be two ways to do the
+              same thing at the worst possible moment. */}
+          {delivery.urgeCall && smsTargets.length > 0 && (
+            <div className="mt-2 space-y-1">
+              <p className="text-[11px] font-semibold text-danger-800">Send it yourself:</p>
+              <div className="flex flex-wrap gap-1">
+                {smsTargets.map((t) => (
+                  <a
+                    key={`${t.label}-${t.phone}`}
+                    href={sosSmsHref(t.phone, sosSmsText({ actorName, role, location, tripLine: ride ? tripLine : null }))}
+                    onClick={() => logCall('call_contact', `${actorName} opened a text to ${t.label}`)}
+                    className="rounded-lg border border-danger-400 bg-white px-2.5 py-1.5 text-[11px] font-bold text-danger-800 hover:bg-danger-50"
+                  >
+                    ✉️ Text {t.label}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
           {(alertLive.status === 'open' || alertLive.status === 'acknowledged') && (
             <button
               type="button"

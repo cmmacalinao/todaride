@@ -64,6 +64,27 @@ if (existsSync(knobs)) {
   const k = JSON.parse(readFileSync(knobs, 'utf8'))
   extra = { required: k.required === true, notes: typeof k.notes === 'string' ? k.notes : '' }
 }
+
+// Release notes that name a different version are worse than none.
+//
+// This field is hand-edited, and nothing read it back: it sat on "5C.2 —
+// Food Express…" for about thirty releases while AppUpdateBanner showed it
+// to every tester as what was new in the build they were being offered.
+// Empty is fine — the banner has its own generic line, which is honest. A
+// paragraph about another version is not.
+//
+// So: fail the release rather than ship the lie. The fix is one line in
+// app-update.json, and the build is the last moment anybody is looking.
+if (extra.notes && !extra.notes.includes(versionName)) {
+  console.error(
+    `\napp-update.json "notes" does not mention ${versionName}:\n` +
+      `  ${extra.notes.slice(0, 120)}${extra.notes.length > 120 ? '…' : ''}\n\n` +
+      `Those notes are shown to testers as what is new in this build.\n` +
+      `Update app-update.json for ${versionName}, or set "notes": "" to fall back\n` +
+      `to the generic message.\n`,
+  )
+  process.exit(1)
+}
 writeFileSync(
   resolve(root, 'dist/app-version.json'),
   JSON.stringify({ versionCode, versionName, apkUrl: '/TODARideMobility.apk', ...extra }, null, 2) + '\n',

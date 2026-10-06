@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode, useRef } from 'react'
+import { COMPANY_NAME } from '../lib/brand'
 import { BANNER_AD_SLOT_COUNT, MAX_VENDOR_POSTS } from '../types'
 import { mergeById, mergeDriverAccessMessages, mergeIncomingRides, mergeVendorPosts } from '../lib/rideMerge'
 import { DEFAULT_FAMILY_PROMO_DEADLINE } from '../lib/familyTerms'
@@ -421,6 +422,9 @@ interface RideState {
   // (see server/index.js) and surface an error if it isn't reachable,
   // rather than silently falling back to an on-screen code.
   simulatedOtpEnabled: boolean
+  // Whether the operating company is credited on screen. Off for now — see
+  // lib/brand. The privacy and terms text names it regardless of this.
+  showDeveloperCredit: boolean
   // Hide the seeded demo drivers and the prototype badge from real users.
   // See lib/launchMode.ts — a switch, not a purge.
   launchModeEnabled: boolean
@@ -646,6 +650,7 @@ type RideAction =
   | { type: 'SET_MEDS_ENABLED'; enabled: boolean }
   | { type: 'SET_PARTNER_BANNER_ENABLED'; enabled: boolean }
   | { type: 'SET_SIMULATED_OTP_ENABLED'; enabled: boolean }
+  | { type: 'SET_SHOW_DEVELOPER_CREDIT'; enabled: boolean; actorName: string }
   | { type: 'SET_LAUNCH_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_ROTARY_SHARE_SETTINGS'; settings: RotaryShareSettings }
   | { type: 'SET_PUBLIC_BASE_URL'; url: string }
@@ -1668,6 +1673,7 @@ interface StoredState {
   vendorsEnabled?: boolean
   partnerBannerEnabled?: boolean
   simulatedOtpEnabled?: boolean
+  showDeveloperCredit?: boolean
   launchModeEnabled?: boolean
   rotaryShareSettings?: RotaryShareSettings
   publicBaseUrl?: string
@@ -1956,6 +1962,7 @@ function fromStored(parsed: StoredState): RideState {
     // proving the real path. An install that has already chosen keeps its
     // choice — this only changes what a fresh one starts with.
     simulatedOtpEnabled: parsed.simulatedOtpEnabled ?? false,
+    showDeveloperCredit: parsed.showDeveloperCredit ?? false,
     launchModeEnabled: parsed.launchModeEnabled ?? false,
     rotaryShareSettings: parsed.rotaryShareSettings ?? DEFAULT_ROTARY_SHARE_SETTINGS,
     publicBaseUrl: parsed.publicBaseUrl ?? '',
@@ -2288,6 +2295,7 @@ function loadInitialState(): RideState {
     vendorsEnabled: true,
     partnerBannerEnabled: false,
     simulatedOtpEnabled: false,
+    showDeveloperCredit: false,
     launchModeEnabled: false,
     rotaryShareSettings: DEFAULT_ROTARY_SHARE_SETTINGS,
     publicBaseUrl: '',
@@ -4229,6 +4237,26 @@ function reducer(state: RideState, action: RideAction): RideState {
       return { ...state, medsEnabled: action.enabled }
     case 'SET_PARTNER_BANNER_ENABLED':
       return { ...state, partnerBannerEnabled: action.enabled }
+    case 'SET_SHOW_DEVELOPER_CREDIT': {
+      // Who turned the company name on, and when. A credit line is a
+      // public statement about who runs this, so it is worth an audit entry.
+      const entry = {
+        id: `log-credit-${Date.now()}`,
+        actorRole: 'super_admin' as const,
+        actorName: action.actorName,
+        todaOrgId: null,
+        action: 'developer_credit',
+        summary: action.enabled
+          ? `Developer credit shown — ${COMPANY_NAME} named on the landing page and About.`
+          : 'Developer credit hidden from the landing page and About.',
+        at: new Date().toISOString(),
+      }
+      return {
+        ...state,
+        showDeveloperCredit: action.enabled,
+        activityLog: [entry, ...state.activityLog].slice(0, MAX_ACTIVITY_LOG_ENTRIES),
+      }
+    }
     case 'SET_SIMULATED_OTP_ENABLED':
       return { ...state, simulatedOtpEnabled: action.enabled }
     case 'SET_LAUNCH_MODE_ENABLED':
@@ -7036,6 +7064,7 @@ interface RideContextValue extends RideState {
   setMedsEnabled: (enabled: boolean) => void
   setPartnerBannerEnabled: (enabled: boolean) => void
   setSimulatedOtpEnabled: (enabled: boolean) => void
+  setShowDeveloperCredit: (enabled: boolean, actorName: string) => void
   setLaunchModeEnabled: (enabled: boolean) => void
   setRotaryShareSettings: (settings: RotaryShareSettings) => void
   setPublicBaseUrl: (url: string) => void
@@ -7989,6 +8018,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           vendorsEnabled: state.vendorsEnabled,
           partnerBannerEnabled: state.partnerBannerEnabled,
           simulatedOtpEnabled: state.simulatedOtpEnabled,
+          showDeveloperCredit: state.showDeveloperCredit,
           launchModeEnabled: state.launchModeEnabled,
           rotaryShareSettings: state.rotaryShareSettings,
           publicBaseUrl: state.publicBaseUrl,
@@ -8101,6 +8131,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     state.vendorsEnabled,
     state.partnerBannerEnabled,
     state.simulatedOtpEnabled,
+    state.showDeveloperCredit,
     state.launchModeEnabled,
     state.rotaryShareSettings,
     state.publicBaseUrl,
@@ -8446,6 +8477,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setMedsEnabled: (enabled) => dispatch({ type: 'SET_MEDS_ENABLED', enabled }),
     setPartnerBannerEnabled: (enabled) => dispatch({ type: 'SET_PARTNER_BANNER_ENABLED', enabled }),
     setSimulatedOtpEnabled: (enabled) => dispatch({ type: 'SET_SIMULATED_OTP_ENABLED', enabled }),
+    setShowDeveloperCredit: (enabled, actorName) => dispatch({ type: 'SET_SHOW_DEVELOPER_CREDIT', enabled, actorName }),
     setLaunchModeEnabled: (enabled) => dispatch({ type: 'SET_LAUNCH_MODE_ENABLED', enabled }),
     setRotaryShareSettings: (settings) => dispatch({ type: 'SET_ROTARY_SHARE_SETTINGS', settings }),
     setPublicBaseUrl: (url) => dispatch({ type: 'SET_PUBLIC_BASE_URL', url }),

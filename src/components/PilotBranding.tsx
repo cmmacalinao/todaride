@@ -1,3 +1,5 @@
+import { TODA_MEANING } from '../lib/brand'
+
 // The masthead naming which TODA this screen is for — "Roseville TODA",
 // or just "TODA" for the app's own generic identity (see usePilotBranding).
 // Split on the *last word*, not literally the word "TODA": that word gets
@@ -46,7 +48,7 @@ export function PilotBranding({ name, compact, hideSubtitle }: { name: string; c
           <p
             className={`mt-1 whitespace-nowrap text-center text-gold-400 ${compact ? 'text-[13.5px]' : 'text-[18px]'}`}
           >
-            Transport &amp; Opportunity Digital Access
+            {TODA_MEANING}
           </p>
         )}
       </div>

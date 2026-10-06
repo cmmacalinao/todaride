@@ -1,3 +1,5 @@
+import { TODA_MEANING } from '../lib/brand'
+
 // The framed logo on the welcome screens (login and "Who are you?"): the
 // TODA Ride Mobility mark with what TODA stands for under it, inside a thin
 // white ring.
@@ -39,7 +41,7 @@ export function BrandFrame() {
         className="mt-1.5 block whitespace-nowrap text-center leading-tight text-gold-400"
         style={{ fontSize: `${(ART_WIDTH / TAGLINE_WIDTH_PER_PX).toFixed(2)}px` }}
       >
-        Transport &amp; Opportunity Digital Access
+        {TODA_MEANING}
       </span>
     </span>
   )

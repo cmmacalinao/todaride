@@ -1,3 +1,5 @@
+import { DeveloperCredit } from './DeveloperCredit'
+
 // TODARide Mobility's vision, mission and purpose, as written by the founders.
 // Lives on the Welcome page under "Why Choose", for anyone who scrolls past the
 // login to find out what the project is for.
@@ -121,6 +123,7 @@ export function VisionMission() {
           ))}
         </ol>
       </div>
+      <DeveloperCredit />
     </section>
   )
 }

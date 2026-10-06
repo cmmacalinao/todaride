@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom'
+import { APP_FULL_NAME } from '../lib/brand'
 import { BrandFrame } from '../components/BrandFrame'
 import { AppLoginForm } from '../components/AppLoginForm'
 import { AndroidAppBanner } from '../components/AndroidAppBanner'
 import { BuildLabel } from '../components/BuildLabel'
 import { VisionMission } from '../components/VisionMission'
+import { DeveloperCredit } from '../components/DeveloperCredit'
 import { useRides } from '../context/RideContext'
 
 // Trimmed from ten to the four the brand board leads with — a first screen
@@ -147,7 +149,7 @@ export function LandingPage() {
             Empowering Drivers. Protecting Passengers. Strengthening Communities.
           </p>
           <p className="mt-2 text-xs font-semibold text-brand-700">
-            TODA — Transport &amp; Opportunity Digital Access
+            {APP_FULL_NAME}
           </p>
         </div>
 
@@ -189,6 +191,7 @@ export function LandingPage() {
       </section>
 
       <VisionMission />
+      <DeveloperCredit className="px-5 pb-2 text-center text-[11px] leading-snug text-slate-400" />
 
 
       <section className="bg-white px-5 pb-10">

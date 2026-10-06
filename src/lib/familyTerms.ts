@@ -1,3 +1,4 @@
+import { COMPANY_NAME } from './brand'
 // Family Plan — Terms and Conditions (2026-09-23).
 //
 // Accepted once by the account holder when they activate the Family Plan
@@ -24,6 +25,7 @@ export const FAMILY_TERMS: TermsSection[] = [
     title: '1. What the Family Plan is',
     body: [
       'The Family Plan lets an adult account holder ("you") book tricycle rides for members of their family, including minors, add and invite family members, choose trusted drivers, and follow those rides live in the TODA Ride Mobility app ("the App").',
+      `The App is operated by ${COMPANY_NAME} (\"the Operator\"), which is also the personal information controller for the data described in these terms.`,
       'The App is a booking platform. Rides are provided by tricycle drivers who are members of their TODA and operate under a franchise issued by their local government unit. The drivers are not employees of the App.',
     ],
   },
@@ -67,6 +69,7 @@ export const FAMILY_TERMS: TermsSection[] = [
       'This data is used only to provide the ride, keep the rider safe (live tracking, safety alerts, SOS), settle payment, and meet legal obligations. A minor\'s data is never used for advertising or marketing.',
       'Live location is shared with you and with the driver only during an active ride.',
       'By activating, you give consent on behalf of each minor you add, as their parent or legal guardian. An adult family member gives their own consent when they join through your invite.',
+      `Requests about personal data are handled by ${COMPANY_NAME} as personal information controller, under Republic Act No. 10173 (Data Privacy Act of 2012).`,
       'You and your family members may ask to access, correct or delete personal data, or withdraw consent, through Contact us. Withdrawing consent for a minor removes them from the Family Plan. Trip records may be kept for as long as the law requires. Complaints may be raised with the National Privacy Commission.',
     ],
   },

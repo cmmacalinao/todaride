@@ -1,4 +1,5 @@
 import { ArchitectureOverview } from '../components/ArchitectureOverview'
+import { DEVELOPER_CREDIT } from '../lib/brand'
 import { launchModeLeavesNoDrivers } from '../lib/launchMode'
 import { feeReportSheetRows, monthlyFeeReport } from '../lib/feeReport'
 import * as XLSX from 'xlsx'
@@ -56,6 +57,8 @@ export function SuperAdminPage() {
     terminalQrFeeWaived,
     setTerminalQrFeeWaived,
     simulatedOtpEnabled,
+    showDeveloperCredit,
+    setShowDeveloperCredit,
     launchModeEnabled,
     setLaunchModeEnabled,
     drivers,
@@ -512,6 +515,17 @@ export function SuperAdminPage() {
                 </div>
               )}
             </div>
+            {/* Off for now. The company is still named in the Family Plan
+                terms and the privacy text whatever this says — a privacy
+                notice has to identify the personal information controller,
+                and that is not a branding decision. */}
+            <FeatureToggleRow
+              icon="🏢"
+              label="Show developer credit"
+              description={`Show "${DEVELOPER_CREDIT}" as a small line on the landing page and the About section. Off shows nothing there. The Family Plan terms and privacy text name the company either way, as the Data Privacy Act requires.`}
+              enabled={showDeveloperCredit}
+              onChange={(enabled) => setShowDeveloperCredit(enabled, 'Super Admin')}
+            />
             <FeatureToggleRow
               icon="🔐"
               label="Simulated OTP sending"

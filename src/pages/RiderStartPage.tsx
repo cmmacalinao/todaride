@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
+import { TODA_MEANING } from '../lib/brand'
 import { useRides } from '../context/RideContext'
 import { useSession } from '../context/SessionContext'
 import { familyLimitsFor } from '../lib/familyLimits'
@@ -70,7 +71,7 @@ export function RiderStartPage() {
             this one — see usePilotBranding. */}
         {/* The TODA card was taken off every screen (2026-09-28); what TODA
             stands for stays. */}
-        <p className="whitespace-nowrap text-center text-[17px] text-gold-400">Transport &amp; Opportunity Digital Access</p>
+        <p className="whitespace-nowrap text-center text-[17px] text-gold-400">{TODA_MEANING}</p>
 
         {/* No ServiceTabs strip here — this screen's own three tiles below
             already are the "switch service" UI. The pill is for the Food

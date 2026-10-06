@@ -20,6 +20,10 @@ export interface FeeReportRow {
   // not the fee stretched far enough to pay them in full.
   referredRides: number
   unreferredRides: number
+  // Completed rides that carried no fee at all: a flat-plan TODA's rides, a
+  // terminal-QR ride, or anything completed during the pilot. Counted so a
+  // low gross is explained by the report rather than looking like loss.
+  feeFreeRides: number
   grossFees: number
   partnerPayouts: number
   todaRewards: number
@@ -52,6 +56,7 @@ export function monthlyFeeReport(rides: Ride[]): FeeReportRow[] {
         rides: 0,
         referredRides: 0,
         unreferredRides: 0,
+        feeFreeRides: 0,
         grossFees: 0,
         partnerPayouts: 0,
         todaRewards: 0,
@@ -62,6 +67,7 @@ export function monthlyFeeReport(rides: Ride[]): FeeReportRow[] {
     row.rides += 1
     if (p?.partnerDriverId) row.referredRides += 1
     else row.unreferredRides += 1
+    if ((p?.platformFee ?? 0) <= 0) row.feeFreeRides += 1
     row.grossFees += p?.platformFee ?? 0
     row.partnerPayouts += p?.partnerCommission ?? 0
     row.todaRewards += p?.todaReferralReward ?? 0
@@ -90,6 +96,7 @@ export const FEE_REPORT_COLUMNS = [
   'Rides',
   'Referred rides',
   'Unreferred rides',
+  'Fee-free rides',
   'Gross platform fees',
   'Partner payouts',
   'TODA rewards',
@@ -103,6 +110,7 @@ export function feeReportSheetRows(rows: FeeReportRow[]): Record<string, string 
     Rides: r.rides,
     'Referred rides': r.referredRides,
     'Unreferred rides': r.unreferredRides,
+    'Fee-free rides': r.feeFreeRides,
     'Gross platform fees': r.grossFees,
     'Partner payouts': r.partnerPayouts,
     'TODA rewards': r.todaRewards,

@@ -202,6 +202,11 @@ export interface TodaOrganization {
   saasPlan: SaasPlan
   monthlyPlatformFee: number
   perBookingFee: number
+  // Per ride or flat plan — never both. See lib/todaBilling: a TODA on a
+  // monthly plan whose drivers also pay per ride is billed twice for the
+  // same service. Optional so every existing TODA keeps doing what it is
+  // doing today (per_ride); only App Admin can change it.
+  billingMode?: TodaBillingMode
   // Level-2 Operator this TODA reports to, if any; null = reports directly
   // to HQ (the default — most TODAs never move past Level 1).
   operatorId: string | null
@@ -1382,6 +1387,8 @@ export interface RotaryShareSettings {
   perRide: number
   recipientLabel: string
 }
+
+export type TodaBillingMode = 'per_ride' | 'flat_plan'
 
 export type QueueOfferOutcome = 'declined' | 'timeout' | 'released_by_passenger'
 

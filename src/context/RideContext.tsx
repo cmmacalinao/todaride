@@ -6,9 +6,10 @@ import { DEFAULT_ROTARY_SHARE_SETTINGS, findPartnerByCode, generatePartnerCode, 
 import { PILOT_ORIGIN } from '../lib/pilotOrigin'
 import type { RecoveryKind } from '../lib/unifiedLogin'
 import type { RidePhoto } from '../types'
-import type { RotaryShareSettings } from '../types'
+import type { RotaryShareSettings, TodaBillingMode } from '../types'
 import type { BusinessPhase } from '../lib/businessPhase'
-import { businessPhaseLogSummary, DEFAULT_BUSINESS_PHASE, effectivePlatformFee } from '../lib/businessPhase'
+import { businessPhaseLogSummary, DEFAULT_BUSINESS_PHASE } from '../lib/businessPhase'
+import { platformFeeForRide } from '../lib/todaBilling'
 import type { EmergencyContact, SafetySettings, SosEvent, SosEventKind, SosTriggerSource, SosTriggeredByRole } from '../types'
 import type {
   PabiliFareMode,
@@ -659,6 +660,7 @@ type RideAction =
   | { type: 'SET_ROTARY_SHARE_SETTINGS'; settings: RotaryShareSettings }
   | { type: 'SET_BUSINESS_PHASE'; phase: BusinessPhase; actorName: string }
   | { type: 'SET_PLATFORM_ONLINE_COLLECTION'; enabled: boolean }
+  | { type: 'SET_TODA_BILLING_MODE'; todaOrgId: string; mode: TodaBillingMode }
   | { type: 'SET_PUBLIC_BASE_URL'; url: string }
   | { type: 'SET_PILOT_TODA_NAME'; name: string }
   | { type: 'SET_SIMULATE_MOVEMENT_ENABLED'; enabled: boolean }
@@ -3535,12 +3537,17 @@ function reducer(state: RideState, action: RideAction): RideState {
           : undefined
       const earnedFare = codOrder ? codOrder.deliveryFee + codOrder.serviceFee : ride.fareEstimate
       // Pilot charges nobody; the configured fee is kept, not zeroed.
-      const platformFee = effectivePlatformFee(
-        (ride.bookedAtTerminal || ride.safetyRecord) && state.terminalQrFeeWaived
-          ? 0
-          : Math.min(earnedFare, state.commissionPerRide),
-        state.businessPhase,
-      )
+      // Three gates, in order: the terminal-QR waiver, the TODA's billing
+      // mode (a flat-plan TODA's rides carry no fee at all), and the
+      // business phase above both.
+      const platformFee = platformFeeForRide({
+        baseFee:
+          (ride.bookedAtTerminal || ride.safetyRecord) && state.terminalQrFeeWaived
+            ? 0
+            : Math.min(earnedFare, state.commissionPerRide),
+        mode: drivingDriverToda?.billingMode,
+        phase: state.businessPhase,
+      })
       const todaCommission = Math.min(
         Math.max(0, earnedFare - platformFee),
         getActiveTodaCommission(drivingDriverToda),
@@ -4255,6 +4262,13 @@ function reducer(state: RideState, action: RideAction): RideState {
       return { ...state, launchModeEnabled: action.enabled }
     case 'SET_ROTARY_SHARE_SETTINGS':
       return { ...state, rotaryShareSettings: action.settings }
+    case 'SET_TODA_BILLING_MODE':
+      return {
+        ...state,
+        todaOrganizations: state.todaOrganizations.map((o) =>
+          o.id === action.todaOrgId ? { ...o, billingMode: action.mode } : o,
+        ),
+      }
     case 'SET_PLATFORM_ONLINE_COLLECTION':
       return { ...state, platformOnlineCollection: action.enabled }
     case 'SET_BUSINESS_PHASE': {
@@ -7218,6 +7232,8 @@ interface RideContextValue extends RideState {
   rejectTodaOrg: (todaOrgId: string) => void
   setTodaOrgPendingNote: (todaOrgId: string, note: string | null, deadline?: string | null) => void
   setTodaSaasPlan: (todaOrgId: string, plan: SaasPlan, perBookingFee: number) => void
+  // App Admin only — a TODA cannot move itself onto a flat plan.
+  setTodaBillingMode: (todaOrgId: string, mode: TodaBillingMode) => void
   setTodaOperator: (todaOrgId: string, operatorId: string | null) => void
   registerOperator: (args: {
     name: string
@@ -8584,6 +8600,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     rejectTodaOrg: (todaOrgId) => dispatch({ type: 'REJECT_TODA_ORG', todaOrgId }),
     setTodaOrgPendingNote: (todaOrgId, note, deadline = null) =>
       dispatch({ type: 'SET_TODA_ORG_PENDING_NOTE', todaOrgId, note, deadline }),
+    setTodaBillingMode: (todaOrgId, mode) => dispatch({ type: 'SET_TODA_BILLING_MODE', todaOrgId, mode }),
     setTodaSaasPlan: (todaOrgId, plan, perBookingFee) =>
       dispatch({ type: 'SET_TODA_SAAS_PLAN', todaOrgId, plan, perBookingFee }),
     setTodaOperator: (todaOrgId, operatorId) => dispatch({ type: 'SET_TODA_OPERATOR', todaOrgId, operatorId }),

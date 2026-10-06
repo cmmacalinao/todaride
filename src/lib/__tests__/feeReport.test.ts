@@ -76,6 +76,15 @@ describe('monthlyFeeReport', () => {
     expect(r.unreferredRides).toBe(1)
   })
 
+  it('counts fee-free rides so a low gross reads as explained, not as loss', () => {
+    // A flat-plan TODA's rides, a terminal-QR ride, or anything completed
+    // during the pilot.
+    const rows = monthlyFeeReport([referred('2026-10'), ride('2026-10', { platformFee: 0 }), ride('2026-10', { platformFee: 0 })])
+    expect(rows[0].rides).toBe(3)
+    expect(rows[0].feeFreeRides).toBe(2)
+    expect(rows[0].grossFees).toBe(3)
+  })
+
   it('has nothing to report when nothing completed', () => {
     expect(monthlyFeeReport([])).toEqual([])
   })
@@ -89,6 +98,7 @@ describe('feeReportSheetRows', () => {
       'Rides',
       'Referred rides',
       'Unreferred rides',
+      'Fee-free rides',
       'Gross platform fees',
       'Partner payouts',
       'TODA rewards',

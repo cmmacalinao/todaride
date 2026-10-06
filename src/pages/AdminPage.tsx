@@ -1,5 +1,6 @@
 import { formatTripRoute } from '../lib/addressFormat'
 import { BUSINESS_PHASE_LABEL, effectiveMonthlyFee, isPilot } from '../lib/businessPhase'
+import { billingModeExplanation, billingModeOf, monthlyPlanDueForToda } from '../lib/todaBilling'
 import { SafetyDashboard } from '../components/SafetyDashboard'
 import { PhotoGallery } from '../components/PhotoGallery'
 import { rideServiceTag } from '../lib/vendorOrders'
@@ -228,6 +229,7 @@ export function AdminPage() {
     setOutOfAreaPerKm,
     logActivity,
     businessPhase,
+    setTodaBillingMode,
   } = useRides()
   const [commissionInput, setCommissionInput] = useState(String(commissionPerRide))
   const navigate = useNavigate()
@@ -340,12 +342,22 @@ export function AdminPage() {
   const approvedFranchiseCount = franchises.filter((f) => f.verificationStatus === 'approved').length
   // Nobody is billed during the pilot, so the recurring revenue is ₱0 — the
   // plans are still configured and come back the moment the phase changes.
-  const estimatedMonthlyRecurringRevenue = effectiveMonthlyFee(
-    todaOrganizations.filter((o) => o.verificationStatus === 'approved').reduce((sum, o) => sum + o.monthlyPlatformFee, 0) +
+  // Only flat-plan TODAs owe a monthly plan: a per-ride TODA's drivers are
+  // already paying by the ride, and counting its plan here as well would be
+  // the double charge lib/todaBilling exists to prevent.
+  const estimatedMonthlyRecurringRevenue =
+    todaOrganizations
+      .filter((o) => o.verificationStatus === 'approved')
+      .reduce(
+        (sum, o) =>
+          sum + monthlyPlanDueForToda({ monthlyPlatformFee: o.monthlyPlatformFee, mode: o.billingMode, phase: businessPhase }),
+        0,
+      ) +
+    effectiveMonthlyFee(
       operators.filter((o) => o.verificationStatus === 'approved').reduce((sum, o) => sum + o.monthlyPlatformFee, 0) +
-      franchises.filter((f) => f.verificationStatus === 'approved').reduce((sum, f) => sum + f.monthlyTechnologyFee, 0),
-    businessPhase,
-  )
+        franchises.filter((f) => f.verificationStatus === 'approved').reduce((sum, f) => sum + f.monthlyTechnologyFee, 0),
+      businessPhase,
+    )
 
   const openReports = driverReports.filter((r) => r.status === 'open')
   const reviewedReports = driverReports.filter((r) => r.status === 'reviewed')
@@ -1134,6 +1146,43 @@ export function AdminPage() {
             const queue = getTodaQueue(org.id, drivers)
             return (
               <div key={org.id} className="rounded-lg border border-slate-200 p-2.5 text-xs">
+                {/* Which way this TODA is charged. App Admin only — a TODA
+                    moving itself onto a flat plan would be choosing to stop
+                    its own drivers' per-ride fees, which is not its call.
+                    Stated in words as well as a control, because "both
+                    numbers are zero" is not a readable answer. */}
+                <div className="mb-2 rounded-lg bg-slate-50 p-2">
+                  <p className="text-[11px] font-semibold text-slate-700">Billing model</p>
+                  <div className="mt-1 flex gap-1">
+                    {(['per_ride', 'flat_plan'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => {
+                          setTodaBillingMode(org.id, mode)
+                          logActivity({
+                            actorRole: 'admin',
+                            actorName: 'App Admin',
+                            todaOrgId: org.id,
+                            action: 'toda_billing_mode',
+                            summary: `Set ${org.name} to ${mode === 'flat_plan' ? 'flat monthly plan' : 'per-ride fees'}.`,
+                          })
+                        }}
+                        aria-pressed={billingModeOf(org.billingMode) === mode}
+                        className={`flex-1 rounded-md border px-2 py-1 text-[10px] font-bold transition ${
+                          billingModeOf(org.billingMode) === mode
+                            ? 'border-slate-800 bg-slate-800 text-white'
+                            : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        {mode === 'per_ride' ? 'Per ride' : 'Flat plan'}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[10px] leading-snug text-slate-500">
+                    {billingModeExplanation(org.billingMode, businessPhase)}
+                  </p>
+                </div>
                 <p className="font-medium text-slate-700">{org.name}</p>
                 {queue.length === 0 ? (
                   <p className="mt-0.5 text-slate-400">No drivers currently in the Pila.</p>

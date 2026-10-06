@@ -11,12 +11,36 @@
 
 export const FAMILY_TERMS_VERSION = '2026-09-23'
 
+// Defaults only. The live values are Super Admin settings (see
+// PricingSettings) — these are what a fresh install starts with, and what
+// familyTerms falls back to when nobody has set anything.
 export const FAMILY_PLAN_FREE_MONTHS = 12
 export const FAMILY_PLAN_MONTHLY_PRICE = 500
 
 export interface TermsSection {
   title: string
   body: string[]
+}
+
+// Built from the prices in force, so the terms a family agrees to say what
+// they will actually be charged. A price change therefore changes the words
+// on the next activation — which is the point: terms quoting a price nobody
+// charges any more are worse than no terms.
+export function buildFamilyTerms(
+  freeMonths: number = FAMILY_PLAN_FREE_MONTHS,
+  monthlyPrice: number = FAMILY_PLAN_MONTHLY_PRICE,
+): TermsSection[] {
+  return FAMILY_TERMS.map((section) =>
+    section.title === '8. Fares, payment and the promo'
+      ? {
+          ...section,
+          body: [
+            `The Family Plan is free for ${freeMonths} months from activation, for families who activate on or before the promo end date shown in the App, as an introductory promo (regular price ₱${monthlyPrice}/month). Ride fares are separate and are paid per ride, by the rider or by you in the App, as set for each family member.`,
+            ...section.body.slice(1),
+          ],
+        }
+      : section,
+  )
 }
 
 export const FAMILY_TERMS: TermsSection[] = [

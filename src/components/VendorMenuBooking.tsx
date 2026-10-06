@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
-import { DEFAULT_MEDS_DELIVERY_FEE, DEFAULT_MEDS_SERVICE_FEE, PAYMENT_METHODS } from '../mock/data'
+import { PAYMENT_METHODS } from '../mock/data'
 import { DocumentUploadField } from './DocumentUploadField'
 import { createCustomLocation, resolvePhAddress, reverseGeocodeToPhAddress, type PhAddressTags } from '../lib/customLocation'
 import { getCurrentGeoPosition } from '../lib/geo'
@@ -131,6 +131,7 @@ export const VendorMenuBooking = forwardRef<
     cancelMedsOrder,
     ratePharmacy,
     quoteVendorDeliveryFare,
+    pricingSettings,
   } = useRides()
   const businessTypes = catalogTypes ?? VENDOR_BUSINESS_TYPES
   // Whether this screen is PaDeliver's goods marketplace rather than Food
@@ -260,8 +261,8 @@ export const VendorMenuBooking = forwardRef<
   // numbers the vendor's quotation starts from.
   const fare =
     selectedVendor && deliveryAddress ? quoteVendorDeliveryFare(selectedVendor.id, deliveryAddress) : null
-  const todaFare = fare?.todaFare ?? DEFAULT_MEDS_DELIVERY_FEE
-  const bookingFee = fare?.bookingFee ?? DEFAULT_MEDS_SERVICE_FEE
+  const todaFare = fare?.todaFare ?? pricingSettings.medsDeliveryFee
+  const bookingFee = fare?.bookingFee ?? pricingSettings.medsServiceFee
   const total = subtotal + todaFare + bookingFee
 
   function setQty(productId: string, qty: number) {

@@ -6,10 +6,11 @@ import { DEFAULT_ROTARY_SHARE_SETTINGS, findPartnerByCode, generatePartnerCode, 
 import { PILOT_ORIGIN } from '../lib/pilotOrigin'
 import type { RecoveryKind } from '../lib/unifiedLogin'
 import type { RidePhoto } from '../types'
-import type { RotaryShareSettings, TodaBillingMode } from '../types'
+import type { PricingSettings, RotaryShareSettings, TodaBillingMode } from '../types'
 import type { BusinessPhase } from '../lib/businessPhase'
 import { businessPhaseLogSummary, DEFAULT_BUSINESS_PHASE } from '../lib/businessPhase'
 import { platformFeeForRide } from '../lib/todaBilling'
+import { DEFAULT_PRICING_SETTINGS } from '../lib/pricing'
 import type { EmergencyContact, SafetySettings, SosEvent, SosEventKind, SosTriggerSource, SosTriggeredByRole } from '../types'
 import type {
   PabiliFareMode,
@@ -135,8 +136,6 @@ import {
   DEFAULT_ADSENSE_SETTINGS,
   DEFAULT_CORPORATE_REGISTRATION,
   DEFAULT_INCOME_PROMOTION_SETTINGS,
-  DEFAULT_MEDS_DELIVERY_FEE,
-  DEFAULT_MEDS_SERVICE_FEE,
   DEFAULT_OUT_OF_AREA_PER_KM,
   DEFAULT_PABILI_FIXED_FARE,
   DEFAULT_TODA_RADIUS_KM,
@@ -437,6 +436,8 @@ interface RideState {
   // account. Off by default: the driver is paid directly, in cash or to
   // their own wallet, and no money passes through the platform.
   platformOnlineCollection: boolean
+  // Admin-settable prices — see PricingSettings.
+  pricingSettings: PricingSettings
   // Public address the shareable links/QRs are built from (see
   // SuperAdminPage's Access links tab). Must be set explicitly because
   // window.location.origin is useless for sharing in the two cases that
@@ -661,6 +662,7 @@ type RideAction =
   | { type: 'SET_BUSINESS_PHASE'; phase: BusinessPhase; actorName: string }
   | { type: 'SET_PLATFORM_ONLINE_COLLECTION'; enabled: boolean }
   | { type: 'SET_TODA_BILLING_MODE'; todaOrgId: string; mode: TodaBillingMode }
+  | { type: 'SET_PRICING_SETTINGS'; settings: PricingSettings }
   | { type: 'SET_PUBLIC_BASE_URL'; url: string }
   | { type: 'SET_PILOT_TODA_NAME'; name: string }
   | { type: 'SET_SIMULATE_MOVEMENT_ENABLED'; enabled: boolean }
@@ -1685,6 +1687,7 @@ interface StoredState {
   rotaryShareSettings?: RotaryShareSettings
   businessPhase?: BusinessPhase
   platformOnlineCollection?: boolean
+  pricingSettings?: PricingSettings
   publicBaseUrl?: string
   pilotTodaName?: string
   simulateMovementEnabled?: boolean
@@ -1975,6 +1978,7 @@ function fromStored(parsed: StoredState): RideState {
     rotaryShareSettings: parsed.rotaryShareSettings ?? DEFAULT_ROTARY_SHARE_SETTINGS,
     businessPhase: parsed.businessPhase ?? DEFAULT_BUSINESS_PHASE,
     platformOnlineCollection: parsed.platformOnlineCollection ?? false,
+    pricingSettings: { ...DEFAULT_PRICING_SETTINGS, ...parsed.pricingSettings },
     publicBaseUrl: parsed.publicBaseUrl ?? '',
     pilotTodaName: parsed.pilotTodaName ?? '',
     // Off unless somebody has said otherwise. The pilot is on real roads
@@ -2309,6 +2313,7 @@ function loadInitialState(): RideState {
     rotaryShareSettings: DEFAULT_ROTARY_SHARE_SETTINGS,
     businessPhase: DEFAULT_BUSINESS_PHASE,
     platformOnlineCollection: false,
+    pricingSettings: DEFAULT_PRICING_SETTINGS,
     publicBaseUrl: '',
     pilotTodaName: '',
     simulateMovementEnabled: false,
@@ -4269,6 +4274,8 @@ function reducer(state: RideState, action: RideAction): RideState {
           o.id === action.todaOrgId ? { ...o, billingMode: action.mode } : o,
         ),
       }
+    case 'SET_PRICING_SETTINGS':
+      return { ...state, pricingSettings: action.settings }
     case 'SET_PLATFORM_ONLINE_COLLECTION':
       return { ...state, platformOnlineCollection: action.enabled }
     case 'SET_BUSINESS_PHASE': {
@@ -6284,7 +6291,7 @@ function reducer(state: RideState, action: RideAction): RideState {
       const orderPharmacy = state.pharmacies.find((p) => p.id === action.pharmacyId)
       const fare = orderPharmacy && orderPharmacy.businessType !== 'pharmacy'
         ? vendorDeliveryFareQuote(state, orderPharmacy, action.deliveryAddress)
-        : { todaFare: DEFAULT_MEDS_DELIVERY_FEE, bookingFee: DEFAULT_MEDS_SERVICE_FEE }
+        : { todaFare: state.pricingSettings.medsDeliveryFee, bookingFee: state.pricingSettings.medsServiceFee }
       const order: MedsOrder = {
         id: `meds-${Date.now()}`,
         customerId: action.customerId,
@@ -7094,6 +7101,7 @@ interface RideContextValue extends RideState {
   setRotaryShareSettings: (settings: RotaryShareSettings) => void
   setBusinessPhase: (phase: BusinessPhase, actorName: string) => void
   setPlatformOnlineCollection: (enabled: boolean) => void
+  setPricingSettings: (settings: PricingSettings) => void
   setPublicBaseUrl: (url: string) => void
   setPilotTodaName: (name: string) => void
   setSimulateMovementEnabled: (enabled: boolean) => void
@@ -8051,6 +8059,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           rotaryShareSettings: state.rotaryShareSettings,
           businessPhase: state.businessPhase,
           platformOnlineCollection: state.platformOnlineCollection,
+          pricingSettings: state.pricingSettings,
           publicBaseUrl: state.publicBaseUrl,
           pilotTodaName: state.pilotTodaName,
           simulateMovementEnabled: state.simulateMovementEnabled,
@@ -8165,6 +8174,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     state.rotaryShareSettings,
     state.businessPhase,
     state.platformOnlineCollection,
+    state.pricingSettings,
     state.publicBaseUrl,
     state.pilotTodaName,
     state.simulateMovementEnabled,
@@ -8512,6 +8522,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setRotaryShareSettings: (settings) => dispatch({ type: 'SET_ROTARY_SHARE_SETTINGS', settings }),
     setBusinessPhase: (phase, actorName) => dispatch({ type: 'SET_BUSINESS_PHASE', phase, actorName }),
     setPlatformOnlineCollection: (enabled) => dispatch({ type: 'SET_PLATFORM_ONLINE_COLLECTION', enabled }),
+    setPricingSettings: (settings) => dispatch({ type: 'SET_PRICING_SETTINGS', settings }),
     setPublicBaseUrl: (url) => dispatch({ type: 'SET_PUBLIC_BASE_URL', url }),
     setPilotTodaName: (name) => dispatch({ type: 'SET_PILOT_TODA_NAME', name }),
     setSimulateMovementEnabled: (enabled) => dispatch({ type: 'SET_SIMULATE_MOVEMENT_ENABLED', enabled }),

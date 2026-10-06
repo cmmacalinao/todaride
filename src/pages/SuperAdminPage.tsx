@@ -1,6 +1,7 @@
 import { ArchitectureOverview } from '../components/ArchitectureOverview'
 import { launchModeLeavesNoDrivers } from '../lib/launchMode'
 import { BUSINESS_PHASE_LABEL, isPilot } from '../lib/businessPhase'
+import { sanitisePricingSettings } from '../lib/pricing'
 import { feeReportSheetRows, monthlyFeeReport } from '../lib/feeReport'
 import * as XLSX from 'xlsx'
 import { SEED_DRIVER_IDS } from '../mock/data'
@@ -67,6 +68,8 @@ export function SuperAdminPage() {
     setBusinessPhase,
     platformOnlineCollection,
     setPlatformOnlineCollection,
+    pricingSettings,
+    setPricingSettings,
     simulateMovementEnabled,
     liveGpsEnabled,
     setLiveGpsEnabled,
@@ -229,6 +232,44 @@ export function SuperAdminPage() {
             <p className="text-xs text-slate-400">Current: ₱{commissionPerRide} per ride</p>
 
             <div className="border-t border-slate-100 pt-3">
+            {/* Prices that used to need a release to change. A change here
+                applies to new orders and activations only — an order keeps
+                the fees it was quoted and a family plan keeps the terms it
+                was activated under, so nothing already agreed is re-priced
+                underneath somebody. */}
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-xs font-bold text-slate-800">Prices</p>
+              <p className="mt-0.5 text-[10px] leading-snug text-slate-500">
+                Applies to new orders and activations only. Existing orders keep the fees they were quoted.
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {([
+                  ['familyPlanMonthlyPrice', 'Family Plan ₱/month', 10],
+                  ['familyPlanFreeMonths', 'Family Plan free months', 1],
+                  ['medsServiceFee', 'Order service fee ₱', 1],
+                  ['medsDeliveryFee', 'Order delivery fee ₱', 1],
+                ] as const).map(([key, label, step]) => (
+                  <label key={key} className="block">
+                    <span className="text-[10px] font-semibold text-slate-600">{label}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={step}
+                      value={pricingSettings[key]}
+                      onChange={(e) =>
+                        setPricingSettings(
+                          sanitisePricingSettings({ ...pricingSettings, [key]: Number(e.target.value) }),
+                        )
+                      }
+                      className="compact-input mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
+                    />
+                  </label>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[10px] leading-snug text-slate-500">
+                The Family Plan terms quote these figures, so a family agrees to what they will actually be charged.
+              </p>
+            </div>
               <FeatureToggleRow
                 icon="🛺"
                 label="Waive the fee on terminal QR rides"

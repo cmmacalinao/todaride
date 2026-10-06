@@ -1388,6 +1388,20 @@ export interface RotaryShareSettings {
   recipientLabel: string
 }
 
+// Prices Super Admin can change without a release. Each keeps the old
+// constant as its default, so an install that has never set them behaves
+// exactly as before.
+//
+// A change applies to new orders and activations only: an order records the
+// fees it was quoted, and a family plan records the terms it agreed to, so
+// nothing already agreed is re-priced underneath somebody.
+export interface PricingSettings {
+  familyPlanMonthlyPrice: number
+  familyPlanFreeMonths: number
+  medsServiceFee: number
+  medsDeliveryFee: number
+}
+
 export type TodaBillingMode = 'per_ride' | 'flat_plan'
 
 export type QueueOfferOutcome = 'declined' | 'timeout' | 'released_by_passenger'

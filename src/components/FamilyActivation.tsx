@@ -2,9 +2,7 @@ import { useState } from 'react'
 import { useRides } from '../context/RideContext'
 import type { Passenger } from '../types'
 import {
-  FAMILY_PLAN_FREE_MONTHS,
-  FAMILY_PLAN_MONTHLY_PRICE,
-  FAMILY_TERMS,
+  buildFamilyTerms,
   FAMILY_TERMS_VERSION,
 } from '../lib/familyTerms'
 
@@ -32,11 +30,15 @@ export const formatPlanDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
 
 export function FamilyTermsText() {
+  // The terms quote the prices in force, so a family agrees to what they
+  // will actually be charged rather than to a number from a past release.
+  const { pricingSettings } = useRides()
+  const sections = buildFamilyTerms(pricingSettings.familyPlanFreeMonths, pricingSettings.familyPlanMonthlyPrice)
   return (
     <div className="space-y-2 text-[11px] leading-snug text-slate-700">
       <p className="font-bold text-slate-900">TODA Ride Mobility — Family Plan Terms and Conditions</p>
       <p className="text-slate-500">Version {FAMILY_TERMS_VERSION}</p>
-      {FAMILY_TERMS.map((s) => (
+      {sections.map((s) => (
         <div key={s.title}>
           <p className="font-semibold text-slate-900">{s.title}</p>
           {s.body.map((b, i) => (
@@ -51,7 +53,7 @@ export function FamilyTermsText() {
 }
 
 export function FamilyActivation({ passenger }: { passenger: Passenger }) {
-  const { activateFamilyPlan, familyPromoDeadline } = useRides()
+  const { activateFamilyPlan, familyPromoDeadline, pricingSettings } = useRides()
   // The promo's last day, set by Super Admin. Activating after it gets no
   // free year — and there is no paid plan to take instead yet.
   const promoEnds = new Date(`${familyPromoDeadline}T23:59:59+08:00`)
@@ -62,7 +64,7 @@ export function FamilyActivation({ passenger }: { passenger: Passenger }) {
   const [signedName, setSignedName] = useState('')
   const [readAll, setReadAll] = useState(false)
   const renewing = !!passenger.familyPlan && passenger.familyPlan.termsVersion !== FAMILY_TERMS_VERSION
-  const freeUntil = addMonths(new Date(), FAMILY_PLAN_FREE_MONTHS)
+  const freeUntil = addMonths(new Date(), pricingSettings.familyPlanFreeMonths)
   const canActivate = (promoOpen || renewing) && adult && terms && childData && signedName.trim().length >= 3
 
   function activate() {
@@ -71,7 +73,7 @@ export function FamilyActivation({ passenger }: { passenger: Passenger }) {
     activateFamilyPlan(passenger.id, {
       // A renewal of the terms keeps the free year that already started.
       activatedAt: passenger.familyPlan?.activatedAt ?? now.toISOString(),
-      freeUntil: passenger.familyPlan?.freeUntil ?? addMonths(now, FAMILY_PLAN_FREE_MONTHS).toISOString(),
+      freeUntil: passenger.familyPlan?.freeUntil ?? addMonths(now, pricingSettings.familyPlanFreeMonths).toISOString(),
       termsVersion: FAMILY_TERMS_VERSION,
       signedName: signedName.trim(),
       confirmedAdultGuardian: adult,
@@ -99,7 +101,7 @@ export function FamilyActivation({ passenger }: { passenger: Passenger }) {
         <p className="mt-1 text-xs text-slate-700">
           {renewing
             ? 'The Family Plan Terms have been updated. Please read and accept them to keep using the Family Plan.'
-            : `Activate now and the ₱${FAMILY_PLAN_MONTHLY_PRICE}/month Family Plan is FREE until ${formatPlanDate(freeUntil.toISOString())}.`}
+            : `Activate now and the ₱${pricingSettings.familyPlanMonthlyPrice}/month Family Plan is FREE until ${formatPlanDate(freeUntil.toISOString())}.`}
         </p>
         <ul className="mt-1.5 space-y-0.5 text-[11px] text-slate-700">
           <li>🛺 Book rides for your family, one stop or several (school runs)</li>

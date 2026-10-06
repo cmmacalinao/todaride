@@ -432,6 +432,10 @@ interface RideState {
   // Pilot or launch — whether anybody is charged at all. See
   // lib/businessPhase: the saved prices survive a pilot untouched.
   businessPhase: BusinessPhase
+  // Whether fares are collected online through the platform merchant
+  // account. Off by default: the driver is paid directly, in cash or to
+  // their own wallet, and no money passes through the platform.
+  platformOnlineCollection: boolean
   // Public address the shareable links/QRs are built from (see
   // SuperAdminPage's Access links tab). Must be set explicitly because
   // window.location.origin is useless for sharing in the two cases that
@@ -654,6 +658,7 @@ type RideAction =
   | { type: 'SET_LAUNCH_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_ROTARY_SHARE_SETTINGS'; settings: RotaryShareSettings }
   | { type: 'SET_BUSINESS_PHASE'; phase: BusinessPhase; actorName: string }
+  | { type: 'SET_PLATFORM_ONLINE_COLLECTION'; enabled: boolean }
   | { type: 'SET_PUBLIC_BASE_URL'; url: string }
   | { type: 'SET_PILOT_TODA_NAME'; name: string }
   | { type: 'SET_SIMULATE_MOVEMENT_ENABLED'; enabled: boolean }
@@ -1677,6 +1682,7 @@ interface StoredState {
   launchModeEnabled?: boolean
   rotaryShareSettings?: RotaryShareSettings
   businessPhase?: BusinessPhase
+  platformOnlineCollection?: boolean
   publicBaseUrl?: string
   pilotTodaName?: string
   simulateMovementEnabled?: boolean
@@ -1966,6 +1972,7 @@ function fromStored(parsed: StoredState): RideState {
     launchModeEnabled: parsed.launchModeEnabled ?? false,
     rotaryShareSettings: parsed.rotaryShareSettings ?? DEFAULT_ROTARY_SHARE_SETTINGS,
     businessPhase: parsed.businessPhase ?? DEFAULT_BUSINESS_PHASE,
+    platformOnlineCollection: parsed.platformOnlineCollection ?? false,
     publicBaseUrl: parsed.publicBaseUrl ?? '',
     pilotTodaName: parsed.pilotTodaName ?? '',
     // Off unless somebody has said otherwise. The pilot is on real roads
@@ -2299,6 +2306,7 @@ function loadInitialState(): RideState {
     launchModeEnabled: false,
     rotaryShareSettings: DEFAULT_ROTARY_SHARE_SETTINGS,
     businessPhase: DEFAULT_BUSINESS_PHASE,
+    platformOnlineCollection: false,
     publicBaseUrl: '',
     pilotTodaName: '',
     simulateMovementEnabled: false,
@@ -4247,6 +4255,8 @@ function reducer(state: RideState, action: RideAction): RideState {
       return { ...state, launchModeEnabled: action.enabled }
     case 'SET_ROTARY_SHARE_SETTINGS':
       return { ...state, rotaryShareSettings: action.settings }
+    case 'SET_PLATFORM_ONLINE_COLLECTION':
+      return { ...state, platformOnlineCollection: action.enabled }
     case 'SET_BUSINESS_PHASE': {
       // Who turned the fees on, and when, is the kind of question asked
       // months later — so it is written down at the moment it happens.
@@ -7069,6 +7079,7 @@ interface RideContextValue extends RideState {
   setLaunchModeEnabled: (enabled: boolean) => void
   setRotaryShareSettings: (settings: RotaryShareSettings) => void
   setBusinessPhase: (phase: BusinessPhase, actorName: string) => void
+  setPlatformOnlineCollection: (enabled: boolean) => void
   setPublicBaseUrl: (url: string) => void
   setPilotTodaName: (name: string) => void
   setSimulateMovementEnabled: (enabled: boolean) => void
@@ -8023,6 +8034,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           launchModeEnabled: state.launchModeEnabled,
           rotaryShareSettings: state.rotaryShareSettings,
           businessPhase: state.businessPhase,
+          platformOnlineCollection: state.platformOnlineCollection,
           publicBaseUrl: state.publicBaseUrl,
           pilotTodaName: state.pilotTodaName,
           simulateMovementEnabled: state.simulateMovementEnabled,
@@ -8136,6 +8148,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     state.launchModeEnabled,
     state.rotaryShareSettings,
     state.businessPhase,
+    state.platformOnlineCollection,
     state.publicBaseUrl,
     state.pilotTodaName,
     state.simulateMovementEnabled,
@@ -8482,6 +8495,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setLaunchModeEnabled: (enabled) => dispatch({ type: 'SET_LAUNCH_MODE_ENABLED', enabled }),
     setRotaryShareSettings: (settings) => dispatch({ type: 'SET_ROTARY_SHARE_SETTINGS', settings }),
     setBusinessPhase: (phase, actorName) => dispatch({ type: 'SET_BUSINESS_PHASE', phase, actorName }),
+    setPlatformOnlineCollection: (enabled) => dispatch({ type: 'SET_PLATFORM_ONLINE_COLLECTION', enabled }),
     setPublicBaseUrl: (url) => dispatch({ type: 'SET_PUBLIC_BASE_URL', url }),
     setPilotTodaName: (name) => dispatch({ type: 'SET_PILOT_TODA_NAME', name }),
     setSimulateMovementEnabled: (enabled) => dispatch({ type: 'SET_SIMULATE_MOVEMENT_ENABLED', enabled }),

@@ -65,6 +65,8 @@ export function SuperAdminPage() {
     setRotaryShareSettings,
     businessPhase,
     setBusinessPhase,
+    platformOnlineCollection,
+    setPlatformOnlineCollection,
     simulateMovementEnabled,
     liveGpsEnabled,
     setLiveGpsEnabled,
@@ -434,6 +436,19 @@ export function SuperAdminPage() {
               </div>
               <p className="mt-1 text-[10px] text-slate-500">Who switched this, and when, is written to the activity log.</p>
             </div>
+
+            {/* Off by default, and that is the business model rather than a
+                precaution: the fare is between the passenger and the driver,
+                and the platform charges its fee separately. Turning this on
+                means money starts flowing through a platform merchant
+                account, which is a different company to be. */}
+            <FeatureToggleRow
+              icon="💳"
+              label="Online fare collection via platform merchant account"
+              description="Off: passengers pay cash or send the fare straight to the driver's own GCash/Maya — the app never touches the money. On: Maya Checkout collects the fare into the platform's merchant account, as before. Does not affect the platform fee or vendor orders."
+              enabled={platformOnlineCollection}
+              onChange={setPlatformOnlineCollection}
+            />
 
             {/* GreenTech's donation, set here because it comes out of
                 GreenTech's own share of the fee and nobody else's. Switching

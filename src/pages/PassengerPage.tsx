@@ -4253,6 +4253,8 @@ export function PassengerPage() {
           total={unpaidRide.fareEstimate + unpaidRide.pabiliTip + (unpaidRide.tipOffer || 0)}
           initialMethod={unpaidRide.paymentMethod}
           kind={isVendorDeliveryRide(unpaidRide) ? 'delivery' : 'ride'}
+          driverGcash={drivers.find((d) => d.id === unpaidRide.driverId)?.gcashAccount ?? null}
+          driverMaya={drivers.find((d) => d.id === unpaidRide.driverId)?.mayaAccount ?? null}
           onConfirm={(method, referenceNo) => {
             acknowledgeRidePayment(unpaidRide.id, method, referenceNo)
             setShowPayment(false)
@@ -4614,7 +4616,7 @@ function MemberLimitsPanel({ passengerId, member }: { passengerId: string; membe
 }
 
 function FamilyTrips({ bookerId }: { bookerId: string }) {
-  const { rides, passengers, acknowledgeRidePayment, approveFamilyRide, cancelRide } = useRides()
+  const { rides, passengers, drivers, acknowledgeRidePayment, approveFamilyRide, cancelRide } = useRides()
   const [openId, setOpenId] = useState<string | null>(null)
   const [payingId, setPayingId] = useState<string | null>(null)
   // Family members who joined with their own phone (their invite linked them).
@@ -4707,6 +4709,8 @@ function FamilyTrips({ bookerId }: { bookerId: string }) {
           total={paying.fareEstimate + paying.pabiliTip + (paying.tipOffer || 0)}
           initialMethod={paying.paymentMethod}
           kind="ride"
+          driverGcash={drivers.find((d) => d.id === paying.driverId)?.gcashAccount ?? null}
+          driverMaya={drivers.find((d) => d.id === paying.driverId)?.mayaAccount ?? null}
           onConfirm={(method, referenceNo) => {
             acknowledgeRidePayment(paying.id, method, referenceNo)
             setPayingId(null)

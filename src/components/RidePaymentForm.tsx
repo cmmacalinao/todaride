@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createMayaCheckout } from '../lib/mayaApi'
+import { useRides } from '../context/RideContext'
 import type { PaymentMethod } from '../types'
 
 // What the passenger is asked at the end of a trip.
@@ -36,6 +37,10 @@ interface RidePaymentFormProps {
   // A food/goods delivery settles the whole order here — goods plus the
   // delivery fee — so the bill says "order", not "trip" and "fare".
   kind?: 'ride' | 'delivery'
+  // The driver's own wallet, for when the platform is not collecting online:
+  // the passenger pays them directly and the money never touches us.
+  driverGcash?: { accountName: string; accountNumber: string; qrDataUrl: string | null } | null
+  driverMaya?: { accountName: string; accountNumber: string; qrDataUrl: string | null } | null
   onConfirm: (method: PaymentMethod, referenceNo: string | null) => void
 }
 
@@ -50,7 +55,23 @@ export function RidePaymentForm({
   rideId,
   onConfirm,
   kind = 'ride',
+  driverGcash = null,
+  driverMaya = null,
 }: RidePaymentFormProps) {
+  // Off by default: the platform does not stand between a passenger and a
+  // driver for the fare. With it off there is no Maya checkout and no card —
+  // the passenger pays cash, or sends it straight to the driver's own wallet,
+  // and no money passes through us at all.
+  const { platformOnlineCollection } = useRides()
+  const driverWallets = [
+    driverGcash ? { label: 'GCash', ...driverGcash } : null,
+    driverMaya ? { label: 'Maya', ...driverMaya } : null,
+  ].filter((w) => w !== null) as {
+    label: string
+    accountName: string
+    accountNumber: string
+    qrDataUrl: string | null
+  }[]
   // 'cash' or 'wallet' — the two the passenger actually chooses between. The
   // stored PaymentMethod behind a wallet is settled when the payment is made,
   // not here.
@@ -126,7 +147,7 @@ export function RidePaymentForm({
             How are you paying?
           </p>
           <div className="grid grid-cols-2 gap-1.5">
-            {METHODS.map((m) => (
+            {(platformOnlineCollection ? METHODS : METHODS.filter((m) => m.id === 'cash')).map((m) => (
               <button
                 key={m.id}
                 type="button"
@@ -153,6 +174,37 @@ export function RidePaymentForm({
             ))}
           </div>
 
+          {/* The driver's own wallet, when the platform is not collecting.
+              Shown beside cash rather than as a payment "method", because
+              from the app's point of view it is the same outcome: the driver
+              is paid directly and confirms it. We never see the money, so we
+              never claim to have processed it. */}
+          {!platformOnlineCollection && driverWallets.length > 0 && (
+            <div className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+              <p className="text-[11px] font-semibold text-slate-700">
+                Or send it straight to {driverName}
+              </p>
+              {driverWallets.map((w) => (
+                <div key={w.label} className="rounded-lg border border-slate-200 bg-white p-2">
+                  <p className="text-[11px] font-bold text-slate-700">{w.label}</p>
+                  <p className="text-[11px] text-slate-600">
+                    {w.accountName} · <span className="font-mono">{w.accountNumber}</span>
+                  </p>
+                  {w.qrDataUrl && (
+                    <img
+                      src={w.qrDataUrl}
+                      alt={`${w.label} QR for ${w.accountName}`}
+                      className="mt-1.5 h-36 w-36 rounded border border-slate-200 object-contain"
+                    />
+                  )}
+                </div>
+              ))}
+              <p className="text-[10px] leading-snug text-slate-500">
+                Pays {driverName} directly — the app does not handle this money. Tap the button below once it has
+                gone through, and show them your receipt.
+              </p>
+            </div>
+          )}
           {isCash ? (
             <div className="mt-3">
               <p className="mb-1 text-[11px] font-medium text-slate-600">

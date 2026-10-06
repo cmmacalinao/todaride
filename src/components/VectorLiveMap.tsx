@@ -1,3 +1,10 @@
+import {
+  prefersReducedMotion,
+  pruneBuffer,
+  RENDER_DELAY_MS,
+  samplePositionAt,
+  type TimedFix,
+} from '../lib/markerAnimator'
 import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -166,6 +173,19 @@ export function VectorLiveMap({
   const holderRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map())
+  // One buffer of timestamped fixes per moving marker, and the heading each
+  // is currently drawn at. See lib/markerAnimator: the renderer stays about a
+  // second behind the feed so it always has a position to glide towards.
+  const fixBuffersRef = useRef<Map<string, TimedFix[]>>(new Map())
+  const drawnHeadingRef = useRef<Map<string, number>>(new Map())
+  const frameRef = useRef<number | null>(null)
+  // Read once rather than per frame: somebody who has asked their device for
+  // less motion gets the old jump-to-each-fix behaviour.
+  const reducedMotion = useRef(prefersReducedMotion()).current
+  // The animated position of the point the navigation camera follows, so the
+  // camera is driven by what is drawn rather than by the raw fix — otherwise
+  // the map lurches once a second under a marker that is gliding.
+  const animatedNavGpsRef = useRef<GeoCoords | null>(null)
   // Where a marker was dropped, until the caller's coordinate catches up.
   const draggedRef = useRef<Map<string, { lat: number; lng: number }>>(new Map())
   const bearingRef = useRef<number | null>(null)
@@ -431,8 +451,13 @@ export function VectorLiveMap({
     if (!map || !current) return
     const box = map.getContainer().getBoundingClientRect()
     if (box.height === 0) return
+    // Follow what is drawn, not the raw fix. Driving the camera from the fix
+    // while the marker glides makes the map lurch once a second underneath a
+    // marker that is moving smoothly — the two disagree about where the
+    // vehicle is, and the eye believes the one it can see.
+    const followed = animatedNavGpsRef.current ?? current.center
     map.easeTo({
-      center: [current.center.lng, current.center.lat],
+      center: [followed.lng, followed.lat],
       bearing: camera.bearing,
       pitch: camera.pitch,
       zoom: NAV_ZOOM,
@@ -700,7 +725,24 @@ export function VectorLiveMap({
         const caughtUp =
           dropped && Math.abs(dropped.lat - p.gps.lat) < 1e-6 && Math.abs(dropped.lng - p.gps.lng) < 1e-6
         if (caughtUp) draggedRef.current.delete(p.id)
-        if (!dropped || caughtUp) marker.setLngLat([p.gps.lng, p.gps.lat])
+        // A moving marker (pulse) records the fix and is drawn by the frame
+        // loop below; a pin goes straight there, as it always has. Dragging
+        // still wins over both: a pin being placed must not be animated away
+        // from the finger.
+        const animated = !reducedMotion && !!p.pulse && !draggable
+        if (animated) {
+          const buf = fixBuffersRef.current.get(p.id) ?? []
+          const latest = buf[buf.length - 1]
+          const moved = !latest || latest.gps.lat !== p.gps.lat || latest.gps.lng !== p.gps.lng
+          if (moved) {
+            fixBuffersRef.current.set(
+              p.id,
+              pruneBuffer([...buf, { gps: p.gps, at: Date.now(), headingDegrees: null }], Date.now()),
+            )
+          }
+        } else if (!dropped || caughtUp) {
+          marker.setLngLat([p.gps.lng, p.gps.lat])
+        }
         marker.setDraggable(draggable)
       }
 
@@ -722,6 +764,68 @@ export function VectorLiveMap({
       live.delete(id)
     })
   }, [ready, pointKey, points, draggableKey, draggableIds, nav, camera.headingUp])
+
+  // The frame loop that actually draws the moving markers.
+  //
+  // Each frame it asks the buffer where the vehicle was RENDER_DELAY_MS ago
+  // and puts the marker there. Being deliberately a second behind is what
+  // makes a glide possible at all: to move smoothly towards a position you
+  // must already hold it, so the renderer trails the feed rather than racing
+  // it. The second of staleness is invisible; the stutter it removes is not.
+  //
+  // Nothing is extrapolated. When the feed dries up samplePositionAt holds
+  // the last known position, because a passenger watching a driver who has
+  // actually stopped should see them stopped.
+  useEffect(() => {
+    if (reducedMotion) return
+    const map = mapRef.current
+    if (!map || !ready) return
+
+    let cancelled = false
+    const step = () => {
+      if (cancelled) return
+      const renderAt = Date.now() - RENDER_DELAY_MS
+      fixBuffersRef.current.forEach((buffer, id) => {
+        const marker = markersRef.current.get(id)
+        if (!marker) return
+        const sample = samplePositionAt(buffer, renderAt, routeLine)
+        if (!sample) return
+        marker.setLngLat([sample.gps.lng, sample.gps.lat])
+        if (nav && id === nav.rotatePointId) animatedNavGpsRef.current = sample.gps
+        // Turn the artwork the shortest way round, eased — a vehicle
+        // rounding north must not spin almost all the way about.
+        if (sample.headingDegrees != null) {
+          const art = marker.getElement().querySelector<HTMLElement>('[data-art]')
+          if (art && drawnHeadingRef.current.get(id) !== sample.headingDegrees) {
+            drawnHeadingRef.current.set(id, sample.headingDegrees)
+            art.style.transform = `rotate(${sample.headingDegrees}deg)`
+          }
+        }
+      })
+      frameRef.current = requestAnimationFrame(step)
+    }
+    frameRef.current = requestAnimationFrame(step)
+
+    // A hidden page gets no frames anyway, but an unthrottled rAF left
+    // running across a backgrounded tab is a battery complaint on a phone
+    // that is already tracking GPS.
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
+        frameRef.current = null
+      } else if (frameRef.current === null && !cancelled) {
+        frameRef.current = requestAnimationFrame(step)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      cancelled = true
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
+      frameRef.current = null
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [ready, reducedMotion, routeLine, nav])
 
   // Rebuilds a marker's artwork when its appearance changes, which setLngLat
   // alone cannot do.

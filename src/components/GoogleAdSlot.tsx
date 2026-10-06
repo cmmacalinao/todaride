@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useRides } from '../context/RideContext'
 import { adSenseAllowed } from '../lib/businessPhase'
-import type { AdSensePlacementSlots } from '../types'
 
 declare global {
   interface Window {
@@ -9,13 +8,8 @@ declare global {
   }
 }
 
-const PLACEMENT_LABELS: Record<keyof AdSensePlacementSlots, string> = {
+const PLACEMENT_LABELS: Record<'landing', string> = {
   landing: 'Landing page',
-  passengerTop: 'Passenger page (top)',
-  passengerBottom: 'Passenger page (bottom)',
-  driverTop: 'Driver page (top)',
-  driverBottom: 'Driver page (bottom)',
-  parentBottom: 'Parent page (bottom)',
 }
 
 let adsbygoogleScriptRequested = false
@@ -27,7 +21,9 @@ let adsbygoogleScriptRequested = false
 // purpose: an ad network account, domain verification, and Google's review
 // are all things only the site owner can complete — this component is only
 // ever the wiring, never a stand-in for that account.
-export function GoogleAdSlot({ placement }: { placement: keyof AdSensePlacementSlots }) {
+// Landing page only — see AdSensePlacementSlots for why the other
+// placements were retired.
+export function GoogleAdSlot({ placement = 'landing' }: { placement?: 'landing' }) {
   const { adSenseSettings, businessPhase } = useRides()
   const slotId = adSenseSettings.slots[placement]
   // Two conditions, not one: ads are switched on AND the business is live.

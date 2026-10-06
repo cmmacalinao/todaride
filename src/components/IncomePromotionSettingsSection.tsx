@@ -11,11 +11,6 @@ const RATE_PRESETS = [5, 7.5, 10]
 // the module's own "every setting change must be audited" requirement.
 const ADSENSE_PLACEMENT_LABELS: Record<string, string> = {
   landing: 'Landing page',
-  passengerTop: 'Passenger page (top)',
-  passengerBottom: 'Passenger page (bottom)',
-  driverTop: 'Driver page (top)',
-  driverBottom: 'Driver page (bottom)',
-  parentBottom: 'Parent page (bottom)',
 }
 
 export function IncomePromotionSettingsSection() {
@@ -24,11 +19,6 @@ export function IncomePromotionSettingsSection() {
   const [publisherIdInput, setPublisherIdInput] = useState(adSenseSettings.publisherId ?? '')
   const [slotInputs, setSlotInputs] = useState<Record<string, string>>({
     landing: adSenseSettings.slots.landing ?? '',
-    passengerTop: adSenseSettings.slots.passengerTop ?? '',
-    passengerBottom: adSenseSettings.slots.passengerBottom ?? '',
-    driverTop: adSenseSettings.slots.driverTop ?? '',
-    driverBottom: adSenseSettings.slots.driverBottom ?? '',
-    parentBottom: adSenseSettings.slots.parentBottom ?? '',
   })
   const [adSenseError, setAdSenseError] = useState('')
   const [rateInput, setRateInput] = useState(String(incomePromotionSettings.theoreticalCommissionRatePct))

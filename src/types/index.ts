@@ -2415,11 +2415,16 @@ export interface PartnershipRevenueEntry {
 // then. Nothing here can serve real ads or earn real income by itself.
 export interface AdSensePlacementSlots {
   landing: string | null
-  passengerTop: string | null
-  passengerBottom: string | null
-  driverTop: string | null
-  driverBottom: string | null
-  parentBottom: string | null
+  // Retired (2026-10): AdSense runs on the landing page only. A passenger
+  // deciding whether to trust a ride, a driver working, and a parent
+  // watching a child's trip are not audiences to sell — and none of these
+  // ever rendered. Kept optional so stored settings still parse and a slot
+  // id somebody saved is not silently thrown away.
+  passengerTop?: string | null
+  passengerBottom?: string | null
+  driverTop?: string | null
+  driverBottom?: string | null
+  parentBottom?: string | null
 }
 
 // A house banner shown in the passenger app's ad box. `imageUrl` holds

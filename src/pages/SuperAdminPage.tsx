@@ -1,4 +1,6 @@
 import { ArchitectureOverview } from '../components/ArchitectureOverview'
+import { launchModeLeavesNoDrivers } from '../lib/launchMode'
+import { SEED_DRIVER_IDS } from '../mock/data'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
@@ -52,6 +54,9 @@ export function SuperAdminPage() {
     terminalQrFeeWaived,
     setTerminalQrFeeWaived,
     simulatedOtpEnabled,
+    launchModeEnabled,
+    setLaunchModeEnabled,
+    drivers,
     simulateMovementEnabled,
     liveGpsEnabled,
     setLiveGpsEnabled,
@@ -352,6 +357,27 @@ export function SuperAdminPage() {
                 path instead.
               </p>
             </div>
+            {/* The one switch that decides whether a stranger opening this
+                app sees a product or a prototype. Kept beside the other
+                simulation switches because that is what it turns off. */}
+            <FeatureToggleRow
+              icon="🚀"
+              label="Launch mode — hide demo data"
+              description="Hide the seeded demo drivers and the 'Prototype · Simulated data' badge from everyone. They are hidden, not deleted: your test rides on 5200 and any past trip's driver name still work, and turning this off brings them straight back. Turn it ON before real passengers use the app."
+              enabled={launchModeEnabled}
+              onChange={setLaunchModeEnabled}
+            />
+            {/* The one way this switch fails badly and silently: hide the
+                demo drivers when they are the only drivers, and every
+                booking goes unanswered with nothing on the passenger side
+                saying why. Said here, where the switch is. */}
+            {launchModeLeavesNoDrivers(drivers, SEED_DRIVER_IDS, true) && (
+              <p className={`mt-1 rounded-lg px-3 py-2 text-[11px] leading-relaxed ${launchModeEnabled ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-900'}`}>
+                {launchModeEnabled
+                  ? '⚠️ Every driver on this database is a demo driver, so right now nobody can be offered a ride. Register a real driver, or turn this off.'
+                  : 'Note: every driver on this database is a demo driver. Turning this on would leave nobody to take a booking until a real driver registers.'}
+              </p>
+            )}
             <FeatureToggleRow
               icon="🔐"
               label="Simulated OTP sending"

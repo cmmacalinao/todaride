@@ -150,6 +150,7 @@ import {
   MOCK_CAMPAIGNS,
   MOCK_EQUITY_ALLOCATIONS,
   MOCK_DRIVERS,
+  SEED_DRIVER_IDS,
   MOCK_FRANCHISES,
   MOCK_MEDICINE_PRODUCTS,
   MOCK_VENDOR_MENU_ITEMS,
@@ -182,6 +183,7 @@ import { QUEUE_ORDER_RADIUS_METERS, TERMINAL_PROXIMITY_METERS, haversineDistance
 import { SAFETY_DEFAULTS, appendEvent, buildIncident, isActiveAlert, markNotificationDelivery, transitionAlert, withSafetyDefaults } from '../lib/safety'
 import { getPersistence, setSyncPace } from '../lib/persistence'
 import { warmRoadDistances } from '../lib/roadDistance'
+import { visibleDrivers } from '../lib/launchMode'
 import { useSession } from './SessionContext'
 import { sendSosSms } from '../lib/sosSmsApi'
 
@@ -418,6 +420,9 @@ interface RideState {
   // (see server/index.js) and surface an error if it isn't reachable,
   // rather than silently falling back to an on-screen code.
   simulatedOtpEnabled: boolean
+  // Hide the seeded demo drivers and the prototype badge from real users.
+  // See lib/launchMode.ts — a switch, not a purge.
+  launchModeEnabled: boolean
   // Public address the shareable links/QRs are built from (see
   // SuperAdminPage's Access links tab). Must be set explicitly because
   // window.location.origin is useless for sharing in the two cases that
@@ -637,6 +642,7 @@ type RideAction =
   | { type: 'SET_MEDS_ENABLED'; enabled: boolean }
   | { type: 'SET_PARTNER_BANNER_ENABLED'; enabled: boolean }
   | { type: 'SET_SIMULATED_OTP_ENABLED'; enabled: boolean }
+  | { type: 'SET_LAUNCH_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_PUBLIC_BASE_URL'; url: string }
   | { type: 'SET_PILOT_TODA_NAME'; name: string }
   | { type: 'SET_SIMULATE_MOVEMENT_ENABLED'; enabled: boolean }
@@ -1657,6 +1663,7 @@ interface StoredState {
   vendorsEnabled?: boolean
   partnerBannerEnabled?: boolean
   simulatedOtpEnabled?: boolean
+  launchModeEnabled?: boolean
   publicBaseUrl?: string
   pilotTodaName?: string
   simulateMovementEnabled?: boolean
@@ -1943,6 +1950,7 @@ function fromStored(parsed: StoredState): RideState {
     // proving the real path. An install that has already chosen keeps its
     // choice — this only changes what a fresh one starts with.
     simulatedOtpEnabled: parsed.simulatedOtpEnabled ?? false,
+    launchModeEnabled: parsed.launchModeEnabled ?? false,
     publicBaseUrl: parsed.publicBaseUrl ?? '',
     pilotTodaName: parsed.pilotTodaName ?? '',
     // Off unless somebody has said otherwise. The pilot is on real roads
@@ -2273,6 +2281,7 @@ function loadInitialState(): RideState {
     vendorsEnabled: true,
     partnerBannerEnabled: false,
     simulatedOtpEnabled: false,
+    launchModeEnabled: false,
     publicBaseUrl: '',
     pilotTodaName: '',
     simulateMovementEnabled: false,
@@ -2510,6 +2519,8 @@ interface DispatchContext {
   // waiting their turn, and the whole of it still works — see the atTerminal
   // branch below, which this flag is the only gate on.
   pilaQueueEnabled?: boolean
+  // Seeded demo drivers are not offered real rides — see lib/launchMode.
+  launchModeEnabled?: boolean
 }
 
 // Finds who should be offered this ride next. Three rules, in order:
@@ -2551,10 +2562,14 @@ function nextQueueOffer(
     return { offeredDriverId: favorite.id, offeredAt: new Date().toISOString() }
   }
   if (!priorityTodaOrgId) return { offeredDriverId: null, offeredAt: null }
-  const queue = getTodaQueue(priorityTodaOrgId, drivers)
+  // Hidden seeds are out before either list is built, so a demo driver can
+  // be neither queued nor free — and a real passenger is never offered a
+  // tricycle that does not exist.
+  const dispatchable = visibleDrivers(drivers, SEED_DRIVER_IDS, ctx.launchModeEnabled === true)
+  const queue = getTodaQueue(priorityTodaOrgId, dispatchable)
   // Free members come after the queued ones at equal distance: standing in
   // the line should still count for something when neither is closer.
-  const free = getFreeTodaDrivers(priorityTodaOrgId, drivers, ctx.busyDriverIds ?? new Set())
+  const free = getFreeTodaDrivers(priorityTodaOrgId, dispatchable, ctx.busyDriverIds ?? new Set())
   const terminals = ctx.terminals ?? []
   const pickupGps = ctx.pickupGps ?? null
   // Is the passenger standing at a terminal? If so, that terminal's own line
@@ -2691,6 +2706,7 @@ function dispatchCtx(state: RideState, pickupGps: GeoCoords | null) {
     orgs: state.todaOrganizations,
     busyDriverIds: busyDriverIds(state.rides),
     pilaQueueEnabled: state.pilaQueueEnabled,
+    launchModeEnabled: state.launchModeEnabled,
   }
 }
 
@@ -4203,6 +4219,8 @@ function reducer(state: RideState, action: RideAction): RideState {
       return { ...state, partnerBannerEnabled: action.enabled }
     case 'SET_SIMULATED_OTP_ENABLED':
       return { ...state, simulatedOtpEnabled: action.enabled }
+    case 'SET_LAUNCH_MODE_ENABLED':
+      return { ...state, launchModeEnabled: action.enabled }
     case 'ADD_EMERGENCY_HOTLINE':
       return { ...state, emergencyHotlines: [action.hotline, ...state.emergencyHotlines] }
     case 'UPDATE_EMERGENCY_HOTLINE':
@@ -7004,6 +7022,7 @@ interface RideContextValue extends RideState {
   setMedsEnabled: (enabled: boolean) => void
   setPartnerBannerEnabled: (enabled: boolean) => void
   setSimulatedOtpEnabled: (enabled: boolean) => void
+  setLaunchModeEnabled: (enabled: boolean) => void
   setPublicBaseUrl: (url: string) => void
   setPilotTodaName: (name: string) => void
   setSimulateMovementEnabled: (enabled: boolean) => void
@@ -7955,6 +7974,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           vendorsEnabled: state.vendorsEnabled,
           partnerBannerEnabled: state.partnerBannerEnabled,
           simulatedOtpEnabled: state.simulatedOtpEnabled,
+          launchModeEnabled: state.launchModeEnabled,
           publicBaseUrl: state.publicBaseUrl,
           pilotTodaName: state.pilotTodaName,
           simulateMovementEnabled: state.simulateMovementEnabled,
@@ -8065,6 +8085,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     state.vendorsEnabled,
     state.partnerBannerEnabled,
     state.simulatedOtpEnabled,
+    state.launchModeEnabled,
     state.publicBaseUrl,
     state.pilotTodaName,
     state.simulateMovementEnabled,
@@ -8408,6 +8429,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setMedsEnabled: (enabled) => dispatch({ type: 'SET_MEDS_ENABLED', enabled }),
     setPartnerBannerEnabled: (enabled) => dispatch({ type: 'SET_PARTNER_BANNER_ENABLED', enabled }),
     setSimulatedOtpEnabled: (enabled) => dispatch({ type: 'SET_SIMULATED_OTP_ENABLED', enabled }),
+    setLaunchModeEnabled: (enabled) => dispatch({ type: 'SET_LAUNCH_MODE_ENABLED', enabled }),
     setPublicBaseUrl: (url) => dispatch({ type: 'SET_PUBLIC_BASE_URL', url }),
     setPilotTodaName: (name) => dispatch({ type: 'SET_PILOT_TODA_NAME', name }),
     setSimulateMovementEnabled: (enabled) => dispatch({ type: 'SET_SIMULATE_MOVEMENT_ENABLED', enabled }),

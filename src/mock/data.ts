@@ -12673,6 +12673,11 @@ export const MOCK_DRIVERS: Driver[] = [
   },
 ]
 
+// The ids of the drivers this prototype ships with, so launch mode can hide
+// them from real passengers without deleting them (see lib/launchMode.ts).
+// A set, because it is asked once per driver per dispatch.
+export const SEED_DRIVER_IDS: ReadonlySet<string> = new Set(MOCK_DRIVERS.map((d) => d.id))
+
 export const MOCK_PASSENGERS: Passenger[] = [
   {
     id: 'pax-1',

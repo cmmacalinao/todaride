@@ -316,6 +316,12 @@ export function AdminPage() {
         0,
       ) * 100,
     ) / 100
+  // GreenTech's donation to the Rotary project, also out of the platform fee.
+  // Counted separately from the marketing payouts because it is a different
+  // kind of outgoing — a commitment on every ride rather than a payout earned
+  // by recruiting — but it leaves the same pot, so the net below subtracts it.
+  const rotaryShareTotal =
+    Math.round(completedRides.reduce((sum, r) => sum + (r.payment?.rotaryShare ?? 0), 0) * 100) / 100
   const driverPayouts = completedRides.reduce((sum, r) => sum + (r.payment?.driverPayout ?? 0), 0)
   const ridesToday = rides.filter(
     (r) => new Date(r.requestedAt).toDateString() === new Date().toDateString(),
@@ -693,7 +699,8 @@ export function AdminPage() {
           <StatTile label="Platform revenue" value={`₱${platformRevenue}`} />
           <StatTile label="Driver payouts" value={`₱${driverPayouts}`} />
           <StatTile label="Marketing program payouts" value={`₱${marketingPayouts.toFixed(2)}`} />
-          <StatTile label="Platform revenue (net)" value={`₱${(platformRevenue - marketingPayouts).toFixed(2)}`} />
+          <StatTile label="Rotary project share" value={`₱${rotaryShareTotal.toFixed(2)}`} />
+          <StatTile label="Platform revenue (net)" value={`₱${(platformRevenue - marketingPayouts - rotaryShareTotal).toFixed(2)}`} />
         </div>
       </section>
 

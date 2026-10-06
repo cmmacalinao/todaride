@@ -1364,6 +1364,23 @@ export interface Payment {
   partnerCommission?: number
   todaReferralOrgId?: string | null
   todaReferralReward?: number
+  // GreenTech's donation to the Rotary community project, out of GreenTech's
+  // own portion of the same fee — not added to the fare. Paid on every ride
+  // that carries a fee, referred or not.
+  rotaryShare?: number
+  // What GreenTech kept once the partner, the TODA and Rotary were settled.
+  // Both are written at completion so a later change to the amount never
+  // rewrites what an old ride actually paid.
+  greentechNet?: number
+}
+
+// Super Admin's control over the Rotary donation: whether it is running,
+// how much of each fee it takes, and who it is for. The label is recorded on
+// reports rather than used for routing — the money is settled off-app.
+export interface RotaryShareSettings {
+  enabled: boolean
+  perRide: number
+  recipientLabel: string
 }
 
 export type QueueOfferOutcome = 'declined' | 'timeout' | 'released_by_passenger'

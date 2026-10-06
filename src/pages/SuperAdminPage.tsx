@@ -1,5 +1,7 @@
 import { ArchitectureOverview } from '../components/ArchitectureOverview'
 import { launchModeLeavesNoDrivers } from '../lib/launchMode'
+import { feeReportSheetRows, monthlyFeeReport } from '../lib/feeReport'
+import * as XLSX from 'xlsx'
 import { SEED_DRIVER_IDS } from '../mock/data'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -57,6 +59,9 @@ export function SuperAdminPage() {
     launchModeEnabled,
     setLaunchModeEnabled,
     drivers,
+    rides,
+    rotaryShareSettings,
+    setRotaryShareSettings,
     simulateMovementEnabled,
     liveGpsEnabled,
     setLiveGpsEnabled,
@@ -97,6 +102,18 @@ export function SuperAdminPage() {
   const [selectedTodaOrgId, setSelectedTodaOrgId] = useState(todaOrganizations[0]?.id ?? '')
   const [selectedOperatorId, setSelectedOperatorId] = useState(operators[0]?.id ?? '')
   const [selectedFranchiseId, setSelectedFranchiseId] = useState(franchises[0]?.id ?? '')
+
+  // Recomputed from the rides in state; cheap, and always current.
+  const feeReport = monthlyFeeReport(rides)
+
+  // The same rows the table shows, as a spreadsheet — the format a treasurer
+  // or a Rotary report actually wants, rather than a screenshot.
+  function exportFeeReport() {
+    const sheet = XLSX.utils.json_to_sheet(feeReportSheetRows(feeReport))
+    const book = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(book, sheet, 'Platform fees')
+    XLSX.writeFile(book, `todaride-platform-fees-${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
 
   return (
     <div className={`mx-auto ${containerClass} space-y-4 px-4 py-6`}>
@@ -378,6 +395,123 @@ export function SuperAdminPage() {
                   : 'Note: every driver on this database is a demo driver. Turning this on would leave nobody to take a booking until a real driver registers.'}
               </p>
             )}
+            {/* GreenTech's donation, set here because it comes out of
+                GreenTech's own share of the fee and nobody else's. Switching
+                it off does not make rides cheaper or pay drivers more — the
+                ₱0.50 simply stays with GreenTech. */}
+            <FeatureToggleRow
+              icon="🤝"
+              label="Rotary project share"
+              description="Donate part of GreenTech's share of every platform fee to the community project. Taken from GreenTech's portion, never added to the fare: the passenger pays the same, the driver earns the same, and the partner and TODA are paid first. Recorded on each ride as it completes, so changing this never rewrites past rides."
+              enabled={rotaryShareSettings.enabled}
+              onChange={(enabled) => setRotaryShareSettings({ ...rotaryShareSettings, enabled })}
+            />
+            {rotaryShareSettings.enabled && (
+              <div className="ml-1 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                <label className="block">
+                  <span className="text-[11px] font-semibold text-slate-600">Amount per ride (₱)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.05}
+                    value={rotaryShareSettings.perRide}
+                    onChange={(e) =>
+                      setRotaryShareSettings({
+                        ...rotaryShareSettings,
+                        perRide: Math.max(0, Number(e.target.value) || 0),
+                      })
+                    }
+                    className="compact-input mt-1 w-28 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[11px] font-semibold text-slate-600">Recipient</span>
+                  <input
+                    value={rotaryShareSettings.recipientLabel}
+                    onChange={(e) =>
+                      setRotaryShareSettings({ ...rotaryShareSettings, recipientLabel: e.target.value })
+                    }
+                    className="compact-input mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
+                  />
+                  <span className="mt-0.5 block text-[10px] leading-snug text-slate-500">
+                    Named on the report below. The money is settled off-app — this does not route a payment.
+                  </span>
+                </label>
+                {/* Said with the numbers in front of them, because ₱0.50 of
+                    ₱3 is a sixth of the fee and that is worth seeing. */}
+                <p className="text-[10px] leading-snug text-slate-500">
+                  At the current fee of ₱{commissionPerRide.toFixed(2)} per ride, a referred ride pays ₱0.70 to the
+                  partner, ₱0.30 to the TODA, ₱{rotaryShareSettings.perRide.toFixed(2)} to the project, and leaves
+                  ₱{Math.max(0, commissionPerRide - 0.7 - 0.3 - rotaryShareSettings.perRide).toFixed(2)} with
+                  GreenTech. An unreferred ride leaves
+                  ₱{Math.max(0, commissionPerRide - rotaryShareSettings.perRide).toFixed(2)}.
+                </p>
+              </div>
+            )}
+            {/* Where the fees actually went, month by month. Read from what
+                each ride recorded at completion, not recomputed from today's
+                settings — so a month closed under a different Rotary amount
+                still reports the amount it was closed under. */}
+            <div className="mt-3 rounded-lg border border-slate-200 bg-white p-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-slate-800">Platform fee report</p>
+                  <p className="mt-0.5 text-[10px] leading-snug text-slate-500">
+                    Gross fees and where they went. Rotary share is paid to{' '}
+                    <span className="font-semibold text-slate-700">{rotaryShareSettings.recipientLabel}</span>.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={exportFeeReport}
+                  disabled={feeReport.length === 0}
+                  className="shrink-0 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-bold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  ⬇ Excel
+                </button>
+              </div>
+              {feeReport.length === 0 ? (
+                <p className="mt-2 text-[11px] text-slate-500">
+                  No completed rides with a fee yet. The pilot runs at ₱{commissionPerRide.toFixed(2)} per ride.
+                </p>
+              ) : (
+                <div className="mt-2 -mx-1 overflow-x-auto px-1">
+                  <table className="w-full min-w-[34rem] text-left text-[11px]">
+                    <thead>
+                      <tr className="text-slate-500">
+                        <th className="py-1 pr-2 font-semibold">Month</th>
+                        <th className="py-1 pr-2 text-right font-semibold">Rides</th>
+                        <th className="py-1 pr-2 text-right font-semibold">Ref.</th>
+                        <th className="py-1 pr-2 text-right font-semibold">Gross</th>
+                        <th className="py-1 pr-2 text-right font-semibold">Partner</th>
+                        <th className="py-1 pr-2 text-right font-semibold">TODA</th>
+                        <th className="py-1 pr-2 text-right font-semibold">Rotary</th>
+                        <th className="py-1 text-right font-semibold">GreenTech</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {feeReport.map((r) => (
+                        <tr key={r.month} className="border-t border-slate-100 text-slate-700">
+                          <td className="py-1 pr-2 font-mono">{r.month}</td>
+                          <td className="py-1 pr-2 text-right">{r.rides}</td>
+                          <td className="py-1 pr-2 text-right text-slate-500">
+                            {r.referredRides}/{r.unreferredRides}
+                          </td>
+                          <td className="py-1 pr-2 text-right">₱{r.grossFees.toFixed(2)}</td>
+                          <td className="py-1 pr-2 text-right">₱{r.partnerPayouts.toFixed(2)}</td>
+                          <td className="py-1 pr-2 text-right">₱{r.todaRewards.toFixed(2)}</td>
+                          <td className="py-1 pr-2 text-right font-semibold text-emerald-700">
+                            ₱{r.rotaryShare.toFixed(2)}
+                          </td>
+                          <td className="py-1 text-right font-semibold">₱{r.greentechNet.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="mt-1 text-[10px] text-slate-400">Ref. = referred / unreferred rides.</p>
+                </div>
+              )}
+            </div>
             <FeatureToggleRow
               icon="🔐"
               label="Simulated OTP sending"

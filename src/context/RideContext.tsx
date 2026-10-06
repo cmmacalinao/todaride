@@ -2,10 +2,11 @@ import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNo
 import { BANNER_AD_SLOT_COUNT, MAX_VENDOR_POSTS } from '../types'
 import { mergeById, mergeDriverAccessMessages, mergeIncomingRides, mergeVendorPosts } from '../lib/rideMerge'
 import { DEFAULT_FAMILY_PROMO_DEADLINE } from '../lib/familyTerms'
-import { findPartnerByCode, generatePartnerCode, marketingSplit } from '../lib/marketingProgram'
+import { DEFAULT_ROTARY_SHARE_SETTINGS, findPartnerByCode, generatePartnerCode, marketingSplit } from '../lib/marketingProgram'
 import { PILOT_ORIGIN } from '../lib/pilotOrigin'
 import type { RecoveryKind } from '../lib/unifiedLogin'
 import type { RidePhoto } from '../types'
+import type { RotaryShareSettings } from '../types'
 import type { EmergencyContact, SafetySettings, SosEvent, SosEventKind, SosTriggerSource, SosTriggeredByRole } from '../types'
 import type {
   PabiliFareMode,
@@ -423,6 +424,9 @@ interface RideState {
   // Hide the seeded demo drivers and the prototype badge from real users.
   // See lib/launchMode.ts — a switch, not a purge.
   launchModeEnabled: boolean
+  // GreenTech donates part of its own share of each fee — see
+  // lib/marketingProgram and SuperAdminPage.
+  rotaryShareSettings: RotaryShareSettings
   // Public address the shareable links/QRs are built from (see
   // SuperAdminPage's Access links tab). Must be set explicitly because
   // window.location.origin is useless for sharing in the two cases that
@@ -643,6 +647,7 @@ type RideAction =
   | { type: 'SET_PARTNER_BANNER_ENABLED'; enabled: boolean }
   | { type: 'SET_SIMULATED_OTP_ENABLED'; enabled: boolean }
   | { type: 'SET_LAUNCH_MODE_ENABLED'; enabled: boolean }
+  | { type: 'SET_ROTARY_SHARE_SETTINGS'; settings: RotaryShareSettings }
   | { type: 'SET_PUBLIC_BASE_URL'; url: string }
   | { type: 'SET_PILOT_TODA_NAME'; name: string }
   | { type: 'SET_SIMULATE_MOVEMENT_ENABLED'; enabled: boolean }
@@ -1664,6 +1669,7 @@ interface StoredState {
   partnerBannerEnabled?: boolean
   simulatedOtpEnabled?: boolean
   launchModeEnabled?: boolean
+  rotaryShareSettings?: RotaryShareSettings
   publicBaseUrl?: string
   pilotTodaName?: string
   simulateMovementEnabled?: boolean
@@ -1951,6 +1957,7 @@ function fromStored(parsed: StoredState): RideState {
     // choice — this only changes what a fresh one starts with.
     simulatedOtpEnabled: parsed.simulatedOtpEnabled ?? false,
     launchModeEnabled: parsed.launchModeEnabled ?? false,
+    rotaryShareSettings: parsed.rotaryShareSettings ?? DEFAULT_ROTARY_SHARE_SETTINGS,
     publicBaseUrl: parsed.publicBaseUrl ?? '',
     pilotTodaName: parsed.pilotTodaName ?? '',
     // Off unless somebody has said otherwise. The pilot is on real roads
@@ -2282,6 +2289,7 @@ function loadInitialState(): RideState {
     partnerBannerEnabled: false,
     simulatedOtpEnabled: false,
     launchModeEnabled: false,
+    rotaryShareSettings: DEFAULT_ROTARY_SHARE_SETTINGS,
     publicBaseUrl: '',
     pilotTodaName: '',
     simulateMovementEnabled: false,
@@ -3528,6 +3536,8 @@ function reducer(state: RideState, action: RideAction): RideState {
         drivers: state.drivers,
         orgs: state.todaOrganizations,
         platformFee,
+        rotaryEnabled: state.rotaryShareSettings.enabled,
+        rotaryPerRide: state.rotaryShareSettings.perRide,
       })
       return {
         ...state,
@@ -3554,6 +3564,8 @@ function reducer(state: RideState, action: RideAction): RideState {
                   partnerCommission: marketing.partnerCommission,
                   todaReferralOrgId: marketing.todaReferralOrgId,
                   todaReferralReward: marketing.todaReferralReward,
+                  rotaryShare: marketing.rotaryShare,
+                  greentechNet: marketing.greentechNet,
                 },
               }
             : r,
@@ -4221,6 +4233,8 @@ function reducer(state: RideState, action: RideAction): RideState {
       return { ...state, simulatedOtpEnabled: action.enabled }
     case 'SET_LAUNCH_MODE_ENABLED':
       return { ...state, launchModeEnabled: action.enabled }
+    case 'SET_ROTARY_SHARE_SETTINGS':
+      return { ...state, rotaryShareSettings: action.settings }
     case 'ADD_EMERGENCY_HOTLINE':
       return { ...state, emergencyHotlines: [action.hotline, ...state.emergencyHotlines] }
     case 'UPDATE_EMERGENCY_HOTLINE':
@@ -7023,6 +7037,7 @@ interface RideContextValue extends RideState {
   setPartnerBannerEnabled: (enabled: boolean) => void
   setSimulatedOtpEnabled: (enabled: boolean) => void
   setLaunchModeEnabled: (enabled: boolean) => void
+  setRotaryShareSettings: (settings: RotaryShareSettings) => void
   setPublicBaseUrl: (url: string) => void
   setPilotTodaName: (name: string) => void
   setSimulateMovementEnabled: (enabled: boolean) => void
@@ -7975,6 +7990,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           partnerBannerEnabled: state.partnerBannerEnabled,
           simulatedOtpEnabled: state.simulatedOtpEnabled,
           launchModeEnabled: state.launchModeEnabled,
+          rotaryShareSettings: state.rotaryShareSettings,
           publicBaseUrl: state.publicBaseUrl,
           pilotTodaName: state.pilotTodaName,
           simulateMovementEnabled: state.simulateMovementEnabled,
@@ -8086,6 +8102,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     state.partnerBannerEnabled,
     state.simulatedOtpEnabled,
     state.launchModeEnabled,
+    state.rotaryShareSettings,
     state.publicBaseUrl,
     state.pilotTodaName,
     state.simulateMovementEnabled,
@@ -8430,6 +8447,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setPartnerBannerEnabled: (enabled) => dispatch({ type: 'SET_PARTNER_BANNER_ENABLED', enabled }),
     setSimulatedOtpEnabled: (enabled) => dispatch({ type: 'SET_SIMULATED_OTP_ENABLED', enabled }),
     setLaunchModeEnabled: (enabled) => dispatch({ type: 'SET_LAUNCH_MODE_ENABLED', enabled }),
+    setRotaryShareSettings: (settings) => dispatch({ type: 'SET_ROTARY_SHARE_SETTINGS', settings }),
     setPublicBaseUrl: (url) => dispatch({ type: 'SET_PUBLIC_BASE_URL', url }),
     setPilotTodaName: (name) => dispatch({ type: 'SET_PILOT_TODA_NAME', name }),
     setSimulateMovementEnabled: (enabled) => dispatch({ type: 'SET_SIMULATE_MOVEMENT_ENABLED', enabled }),

@@ -1,4 +1,4 @@
-import type { Driver, TodaOrganization } from '../types'
+import type { Driver, RotaryShareSettings, TodaOrganization } from '../types'
 
 // Driver Marketing Promotion Program.
 //
@@ -14,6 +14,21 @@ import type { Driver, TodaOrganization } from '../types'
 export const PARTNER_COMMISSION_PER_RIDE = 0.7
 export const TODA_REFERRAL_REWARD_PER_RIDE = 0.3
 export const REFERRAL_WINDOW_DAYS = 365
+
+// GreenTech's donation to the Rotary community project, taken from
+// GreenTech's own portion of the fee rather than added on top: the passenger
+// pays no more, the driver keeps the same, and the partner and TODA are
+// settled first. Paid on every ride that carries a fee, referred or not —
+// that is what makes it a standing commitment rather than a side effect of
+// recruitment.
+export const ROTARY_SHARE_PER_RIDE = 0.5
+
+// On by default: the donation is the standing arrangement, not an opt-in.
+export const DEFAULT_ROTARY_SHARE_SETTINGS: RotaryShareSettings = {
+  enabled: true,
+  perRide: ROTARY_SHARE_PER_RIDE,
+  recipientLabel: 'Rotary Club of San Jose Golden Harvest – Community Project',
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -68,34 +83,88 @@ export interface MarketingSplit {
   partnerCommission: number
   todaReferralOrgId: string | null
   todaReferralReward: number
+  // GreenTech's donation out of its own share. Unlike the two above it does
+  // not depend on a referral.
+  rotaryShare: number
+  // Whatever is left of the fee once everyone else is paid.
+  greentechNet: number
 }
 
-const NONE: MarketingSplit = { partnerDriverId: null, partnerCommission: 0, todaReferralOrgId: null, todaReferralReward: 0 }
+const NOTHING: MarketingSplit = {
+  partnerDriverId: null,
+  partnerCommission: 0,
+  todaReferralOrgId: null,
+  todaReferralReward: 0,
+  rotaryShare: 0,
+  greentechNet: 0,
+}
 
-// What a completed ride pays out under the program. Never more than the
-// platform fee the ride actually carried: a ride with its fee waived pays
-// nothing, and a fee under ₱1 pays the partner first.
+// What a completed ride pays out of the platform fee it carried.
+//
+// Four claims on one fee, settled in this order: the partner who recruited
+// the driver, the recruit's TODA, the Rotary project, and GreenTech takes
+// what is left. The order is the priority when the fee cannot cover
+// everything — a ride whose fee was waived pays nobody, and a fee under ₱1
+// pays the partner first.
+//
+// The first two depend on a referral; the Rotary share does not. That is the
+// whole point of it: a donation promised on every ride is a commitment, one
+// promised only on recruited rides is a by-product of recruiting. So the
+// referral checks below decide the first two shares and nothing else, and an
+// unreferred ride still carries its ₱0.50.
+//
+// Nothing here is ever recomputed. The result is written onto the payment at
+// completion (see RideContext), so changing the Rotary amount tomorrow does
+// not rewrite what was donated yesterday.
 export function marketingSplit(args: {
   recruit: Driver | null | undefined
   drivers: Driver[]
   orgs: TodaOrganization[]
   platformFee: number
   at?: number
+  // Super Admin's switch and amount. Defaulted so every existing caller — and
+  // every test written before this existed — keeps the standing commitment.
+  rotaryEnabled?: boolean
+  rotaryPerRide?: number
 }): MarketingSplit {
   const { recruit, drivers, orgs, platformFee } = args
-  if (!recruit || platformFee <= 0 || !referralActive(recruit, args.at)) return NONE
-  const partner = drivers.find((d) => d.id === recruit.referredByDriverId)
-  if (!partner || partner.id === recruit.id) return NONE
-  const partnerCommission = Math.min(PARTNER_COMMISSION_PER_RIDE, platformFee)
-  const org = recruit.todaOrgId ? orgs.find((o) => o.id === recruit.todaOrgId) : null
-  const todaReferralReward = todaQualifiesForReward(org, drivers)
-    ? Math.min(TODA_REFERRAL_REWARD_PER_RIDE, Math.max(0, platformFee - partnerCommission))
-    : 0
+  const fee = Math.max(0, platformFee)
+  if (fee <= 0) return NOTHING
+
+  let partnerDriverId: string | null = null
+  let partnerCommission = 0
+  let todaReferralOrgId: string | null = null
+  let todaReferralReward = 0
+
+  // Unchanged: who earns on a recruit's ride, and for how long.
+  if (recruit && referralActive(recruit, args.at)) {
+    const partner = drivers.find((d) => d.id === recruit.referredByDriverId)
+    if (partner && partner.id !== recruit.id) {
+      partnerDriverId = partner.id
+      partnerCommission = Math.min(PARTNER_COMMISSION_PER_RIDE, fee)
+      const org = recruit.todaOrgId ? orgs.find((o) => o.id === recruit.todaOrgId) : null
+      if (todaQualifiesForReward(org, drivers)) {
+        todaReferralReward = Math.min(
+          TODA_REFERRAL_REWARD_PER_RIDE,
+          Math.max(0, fee - partnerCommission),
+        )
+        todaReferralOrgId = todaReferralReward > 0 ? org!.id : null
+      }
+    }
+  }
+
+  const afterReferral = Math.max(0, fee - partnerCommission - todaReferralReward)
+  const rotaryEnabled = args.rotaryEnabled ?? true
+  const rotaryPerRide = args.rotaryPerRide ?? ROTARY_SHARE_PER_RIDE
+  const rotaryShare = rotaryEnabled ? Math.min(Math.max(0, rotaryPerRide), afterReferral) : 0
+
   return {
-    partnerDriverId: partner.id,
+    partnerDriverId,
     partnerCommission: round2(partnerCommission),
-    todaReferralOrgId: todaReferralReward > 0 ? org!.id : null,
+    todaReferralOrgId,
     todaReferralReward: round2(todaReferralReward),
+    rotaryShare: round2(rotaryShare),
+    greentechNet: round2(Math.max(0, afterReferral - rotaryShare)),
   }
 }
 

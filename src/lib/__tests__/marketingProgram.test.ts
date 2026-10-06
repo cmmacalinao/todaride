@@ -77,3 +77,82 @@ describe('who earns on a recruit ride', () => {
     expect(small.todaReferralReward).toBe(0.1)
   })
 })
+
+// How one platform fee is divided four ways. The order matters only when the
+// fee cannot cover everything: partner, TODA, Rotary, then GreenTech takes
+// what is left.
+describe('splitting the platform fee', () => {
+  const partner = driver('partner')
+  const recruit = driver('recruit', { referredByDriverId: 'partner', referredAt: recentlyReferred })
+  const drivers = [partner, recruit]
+  const qualified = [org({ officialMemberCount: 2 })]
+
+  it('splits a referred ₱3 ride 0.70 / 0.30 / 0.50 / 1.50', () => {
+    const s = marketingSplit({ recruit, drivers, orgs: qualified, platformFee: 3, at: now })
+    expect(s.partnerCommission).toBe(0.7)
+    expect(s.todaReferralReward).toBe(0.3)
+    expect(s.rotaryShare).toBe(0.5)
+    expect(s.greentechNet).toBe(1.5)
+  })
+
+  it('still donates ₱0.50 on an unreferred ₱3 ride, and GreenTech keeps 2.50', () => {
+    // The point of the Rotary share: a commitment on every ride, not a
+    // by-product of recruiting.
+    const plain = driver('plain')
+    const s = marketingSplit({ recruit: plain, drivers: [partner, plain], orgs: qualified, platformFee: 3, at: now })
+    expect(s.partnerCommission).toBe(0)
+    expect(s.todaReferralReward).toBe(0)
+    expect(s.rotaryShare).toBe(0.5)
+    expect(s.greentechNet).toBe(2.5)
+  })
+
+  it('gives the TODA share to GreenTech when the TODA has not qualified', () => {
+    const notYet = [org({ officialMemberCount: 5 })]
+    const s = marketingSplit({ recruit, drivers, orgs: notYet, platformFee: 3, at: now })
+    expect(s.partnerCommission).toBe(0.7)
+    expect(s.todaReferralReward).toBe(0)
+    expect(s.rotaryShare).toBe(0.5)
+    expect(s.greentechNet).toBe(1.8)
+  })
+
+  it('allocates nothing at all on a fee-free ride', () => {
+    // Terminal QR and safetyRecord rides carry no fee; so does the pilot,
+    // where Admin has set the fee to ₱0.
+    const s = marketingSplit({ recruit, drivers, orgs: qualified, platformFee: 0, at: now })
+    expect([s.partnerCommission, s.todaReferralReward, s.rotaryShare, s.greentechNet]).toEqual([0, 0, 0, 0])
+  })
+
+  it('pays in priority order when the fee cannot cover everything', () => {
+    // ₱1.20: partner takes 0.70, TODA 0.30, Rotary gets the remaining 0.20
+    // rather than its full 0.50, and GreenTech gets nothing.
+    const s = marketingSplit({ recruit, drivers, orgs: qualified, platformFee: 1.2, at: now })
+    expect(s.partnerCommission).toBe(0.7)
+    expect(s.todaReferralReward).toBe(0.3)
+    expect(s.rotaryShare).toBe(0.2)
+    expect(s.greentechNet).toBe(0)
+  })
+
+  it('never allocates more than the fee, at any size', () => {
+    for (const fee of [0.1, 0.5, 0.8, 1, 1.5, 2, 3, 5]) {
+      const s = marketingSplit({ recruit, drivers, orgs: qualified, platformFee: fee, at: now })
+      const total = s.partnerCommission + s.todaReferralReward + s.rotaryShare + s.greentechNet
+      expect(Math.round(total * 100) / 100).toBe(fee)
+    }
+  })
+
+  it('gives the Rotary share to GreenTech when the donation is switched off', () => {
+    const s = marketingSplit({
+      recruit, drivers, orgs: qualified, platformFee: 3, at: now, rotaryEnabled: false,
+    })
+    expect(s.rotaryShare).toBe(0)
+    expect(s.greentechNet).toBe(2)
+  })
+
+  it('honours an amount Super Admin has changed', () => {
+    const s = marketingSplit({
+      recruit, drivers, orgs: qualified, platformFee: 3, at: now, rotaryPerRide: 1,
+    })
+    expect(s.rotaryShare).toBe(1)
+    expect(s.greentechNet).toBe(1)
+  })
+})

@@ -1,4 +1,5 @@
 import { BuildLabel } from './BuildLabel'
+import { OTP_LOGIN_SENDS_REAL_CODE, passwordlessLoginAvailable } from '../lib/otpLogin'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRides, usePublicOrigin } from '../context/RideContext'
@@ -66,7 +67,7 @@ const INPUT_CLASS =
 // only spares people from having to know which one is theirs.
 export function AppLoginForm() {
   const navigate = useNavigate()
-  const { passengers, parents, drivers, todaOrganizations, pharmacies, operators, franchises } = useRides()
+  const { passengers, parents, drivers, todaOrganizations, pharmacies, operators, franchises, simulatedOtpEnabled } = useRides()
   const {
     setAuthedAccount,
     setRole,
@@ -324,6 +325,7 @@ export function AppLoginForm() {
         ) : (
           <OtpVerify
             phone={otpPhone}
+            sendRealSms={OTP_LOGIN_SENDS_REAL_CODE}
             verified={false}
             onVerifiedChange={(ok) => {
               if (ok) handlePhoneVerified(otpPhone)
@@ -490,8 +492,12 @@ export function AppLoginForm() {
             <path d="M17.5 17.6a9 9 0 0 1 .1 1.9" />
           </svg>
         </button>
-        {/* Always the OTP door: registering is what the main Login/Register
-            button does now, so this one has a single job and says so. */}
+        {/* Passwordless entry, offered only when a real code actually goes to
+            the phone. See lib/otpLogin: this button logs you in as whoever a
+            number belongs to, so it is only safe while the code is secret —
+            and on this screen it was being generated in the browser and shown
+            on it. Password and "Forgot password?" remain the way in. */}
+        {passwordlessLoginAvailable({ simulatedOtpEnabled, sendsRealCode: OTP_LOGIN_SENDS_REAL_CODE }) && (
         <button
           type="button"
           onClick={() => {
@@ -516,6 +522,7 @@ export function AppLoginForm() {
           </svg>
           Send OTP
         </button>
+        )}
       </div>
 
       {enrollment && (

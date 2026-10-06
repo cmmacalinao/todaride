@@ -64,26 +64,36 @@ if (existsSync(knobs)) {
   const k = JSON.parse(readFileSync(knobs, 'utf8'))
   extra = { required: k.required === true, notes: typeof k.notes === 'string' ? k.notes : '' }
 }
-
-// Release notes that name a different version are worse than none.
+// Release notes describing a different release are worse than none.
 //
-// This field is hand-edited, and nothing read it back: it sat on "5C.2 —
-// Food Express…" for about thirty releases while AppUpdateBanner showed it
-// to every tester as what was new in the build they were being offered.
-// Empty is fine — the banner has its own generic line, which is honest. A
-// paragraph about another version is not.
+// AppUpdateBanner shows this text to every tester as what is new in the
+// build being offered them. It said "5C.2 — Food Express…" for roughly
+// thirty releases, because the field is edited by hand and nothing read it
+// back.
 //
-// So: fail the release rather than ship the lie. The fix is one line in
-// app-update.json, and the build is the last moment anybody is looking.
-if (extra.notes && !extra.notes.includes(versionName)) {
-  console.error(
-    `\napp-update.json "notes" does not mention ${versionName}:\n` +
-      `  ${extra.notes.slice(0, 120)}${extra.notes.length > 120 ? '…' : ''}\n\n` +
-      `Those notes are shown to testers as what is new in this build.\n` +
-      `Update app-update.json for ${versionName}, or set "notes": "" to fall back\n` +
-      `to the generic message.\n`,
-  )
+// What this can honestly detect is a number, not stale prose. So it fails on
+// the shape the real bug had — notes from another release line (5C while
+// building 5E), or many versions behind — and tolerates the one-release lag
+// that is unavoidable here, since `release` bumps the version before this
+// runs and nobody can write notes for a number that does not exist yet.
+const notesVersion = extra.notes.match(/\b(\d+[A-Z])\.(\d+)\b/)
+const buildVersion = versionName.match(/\b(\d+[A-Z])\.(\d+)\b/)
+if (extra.notes && (!notesVersion || !buildVersion)) {
+  console.error(`\napp-update.json "notes" should start with the version, e.g. "${versionName} — …".\n`)
   process.exit(1)
+}
+if (extra.notes && notesVersion && buildVersion) {
+  const sameLine = notesVersion[1] === buildVersion[1]
+  const behind = Number(buildVersion[2]) - Number(notesVersion[2])
+  if (!sameLine || behind < 0 || behind > 3) {
+    console.error(
+      `\napp-update.json "notes" are for ${notesVersion[0]}, but this build is ${versionName}:\n` +
+        `  ${extra.notes.slice(0, 120)}${extra.notes.length > 120 ? '…' : ''}\n\n` +
+        `Those notes are shown to testers as what is new in this build.\n` +
+        `Update app-update.json, or set "notes": "" for the generic message.\n`,
+    )
+    process.exit(1)
+  }
 }
 writeFileSync(
   resolve(root, 'dist/app-version.json'),

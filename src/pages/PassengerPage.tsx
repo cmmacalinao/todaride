@@ -162,7 +162,7 @@ export function PassengerPage() {
   const [paymentMethod] = useState<PaymentMethod>('cash')
   const [passengerCount, setPassengerCount] = useState(1)
   const [showRegister, setShowRegister] = useState(false)
-  const [pageTab, setPageTab] = useState<'book' | 'rewards' | 'emergency'>('book')
+  const [pageTab, setPageTab] = useState<'book' | 'rewards' | 'emergency' | 'history'>('book')
   // Where this phone is, for the emergency screen — without a trip there is no
   // shared position to show, and "Location not available" is the last thing
   // someone reading coordinates to 911 needs to see.
@@ -322,7 +322,6 @@ export function PassengerPage() {
   // Trip history starts collapsed — it's a long, low-priority list the
   // passenger only wants to check occasionally, not something that should
   // push the actual booking form further down the page by default.
-  const [showTripHistory, setShowTripHistory] = useState(false)
   // Which past trip's driver profile is open, if any. A passenger looking
   // back at a trip has the same reason to look up the driver as one about to
   // take it — most often to decide whether to ask for them again.
@@ -547,8 +546,8 @@ export function PassengerPage() {
         setTimeout(() => currentRideSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
         break
       case 'history':
-        setShowTripHistory(true)
-        setTimeout(() => tripHistorySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+        setPageTab('history')
+        scrollTop()
         break
       case 'rewards':
         if (!rewardsEnabled) break
@@ -3689,20 +3688,19 @@ export function PassengerPage() {
             <span className="truncate text-[10px] font-semibold text-slate-700">Contact</span>
           </button>
         )}
-        {/* Trip history lives in the footer now (2026-09-22) rather than as a
-            folded row at the foot of the page: tap to open the list and go to
-            it, tap again to close it. */}
+        {/* Trip history is its own page (2026-10-07), not a fold at the foot
+            of the booking form. Tap to open it, tap again to come back to
+            booking — the same toggle the other footer pages use. */}
         <button
           type="button"
           onClick={() => {
-            const opening = !showTripHistory
-            setShowTripHistory(opening)
-            if (opening) setTimeout(() => tripHistorySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
+            setPageTab(pageTab === 'history' ? 'book' : 'history')
+            window.scrollTo({ top: 0, behavior: 'smooth' })
           }}
-          aria-pressed={showTripHistory}
+          aria-pressed={pageTab === 'history'}
           title="Trip history"
           className={`flex min-w-0 flex-1 flex-col items-center gap-0 rounded-lg border px-2 py-1.5 transition ${
-            showTripHistory ? 'border-gold-500 bg-gold-400 shadow-md' : 'border-transparent bg-slate-100 hover:bg-slate-200'
+            pageTab === 'history' ? 'border-gold-500 bg-gold-400 shadow-md' : 'border-transparent bg-slate-100 hover:bg-slate-200'
           }`}
         >
           <span className="text-[15px] leading-none">🧾</span>
@@ -3787,6 +3785,108 @@ export function PassengerPage() {
           as a card of its own above it. */}
 
       {pageTab === 'rewards' && rewardsEnabled && <PassengerRewardsCard passenger={passenger} />}
+
+      {pageTab === 'history' && (
+        <>
+          {/* Its own page rather than a fold at the foot of the booking form.
+              A list of past trips with receipts, ratings and driver profiles
+              is not a footnote to booking the next one, and on a phone it
+              pushed the form it was attached to off the screen. */}
+          <div className="mb-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPageTab('book')}
+              className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              ‹ Back
+            </button>
+            <h1 className="min-w-0 flex-1 truncate text-sm font-bold text-slate-800">🧾 Trip history</h1>
+          </div>
+      <section ref={tripHistorySectionRef}>
+        <div className="space-y-2">
+          {visibleTripHistory.length > 0 && (
+            <ClearHistoryControl
+              message="Clear your trip history? Past trips disappear from this list. Your drivers, your TODA and support can still see them, and a trip under way stays."
+              onClear={() => clearPassengerTripHistory(passenger.id)}
+            />
+          )}
+          {visibleTripHistory.length === 0 && <p className="text-sm text-slate-400">No trips yet.</p>}
+          {historyProfileDriverId && (
+            <DriverProfileSheet
+              driverId={historyProfileDriverId}
+              passengerId={passenger.id}
+              onClose={() => setHistoryProfileDriverId(null)}
+            />
+          )}
+          {visibleTripHistory.map((r) => {
+            const driver = r.driverId ? drivers.find((d) => d.id === r.driverId) : null
+            const toda = driver?.todaOrgId ? todaOrganizations.find((o) => o.id === driver.todaOrgId) : null
+            return (
+              <div key={r.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-slate-700">
+                    {rideServiceTag(r) ? `${rideServiceTag(r)!.icon} ${rideServiceTag(r)!.label} · ` : ''}
+                    {formatTripRoute(r.pickup.label, r.dropoff.label)}
+                  </span>
+                  <StatusBadge status={r.status} />
+                </div>
+                <div className="mt-1 text-xs text-slate-400">
+                  ₱{r.fareEstimate}
+                  {r.pabiliTip > 0 && ` + ₱${r.pabiliTip} tip`}
+                  {r.tipOffer > 0 && ` + ₱${r.tipOffer} tip offer`} · {new Date(r.requestedAt).toLocaleString()}
+                </div>
+                {(r.serviceType === 'pabili' || r.serviceType === 'buy_medicine' || r.serviceType === 'vendor_order') && r.pabiliItems && (
+                  <p className="mt-1 rounded-lg bg-slate-50 p-2 text-xs text-slate-600">🛒 {r.pabiliItems}</p>
+                )}
+                {r.serviceType === 'padala' && r.packageNote && (
+                  <p className="mt-1 rounded-lg bg-slate-50 p-2 text-xs text-slate-600">📦 {r.packageNote}</p>
+                )}
+                {driver && (
+                  <button
+                    type="button"
+                    onClick={() => setHistoryProfileDriverId(driver.id)}
+                    className="mt-1 flex w-full items-center gap-2 rounded-lg border border-slate-200 px-2 py-1.5 text-left text-xs transition hover:bg-slate-50"
+                  >
+                    {driver.profilePhotoStatus === 'approved' && driver.profilePhotoDataUrl ? (
+                      <img src={driver.profilePhotoDataUrl} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+                    ) : (
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-100 text-[11px] font-semibold text-brand-700">
+                        {driver.name.charAt(0)}
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1 truncate font-medium text-slate-700">{driver.name}</span>
+                    <span aria-hidden className="shrink-0 font-semibold text-sky-600">
+                      Profile ›
+                    </span>
+                  </button>
+                )}
+                {r.payment && <ReceiptCard payment={r.payment} />}
+                {/* Kept after the trip, where the receipt is — the photo of a
+                    plate is most wanted after the ride, not during it. */}
+                {(r.safetyPhotos ?? []).length > 0 && (
+                  <div className="mt-2">
+                    <PhotoGallery
+                      photos={r.safetyPhotos}
+                      canDelete={(p) => p.takenBy === r.passengerId}
+                      onDelete={(p) => removeSafetyPhoto(r.id, p.id, r.passengerId)}
+                    />
+                  </div>
+                )}
+                <div className="mt-2 flex flex-wrap items-start gap-1.5">
+                  {r.status === 'completed' && driver && (
+                    <RateRideSection ride={r} driverName={driver.name} todaName={toda?.name ?? null} />
+                  )}
+                  {driver && <ReportDriverSection ride={r} driver={driver} passengerId={passenger.id} passengerName={passenger.name} />}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </section>
+        </>
+      )}
+
+
 
       {pageTab === 'emergency' && (
         <>
@@ -4150,102 +4250,6 @@ export function PassengerPage() {
         </section>
       )}
 
-      <section ref={tripHistorySectionRef}>
-        {/* Opened from the footer's History tile — no folded row here. */}
-        {showTripHistory && (
-          <div className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-700">
-            Trip history
-            <button
-              type="button"
-              onClick={() => setShowTripHistory(false)}
-              className="text-xs font-medium text-slate-400 hover:text-slate-600"
-            >
-              ✕ Close
-            </button>
-          </div>
-        )}
-        {showTripHistory && (
-        <div className="space-y-2">
-          {visibleTripHistory.length > 0 && (
-            <ClearHistoryControl
-              message="Clear your trip history? Past trips disappear from this list. Your drivers, your TODA and support can still see them, and a trip under way stays."
-              onClear={() => clearPassengerTripHistory(passenger.id)}
-            />
-          )}
-          {visibleTripHistory.length === 0 && <p className="text-sm text-slate-400">No trips yet.</p>}
-          {historyProfileDriverId && (
-            <DriverProfileSheet
-              driverId={historyProfileDriverId}
-              passengerId={passenger.id}
-              onClose={() => setHistoryProfileDriverId(null)}
-            />
-          )}
-          {visibleTripHistory.map((r) => {
-            const driver = r.driverId ? drivers.find((d) => d.id === r.driverId) : null
-            const toda = driver?.todaOrgId ? todaOrganizations.find((o) => o.id === driver.todaOrgId) : null
-            return (
-              <div key={r.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-700">
-                    {rideServiceTag(r) ? `${rideServiceTag(r)!.icon} ${rideServiceTag(r)!.label} · ` : ''}
-                    {formatTripRoute(r.pickup.label, r.dropoff.label)}
-                  </span>
-                  <StatusBadge status={r.status} />
-                </div>
-                <div className="mt-1 text-xs text-slate-400">
-                  ₱{r.fareEstimate}
-                  {r.pabiliTip > 0 && ` + ₱${r.pabiliTip} tip`}
-                  {r.tipOffer > 0 && ` + ₱${r.tipOffer} tip offer`} · {new Date(r.requestedAt).toLocaleString()}
-                </div>
-                {(r.serviceType === 'pabili' || r.serviceType === 'buy_medicine' || r.serviceType === 'vendor_order') && r.pabiliItems && (
-                  <p className="mt-1 rounded-lg bg-slate-50 p-2 text-xs text-slate-600">🛒 {r.pabiliItems}</p>
-                )}
-                {r.serviceType === 'padala' && r.packageNote && (
-                  <p className="mt-1 rounded-lg bg-slate-50 p-2 text-xs text-slate-600">📦 {r.packageNote}</p>
-                )}
-                {driver && (
-                  <button
-                    type="button"
-                    onClick={() => setHistoryProfileDriverId(driver.id)}
-                    className="mt-1 flex w-full items-center gap-2 rounded-lg border border-slate-200 px-2 py-1.5 text-left text-xs transition hover:bg-slate-50"
-                  >
-                    {driver.profilePhotoStatus === 'approved' && driver.profilePhotoDataUrl ? (
-                      <img src={driver.profilePhotoDataUrl} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
-                    ) : (
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-100 text-[11px] font-semibold text-brand-700">
-                        {driver.name.charAt(0)}
-                      </span>
-                    )}
-                    <span className="min-w-0 flex-1 truncate font-medium text-slate-700">{driver.name}</span>
-                    <span aria-hidden className="shrink-0 font-semibold text-sky-600">
-                      Profile ›
-                    </span>
-                  </button>
-                )}
-                {r.payment && <ReceiptCard payment={r.payment} />}
-                {/* Kept after the trip, where the receipt is — the photo of a
-                    plate is most wanted after the ride, not during it. */}
-                {(r.safetyPhotos ?? []).length > 0 && (
-                  <div className="mt-2">
-                    <PhotoGallery
-                      photos={r.safetyPhotos}
-                      canDelete={(p) => p.takenBy === r.passengerId}
-                      onDelete={(p) => removeSafetyPhoto(r.id, p.id, r.passengerId)}
-                    />
-                  </div>
-                )}
-                <div className="mt-2 flex flex-wrap items-start gap-1.5">
-                  {r.status === 'completed' && driver && (
-                    <RateRideSection ride={r} driverName={driver.name} todaName={toda?.name ?? null} />
-                  )}
-                  {driver && <ReportDriverSection ride={r} driver={driver} passengerId={passenger.id} passengerName={passenger.name} />}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-        )}
-      </section>
 
       </>
       )}

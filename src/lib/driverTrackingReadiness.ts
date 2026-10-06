@@ -166,3 +166,63 @@ export function useDriverTrackingReadiness(serviceError: string | null): Trackin
 
   return trackingReadiness({ native, notifications, serviceError })
 }
+
+// The last thing the background service failed with, carried across the end
+// of the trip.
+//
+// Two permissions can stop a driver being followed, and the check above can
+// only see one of them. POST_NOTIFICATIONS is readable; ACCESS_BACKGROUND
+// _LOCATION — Android's "Allow all the time" — is not reported by any plugin
+// here, and the only thing that knows about it is the service itself, when it
+// refuses to start mid-trip with NOT_AUTHORIZED.
+//
+// That error used to live and die inside the trip card. So a driver whose
+// notifications were fine but whose location was "While using the app" saw a
+// clean dashboard, a normal trip, and a passenger whose map quietly froze —
+// the exact shape of the three pilot runs nobody could explain. Writing it
+// down means the next look at the dashboard says what went wrong, instead of
+// the trip having to be run again to find out.
+const FAILURE_KEY = 'toda-bg-location-failure-v1'
+
+// Long enough to survive the trip and the drive home, short enough that a
+// permission fixed yesterday is not still being complained about today.
+const FAILURE_TTL_MS = 12 * 60 * 60 * 1000
+
+// Pure, so the staleness rule can be tested without a browser.
+export function parseStoredFailure(
+  raw: string | null,
+  now: number,
+  maxAgeMs = FAILURE_TTL_MS,
+): string | null {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as { message?: unknown; at?: unknown }
+    if (typeof parsed.message !== 'string' || !parsed.message) return null
+    if (typeof parsed.at !== 'number') return null
+    // A clock that has gone backwards must not make an old failure immortal.
+    const age = now - parsed.at
+    if (age < 0 || age > maxAgeMs) return null
+    return parsed.message
+  } catch {
+    // Someone else's key, or a half-written value. Nothing to report beats
+    // reporting nonsense on a safety screen.
+    return null
+  }
+}
+
+export function rememberTrackingFailure(message: string | null): void {
+  try {
+    if (!message) localStorage.removeItem(FAILURE_KEY)
+    else localStorage.setItem(FAILURE_KEY, JSON.stringify({ message, at: Date.now() }))
+  } catch {
+    // Private mode, blocked storage. The in-trip message still shows.
+  }
+}
+
+export function lastTrackingFailure(): string | null {
+  try {
+    return parseStoredFailure(localStorage.getItem(FAILURE_KEY), Date.now())
+  } catch {
+    return null
+  }
+}

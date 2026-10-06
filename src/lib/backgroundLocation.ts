@@ -2,6 +2,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core'
 import { PushNotifications } from '@capacitor/push-notifications'
 import { useEffect, useRef, useState } from 'react'
 import type { GeoCoords } from '../types'
+import { rememberTrackingFailure } from './driverTrackingReadiness'
 
 // Where a driver is, while nobody is looking at the phone.
 //
@@ -131,6 +132,7 @@ export function useBackgroundDriverLocation(active: boolean): { fix: BackgroundF
               // indistinguishable from one that was working. On the pilot
               // that cost two runs: no notification appeared and nothing on
               // the phone would say why.
+              rememberTrackingFailure(err.message ?? err.code ?? 'Background location stopped.')
               setError(
                 err.code === 'NOT_AUTHORIZED'
                   ? 'Background location is off for this app. Open Settings → Location and choose "Allow all the time", so your passenger can still see you with the screen off.'
@@ -140,6 +142,9 @@ export function useBackgroundDriverLocation(active: boolean): { fix: BackgroundF
             }
             if (!position) return
             setError(null)
+            // A position proves the service is running; whatever it failed
+            // with earlier no longer describes this phone.
+            rememberTrackingFailure(null)
             setFix({
               gps: { lat: position.latitude, lng: position.longitude },
               accuracy: position.accuracy ?? null,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { shouldWarnDriver, trackingReadiness } from '../driverTrackingReadiness'
+import { parseStoredFailure, shouldWarnDriver, trackingReadiness } from '../driverTrackingReadiness'
 
 const base = { native: true, notifications: 'granted' as const, serviceError: null }
 
@@ -75,5 +75,36 @@ describe('trackingReadiness', () => {
     // platform, not a switch the driver can flip.
     const r = trackingReadiness({ native: false, notifications: 'denied', serviceError: 'boom' })
     expect(r.status).toBe('screen-on-only')
+  })
+})
+
+describe('parseStoredFailure', () => {
+  const NOW = 1_700_000_000_000
+  const stored = (message: string, at: number) => JSON.stringify({ message, at })
+
+  it('returns a recent failure', () => {
+    expect(parseStoredFailure(stored('Background location is off', NOW - 60_000), NOW)).toBe('Background location is off')
+  })
+
+  it('forgets one that is older than the window', () => {
+    // A permission fixed yesterday should not still be complained about.
+    expect(parseStoredFailure(stored('old', NOW - 13 * 60 * 60 * 1000), NOW)).toBeNull()
+  })
+
+  it('has nothing to say when nothing was stored', () => {
+    expect(parseStoredFailure(null, NOW)).toBeNull()
+  })
+
+  it('ignores a value it cannot read rather than showing nonsense', () => {
+    // Someone else's key, or a half-written entry. On a safety screen,
+    // saying nothing beats saying rubbish.
+    expect(parseStoredFailure('not json', NOW)).toBeNull()
+    expect(parseStoredFailure(JSON.stringify({ at: NOW }), NOW)).toBeNull()
+    expect(parseStoredFailure(JSON.stringify({ message: 'x' }), NOW)).toBeNull()
+    expect(parseStoredFailure(JSON.stringify({ message: '', at: NOW }), NOW)).toBeNull()
+  })
+
+  it('does not let a backwards clock make a failure immortal', () => {
+    expect(parseStoredFailure(stored('future', NOW + 60_000), NOW)).toBeNull()
   })
 })

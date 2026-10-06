@@ -59,7 +59,7 @@ import {
 import { publishDelayMs, useMotionFromPositions, useNow, useWatchPosition } from '../lib/liveTracking'
 import { useIncomingRequestAlert } from '../lib/alertSound'
 import { useBackgroundDriverLocation } from '../lib/backgroundLocation'
-import { openTrackingSettings, shouldWarnDriver, useDriverTrackingReadiness } from '../lib/driverTrackingReadiness'
+import { lastTrackingFailure, openTrackingSettings, shouldWarnDriver, useDriverTrackingReadiness } from '../lib/driverTrackingReadiness'
 import { ROUTE_CHANGE_REASONS, ROUTE_CHANGE_START, nextRouteChangeDecision, type RouteChangeState } from '../lib/routeChange'
 import { snapForRouting, useRoute } from '../lib/routing'
 import { isApart, nextSeparationDecision, positionAt, type SeparationState } from '../lib/separation'
@@ -184,7 +184,10 @@ export function DriverPage() {
   // because the service is not running yet, and the point of this check is to
   // catch a missing permission in the driveway. A failure during a trip has
   // its own route to the screen — see backgroundGpsError in ActiveTripCard.
-  const trackingReady = useDriverTrackingReadiness(null)
+  // The last failure the service recorded, if any, rather than null: it is
+  // written mid-trip and read here afterwards, which is the only way the one
+  // permission this cannot check — "Allow all the time" — ever names itself.
+  const trackingReady = useDriverTrackingReadiness(lastTrackingFailure())
   const [tappedGps, setTappedGps] = useState<GeoCoords | null>(null)
   const myLiveGps = watchedGps ?? tappedGps
 

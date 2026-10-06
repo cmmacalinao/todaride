@@ -1,4 +1,5 @@
 import { formatTripRoute } from '../lib/addressFormat'
+import { BUSINESS_PHASE_LABEL, effectiveMonthlyFee, isPilot } from '../lib/businessPhase'
 import { SafetyDashboard } from '../components/SafetyDashboard'
 import { PhotoGallery } from '../components/PhotoGallery'
 import { rideServiceTag } from '../lib/vendorOrders'
@@ -226,6 +227,7 @@ export function AdminPage() {
     removeTerminal,
     setOutOfAreaPerKm,
     logActivity,
+    businessPhase,
   } = useRides()
   const [commissionInput, setCommissionInput] = useState(String(commissionPerRide))
   const navigate = useNavigate()
@@ -336,10 +338,14 @@ export function AdminPage() {
   const approvedTodaCount = todaOrganizations.filter((o) => o.verificationStatus === 'approved').length
   const approvedOperatorCount = operators.filter((o) => o.verificationStatus === 'approved').length
   const approvedFranchiseCount = franchises.filter((f) => f.verificationStatus === 'approved').length
-  const estimatedMonthlyRecurringRevenue =
+  // Nobody is billed during the pilot, so the recurring revenue is ₱0 — the
+  // plans are still configured and come back the moment the phase changes.
+  const estimatedMonthlyRecurringRevenue = effectiveMonthlyFee(
     todaOrganizations.filter((o) => o.verificationStatus === 'approved').reduce((sum, o) => sum + o.monthlyPlatformFee, 0) +
-    operators.filter((o) => o.verificationStatus === 'approved').reduce((sum, o) => sum + o.monthlyPlatformFee, 0) +
-    franchises.filter((f) => f.verificationStatus === 'approved').reduce((sum, f) => sum + f.monthlyTechnologyFee, 0)
+      operators.filter((o) => o.verificationStatus === 'approved').reduce((sum, o) => sum + o.monthlyPlatformFee, 0) +
+      franchises.filter((f) => f.verificationStatus === 'approved').reduce((sum, f) => sum + f.monthlyTechnologyFee, 0),
+    businessPhase,
+  )
 
   const openReports = driverReports.filter((r) => r.status === 'open')
   const reviewedReports = driverReports.filter((r) => r.status === 'reviewed')
@@ -723,6 +729,14 @@ export function AdminPage() {
           <StatTile label="Level 2 — Operators" value={String(approvedOperatorCount)} />
           <StatTile label="Level 3 — Franchises" value={String(approvedFranchiseCount)} />
           <StatTile label="Estimated MRR" value={`₱${estimatedMonthlyRecurringRevenue}`} />
+          {/* Said next to the numbers it explains, so a ₱0 MRR reads as a
+              decision rather than a bug. */}
+          {isPilot(businessPhase) && (
+            <p className="col-span-full rounded-lg bg-amber-50 px-3 py-2 text-[11px] leading-snug text-amber-900">
+              📋 {BUSINESS_PHASE_LABEL.pilot}. Platform fees, TODA and Operator plans and vendor fees are all ₱0
+              right now. The configured prices are kept and apply the moment Super Admin switches to Launch.
+            </p>
+          )}
         </div>
       </section>
       </>

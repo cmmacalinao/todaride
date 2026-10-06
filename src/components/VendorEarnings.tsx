@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useRides } from '../context/RideContext'
+import { effectivePerBookingFee } from '../lib/businessPhase'
 import { DEFAULT_VENDOR_MONTHLY_FEE, DEFAULT_VENDOR_PER_ORDER_FEE } from '../mock/data'
 import { SaasFeeCard } from './SaasFeeCard'
 import type { MedsOrder, Pharmacy, Ride } from '../types'
@@ -47,11 +48,12 @@ function periodStart(period: Period): number {
 const peso = (n: number) => `₱${n.toLocaleString()}`
 
 export function VendorEarnings({ vendor, orders, rides }: { vendor: Pharmacy; orders: MedsOrder[]; rides: Ride[] }) {
-  const { drivers } = useRides()
+  const { drivers, businessPhase } = useRides()
   const [period, setPeriod] = useState<Period>('today')
   const [openId, setOpenId] = useState<string | null>(null)
 
-  const perOrderFee = vendor.perOrderFee ?? DEFAULT_VENDOR_PER_ORDER_FEE
+  // Pilot vendors are not billed; their configured fee is kept, not zeroed.
+  const perOrderFee = effectivePerBookingFee(vendor.perOrderFee ?? DEFAULT_VENDOR_PER_ORDER_FEE, businessPhase)
   const monthlyFee = vendor.monthlyPlatformFee ?? DEFAULT_VENDOR_MONTHLY_FEE
 
   // Delivered = dispatched and the ride actually completed. Anything still

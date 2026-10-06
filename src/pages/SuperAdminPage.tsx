@@ -1,5 +1,6 @@
 import { ArchitectureOverview } from '../components/ArchitectureOverview'
 import { launchModeLeavesNoDrivers } from '../lib/launchMode'
+import { BUSINESS_PHASE_LABEL, isPilot } from '../lib/businessPhase'
 import { feeReportSheetRows, monthlyFeeReport } from '../lib/feeReport'
 import * as XLSX from 'xlsx'
 import { SEED_DRIVER_IDS } from '../mock/data'
@@ -62,6 +63,8 @@ export function SuperAdminPage() {
     rides,
     rotaryShareSettings,
     setRotaryShareSettings,
+    businessPhase,
+    setBusinessPhase,
     simulateMovementEnabled,
     liveGpsEnabled,
     setLiveGpsEnabled,
@@ -395,6 +398,43 @@ export function SuperAdminPage() {
                   : 'Note: every driver on this database is a demo driver. Turning this on would leave nobody to take a booking until a real driver registers.'}
               </p>
             )}
+            {/* The switch that decides whether this is a business yet.
+                Above the simulation toggles because it is not one: those
+                stand in for infrastructure, this one decides whether real
+                money moves. */}
+            <div
+              className={`rounded-lg border p-3 ${
+                isPilot(businessPhase) ? 'border-amber-300 bg-amber-50' : 'border-emerald-300 bg-emerald-50'
+              }`}
+            >
+              <p className="text-xs font-bold text-slate-800">
+                Business phase — {BUSINESS_PHASE_LABEL[businessPhase]}
+              </p>
+              <p className="mt-0.5 text-[11px] leading-snug text-slate-600">
+                {isPilot(businessPhase)
+                  ? 'Nobody is charged: ₱0 platform fee, no TODA or Operator plans, no vendor per-order fees, no ads. Every configured price is kept and comes back on Launch.'
+                  : 'Fees are live. Platform fee, TODA and Operator plans and vendor fees are billed at the values set by Admin.'}
+              </p>
+              <div className="mt-2 flex gap-1.5">
+                {(['pilot', 'launch'] as const).map((phase) => (
+                  <button
+                    key={phase}
+                    type="button"
+                    onClick={() => setBusinessPhase(phase, 'Super Admin')}
+                    aria-pressed={businessPhase === phase}
+                    className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-bold transition ${
+                      businessPhase === phase
+                        ? 'border-slate-800 bg-slate-800 text-white'
+                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {phase === 'pilot' ? 'Pilot' : 'Launch'}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-[10px] text-slate-500">Who switched this, and when, is written to the activity log.</p>
+            </div>
+
             {/* GreenTech's donation, set here because it comes out of
                 GreenTech's own share of the fee and nobody else's. Switching
                 it off does not make rides cheaper or pay drivers more — the

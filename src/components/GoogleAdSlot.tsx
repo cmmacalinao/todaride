@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useRides } from '../context/RideContext'
+import { adSenseAllowed } from '../lib/businessPhase'
 import type { AdSensePlacementSlots } from '../types'
 
 declare global {
@@ -27,9 +28,12 @@ let adsbygoogleScriptRequested = false
 // are all things only the site owner can complete — this component is only
 // ever the wiring, never a stand-in for that account.
 export function GoogleAdSlot({ placement }: { placement: keyof AdSensePlacementSlots }) {
-  const { adSenseSettings } = useRides()
+  const { adSenseSettings, businessPhase } = useRides()
   const slotId = adSenseSettings.slots[placement]
-  const active = adSenseSettings.enabled && !!adSenseSettings.publisherId && !!slotId
+  // Two conditions, not one: ads are switched on AND the business is live.
+  // A pilot passenger is doing somebody a favour by testing; advertising at
+  // them is a poor way to say thank you.
+  const active = adSenseAllowed(adSenseSettings.enabled, businessPhase) && !!adSenseSettings.publisherId && !!slotId
   const insRef = useRef<HTMLModElement>(null)
 
   useEffect(() => {

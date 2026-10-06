@@ -7,6 +7,8 @@ import { PILOT_ORIGIN } from '../lib/pilotOrigin'
 import type { RecoveryKind } from '../lib/unifiedLogin'
 import type { RidePhoto } from '../types'
 import type { RotaryShareSettings } from '../types'
+import type { BusinessPhase } from '../lib/businessPhase'
+import { businessPhaseLogSummary, DEFAULT_BUSINESS_PHASE, effectivePlatformFee } from '../lib/businessPhase'
 import type { EmergencyContact, SafetySettings, SosEvent, SosEventKind, SosTriggerSource, SosTriggeredByRole } from '../types'
 import type {
   PabiliFareMode,
@@ -427,6 +429,9 @@ interface RideState {
   // GreenTech donates part of its own share of each fee — see
   // lib/marketingProgram and SuperAdminPage.
   rotaryShareSettings: RotaryShareSettings
+  // Pilot or launch — whether anybody is charged at all. See
+  // lib/businessPhase: the saved prices survive a pilot untouched.
+  businessPhase: BusinessPhase
   // Public address the shareable links/QRs are built from (see
   // SuperAdminPage's Access links tab). Must be set explicitly because
   // window.location.origin is useless for sharing in the two cases that
@@ -648,6 +653,7 @@ type RideAction =
   | { type: 'SET_SIMULATED_OTP_ENABLED'; enabled: boolean }
   | { type: 'SET_LAUNCH_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_ROTARY_SHARE_SETTINGS'; settings: RotaryShareSettings }
+  | { type: 'SET_BUSINESS_PHASE'; phase: BusinessPhase; actorName: string }
   | { type: 'SET_PUBLIC_BASE_URL'; url: string }
   | { type: 'SET_PILOT_TODA_NAME'; name: string }
   | { type: 'SET_SIMULATE_MOVEMENT_ENABLED'; enabled: boolean }
@@ -1670,6 +1676,7 @@ interface StoredState {
   simulatedOtpEnabled?: boolean
   launchModeEnabled?: boolean
   rotaryShareSettings?: RotaryShareSettings
+  businessPhase?: BusinessPhase
   publicBaseUrl?: string
   pilotTodaName?: string
   simulateMovementEnabled?: boolean
@@ -1958,6 +1965,7 @@ function fromStored(parsed: StoredState): RideState {
     simulatedOtpEnabled: parsed.simulatedOtpEnabled ?? false,
     launchModeEnabled: parsed.launchModeEnabled ?? false,
     rotaryShareSettings: parsed.rotaryShareSettings ?? DEFAULT_ROTARY_SHARE_SETTINGS,
+    businessPhase: parsed.businessPhase ?? DEFAULT_BUSINESS_PHASE,
     publicBaseUrl: parsed.publicBaseUrl ?? '',
     pilotTodaName: parsed.pilotTodaName ?? '',
     // Off unless somebody has said otherwise. The pilot is on real roads
@@ -2290,6 +2298,7 @@ function loadInitialState(): RideState {
     simulatedOtpEnabled: false,
     launchModeEnabled: false,
     rotaryShareSettings: DEFAULT_ROTARY_SHARE_SETTINGS,
+    businessPhase: DEFAULT_BUSINESS_PHASE,
     publicBaseUrl: '',
     pilotTodaName: '',
     simulateMovementEnabled: false,
@@ -3517,10 +3526,13 @@ function reducer(state: RideState, action: RideAction): RideState {
           ? state.medsOrders.find((o) => o.linkedRideId === ride.id && o.paymentMethod === 'cash')
           : undefined
       const earnedFare = codOrder ? codOrder.deliveryFee + codOrder.serviceFee : ride.fareEstimate
-      const platformFee =
+      // Pilot charges nobody; the configured fee is kept, not zeroed.
+      const platformFee = effectivePlatformFee(
         (ride.bookedAtTerminal || ride.safetyRecord) && state.terminalQrFeeWaived
           ? 0
-          : Math.min(earnedFare, state.commissionPerRide)
+          : Math.min(earnedFare, state.commissionPerRide),
+        state.businessPhase,
+      )
       const todaCommission = Math.min(
         Math.max(0, earnedFare - platformFee),
         getActiveTodaCommission(drivingDriverToda),
@@ -4235,6 +4247,24 @@ function reducer(state: RideState, action: RideAction): RideState {
       return { ...state, launchModeEnabled: action.enabled }
     case 'SET_ROTARY_SHARE_SETTINGS':
       return { ...state, rotaryShareSettings: action.settings }
+    case 'SET_BUSINESS_PHASE': {
+      // Who turned the fees on, and when, is the kind of question asked
+      // months later — so it is written down at the moment it happens.
+      const entry = {
+        id: `log-phase-${Date.now()}`,
+        actorRole: 'super_admin' as const,
+        actorName: action.actorName,
+        todaOrgId: null,
+        action: 'business_phase',
+        summary: businessPhaseLogSummary(state.businessPhase, action.phase),
+        at: new Date().toISOString(),
+      }
+      return {
+        ...state,
+        businessPhase: action.phase,
+        activityLog: [entry, ...state.activityLog].slice(0, MAX_ACTIVITY_LOG_ENTRIES),
+      }
+    }
     case 'ADD_EMERGENCY_HOTLINE':
       return { ...state, emergencyHotlines: [action.hotline, ...state.emergencyHotlines] }
     case 'UPDATE_EMERGENCY_HOTLINE':
@@ -7038,6 +7068,7 @@ interface RideContextValue extends RideState {
   setSimulatedOtpEnabled: (enabled: boolean) => void
   setLaunchModeEnabled: (enabled: boolean) => void
   setRotaryShareSettings: (settings: RotaryShareSettings) => void
+  setBusinessPhase: (phase: BusinessPhase, actorName: string) => void
   setPublicBaseUrl: (url: string) => void
   setPilotTodaName: (name: string) => void
   setSimulateMovementEnabled: (enabled: boolean) => void
@@ -7991,6 +8022,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           simulatedOtpEnabled: state.simulatedOtpEnabled,
           launchModeEnabled: state.launchModeEnabled,
           rotaryShareSettings: state.rotaryShareSettings,
+          businessPhase: state.businessPhase,
           publicBaseUrl: state.publicBaseUrl,
           pilotTodaName: state.pilotTodaName,
           simulateMovementEnabled: state.simulateMovementEnabled,
@@ -8103,6 +8135,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     state.simulatedOtpEnabled,
     state.launchModeEnabled,
     state.rotaryShareSettings,
+    state.businessPhase,
     state.publicBaseUrl,
     state.pilotTodaName,
     state.simulateMovementEnabled,
@@ -8448,6 +8481,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setSimulatedOtpEnabled: (enabled) => dispatch({ type: 'SET_SIMULATED_OTP_ENABLED', enabled }),
     setLaunchModeEnabled: (enabled) => dispatch({ type: 'SET_LAUNCH_MODE_ENABLED', enabled }),
     setRotaryShareSettings: (settings) => dispatch({ type: 'SET_ROTARY_SHARE_SETTINGS', settings }),
+    setBusinessPhase: (phase, actorName) => dispatch({ type: 'SET_BUSINESS_PHASE', phase, actorName }),
     setPublicBaseUrl: (url) => dispatch({ type: 'SET_PUBLIC_BASE_URL', url }),
     setPilotTodaName: (name) => dispatch({ type: 'SET_PILOT_TODA_NAME', name }),
     setSimulateMovementEnabled: (enabled) => dispatch({ type: 'SET_SIMULATE_MOVEMENT_ENABLED', enabled }),

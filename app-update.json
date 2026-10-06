@@ -1,4 +1,4 @@
 {
   "required": false,
-  "notes": "5E.33 — Safety: kapag hindi naipadala ang SOS text, sinasabi na ito nang diretso, at may \"Send it yourself\" para ipadala mismo sa SMS app ng telepono. Driver: may babala na sa dashboard kung patay ang background tracking, para hindi mawala ang tuldok mo sa pasahero kapag naka-off ang screen. Booking: magkasama na sa isang hilera ang City at \"Where to?\", may ✕ para burahin ang destinasyon, at maibabalik sa GPS ang pick up. Dispatch: ang pinakamabilis makarating ang inaalok, hindi ang mukhang pinakamalapit sa mapa."
+  "notes": "5E.35 — Safety: kapag hindi naipadala ang SOS text, sinasabi na ito nang diretso, at may \"Send it yourself\" para ipadala mismo sa SMS app ng telepono. Driver: may babala na sa dashboard kung patay ang background tracking, para hindi mawala ang tuldok mo sa pasahero kapag naka-off ang screen. Booking: magkasama na sa isang hilera ang City at \"Where to?\", may ✕ para burahin ang destinasyon, at maibabalik sa GPS ang pick up. Dispatch: ang pinakamabilis makarating ang inaalok, hindi ang mukhang pinakamalapit sa mapa."
 }

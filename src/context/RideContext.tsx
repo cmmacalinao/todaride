@@ -5,6 +5,15 @@ import { mergeById, mergeDriverAccessMessages, mergeIncomingRides, mergeVendorPo
 import { DEFAULT_FAMILY_PROMO_DEADLINE } from '../lib/familyTerms'
 import { DEFAULT_ROTARY_SHARE_SETTINGS, findPartnerByCode, generatePartnerCode, marketingSplit } from '../lib/marketingProgram'
 import { PILOT_ORIGIN } from '../lib/pilotOrigin'
+import {
+  DEFAULT_DOCUMENT_GRACE_DAYS,
+  DEFAULT_REQUIRED_DOCUMENTS,
+  DOCUMENT_LABEL,
+  canApproveDriver,
+  documentsDueByAfterChange,
+  driversNeedingNewDocument,
+  requiredDocumentsOrDefault,
+} from '../lib/requiredDocuments'
 import type { RecoveryKind } from '../lib/unifiedLogin'
 import type { RidePhoto } from '../types'
 import type { RotaryShareSettings } from '../types'
@@ -179,7 +188,6 @@ import {
   getTodaQueue,
   orderByDispatchDistance,
   driverDispatchGps,
-  DOCUMENT_TYPES,
 } from '../mock/data'
 import { QUEUE_ORDER_RADIUS_METERS, TERMINAL_PROXIMITY_METERS, haversineDistanceMeters } from '../lib/geo'
 import { SAFETY_DEFAULTS, appendEvent, buildIncident, isActiveAlert, markNotificationDelivery, transitionAlert, withSafetyDefaults } from '../lib/safety'
@@ -470,6 +478,11 @@ interface RideState {
   // shortening the window should not retroactively put drivers in breach of
   // a date they were never told.
   documentGraceDays: number
+  // Which documents actually block a driver being approved. The rest are
+  // still collected and chased, but do not stop somebody driving — see
+  // lib/requiredDocuments for why, and for why an unset list reads as the
+  // defaults rather than as "nothing is required".
+  requiredDocuments: DocumentType[]
   // Real dialable numbers (see EmergencyHotline) — not simulated.
   emergencyHotlines: EmergencyHotline[]
   // Super Admin's dials for the Safety & Emergency Alert System — see
@@ -652,6 +665,7 @@ type RideAction =
   | { type: 'SET_SIMULATED_OTP_ENABLED'; enabled: boolean }
   | { type: 'SET_SHOW_DEVELOPER_CREDIT'; enabled: boolean; actorName: string }
   | { type: 'SET_LAUNCH_MODE_ENABLED'; enabled: boolean }
+  | { type: 'SET_REQUIRED_DOCUMENTS'; documents: DocumentType[]; actorName: string }
   | { type: 'SET_ROTARY_SHARE_SETTINGS'; settings: RotaryShareSettings }
   | { type: 'SET_PUBLIC_BASE_URL'; url: string }
   | { type: 'SET_PILOT_TODA_NAME'; name: string }
@@ -1682,6 +1696,7 @@ interface StoredState {
   liveGpsEnabled?: boolean
   openDriverSignup?: boolean
   documentGraceDays?: number
+  requiredDocuments?: DocumentType[]
   emergencyHotlines?: EmergencyHotline[]
   safetySettings?: Partial<SafetySettings>
 }
@@ -1974,7 +1989,8 @@ function fromStored(parsed: StoredState): RideState {
     simulateMovementEnabled: parsed.simulateMovementEnabled ?? false,
     liveGpsEnabled: parsed.liveGpsEnabled ?? true,
     openDriverSignup: parsed.openDriverSignup ?? true,
-    documentGraceDays: parsed.documentGraceDays ?? 30,
+    documentGraceDays: parsed.documentGraceDays ?? DEFAULT_DOCUMENT_GRACE_DAYS,
+    requiredDocuments: requiredDocumentsOrDefault(parsed.requiredDocuments),
     safetySettings: withSafetyDefaults(parsed.safetySettings),
     // Merged rather than "stored wins", because a stored list would freeze
     // out every hotline added to the seed afterwards — and a missing
@@ -2303,7 +2319,8 @@ function loadInitialState(): RideState {
     simulateMovementEnabled: false,
     liveGpsEnabled: true,
     openDriverSignup: true,
-    documentGraceDays: 30,
+    documentGraceDays: DEFAULT_DOCUMENT_GRACE_DAYS,
+    requiredDocuments: [...DEFAULT_REQUIRED_DOCUMENTS],
     emergencyHotlines: MOCK_EMERGENCY_HOTLINES,
     safetySettings: SAFETY_DEFAULTS,
   }
@@ -4261,6 +4278,48 @@ function reducer(state: RideState, action: RideAction): RideState {
       return { ...state, simulatedOtpEnabled: action.enabled }
     case 'SET_LAUNCH_MODE_ENABLED':
       return { ...state, launchModeEnabled: action.enabled }
+    case 'SET_REQUIRED_DOCUMENTS': {
+      const required = requiredDocumentsOrDefault(action.documents)
+      // Drivers approved under the looser rule who are now short of
+      // something. They are not un-approved for it: they were approved
+      // honestly under the rule in force, and pulling a livelihood for a
+      // rule change made this morning would be unjust. They get a
+      // deadline, and keep one they have already been given.
+      const nowMs = Date.now()
+      const needing = new Set(driversNeedingNewDocument(state.drivers, required).map((d) => d.id))
+      const drivers = state.drivers.map((d) =>
+        needing.has(d.id)
+          ? {
+              ...d,
+              documentsDueBy: documentsDueByAfterChange({
+                existingDueBy: d.documentsDueBy,
+                nowMs,
+                graceDays: state.documentGraceDays,
+              }),
+            }
+          : d,
+      )
+      // What "verified driver" means is a claim this platform makes to
+      // every passenger. Changing it is worth an audit entry naming who
+      // changed it and how many drivers it put on the clock.
+      const entry = {
+        id: `log-reqdocs-${nowMs}`,
+        actorRole: 'super_admin' as const,
+        actorName: action.actorName,
+        todaOrgId: null,
+        action: 'required_documents',
+        summary: `Required driver documents: ${required.map((t) => DOCUMENT_LABEL[t]).join(', ')}.${
+          needing.size > 0 ? ` ${needing.size} approved driver(s) given until their deadline to comply.` : ''
+        }`,
+        at: new Date(nowMs).toISOString(),
+      }
+      return {
+        ...state,
+        requiredDocuments: required,
+        drivers,
+        activityLog: [entry, ...state.activityLog].slice(0, MAX_ACTIVITY_LOG_ENTRIES),
+      }
+    }
     case 'SET_ROTARY_SHARE_SETTINGS':
       return { ...state, rotaryShareSettings: action.settings }
     case 'ADD_EMERGENCY_HOTLINE':
@@ -5719,7 +5778,7 @@ function reducer(state: RideState, action: RideAction): RideState {
         verificationStatus: state.openDriverSignup ? 'approved' : 'pending',
         // Stamped now, from the setting as it stands today, so a driver is
         // held to the date they were actually given.
-        documentsDueBy: DOCUMENT_TYPES.every((t) => action.documents[t].submitted)
+        documentsDueBy: canApproveDriver(action.documents, state.requiredDocuments)
           ? null
           : new Date(Date.now() + state.documentGraceDays * 24 * 60 * 60 * 1000).toISOString(),
         documents: action.documents,
@@ -7066,6 +7125,7 @@ interface RideContextValue extends RideState {
   setSimulatedOtpEnabled: (enabled: boolean) => void
   setShowDeveloperCredit: (enabled: boolean, actorName: string) => void
   setLaunchModeEnabled: (enabled: boolean) => void
+  setRequiredDocuments: (documents: DocumentType[], actorName: string) => void
   setRotaryShareSettings: (settings: RotaryShareSettings) => void
   setPublicBaseUrl: (url: string) => void
   setPilotTodaName: (name: string) => void
@@ -8020,6 +8080,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           simulatedOtpEnabled: state.simulatedOtpEnabled,
           showDeveloperCredit: state.showDeveloperCredit,
           launchModeEnabled: state.launchModeEnabled,
+          requiredDocuments: state.requiredDocuments,
           rotaryShareSettings: state.rotaryShareSettings,
           publicBaseUrl: state.publicBaseUrl,
           pilotTodaName: state.pilotTodaName,
@@ -8133,6 +8194,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     state.simulatedOtpEnabled,
     state.showDeveloperCredit,
     state.launchModeEnabled,
+    state.requiredDocuments,
     state.rotaryShareSettings,
     state.publicBaseUrl,
     state.pilotTodaName,
@@ -8479,6 +8541,8 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setSimulatedOtpEnabled: (enabled) => dispatch({ type: 'SET_SIMULATED_OTP_ENABLED', enabled }),
     setShowDeveloperCredit: (enabled, actorName) => dispatch({ type: 'SET_SHOW_DEVELOPER_CREDIT', enabled, actorName }),
     setLaunchModeEnabled: (enabled) => dispatch({ type: 'SET_LAUNCH_MODE_ENABLED', enabled }),
+    setRequiredDocuments: (documents, actorName) =>
+      dispatch({ type: 'SET_REQUIRED_DOCUMENTS', documents, actorName }),
     setRotaryShareSettings: (settings) => dispatch({ type: 'SET_ROTARY_SHARE_SETTINGS', settings }),
     setPublicBaseUrl: (url) => dispatch({ type: 'SET_PUBLIC_BASE_URL', url }),
     setPilotTodaName: (name) => dispatch({ type: 'SET_PILOT_TODA_NAME', name }),

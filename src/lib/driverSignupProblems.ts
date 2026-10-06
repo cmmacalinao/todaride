@@ -1,5 +1,6 @@
-import { DOCUMENT_LABELS, DOCUMENT_TYPES } from '../mock/data'
-import type { DriverDocuments } from '../types'
+import { DOCUMENT_LABELS } from '../mock/data'
+import { missingRequiredDocuments } from './requiredDocuments'
+import type { DocumentType, DriverDocuments } from '../types'
 
 // What is wrong with a driver's signup, field by field.
 //
@@ -37,6 +38,9 @@ export interface DriverSignupDraft {
   // When open signup is on, documents are deferred rather than demanded —
   // see the grace period in Super Admin.
   documentsRequired: boolean
+  // Which documents are demanded, when they are demanded at all.
+  // Unset means the platform defaults — see lib/requiredDocuments.
+  requiredDocuments?: DocumentType[] | null
   now?: number
 }
 
@@ -101,7 +105,10 @@ export function findDriverSignupProblems(draft: DriverSignupDraft): Problem[] {
   }
 
   if (draft.documentsRequired) {
-    const missingDocs = DOCUMENT_TYPES.filter((type) => !draft.documents[type].submitted)
+    // Only the documents that actually block. The optional ones are
+    // still offered on the form and still chased by Admin, but a driver
+    // waiting days for an NBI clearance should not be stuck on step one.
+    const missingDocs = missingRequiredDocuments(draft.documents, draft.requiredDocuments)
     if (missingDocs.length > 0) {
       found.push({
         field: 'documents',

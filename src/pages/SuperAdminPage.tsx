@@ -1,6 +1,9 @@
 import { ArchitectureOverview } from '../components/ArchitectureOverview'
 import { DEVELOPER_CREDIT } from '../lib/brand'
 import { launchModeLeavesNoDrivers } from '../lib/launchMode'
+import { DOCUMENT_LABEL, driversNeedingNewDocument, requiredDocumentsOrDefault } from '../lib/requiredDocuments'
+import { DOCUMENT_TYPES } from '../mock/data'
+import type { DocumentType } from '../types'
 import { feeReportSheetRows, monthlyFeeReport } from '../lib/feeReport'
 import * as XLSX from 'xlsx'
 import { SEED_DRIVER_IDS } from '../mock/data'
@@ -72,6 +75,8 @@ export function SuperAdminPage() {
     setOpenDriverSignup,
     documentGraceDays,
     setDocumentGraceDays,
+    requiredDocuments,
+    setRequiredDocuments,
     publicBaseUrl,
     pilotTodaName,
     setPilotTodaName,
@@ -565,6 +570,70 @@ export function SuperAdminPage() {
                 />
               </label>
             )}
+            {/* Which papers actually block approval. The two that say
+                whether somebody may legally carry a passenger are ticked by
+                default; the rest are still collected and chased. */}
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+              <div className="flex items-start gap-3">
+                <span aria-hidden className="text-lg leading-none">
+                  🗂️
+                </span>
+                <div className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-navy-900">Required driver documents</span>
+                  <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">
+                    Only these block approval. Unticked documents are still collected and shown to Admin, but a
+                    driver can be approved without them — so an NBI clearance being queued for does not keep
+                    somebody off the road.
+                  </span>
+                </div>
+              </div>
+              <div className="mt-2 space-y-1.5">
+                {DOCUMENT_TYPES.map((type) => {
+                  const current = requiredDocumentsOrDefault(requiredDocuments)
+                  const checked = current.includes(type)
+                  const next = checked ? current.filter((t) => t !== type) : [...current, type]
+                  // Unticking the last one would read as "nothing is
+                  // required", which the setting deliberately cannot mean.
+                  const isLast = checked && current.length === 1
+                  const wouldPutOnClock = driversNeedingNewDocument(drivers, next).length
+                  return (
+                    <label
+                      key={type}
+                      className={`flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-sm ${
+                        checked ? 'border-green-300 bg-green-50' : 'border-slate-200 bg-slate-50'
+                      } ${isLast ? 'opacity-60' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={isLast}
+                        onChange={() => setRequiredDocuments(next as DocumentType[], 'Super Admin')}
+                        className="h-4 w-4 shrink-0 accent-green-600"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-medium text-navy-900">{DOCUMENT_LABEL[type]}</span>
+                        {isLast && (
+                          <span className="block text-[10px] leading-snug text-slate-500">
+                            At least one document must be required.
+                          </span>
+                        )}
+                        {!checked && wouldPutOnClock > 0 && (
+                          <span className="block text-[10px] leading-snug text-amber-700">
+                            Ticking this gives {wouldPutOnClock} approved driver
+                            {wouldPutOnClock === 1 ? '' : 's'} {documentGraceDays} days to submit it.
+                          </span>
+                        )}
+                      </span>
+                      <span className={`shrink-0 text-[10px] font-semibold uppercase tracking-wide ${
+                        checked ? 'text-green-700' : 'text-slate-400'
+                      }`}>
+                        {checked ? 'Required' : 'Optional'}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
             <FeatureToggleRow
               icon="🛰️"
               label="Live GPS tracking"

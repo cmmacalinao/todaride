@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { autoDetectTodaOrgId, DOCUMENT_LABELS, DOCUMENT_TYPES, MOCK_DRIVERS, MOCK_TODA_ORGANIZATIONS } from '../mock/data'
+import { isDocumentRequired } from '../lib/requiredDocuments'
 import { getCurrentGeoPosition } from '../lib/geo'
 import { matchesNameQuery } from '../lib/fuzzyName'
 import { DocumentUploadField } from './DocumentUploadField'
@@ -655,7 +656,8 @@ function RegisterForm({
   invite: DriverInvite | null
   inviteTodaOrgId: string | null
 }) {
-  const { todaOrganizations, pharmacies, addUnregisteredToda, openDriverSignup, drivers } = useRides()
+  const { todaOrganizations, pharmacies, addUnregisteredToda, openDriverSignup, drivers, requiredDocuments } =
+    useRides()
   // An invite already identifies who this is and which TODA vouched for
   // them, so it skips the OTP identity-verification step entirely and goes
   // straight to filling in the rest (plate/license/address/PIN/documents).
@@ -741,6 +743,7 @@ function RegisterForm({
       pin,
       documents,
       documentsRequired: !openDriverSignup,
+      requiredDocuments,
     })
 
     if (found.length > 0) {
@@ -1123,7 +1126,7 @@ function RegisterForm({
             section headed "Required" that submits without them teaches the
             driver that this form does not mean what it says. */}
         <p className="text-xs font-medium text-slate-500">
-          {openDriverSignup ? 'Documents — optional during pilot testing' : 'Required documents'}
+          {openDriverSignup ? 'Documents — optional during pilot testing' : 'Documents'}
         </p>
         {openDriverSignup && (
           <p className="text-[11px] leading-snug text-slate-500">
@@ -1131,14 +1134,23 @@ function RegisterForm({
             bago ang totoong pasada.
           </p>
         )}
-        {DOCUMENT_TYPES.map((type) => (
-          <DocumentUploadField
-            key={type}
-            label={DOCUMENT_LABELS[type]}
-            dataUrl={documents[type].dataUrl}
-            onUpload={(dataUrl) => updateDocument(type, dataUrl)}
-          />
-        ))}
+        {DOCUMENT_TYPES.map((type) => {
+          const optional = openDriverSignup || !isDocumentRequired(type, requiredDocuments)
+          return (
+            <div key={type}>
+              <DocumentUploadField
+                label={DOCUMENT_LABELS[type]}
+                dataUrl={documents[type].dataUrl}
+                onUpload={(dataUrl) => updateDocument(type, dataUrl)}
+              />
+              {optional && !documents[type].submitted && (
+                <p className="mt-0.5 text-[10px] leading-snug text-slate-400">
+                  Optional – can be submitted later
+                </p>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       {problems.length > 0 && (

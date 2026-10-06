@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { DOCUMENT_LABELS, DOCUMENT_TYPES, isPastDeadline } from '../mock/data'
+import { DOCUMENT_LABEL, canApproveDriver, isDocumentRequired, missingRequiredDocuments } from '../lib/requiredDocuments'
 
 export function AdminDriverQueue() {
-  const { drivers, approveDriver, rejectDriver, setDriverPendingNote, logActivity } = useRides()
+  const { drivers, approveDriver, rejectDriver, setDriverPendingNote, logActivity, requiredDocuments } = useRides()
   const [preview, setPreview] = useState<string | null>(null)
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({})
   const [deadlineDrafts, setDeadlineDrafts] = useState<Record<string, string>>({})
@@ -62,6 +63,7 @@ export function AdminDriverQueue() {
             <div className="mt-2 grid grid-cols-2 gap-2">
               {DOCUMENT_TYPES.map((type) => {
                 const doc = d.documents[type]
+                const required = isDocumentRequired(type, requiredDocuments)
                 return (
                   <div key={type} className="flex items-center gap-2 rounded-lg border border-slate-200 p-1.5">
                     {doc.dataUrl ? (
@@ -75,8 +77,12 @@ export function AdminDriverQueue() {
                     )}
                     <div className="min-w-0">
                       <p className="truncate text-[11px] font-medium text-slate-600">{DOCUMENT_LABELS[type]}</p>
-                      <p className={`text-[10px] ${doc.submitted ? 'text-brand-600' : 'text-amber-600'}`}>
-                        {doc.submitted ? '✓ Submitted' : 'Missing'}
+                      <p
+                        className={`text-[10px] ${
+                          doc.submitted ? 'text-brand-600' : required ? 'text-amber-600' : 'text-slate-400'
+                        }`}
+                      >
+                        {doc.submitted ? '✓ Submitted' : required ? 'Missing — required' : 'Not yet submitted'}
                       </p>
                     </div>
                   </div>
@@ -135,10 +141,24 @@ export function AdminDriverQueue() {
               <span className="text-[11px] text-slate-400">deadline for "Approve as noted" below</span>
             </div>
 
+            {/* Optional documents deliberately do not block: an admin
+                looking at a licence and a registration should be able to
+                approve while the NBI clearance is still being queued for. */}
+            {!canApproveDriver(d.documents, requiredDocuments) && (
+              <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">
+                <span className="font-semibold">Cannot approve yet — </span>
+                {missingRequiredDocuments(d.documents, requiredDocuments)
+                  .map((t) => DOCUMENT_LABEL[t])
+                  .join(' and ')}{' '}
+                still missing. Use “Approve as noted” to set a deadline instead.
+              </p>
+            )}
+
             <div className="mt-2 flex gap-2">
               <button
                 onClick={() => handleApprove(d.id, d.name)}
-                className="flex-1 rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
+                disabled={!canApproveDriver(d.documents, requiredDocuments)}
+                className="flex-1 rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
               >
                 Approve
               </button>

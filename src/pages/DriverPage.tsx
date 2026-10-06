@@ -60,6 +60,7 @@ import { publishDelayMs, useMotionFromPositions, useNow, useWatchPosition } from
 import { useIncomingRequestAlert } from '../lib/alertSound'
 import { useBackgroundDriverLocation } from '../lib/backgroundLocation'
 import { lastTrackingFailure, openTrackingSettings, shouldWarnDriver, useDriverTrackingReadiness } from '../lib/driverTrackingReadiness'
+import { DriverDocumentsDueNotice } from '../components/DriverDocumentsDueNotice'
 import { ROUTE_CHANGE_REASONS, ROUTE_CHANGE_START, nextRouteChangeDecision, type RouteChangeState } from '../lib/routeChange'
 import { snapForRouting, useRoute } from '../lib/routing'
 import { isApart, nextSeparationDecision, positionAt, type SeparationState } from '../lib/separation'
@@ -1412,6 +1413,8 @@ export function DriverPage() {
           screen looked normal the whole time while the passenger watched a
           pin that had stopped moving. Only shown when something is actually
           wrong; a banner that is always there is one nobody reads. */}
+      {driver && <DriverDocumentsDueNotice driver={driver} />}
+
       {shouldWarnDriver(trackingReady) && (
         <div
           // Three voices, loudest first: red for a phone that cannot be

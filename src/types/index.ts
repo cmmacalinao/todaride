@@ -766,6 +766,19 @@ export interface Driver {
   // from the current setting, so changing the window later cannot put an
   // existing driver in breach of a date nobody gave them.
   documentsDueBy?: string | null
+  // Shown to passengers once Admin approves it (see lib/driverProfile).
+  // A new upload is always pending: the review is the point, since it is
+  // what stops a driver uploading somebody else's face.
+  profilePhotoDataUrl?: string | null
+  profilePhotoStatus?: 'pending' | 'approved' | 'rejected'
+  // The number painted on the sidecar, which is what a passenger at a
+  // terminal actually reads to find their ride.
+  bodyNumber?: string | null
+  vehicleDescription?: string | null
+  // When Admin approved them, for "Driver since Mar 2026". Optional:
+  // drivers approved before this existed have no stamp, and the profile
+  // omits the line rather than inventing a date.
+  approvedAt?: string | null
   documents: DriverDocuments
   todaOrgId: string | null
   province: string

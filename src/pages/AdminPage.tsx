@@ -16,6 +16,7 @@ import { AdminLiveMap } from '../components/AdminLiveMap'
 import { PilaBannerAdmin } from '../components/PilaBannerAdmin'
 import { QrCodeCreator } from '../components/QrCodeCreator'
 import { AdminDriverQueue } from '../components/AdminDriverQueue'
+import { AdminDriverPhotoQueue } from '../components/AdminDriverPhotoQueue'
 import { AdminDriverDirectory } from '../components/AdminDriverDirectory'
 import { AdminInsights } from '../components/AdminInsights'
 import { AccountingOfficerManager } from '../components/AccountingOfficerManager'
@@ -2032,6 +2033,7 @@ export function AdminPage() {
       </section>
 
       <AdminDriverQueue />
+      <AdminDriverPhotoQueue />
 
       <AdminDriverDirectory />
       </>

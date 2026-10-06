@@ -89,11 +89,14 @@ export function driverSinceLabel(approvedAt: string | null | undefined): string 
 }
 
 export function checkedDocuments(
-  driver: Pick<Driver, 'documents'>,
+  driver: Pick<Driver, 'documents' | 'verificationStatus'>,
   configuredRequired: DocumentType[] | undefined | null,
 ): DocumentType[] {
   const docs = driver.documents
   if (!docs) return []
+  // A document uploaded by a driver nobody has approved has been submitted,
+  // not checked. "Checked by Admin" has to mean an admin checked it.
+  if (driver.verificationStatus !== 'approved') return []
   return (Object.keys(docs) as DocumentType[]).filter(
     (t) => isDocumentRequired(t, configuredRequired) && docs[t]?.submitted,
   )

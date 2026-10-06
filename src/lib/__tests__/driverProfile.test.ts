@@ -153,6 +153,18 @@ describe('checkedDocuments', () => {
   it('ticks nothing for a driver with no documents on file', () => {
     expect(checkedDocuments({ documents: undefined } as unknown as Driver, null)).toEqual([])
   })
+
+  // The sheet labels these "Checked by Admin". A document uploaded by a
+  // driver nobody has approved has been submitted, not checked.
+  it('ticks nothing until an admin has approved the driver', () => {
+    const onFile = docs({ driversLicense: true, ltoRegistration: true })
+    expect(checkedDocuments(driver({ documents: onFile, verificationStatus: 'pending' }), null)).toEqual([])
+    expect(checkedDocuments(driver({ documents: onFile, verificationStatus: 'rejected' }), null)).toEqual([])
+    expect([...checkedDocuments(driver({ documents: onFile }), null)].sort()).toEqual([
+      'driversLicense',
+      'ltoRegistration',
+    ])
+  })
 })
 
 describe('mayViewDriverProfile', () => {

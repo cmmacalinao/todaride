@@ -10,6 +10,7 @@ import {
   DEFAULT_REQUIRED_DOCUMENTS,
   DOCUMENT_LABEL,
   canApproveDriver,
+  missingRequiredDocuments,
   documentsDueByAfterChange,
   driversNeedingNewDocument,
   requiredDocumentsOrDefault,
@@ -638,6 +639,9 @@ type RideAction =
   | { type: 'REJECT_DRIVER'; driverId: string; reason: string | null }
   | { type: 'APPEAL_DRIVER_REJECTION'; driverId: string; message: string }
   | { type: 'RESUBMIT_DRIVER_DOCUMENT'; driverId: string; docType: DocumentType; dataUrl: string }
+  | { type: 'SET_DRIVER_PROFILE_PHOTO'; driverId: string; dataUrl: string }
+  | { type: 'REVIEW_DRIVER_PROFILE_PHOTO'; driverId: string; approved: boolean; actorName: string }
+  | { type: 'SET_DRIVER_VEHICLE_DETAILS'; driverId: string; bodyNumber: string; vehicleDescription: string }
   | { type: 'ADD_SAFETY_PHOTO'; rideId: string; dataUrl: string; takenBy: string }
   | { type: 'REMOVE_SAFETY_PHOTO'; rideId: string; photoId: string; by: string }
   | { type: 'HYDRATE'; state: RideState }
@@ -4077,7 +4081,17 @@ function reducer(state: RideState, action: RideAction): RideState {
         ...state,
         drivers: state.drivers.map((d) =>
           d.id === action.driverId
-            ? { ...d, verificationStatus: 'approved', online: true, rejectionReason: null, appealMessage: null, appealedAt: null }
+            ? {
+                ...d,
+                verificationStatus: 'approved',
+                online: true,
+                rejectionReason: null,
+                appealMessage: null,
+                appealedAt: null,
+                // First approval only, so a re-approval after a suspension
+                // does not quietly reset somebody's seniority.
+                approvedAt: d.approvedAt ?? new Date().toISOString(),
+              }
             : d,
         ),
       }
@@ -4121,16 +4135,74 @@ function reducer(state: RideState, action: RideAction): RideState {
     case 'RESUBMIT_DRIVER_DOCUMENT':
       return {
         ...state,
+        drivers: state.drivers.map((d) => {
+          if (d.id !== action.driverId || d.verificationStatus === 'rejected') return d
+          const documents = {
+            ...d.documents,
+            [action.docType]: { submitted: true, dataUrl: action.dataUrl },
+          }
+          if (d.verificationStatus === 'pending') {
+            return { ...d, documents, pendingNote: null, pendingNoteDeadline: null }
+          }
+          // Already approved, catching up on a document that only became
+          // required later. Without this an approved driver had no way to
+          // hand anything in at all. The deadline clears once nothing is
+          // outstanding — a date left standing after the papers are in reads
+          // as an accusation.
+          const stillOwed = missingRequiredDocuments(documents, state.requiredDocuments).length > 0
+          return { ...d, documents, documentsDueBy: stillOwed ? d.documentsDueBy : null }
+        }),
+      }
+    case 'SET_DRIVER_PROFILE_PHOTO':
+      return {
+        ...state,
         drivers: state.drivers.map((d) =>
-          d.id === action.driverId && d.verificationStatus === 'pending'
+          d.id === action.driverId
+            ? // Every upload goes back to pending, including a replacement for
+              // an already-approved photo. The review is the whole point: it
+              // is what stops a driver putting somebody else's face, or
+              // something a passenger should not be shown, on their profile.
+              { ...d, profilePhotoDataUrl: action.dataUrl, profilePhotoStatus: 'pending' as const }
+            : d,
+        ),
+      }
+    case 'REVIEW_DRIVER_PROFILE_PHOTO': {
+      const reviewed = state.drivers.find((d) => d.id === action.driverId)
+      const entry = {
+        id: `log-photo-${Date.now()}`,
+        actorRole: 'admin' as const,
+        actorName: action.actorName,
+        todaOrgId: reviewed?.todaOrgId ?? null,
+        action: action.approved ? 'approved_driver_photo' : 'rejected_driver_photo',
+        summary: `${action.approved ? 'Approved' : 'Rejected'} the profile photo for ${reviewed?.name ?? 'a driver'}.`,
+        at: new Date().toISOString(),
+      }
+      return {
+        ...state,
+        drivers: state.drivers.map((d) =>
+          d.id === action.driverId
             ? {
                 ...d,
-                documents: {
-                  ...d.documents,
-                  [action.docType]: { submitted: true, dataUrl: action.dataUrl },
-                },
-                pendingNote: null,
-                pendingNoteDeadline: null,
+                profilePhotoStatus: (action.approved ? 'approved' : 'rejected') as 'approved' | 'rejected',
+                // A rejected photo is dropped rather than kept out of sight.
+                // Whatever made it unfit to show passengers is not something
+                // to keep a copy of.
+                profilePhotoDataUrl: action.approved ? d.profilePhotoDataUrl : null,
+              }
+            : d,
+        ),
+        activityLog: [entry, ...state.activityLog].slice(0, MAX_ACTIVITY_LOG_ENTRIES),
+      }
+    }
+    case 'SET_DRIVER_VEHICLE_DETAILS':
+      return {
+        ...state,
+        drivers: state.drivers.map((d) =>
+          d.id === action.driverId
+            ? {
+                ...d,
+                bodyNumber: action.bodyNumber.trim() || null,
+                vehicleDescription: action.vehicleDescription.trim() || null,
               }
             : d,
         ),
@@ -7091,6 +7163,9 @@ interface RideContextValue extends RideState {
   rejectDriver: (driverId: string, reason?: string | null) => void
   appealDriverRejection: (driverId: string, message: string) => void
   resubmitDriverDocument: (driverId: string, docType: DocumentType, dataUrl: string) => void
+  setDriverProfilePhoto: (driverId: string, dataUrl: string) => void
+  reviewDriverProfilePhoto: (driverId: string, approved: boolean, actorName: string) => void
+  setDriverVehicleDetails: (driverId: string, bodyNumber: string, vehicleDescription: string) => void
   addSafetyPhoto: (rideId: string, dataUrl: string, takenBy: string) => void
   removeSafetyPhoto: (rideId: string, photoId: string, by: string) => void
   setCommission: (amount: number) => void
@@ -8462,6 +8537,11 @@ export function RideProvider({ children }: { children: ReactNode }) {
     appealDriverRejection: (driverId, message) => dispatch({ type: 'APPEAL_DRIVER_REJECTION', driverId, message }),
     resubmitDriverDocument: (driverId, docType, dataUrl) =>
       dispatch({ type: 'RESUBMIT_DRIVER_DOCUMENT', driverId, docType, dataUrl }),
+    setDriverProfilePhoto: (driverId, dataUrl) => dispatch({ type: 'SET_DRIVER_PROFILE_PHOTO', driverId, dataUrl }),
+    reviewDriverProfilePhoto: (driverId, approved, actorName) =>
+      dispatch({ type: 'REVIEW_DRIVER_PROFILE_PHOTO', driverId, approved, actorName }),
+    setDriverVehicleDetails: (driverId, bodyNumber, vehicleDescription) =>
+      dispatch({ type: 'SET_DRIVER_VEHICLE_DETAILS', driverId, bodyNumber, vehicleDescription }),
     addSafetyPhoto: (rideId, dataUrl, takenBy) => dispatch({ type: 'ADD_SAFETY_PHOTO', rideId, dataUrl, takenBy }),
     removeSafetyPhoto: (rideId, photoId, by) => dispatch({ type: 'REMOVE_SAFETY_PHOTO', rideId, photoId, by }),
     setCommission: (amount) => dispatch({ type: 'SET_COMMISSION', amount }),

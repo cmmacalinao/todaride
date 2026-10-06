@@ -54,6 +54,7 @@ import { StarRating } from '../components/StarRating'
 import { TripMonitor } from '../components/TripMonitor'
 import { TripDetailsBar } from '../components/TripDetailsBar'
 import { ClearHistoryControl, isClearedFromHistory } from '../components/ClearHistoryControl'
+import { DriverProfileSheet } from '../components/DriverProfileSheet'
 import { PassengerRegisterForm } from '../components/PassengerRegisterForm'
 import { BarangayAddressPicker } from '../components/BarangayAddressPicker'
 import { FAR_DRIVER_METERS, formatDuration, formatKm, haversineDistanceMeters, minutesToCover } from '../lib/geo'
@@ -322,6 +323,10 @@ export function PassengerPage() {
   // passenger only wants to check occasionally, not something that should
   // push the actual booking form further down the page by default.
   const [showTripHistory, setShowTripHistory] = useState(false)
+  // Which past trip's driver profile is open, if any. A passenger looking
+  // back at a trip has the same reason to look up the driver as one about to
+  // take it — most often to decide whether to ask for them again.
+  const [historyProfileDriverId, setHistoryProfileDriverId] = useState<string | null>(null)
   // Saved places folds for the same reason Trip history does: a list you
   // consult now and then should not push the booking form down the screen
   // every time you open the app. The count is in the header so it still
@@ -4168,6 +4173,13 @@ export function PassengerPage() {
             />
           )}
           {visibleTripHistory.length === 0 && <p className="text-sm text-slate-400">No trips yet.</p>}
+          {historyProfileDriverId && (
+            <DriverProfileSheet
+              driverId={historyProfileDriverId}
+              passengerId={passenger.id}
+              onClose={() => setHistoryProfileDriverId(null)}
+            />
+          )}
           {visibleTripHistory.map((r) => {
             const driver = r.driverId ? drivers.find((d) => d.id === r.driverId) : null
             const toda = driver?.todaOrgId ? todaOrganizations.find((o) => o.id === driver.todaOrgId) : null
@@ -4190,6 +4202,25 @@ export function PassengerPage() {
                 )}
                 {r.serviceType === 'padala' && r.packageNote && (
                   <p className="mt-1 rounded-lg bg-slate-50 p-2 text-xs text-slate-600">📦 {r.packageNote}</p>
+                )}
+                {driver && (
+                  <button
+                    type="button"
+                    onClick={() => setHistoryProfileDriverId(driver.id)}
+                    className="mt-1 flex w-full items-center gap-2 rounded-lg border border-slate-200 px-2 py-1.5 text-left text-xs transition hover:bg-slate-50"
+                  >
+                    {driver.profilePhotoStatus === 'approved' && driver.profilePhotoDataUrl ? (
+                      <img src={driver.profilePhotoDataUrl} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+                    ) : (
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-100 text-[11px] font-semibold text-brand-700">
+                        {driver.name.charAt(0)}
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1 truncate font-medium text-slate-700">{driver.name}</span>
+                    <span aria-hidden className="shrink-0 font-semibold text-sky-600">
+                      Profile ›
+                    </span>
+                  </button>
                 )}
                 {r.payment && <ReceiptCard payment={r.payment} />}
                 {/* Kept after the trip, where the receipt is — the photo of a

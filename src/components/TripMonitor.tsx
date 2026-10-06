@@ -4,6 +4,7 @@ import { WaitingForDriverStrip } from './WaitingForDriverStrip'
 import { EmergencySheet } from './EmergencySheet'
 import { CrashPromptModal } from './CrashPromptModal'
 import { FarDriverDialog } from './FarDriverDialog'
+import { DriverProfileSheet } from './DriverProfileSheet'
 import { farDriverGap } from '../lib/farDriver'
 import { useCrashDetection } from '../lib/crashDetection'
 import { rideServiceTag } from '../lib/vendorOrders'
@@ -193,6 +194,8 @@ export function TripMonitor({
   // would just be in the way. A parent watching is told by the card rather
   // than stopped by a dialog — it is not their ride to acknowledge.
   const [acceptedPopup, setAcceptedPopup] = useState(false)
+  // Whether the passenger has opened the driver profile sheet.
+  const [profileOpen, setProfileOpen] = useState(false)
   const [payPrompt, setPayPrompt] = useState(false)
   // The waiting strip stays on screen a little past the acceptance so it can
   // answer its own question — see WaitingForDriverStrip's acceptedDriver.
@@ -1441,6 +1444,14 @@ export function TripMonitor({
         </div>
       </div>
     ) : null
+  const driverProfileSheet =
+    profileOpen && driver ? (
+      <DriverProfileSheet
+        driverId={driver.id}
+        passengerId={ride.passengerId}
+        onClose={() => setProfileOpen(false)}
+      />
+    ) : null
   // The bill, over the whole screen, the moment the driver closes the trip.
   const payAlert =
     payPrompt && ride.payment?.status !== 'paid' ? (
@@ -1537,6 +1548,7 @@ export function TripMonitor({
     <section className="space-y-3 rounded-xl border border-brand-200 bg-brand-50 p-4 shadow-sm">
       {acceptedAlert}
       {payAlert}
+      {driverProfileSheet}
       {separationAlert}
       {/* The tricycle has plainly left the planned road.
           A quiet reroute already fixed the route the moment this fired — see
@@ -2013,17 +2025,48 @@ export function TripMonitor({
                 ✅ Ride accepted — {driver.name} is coming to pick you up
               </p>
             )}
-            <div className={`flex items-center gap-3 ${ride.status === 'driver_arriving' ? 'p-3' : ''}`}>
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700">
-                {driver.name.charAt(0)}
-              </div>
-              <div className="text-sm">
-                <p className="font-medium text-slate-800">{driver.name}</p>
-                <p className="text-xs text-slate-500">
-                  Plate {driver.plateNumber} · ★ {driver.rating}
+            <button
+              type="button"
+              onClick={() => setProfileOpen(true)}
+              aria-label={`Open driver profile for ${driver.name}`}
+              className={`flex w-full items-center gap-3 rounded-lg text-left transition hover:bg-slate-50 ${
+                ride.status === 'driver_arriving' ? 'p-3' : ''
+              }`}
+            >
+              {/* Blue ring, because the photo is the one part of this card
+                  that is a claim rather than a record — and the ring is what
+                  makes the whole card read as something to press. */}
+              {driver.profilePhotoStatus === 'approved' && driver.profilePhotoDataUrl ? (
+                <img
+                  src={driver.profilePhotoDataUrl}
+                  alt=""
+                  className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-sky-400"
+                />
+              ) : (
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700 ring-2 ring-sky-400">
+                  {driver.name.charAt(0)}
+                </div>
+              )}
+              <div className="min-w-0 flex-1 text-sm">
+                <p className="flex items-center gap-1 font-medium text-slate-800">
+                  <span className="truncate">{driver.name}</span>
+                  {driver.verificationStatus === 'approved' && (
+                    <span aria-label="Checked by Admin" className="shrink-0 text-xs text-brand-600">
+                      ✓
+                    </span>
+                  )}
                 </p>
+                <p className="truncate text-xs text-slate-500">
+                  {driver.bodyNumber ? `Body No. ${driver.bodyNumber} · ` : ''}
+                  {driver.plateNumber}
+                  {driver.vehicleDescription ? ` · ${driver.vehicleDescription}` : ''}
+                </p>
+                <p className="text-[10px] text-sky-600">★ {driver.rating} · Tapikin para sa profile</p>
               </div>
-            </div>
+              <span aria-hidden className="shrink-0 text-xs font-semibold text-sky-600">
+                Profile ›
+              </span>
+            </button>
           </div>
         ) : null)}
 

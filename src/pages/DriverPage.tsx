@@ -61,6 +61,7 @@ import { useIncomingRequestAlert } from '../lib/alertSound'
 import { useBackgroundDriverLocation } from '../lib/backgroundLocation'
 import { lastTrackingFailure, openTrackingSettings, shouldWarnDriver, useDriverTrackingReadiness } from '../lib/driverTrackingReadiness'
 import { DriverDocumentsDueNotice } from '../components/DriverDocumentsDueNotice'
+import { DriverProfileEditor } from '../components/DriverProfileEditor'
 import { ROUTE_CHANGE_REASONS, ROUTE_CHANGE_START, nextRouteChangeDecision, type RouteChangeState } from '../lib/routeChange'
 import { snapForRouting, useRoute } from '../lib/routing'
 import { isApart, nextSeparationDecision, positionAt, type SeparationState } from '../lib/separation'
@@ -1293,6 +1294,7 @@ export function DriverPage() {
           {earningsSection}
           <MarketingPartnerCard driver={driver} />
           <TricycleQrPanel driver={driver} />
+          <DriverProfileEditor driver={driver} />
           <DriverWalletPanel
             driverName={driver.name}
             gcashAccount={driver.gcashAccount ?? null}

@@ -2,6 +2,7 @@ import { ArchitectureOverview } from '../components/ArchitectureOverview'
 import { launchModeLeavesNoDrivers } from '../lib/launchMode'
 import { BUSINESS_PHASE_LABEL, isPilot } from '../lib/businessPhase'
 import { sanitisePricingSettings } from '../lib/pricing'
+import { breakEven, breakEvenSheetRows } from '../lib/breakEven'
 import { feeReportSheetRows, monthlyFeeReport } from '../lib/feeReport'
 import * as XLSX from 'xlsx'
 import { SEED_DRIVER_IDS } from '../mock/data'
@@ -70,6 +71,8 @@ export function SuperAdminPage() {
     setPlatformOnlineCollection,
     pricingSettings,
     setPricingSettings,
+    operatingCosts,
+    setOperatingCosts,
     simulateMovementEnabled,
     liveGpsEnabled,
     setLiveGpsEnabled,
@@ -113,6 +116,8 @@ export function SuperAdminPage() {
 
   // Recomputed from the rides in state; cheap, and always current.
   const feeReport = monthlyFeeReport(rides)
+  const thisMonth = new Date().toISOString().slice(0, 7)
+  const breakEvenNow = breakEven({ costLines: operatingCosts, report: feeReport, thisMonth })
 
   // The same rows the table shows, as a spreadsheet — the format a treasurer
   // or a Rotary report actually wants, rather than a screenshot.
@@ -120,6 +125,13 @@ export function SuperAdminPage() {
     const sheet = XLSX.utils.json_to_sheet(feeReportSheetRows(feeReport))
     const book = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(book, sheet, 'Platform fees')
+    // A second sheet rather than more columns: costs are monthly totals, not
+    // per-month fee rows, and stacking them would make both harder to read.
+    XLSX.utils.book_append_sheet(
+      book,
+      XLSX.utils.json_to_sheet(breakEvenSheetRows(breakEvenNow, operatingCosts)),
+      'Costs & break-even',
+    )
     XLSX.writeFile(book, `todaride-platform-fees-${new Date().toISOString().slice(0, 10)}.xlsx`)
   }
 
@@ -232,6 +244,100 @@ export function SuperAdminPage() {
             <p className="text-xs text-slate-400">Current: ₱{commissionPerRide} per ride</p>
 
             <div className="border-t border-slate-100 pt-3">
+            {/* What it costs to run this, and how many rides pay for it.
+                The net per ride is measured rather than assumed, because the
+                mix moves it: a month of mostly unreferred rides nets ₱2.50
+                each and a month of mostly referred ones ₱1.50, which changes
+                the break-even count by two thirds. */}
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs font-bold text-slate-800">Operating costs & break-even</p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOperatingCosts([
+                      ...operatingCosts,
+                      { id: `cost-${Date.now()}`, label: '', amount: 0 },
+                    ])
+                  }
+                  className="shrink-0 rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-bold text-slate-600 hover:bg-slate-50"
+                >
+                  + Line
+                </button>
+              </div>
+              {operatingCosts.length === 0 ? (
+                <p className="mt-1.5 text-[11px] text-slate-500">
+                  No cost lines yet. Add hosting, SMS credits, subscriptions — anything the platform pays monthly.
+                </p>
+              ) : (
+                <div className="mt-2 space-y-1.5">
+                  {operatingCosts.map((line, i) => (
+                    <div key={line.id} className="flex gap-1.5">
+                      <input
+                        value={line.label}
+                        placeholder="What it is"
+                        onChange={(e) =>
+                          setOperatingCosts(
+                            operatingCosts.map((l, j) => (i === j ? { ...l, label: e.target.value } : l)),
+                          )
+                        }
+                        className="compact-input min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        value={line.amount}
+                        onChange={(e) =>
+                          setOperatingCosts(
+                            operatingCosts.map((l, j) =>
+                              i === j ? { ...l, amount: Math.max(0, Number(e.target.value) || 0) } : l,
+                            ),
+                          )
+                        }
+                        className="compact-input w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setOperatingCosts(operatingCosts.filter((_, j) => j !== i))}
+                        aria-label={`Remove ${line.label || 'this line'}`}
+                        className="shrink-0 rounded-lg px-2 text-[11px] font-bold text-slate-400 hover:bg-slate-100 hover:text-red-700"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="mt-2 grid grid-cols-2 gap-1.5 text-[11px]">
+                <div className="rounded-lg bg-slate-50 p-2">
+                  <p className="text-slate-500">Monthly cost</p>
+                  <p className="font-bold text-slate-800">₱{breakEvenNow.monthlyCost.toFixed(2)}</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-2">
+                  <p className="text-slate-500">GreenTech net / ride</p>
+                  <p className="font-bold text-slate-800">
+                    {breakEvenNow.netPerRide === null ? 'not enough data' : `₱${breakEvenNow.netPerRide.toFixed(2)}`}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-2">
+                  <p className="text-slate-500">Rides needed / month</p>
+                  <p className="font-bold text-slate-800">{breakEvenNow.ridesNeeded ?? 'not enough data'}</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-2">
+                  <p className="text-slate-500">This month · short by</p>
+                  <p className="font-bold text-slate-800">
+                    {breakEvenNow.ridesThisMonth} · {breakEvenNow.gap ?? '—'}
+                  </p>
+                </div>
+              </div>
+              {breakEvenNow.insufficientData && (
+                <p className="mt-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[10px] leading-snug text-amber-900">
+                  No fee-paying rides yet, so there is nothing to average a net per ride from. During the pilot every
+                  ride is ₱0 by design — these figures become real once the business phase is Launch.
+                </p>
+              )}
+            </div>
+
             {/* Prices that used to need a release to change. A change here
                 applies to new orders and activations only — an order keeps
                 the fees it was quoted and a family plan keeps the terms it

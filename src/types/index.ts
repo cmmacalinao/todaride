@@ -1395,6 +1395,15 @@ export interface RotaryShareSettings {
 // A change applies to new orders and activations only: an order records the
 // fees it was quoted, and a family plan records the terms it agreed to, so
 // nothing already agreed is re-priced underneath somebody.
+// One line of what it costs to run the platform each month — a hosting
+// bill, SMS credits, a subscription. Kept as a list rather than a single
+// total so the total is derived and the lines can be revisited.
+export interface OperatingCostLine {
+  id: string
+  label: string
+  amount: number
+}
+
 export interface PricingSettings {
   familyPlanMonthlyPrice: number
   familyPlanFreeMonths: number

@@ -6,7 +6,7 @@ import { DEFAULT_ROTARY_SHARE_SETTINGS, findPartnerByCode, generatePartnerCode, 
 import { PILOT_ORIGIN } from '../lib/pilotOrigin'
 import type { RecoveryKind } from '../lib/unifiedLogin'
 import type { RidePhoto } from '../types'
-import type { PricingSettings, RotaryShareSettings, TodaBillingMode } from '../types'
+import type { OperatingCostLine, PricingSettings, RotaryShareSettings, TodaBillingMode } from '../types'
 import type { BusinessPhase } from '../lib/businessPhase'
 import { businessPhaseLogSummary, DEFAULT_BUSINESS_PHASE } from '../lib/businessPhase'
 import { platformFeeForRide } from '../lib/todaBilling'
@@ -438,6 +438,8 @@ interface RideState {
   platformOnlineCollection: boolean
   // Admin-settable prices — see PricingSettings.
   pricingSettings: PricingSettings
+  // What it costs to run this each month — see lib/breakEven.
+  operatingCosts: OperatingCostLine[]
   // Public address the shareable links/QRs are built from (see
   // SuperAdminPage's Access links tab). Must be set explicitly because
   // window.location.origin is useless for sharing in the two cases that
@@ -663,6 +665,7 @@ type RideAction =
   | { type: 'SET_PLATFORM_ONLINE_COLLECTION'; enabled: boolean }
   | { type: 'SET_TODA_BILLING_MODE'; todaOrgId: string; mode: TodaBillingMode }
   | { type: 'SET_PRICING_SETTINGS'; settings: PricingSettings }
+  | { type: 'SET_OPERATING_COSTS'; lines: OperatingCostLine[] }
   | { type: 'SET_PUBLIC_BASE_URL'; url: string }
   | { type: 'SET_PILOT_TODA_NAME'; name: string }
   | { type: 'SET_SIMULATE_MOVEMENT_ENABLED'; enabled: boolean }
@@ -1688,6 +1691,7 @@ interface StoredState {
   businessPhase?: BusinessPhase
   platformOnlineCollection?: boolean
   pricingSettings?: PricingSettings
+  operatingCosts?: OperatingCostLine[]
   publicBaseUrl?: string
   pilotTodaName?: string
   simulateMovementEnabled?: boolean
@@ -1979,6 +1983,7 @@ function fromStored(parsed: StoredState): RideState {
     businessPhase: parsed.businessPhase ?? DEFAULT_BUSINESS_PHASE,
     platformOnlineCollection: parsed.platformOnlineCollection ?? false,
     pricingSettings: { ...DEFAULT_PRICING_SETTINGS, ...parsed.pricingSettings },
+    operatingCosts: parsed.operatingCosts ?? [],
     publicBaseUrl: parsed.publicBaseUrl ?? '',
     pilotTodaName: parsed.pilotTodaName ?? '',
     // Off unless somebody has said otherwise. The pilot is on real roads
@@ -2314,6 +2319,7 @@ function loadInitialState(): RideState {
     businessPhase: DEFAULT_BUSINESS_PHASE,
     platformOnlineCollection: false,
     pricingSettings: DEFAULT_PRICING_SETTINGS,
+    operatingCosts: [],
     publicBaseUrl: '',
     pilotTodaName: '',
     simulateMovementEnabled: false,
@@ -4274,6 +4280,8 @@ function reducer(state: RideState, action: RideAction): RideState {
           o.id === action.todaOrgId ? { ...o, billingMode: action.mode } : o,
         ),
       }
+    case 'SET_OPERATING_COSTS':
+      return { ...state, operatingCosts: action.lines }
     case 'SET_PRICING_SETTINGS':
       return { ...state, pricingSettings: action.settings }
     case 'SET_PLATFORM_ONLINE_COLLECTION':
@@ -7102,6 +7110,7 @@ interface RideContextValue extends RideState {
   setBusinessPhase: (phase: BusinessPhase, actorName: string) => void
   setPlatformOnlineCollection: (enabled: boolean) => void
   setPricingSettings: (settings: PricingSettings) => void
+  setOperatingCosts: (lines: OperatingCostLine[]) => void
   setPublicBaseUrl: (url: string) => void
   setPilotTodaName: (name: string) => void
   setSimulateMovementEnabled: (enabled: boolean) => void
@@ -8060,6 +8069,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           businessPhase: state.businessPhase,
           platformOnlineCollection: state.platformOnlineCollection,
           pricingSettings: state.pricingSettings,
+          operatingCosts: state.operatingCosts,
           publicBaseUrl: state.publicBaseUrl,
           pilotTodaName: state.pilotTodaName,
           simulateMovementEnabled: state.simulateMovementEnabled,
@@ -8175,6 +8185,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     state.businessPhase,
     state.platformOnlineCollection,
     state.pricingSettings,
+    state.operatingCosts,
     state.publicBaseUrl,
     state.pilotTodaName,
     state.simulateMovementEnabled,
@@ -8523,6 +8534,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setBusinessPhase: (phase, actorName) => dispatch({ type: 'SET_BUSINESS_PHASE', phase, actorName }),
     setPlatformOnlineCollection: (enabled) => dispatch({ type: 'SET_PLATFORM_ONLINE_COLLECTION', enabled }),
     setPricingSettings: (settings) => dispatch({ type: 'SET_PRICING_SETTINGS', settings }),
+    setOperatingCosts: (lines) => dispatch({ type: 'SET_OPERATING_COSTS', lines }),
     setPublicBaseUrl: (url) => dispatch({ type: 'SET_PUBLIC_BASE_URL', url }),
     setPilotTodaName: (name) => dispatch({ type: 'SET_PILOT_TODA_NAME', name }),
     setSimulateMovementEnabled: (enabled) => dispatch({ type: 'SET_SIMULATE_MOVEMENT_ENABLED', enabled }),

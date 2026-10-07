@@ -295,7 +295,7 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
         )}
 
         {categories.length > 0 && (
-          <div className="flex gap-1.5 overflow-x-auto border-t border-slate-100 pt-3">
+          <div className="tab-scroll flex gap-1.5 overflow-x-auto border-t border-slate-100 pb-2.5 pt-3">
             <button
               type="button"
               onClick={() => setActiveCategory('all')}
@@ -477,10 +477,13 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
           <button
             type="button"
             onClick={() => setBulkToolsOpen((v) => !v)}
-            className="flex w-full items-center justify-between text-xs font-medium text-slate-500 hover:text-slate-700"
+            aria-expanded={bulkToolsOpen}
+            className="flex w-full items-center justify-between rounded-lg bg-gradient-to-r from-gold-400/60 via-gold-400/25 to-transparent px-3 py-2 text-xs font-bold text-navy-900 transition hover:from-gold-400/80 hover:via-gold-400/40"
           >
             <span>⚡ Bulk add tools</span>
-            <span>{bulkToolsOpen ? '▲' : '▼'}</span>
+            <span aria-hidden className="text-navy-900/60">
+              {bulkToolsOpen ? '▲' : '▼'}
+            </span>
           </button>
           {bulkToolsOpen && (
             <div className="mt-2 space-y-3">

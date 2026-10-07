@@ -173,3 +173,33 @@ body {
 .leaflet-zoom-anim .leaflet-marker-icon.toda-glide {
   transition: none;
 }
+
+/* The category strip on a vendor's menu scrolls sideways, and its scrollbar
+   was drawn hard against the bottom of the pills — close enough to read as an
+   underline on whichever tab sat above it, and thin enough that grabbing it
+   on a trackpad or with a mouse was a matter of luck.
+   A little room below the pills, and a thumb with enough height to take hold
+   of. Firefox gets the same through scrollbar-width/color; phones hide the
+   bar entirely and flick the strip instead, which is why this is a comfort
+   for the desktop case rather than the thing that makes the strip usable. */
+.tab-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(148 163 184 / 0.7) transparent;
+}
+.tab-scroll::-webkit-scrollbar {
+  height: 9px;
+}
+.tab-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tab-scroll::-webkit-scrollbar-thumb {
+  background-color: rgb(148 163 184 / 0.55);
+  border-radius: 9999px;
+  /* Inset by a transparent border so the thumb reads as a slim pill with air
+     around it rather than a bar wedged into the edge. */
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.tab-scroll:hover::-webkit-scrollbar-thumb {
+  background-color: rgb(100 116 139 / 0.75);
+}

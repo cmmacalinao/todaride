@@ -576,7 +576,51 @@ export interface Pharmacy {
   // (see lib/rideMerge mergeVendorPosts), so a deletion must be a record of
   // its own or a device still holding the post would bring it back.
   removedPostIds?: string[]
+  // The store's own address: todaridemobility.com/<slug>. See lib/vendorSlug
+  // for the rules and the reserved list. Optional: a store without one is
+  // still reachable at /vendor-page/<id>, which keeps working forever
+  // because it is already printed on things.
+  slug?: string | null
+  // Admin has taken the public page down (see HIDE_VENDOR_PAGE). The store
+  // itself keeps trading — orders, menu and portal are untouched; only the
+  // public page and its link preview stop answering. Hiding rather than
+  // deleting, so a page taken down by mistake comes back whole.
+  pageHidden?: boolean
+  pageHiddenReason?: string | null
+  pageHiddenAt?: string | null
 }
+
+// Somebody reporting a public store page.
+//
+// A page anybody can open, with photos and a name on it, needs a way for a
+// stranger to say "this is not right" — a store that closed months ago, a
+// menu of someone else's photos, a name pretending to be a business it is
+// not. The reporter is not asked who they are: requiring a login to report
+// an impersonation would mean most of them never get reported.
+export interface VendorPageReport {
+  id: string
+  pharmacyId: string
+  // What the page was called when it was reported, kept so an admin reading
+  // the queue later still knows what was complained about even if the store
+  // has since renamed itself.
+  pharmacyName: string
+  reason: VendorReportReason
+  detail: string | null
+  at: string
+  // Set when an admin has dealt with it either way, so the queue empties.
+  resolvedAt?: string | null
+  resolvedBy?: string | null
+}
+
+export type VendorReportReason = 'closed' | 'not_real' | 'wrong_info' | 'offensive' | 'other'
+
+export const VENDOR_REPORT_REASONS: { value: VendorReportReason; label: string }[] = [
+  { value: 'closed', label: 'This store has closed' },
+  { value: 'not_real', label: 'This is not a real store' },
+  { value: 'wrong_info', label: 'The information is wrong' },
+  { value: 'offensive', label: 'Offensive or inappropriate content' },
+  { value: 'other', label: 'Something else' },
+]
 
 export interface VendorPost {
   id: string

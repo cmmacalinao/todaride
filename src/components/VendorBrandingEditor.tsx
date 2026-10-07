@@ -3,6 +3,7 @@ import { DocumentUploadField } from './DocumentUploadField'
 import { removeFlatBackground } from '../lib/photo'
 import { VENDOR_THEME_COLORS } from './VendorStorefront'
 import { useRides } from '../context/RideContext'
+import { VendorSlugEditor } from './VendorSlugEditor'
 import type { Pharmacy } from '../types'
 
 // Lets a vendor personalize the things their public page (VendorStorefront.tsx,
@@ -36,6 +37,8 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
   }
 
   return (
+    <>
+    <VendorSlugEditor pharmacy={pharmacy} />
     <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <h2 className="text-sm font-semibold text-slate-700">🎨 Customize your vendor page</h2>
       <DocumentUploadField
@@ -70,6 +73,7 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
       </div>
       <VendorThemePicker pharmacy={pharmacy} />
     </section>
+    </>
   )
 }
 

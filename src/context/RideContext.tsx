@@ -5,6 +5,7 @@ import { mergeById, mergeDriverAccessMessages, mergeIncomingRides, mergeVendorPo
 import { DEFAULT_FAMILY_PROMO_DEADLINE } from '../lib/familyTerms'
 import { DEFAULT_ROTARY_SHARE_SETTINGS, findPartnerByCode, generatePartnerCode, marketingSplit } from '../lib/marketingProgram'
 import { PILOT_ORIGIN } from '../lib/pilotOrigin'
+import { slugIndex, slugProblem, suggestAvailableSlug } from '../lib/vendorSlug'
 import {
   DEFAULT_DOCUMENT_GRACE_DAYS,
   DEFAULT_REQUIRED_DOCUMENTS,
@@ -18,6 +19,7 @@ import {
 import type { RecoveryKind } from '../lib/unifiedLogin'
 import type { RidePhoto } from '../types'
 import type { RotaryShareSettings } from '../types'
+import type { VendorPageReport, VendorReportReason } from '../types'
 import type { EmergencyContact, SafetySettings, SosEvent, SosEventKind, SosTriggerSource, SosTriggeredByRole } from '../types'
 import type {
   PabiliFareMode,
@@ -381,6 +383,8 @@ interface RideState {
   // pharmacy confirmation, prescription review); once a pharmacy confirms,
   // a real Ride is created and MedsOrder.linkedRideId points at it.
   pharmacies: Pharmacy[]
+  // Reports from the public about a store page — see VendorPageReport.
+  vendorPageReports: VendorPageReport[]
   // A tombstone: pharmacy ids that were explicitly purged as junk/duplicate
   // accounts. mergeVendorPosts unions accounts by id so a sign-up in flight
   // during a race is never lost — but that same rule means a device whose
@@ -1575,6 +1579,10 @@ type RideAction =
       themeColor: string | null
       tagline: string | null
     }
+  | { type: 'SET_VENDOR_SLUG'; pharmacyId: string; slug: string }
+  | { type: 'REPORT_VENDOR_PAGE'; pharmacyId: string; reason: VendorReportReason; detail: string | null }
+  | { type: 'RESOLVE_VENDOR_PAGE_REPORT'; reportId: string; actorName: string }
+  | { type: 'SET_VENDOR_PAGE_HIDDEN'; pharmacyId: string; hidden: boolean; reason: string | null; actorName: string }
   | { type: 'UPDATE_PHARMACY_LOCATION'; pharmacyId: string; locationGps: GeoCoords }
   | { type: 'SET_VENDOR_BANNER_THUMB'; pharmacyId: string; dataUrl: string | null; key: string | null }
   | { type: 'TOGGLE_PHARMACY_TRUSTED_DRIVER'; pharmacyId: string; driverId: string }
@@ -1674,6 +1682,7 @@ interface StoredState {
   partnershipRevenue?: PartnershipRevenueEntry[]
   adSenseSettings?: AdSenseSettings
   pharmacies?: Pharmacy[]
+  vendorPageReports?: VendorPageReport[]
   removedPharmacyIds?: string[]
   medicineProducts?: MedicineProduct[]
   medsOrders?: MedsOrder[]
@@ -1916,6 +1925,7 @@ function fromStored(parsed: StoredState): RideState {
     partnershipRevenue: parsed.partnershipRevenue ?? [],
     adSenseSettings: { ...DEFAULT_ADSENSE_SETTINGS, ...parsed.adSenseSettings, slots: { ...DEFAULT_ADSENSE_SETTINGS.slots, ...parsed.adSenseSettings?.slots } },
     pharmacies: withLateSeedVendors(parsed.pharmacies).filter((p) => !(parsed.removedPharmacyIds ?? []).includes(p.id)),
+    vendorPageReports: parsed.vendorPageReports ?? [],
     removedPharmacyIds: parsed.removedPharmacyIds ?? [],
     medicineProducts: withLateSeedVendorMenus(parsed.medicineProducts),
     // Older saved sessions predate the order-chat feature — default each
@@ -2298,6 +2308,7 @@ function loadInitialState(): RideState {
     partnershipRevenue: [],
     adSenseSettings: DEFAULT_ADSENSE_SETTINGS,
     pharmacies: MOCK_PHARMACIES,
+    vendorPageReports: [],
     removedPharmacyIds: [],
     medicineProducts: [...MOCK_MEDICINE_PRODUCTS, ...MOCK_VENDOR_MENU_ITEMS],
     medsOrders: [],
@@ -6778,6 +6789,15 @@ function reducer(state: RideState, action: RideAction): RideState {
       const pharmacy: Pharmacy = {
         id: action.id,
         name: action.name,
+        // A link they can hand out from day one, suggested from the store
+        // name. Editable in the portal — this only means nobody has to
+        // think about it at registration, when they are busy proving who
+        // they are.
+        slug: suggestAvailableSlug(action.name, {
+          takenBy: slugIndex(state.pharmacies),
+          vendorId: action.id,
+          fallback: action.id,
+        }),
         businessType: action.businessType,
         adminPin: action.adminPin,
         contactPhone: action.contactPhone,
@@ -6829,6 +6849,75 @@ function reducer(state: RideState, action: RideAction): RideState {
               }
             : p,
         ),
+      }
+    }
+    case 'SET_VENDOR_SLUG': {
+      // Validated here as well as in the form. The form is where a vendor is
+      // told what is wrong; this is what makes it true — a reserved or taken
+      // slug written straight into state would shadow an app page or steal
+      // another store's link.
+      const wanted = action.slug.trim().toLowerCase()
+      const problem = slugProblem(wanted, {
+        takenBy: slugIndex(state.pharmacies),
+        vendorId: action.pharmacyId,
+      })
+      if (problem) return state
+      return {
+        ...state,
+        pharmacies: state.pharmacies.map((p) => (p.id === action.pharmacyId ? { ...p, slug: wanted } : p)),
+      }
+    }
+    case 'REPORT_VENDOR_PAGE': {
+      const reported = state.pharmacies.find((p) => p.id === action.pharmacyId)
+      const report: VendorPageReport = {
+        id: `vpr-${Date.now()}`,
+        pharmacyId: action.pharmacyId,
+        pharmacyName: reported?.name ?? 'Unknown store',
+        reason: action.reason,
+        detail: action.detail,
+        at: new Date().toISOString(),
+        resolvedAt: null,
+        resolvedBy: null,
+      }
+      return { ...state, vendorPageReports: [report, ...(state.vendorPageReports ?? [])].slice(0, 200) }
+    }
+    case 'RESOLVE_VENDOR_PAGE_REPORT':
+      return {
+        ...state,
+        vendorPageReports: (state.vendorPageReports ?? []).map((r) =>
+          r.id === action.reportId
+            ? { ...r, resolvedAt: new Date().toISOString(), resolvedBy: action.actorName }
+            : r,
+        ),
+      }
+    case 'SET_VENDOR_PAGE_HIDDEN': {
+      const target = state.pharmacies.find((p) => p.id === action.pharmacyId)
+      // Taking somebody's public page down is a decision worth a name
+      // against it: the store is still trading, and they will ask who.
+      const entry = {
+        id: `log-vpage-${Date.now()}`,
+        actorRole: 'admin' as const,
+        actorName: action.actorName,
+        todaOrgId: null,
+        action: action.hidden ? 'hid_vendor_page' : 'restored_vendor_page',
+        summary: `${action.hidden ? 'Hid' : 'Restored'} the public page for ${target?.name ?? 'a store'}.${
+          action.hidden && action.reason ? ` Reason: ${action.reason}` : ''
+        }`,
+        at: new Date().toISOString(),
+      }
+      return {
+        ...state,
+        pharmacies: state.pharmacies.map((p) =>
+          p.id === action.pharmacyId
+            ? {
+                ...p,
+                pageHidden: action.hidden,
+                pageHiddenReason: action.hidden ? action.reason : null,
+                pageHiddenAt: action.hidden ? new Date().toISOString() : null,
+              }
+            : p,
+        ),
+        activityLog: [entry, ...state.activityLog].slice(0, MAX_ACTIVITY_LOG_ENTRIES),
       }
     }
     case 'UPDATE_PHARMACY_LOCATION': {
@@ -7985,6 +8074,11 @@ interface RideContextValue extends RideState {
     tagline: string | null
   }) => void
   updatePharmacyLocation: (pharmacyId: string, locationGps: GeoCoords) => void
+  // The store's public address — see lib/vendorSlug.
+  setVendorSlug: (pharmacyId: string, slug: string) => void
+  reportVendorPage: (args: { pharmacyId: string; reason: VendorReportReason; detail: string | null }) => void
+  resolveVendorPageReport: (reportId: string, actorName: string) => void
+  setVendorPageHidden: (args: { pharmacyId: string; hidden: boolean; reason: string | null; actorName: string }) => void
   // The banner drawn as one picture for link previews — see lib/bannerThumb.
   setVendorBannerThumb: (pharmacyId: string, dataUrl: string | null, key: string | null) => void
   togglePharmacyTrustedDriver: (pharmacyId: string, driverId: string) => void
@@ -8136,6 +8230,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           partnershipRevenue: state.partnershipRevenue,
           adSenseSettings: state.adSenseSettings,
           pharmacies: state.pharmacies,
+          vendorPageReports: state.vendorPageReports,
           removedPharmacyIds: state.removedPharmacyIds,
           medicineProducts: state.medicineProducts,
           medsOrders: state.medsOrders,
@@ -8252,6 +8347,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     state.partnershipRevenue,
     state.adSenseSettings,
     state.pharmacies,
+    state.vendorPageReports,
     state.medicineProducts,
     state.medsOrders,
     state.operators,
@@ -9048,6 +9144,13 @@ export function RideProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'UPDATE_PHARMACY_PAYMENT_ACCOUNT', pharmacyId, method, details }),
     updateVendorBranding: (args) => dispatch({ type: 'UPDATE_VENDOR_BRANDING', ...args }),
     setVendorBannerThumb: (pharmacyId, dataUrl, key) => dispatch({ type: 'SET_VENDOR_BANNER_THUMB', pharmacyId, dataUrl, key }),
+    setVendorSlug: (pharmacyId, slug) => dispatch({ type: 'SET_VENDOR_SLUG', pharmacyId, slug }),
+    reportVendorPage: ({ pharmacyId, reason, detail }) =>
+      dispatch({ type: 'REPORT_VENDOR_PAGE', pharmacyId, reason, detail }),
+    resolveVendorPageReport: (reportId, actorName) =>
+      dispatch({ type: 'RESOLVE_VENDOR_PAGE_REPORT', reportId, actorName }),
+    setVendorPageHidden: ({ pharmacyId, hidden, reason, actorName }) =>
+      dispatch({ type: 'SET_VENDOR_PAGE_HIDDEN', pharmacyId, hidden, reason, actorName }),
     updatePharmacyLocation: (pharmacyId, locationGps) => dispatch({ type: 'UPDATE_PHARMACY_LOCATION', pharmacyId, locationGps }),
     togglePharmacyTrustedDriver: (pharmacyId, driverId) =>
       dispatch({ type: 'TOGGLE_PHARMACY_TRUSTED_DRIVER', pharmacyId, driverId }),

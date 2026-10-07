@@ -43,6 +43,12 @@ interface PostLike {
 
 interface VendorLike {
   id: string
+  slug?: string | null
+  // Admin has taken the page down. A hidden store must not leak a preview
+  // either: a card with its name and photograph is the page, as far as a
+  // Messenger thread is concerned.
+  pageHidden?: boolean
+  verificationStatus?: string
   name?: string
   tagline?: string | null
   businessType?: string
@@ -125,15 +131,55 @@ function pictureResponse(origin: string, candidates: (string | null | undefined)
   return null
 }
 
+// Which store a request is for, and in what shape.
+//
+// Three kinds of URL reach this function:
+//   /vendor-page/<id>[/og-image]   the original, kept working forever
+//   /<slug>                        the store's own address
+//   /og/<slug>.jpg                 the picture for that address
+//
+// A single-segment path is only treated as a slug when it is well-formed —
+// lowercase letters, digits and hyphens, 3–30 characters. That is the same
+// rule src/lib/vendorSlug.ts enforces when a vendor picks one, so a path
+// this function claims is always a path a store could actually hold. Real
+// app routes are single-segment too (/book, /drive), but no store can own
+// one: the reserved list refuses them at the source, so the lookup below
+// simply finds nothing and the request falls through to the app.
+function parseTarget(pathname: string): { key: string; by: 'id' | 'slug'; wantsImage: boolean } | null {
+  const legacy = /^\/vendor-page\/([^/]+)(\/og-image)?\/?$/.exec(pathname)
+  if (legacy) return { key: legacy[1], by: 'id', wantsImage: !!legacy[2] }
+
+  const image = /^\/og\/([a-z0-9-]{3,30})\.jpg$/.exec(pathname)
+  if (image) return { key: image[1], by: 'slug', wantsImage: true }
+
+  const page = /^\/([a-z0-9-]{3,30})\/?$/.exec(pathname)
+  if (page) return { key: page[1], by: 'slug', wantsImage: false }
+
+  return null
+}
+
 export default async function handler(request: Request, context: Context) {
   const url = new URL(request.url)
-  const match = /^\/vendor-page\/([^/]+)(\/og-image)?\/?$/.exec(url.pathname)
-  if (!match) return context.next()
-  const [, id, wantsImage] = match
+  const target = parseTarget(url.pathname)
+  if (!target) return context.next()
+  const { key: id, by, wantsImage } = target
   const postId = url.searchParams.get('post')
 
   const state = await loadState()
-  const vendor = state?.pharmacies.find((p) => p.id === id)
+  const found =
+    by === 'slug'
+      ? state?.pharmacies.find((p) => (p.slug ?? '').trim().toLowerCase() === id)
+      : state?.pharmacies.find((p) => p.id === id)
+  // A page nobody approved, or one Admin has hidden, has no preview and no
+  // picture. The card is the page as far as a Messenger thread is concerned,
+  // so leaving the card alive would leave the page alive.
+  const vendor =
+    found && !found.pageHidden && (!found.verificationStatus || found.verificationStatus === 'approved')
+      ? found
+      : undefined
+  // A slug nobody holds is not ours to answer — let the app render its own
+  // "we could not find that store" rather than serving a card for nothing.
+  if (by === 'slug' && !vendor && !wantsImage) return context.next()
   const post = postId ? vendor?.posts?.find((p) => p.id === postId) ?? null : null
   const featured = post?.productId ? state?.medicineProducts.find((p) => p.id === post.productId) ?? null : null
 
@@ -155,7 +201,10 @@ export default async function handler(request: Request, context: Context) {
       const picture = pictureResponse(url.origin, tier)
       if (picture) return picture
     }
-    return Response.redirect(`${url.origin}/pwa-512x512.png`, 302)
+    // Nothing usable, or a store that has no public page: the app's own
+    // card rather than a blank one. A broken image in a Messenger thread
+    // reads as a broken link.
+    return Response.redirect(`${url.origin}/og-image.png`, 302)
   }
 
   // The page itself: let the platform serve index.html as usual, then fill
@@ -173,8 +222,12 @@ export default async function handler(request: Request, context: Context) {
 
   let title: string
   let description: string
-  let pageUrl = `${url.origin}/vendor-page/${encodeURIComponent(id)}`
-  let imageUrl = `${pageUrl}/og-image`
+  // The canonical address is the slug when the store has one: that is the
+  // link people share, and og:url disagreeing with it splits the preview
+  // cache in two.
+  const slug = (vendor.slug ?? '').trim().toLowerCase()
+  let pageUrl = slug ? `${url.origin}/${slug}` : `${url.origin}/vendor-page/${encodeURIComponent(vendor.id)}`
+  let imageUrl = slug ? `${url.origin}/og/${slug}.jpg` : `${url.origin}/vendor-page/${encodeURIComponent(vendor.id)}/og-image`
   let ogType = 'website'
   if (post) {
     // The post is the card: the store's name as the title, the post's own
@@ -233,5 +286,8 @@ export default async function handler(request: Request, context: Context) {
 }
 
 export const config: Config = {
-  path: '/vendor-page/*',
+  // The slug page is matched by a pattern rather than a bare '/*' so the
+  // function is not woken for every asset on the site. parseTarget is what
+  // actually decides, and anything it does not claim falls straight through.
+  path: ['/vendor-page/*', '/og/*', '/:slug'],
 }

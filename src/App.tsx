@@ -56,6 +56,7 @@ const VendorPortalPage = lazy(() => import('./pages/VendorPortalPage').then((m) 
 const VendorPublicPage = lazy(() => import('./pages/VendorPublicPage').then((m) => ({ default: m.VendorPublicPage })))
 // The same vendor page for somebody who is not signed in — read everything,
 // register to order. See VendorGuestPage.
+import { isVendorSlugPath } from './lib/vendorSlug'
 const VendorGuestPage = lazy(() => import('./pages/VendorGuestPage').then((m) => ({ default: m.VendorGuestPage })))
 const OperatorPortalPage = lazy(() => import('./pages/OperatorPortalPage').then((m) => ({ default: m.OperatorPortalPage })))
 const FranchisePage = lazy(() => import('./pages/FranchisePage').then((m) => ({ default: m.FranchisePage })))
@@ -148,6 +149,10 @@ function AppShell() {
       location.pathname === '/welcome' ||
       location.pathname.startsWith('/scan/') ||
       location.pathname.startsWith('/vendor-page/') ||
+      // ...and so is the store's own address, which is the link a carinderia
+      // actually hands out. Without this the page it points at bounces to
+      // the landing screen before it ever renders.
+      isVendorSlugPath(location.pathname) ||
       isDriverEntryLink ||
       isBusinessEntryLink ||
       isRiderEntryLink
@@ -219,6 +224,15 @@ function AppShell() {
             <Suspense fallback={null}>
               <Routes>
                 <Route path="/vendor-page/:pharmacyId" element={<VendorGuestPage />} />
+              </Routes>
+            </Suspense>
+          ) : isVendorSlugPath(location.pathname) ? (
+            // A store's own address. Matched only when the path is a single
+            // segment that is not one of ours — see lib/vendorSlug — so no
+            // app page can ever be shadowed by a store.
+            <Suspense fallback={null}>
+              <Routes>
+                <Route path="/:slug" element={<VendorGuestPage />} />
               </Routes>
             </Suspense>
           ) : (
@@ -417,6 +431,10 @@ function AppShell() {
           <Route path="/admin/toda/:todaOrgId" element={<AdminTodaProfilePage />} />
           <Route path="/admin/accounting" element={<AccountingPage />} />
           <Route path="/admin/income-promotion" element={<IncomePromotionPage />} />
+          {/* The store's own public address. Deliberately last: every route
+              above is matched first, so a slug can never shadow an app page
+              even if one somehow slipped past the reserved list. */}
+          <Route path="/:slug" element={<VendorGuestPage />} />
           </Routes>
         </Suspense>
       </main>

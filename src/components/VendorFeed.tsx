@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { publicVendorUrl } from '../lib/vendorSlug'
 import { usePublicOrigin, useRides } from '../context/RideContext'
 import { captureNativePhoto, compressImageFile, isNativePlatform } from '../lib/photo'
 import { renderShareCard } from '../lib/shareCard'
@@ -61,7 +62,7 @@ function PostActions({ pharmacy, post, viewer }: { pharmacy: Pharmacy; post: Ven
   // The post's own link: the page opens on this post (see focusPostId in
   // VendorFeedList), and the edge function puts this post's photo and text
   // on the preview card rather than the store's banner.
-  const shareUrl = `${publicOrigin}/vendor-page/${pharmacy.id}?post=${encodeURIComponent(post.id)}`
+  const shareUrl = `${publicVendorUrl(publicOrigin, pharmacy.slug, pharmacy.id)}?post=${encodeURIComponent(post.id)}`
 
   function react(reaction: 'like' | 'heart') {
     if (!viewer) return

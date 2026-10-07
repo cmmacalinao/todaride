@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { publicVendorUrl } from '../lib/vendorSlug'
 import { getDefaultDishVisual } from '../lib/filipinoDishes'
 import { menuBadgeSortRank, menuCategorySortRank } from '../lib/foodCatalog'
 import { captureNativePhoto, compressImageFile, isNativePlatform, removeFlatBackground } from '../lib/photo'
@@ -533,7 +534,11 @@ export function VendorHeaderCard({
     ? Math.abs([...pharmacy.bannerThumbKey].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7)).toString(36)
     : null
   const { origin: publicOrigin } = usePublicOrigin()
-  const shareUrl = `${publicOrigin}/vendor-page/${pharmacy.id}${bannerVersion ? `?v=${bannerVersion}` : ''}`
+  // The store's own address when it has one — a link somebody can write
+  // down is the whole reason the slug exists. Falls back to the id route
+  // for a store that has not picked one yet, so sharing never breaks
+  // while they are deciding.
+  const shareUrl = `${publicVendorUrl(publicOrigin, pharmacy.slug, pharmacy.id)}${bannerVersion ? `?v=${bannerVersion}` : ''}`
 
   const mapQuery = encodeURIComponent(`${pharmacy.addressDetail}, ${pharmacy.barangay}, ${pharmacy.city}`)
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${mapQuery}`

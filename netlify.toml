@@ -12,6 +12,18 @@
   path = "/vendor-page/*"
   function = "vendor-og"
 
+# The picture a store's link preview points at: /og/<slug>.jpg
+[[edge_functions]]
+  path = "/og/*"
+  function = "vendor-og"
+
+# A store's own address, todaridemobility.com/<slug>. The function claims a
+# single-segment path only when it is a well-formed slug held by an approved,
+# unhidden store; everything else falls through to the SPA redirect below.
+[[edge_functions]]
+  path = "/:slug"
+  function = "vendor-og"
+
 # The app calls /api/send-otp and /api/verify-otp — the same paths the local
 # Express server answers on, so one client works against both without knowing
 # which is behind it.

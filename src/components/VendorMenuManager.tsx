@@ -269,7 +269,7 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
             the form IS the page, and asking somebody to find a fold before
             they can add their first dish is a strange way to begin. */}
         {!editingProduct && (
-          <div className="pb-3">
+          <div>
             {/* The brand gold, fading out to the right: enough to mark this
                 as the one thing on the page you do rather than read, without
                 a solid block of colour competing with the dish photos below
@@ -295,7 +295,7 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
         )}
 
         {categories.length > 0 && (
-          <div className="tab-scroll flex gap-1.5 overflow-x-auto border-t border-slate-100 pb-2.5 pt-3">
+          <div className="tab-scroll -mt-1 flex gap-1.5 overflow-x-auto border-t border-slate-100 pb-2.5 pt-2">
             <button
               type="button"
               onClick={() => setActiveCategory('all')}
@@ -340,7 +340,7 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
             </p>
           )}
           {activeCategory === 'all' && displayedProducts.length > 1 && (
-            <p className="text-[11px] text-slate-400">Drag ⠿ to arrange your menu the way you want customers to see it.</p>
+            <p className="-mt-1 text-[11px] text-slate-400">Drag ⠿ to arrange your menu the way you want customers to see it.</p>
           )}
           {displayedProducts.map((product) => {
             if (editingId === product.id) {

@@ -5,7 +5,7 @@ import { mergeById, mergeDriverAccessMessages, mergeIncomingRides, mergeVendorPo
 import { DEFAULT_FAMILY_PROMO_DEADLINE } from '../lib/familyTerms'
 import { DEFAULT_ROTARY_SHARE_SETTINGS, findPartnerByCode, generatePartnerCode, marketingSplit } from '../lib/marketingProgram'
 import { PILOT_ORIGIN } from '../lib/pilotOrigin'
-import { slugIndex, slugProblem, suggestAvailableSlug } from '../lib/vendorSlug'
+import { backfillSlugs, slugIndex, slugProblem, suggestAvailableSlug } from '../lib/vendorSlug'
 import {
   DEFAULT_DOCUMENT_GRACE_DAYS,
   DEFAULT_REQUIRED_DOCUMENTS,
@@ -1924,7 +1924,12 @@ function fromStored(parsed: StoredState): RideState {
     incomePromotionSettings: { ...DEFAULT_INCOME_PROMOTION_SETTINGS, ...parsed.incomePromotionSettings },
     partnershipRevenue: parsed.partnershipRevenue ?? [],
     adSenseSettings: { ...DEFAULT_ADSENSE_SETTINGS, ...parsed.adSenseSettings, slots: { ...DEFAULT_ADSENSE_SETTINGS.slots, ...parsed.adSenseSettings?.slots } },
-    pharmacies: withLateSeedVendors(parsed.pharmacies).filter((p) => !(parsed.removedPharmacyIds ?? []).includes(p.id)),
+    // Stores that registered before slugs existed get one here rather than
+    // waiting for somebody to find the field in the portal — see
+    // backfillSlugs, which never moves a link a store already has.
+    pharmacies: backfillSlugs(
+      withLateSeedVendors(parsed.pharmacies).filter((p) => !(parsed.removedPharmacyIds ?? []).includes(p.id)),
+    ),
     vendorPageReports: parsed.vendorPageReports ?? [],
     removedPharmacyIds: parsed.removedPharmacyIds ?? [],
     medicineProducts: withLateSeedVendorMenus(parsed.medicineProducts),
@@ -2307,7 +2312,7 @@ function loadInitialState(): RideState {
     incomePromotionSettings: DEFAULT_INCOME_PROMOTION_SETTINGS,
     partnershipRevenue: [],
     adSenseSettings: DEFAULT_ADSENSE_SETTINGS,
-    pharmacies: MOCK_PHARMACIES,
+    pharmacies: backfillSlugs(MOCK_PHARMACIES),
     vendorPageReports: [],
     removedPharmacyIds: [],
     medicineProducts: [...MOCK_MEDICINE_PRODUCTS, ...MOCK_VENDOR_MENU_ITEMS],

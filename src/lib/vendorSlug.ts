@@ -256,6 +256,43 @@ export function vendorForSlug<T extends SlugOwner & { verificationStatus?: strin
   return found
 }
 
+// Give every store that has none a link of its own.
+//
+// Slugs were suggested at registration, which leaves every store that
+// registered before this existed on /vendor-page/<id> until somebody opens
+// the portal and taps the suggestion. Most never would — a merchant does not
+// go looking in settings for a feature nobody told them about — so the
+// stores that have been trading longest would be the ones without a usable
+// link.
+//
+// Two things make this safe to run on shared state. It is deterministic:
+// vendors are processed in id order, so two devices computing it from the
+// same list reach the same answer rather than racing to different ones. And
+// it never moves a slug that already exists — a link somebody has printed is
+// never reassigned, whatever else changes around it.
+export function backfillSlugs<T extends SlugOwner & { name?: string }>(vendors: T[]): (T & SlugOwner)[] {
+  const index = slugIndex(vendors)
+  const assigned = new Map<string, string>()
+
+  // Id order, not list order: the order of the array depends on which device
+  // merged what, and an assignment that depends on that is an assignment two
+  // devices can disagree about.
+  for (const vendor of [...vendors].sort((a, b) => a.id.localeCompare(b.id))) {
+    if ((vendor.slug ?? '').trim()) continue
+    const slug = suggestAvailableSlug(vendor.name ?? '', {
+      takenBy: index,
+      vendorId: vendor.id,
+      fallback: vendor.id,
+    })
+    if (!slug) continue
+    index.set(slug, vendor.id)
+    assigned.set(vendor.id, slug)
+  }
+
+  if (assigned.size === 0) return vendors
+  return vendors.map((v) => (assigned.has(v.id) ? { ...v, slug: assigned.get(v.id)! } : v))
+}
+
 // Whether a URL path could be a store address at all.
 //
 // Used by the signed-out branch of the router, which dispatches on the path

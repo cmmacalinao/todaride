@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  backfillSlugs,
   isReservedSlug,
   isSlugAvailable,
   normalizeSlugInput,
@@ -260,5 +261,86 @@ describe('publicVendorUrl', () => {
     expect(publicVendorUrl('https://todaridemobility.com', null, 'ph-1')).toBe(
       'https://todaridemobility.com/vendor-page/ph-1',
     )
+  })
+})
+
+describe('backfilling stores that registered before slugs existed', () => {
+  it('gives a link to every store that has none', () => {
+    const out = backfillSlugs([
+      { id: 'ph-1', name: "Aling Nena's Store" },
+      { id: 'ph-2', name: 'Bakery ni Mang Tonio' },
+    ])
+    expect(out.map((v) => v.slug)).toEqual(['alingnena', 'bakerynimangtonio'])
+  })
+
+  // A link somebody has already printed on a tarpaulin is never reassigned.
+  it('never moves a slug a store already has', () => {
+    const out = backfillSlugs([
+      { id: 'ph-1', name: 'Something Else Entirely', slug: 'chosen' },
+      { id: 'ph-2', name: 'Bakery' },
+    ])
+    expect(out[0].slug).toBe('chosen')
+  })
+
+  it('does not collide with a slug already in use', () => {
+    const out = backfillSlugs([
+      { id: 'ph-1', name: 'Taken Name', slug: 'bakery' },
+      { id: 'ph-2', name: 'Bakery' },
+    ])
+    expect(out[1].slug).toBe('bakery2')
+  })
+
+  it('gives two identically named stores different links', () => {
+    const out = backfillSlugs([
+      { id: 'ph-1', name: 'Bakery' },
+      { id: 'ph-2', name: 'Bakery' },
+    ])
+    expect(out[0].slug).not.toBe(out[1].slug)
+    expect(new Set(out.map((v) => v.slug)).size).toBe(2)
+  })
+
+  // Two devices computing this from the same list must reach the same
+  // answer — the array order depends on which device merged what, and an
+  // assignment that depends on that is one they can disagree about.
+  it('is deterministic whatever order the list arrives in', () => {
+    const vendors = [
+      { id: 'ph-3', name: 'Bakery' },
+      { id: 'ph-1', name: 'Bakery' },
+      { id: 'ph-2', name: 'Bakery' },
+    ]
+    const forwards = backfillSlugs(vendors)
+    const backwards = backfillSlugs([...vendors].reverse())
+    for (const v of forwards) {
+      expect(backwards.find((b) => b.id === v.id)!.slug).toBe(v.slug)
+    }
+  })
+
+  it('keeps the list in its original order', () => {
+    const out = backfillSlugs([
+      { id: 'ph-9', name: 'Nine' },
+      { id: 'ph-1', name: 'One' },
+    ])
+    expect(out.map((v) => v.id)).toEqual(['ph-9', 'ph-1'])
+  })
+
+  it('falls back to the id when the name gives nothing usable', () => {
+    expect(backfillSlugs([{ id: 'ph-77', name: '!!!' }])[0].slug).toBe('ph-77')
+  })
+
+  it('leaves the list untouched when every store already has one', () => {
+    const vendors = [{ id: 'ph-1', name: 'A', slug: 'aaa' }]
+    expect(backfillSlugs(vendors)).toBe(vendors)
+  })
+
+  it('only ever assigns slugs that pass the rules', () => {
+    const out = backfillSlugs([
+      { id: 'ph-1', name: 'Book' },
+      { id: 'ph-2', name: 'Admin' },
+      { id: 'ph-3', name: 'Muñoz Carinderia' },
+      { id: 'ph-4', name: '!!!' },
+    ])
+    for (const v of out) {
+      expect(slugProblem(v.slug!)).toBeNull()
+    }
   })
 })

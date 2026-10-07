@@ -1,5 +1,6 @@
 import { corsHeaders, preflightResponse } from './_cors.mjs'
 import { createHmac, randomInt } from 'node:crypto'
+import { sendSms } from './lib/sms.mjs'
 
 // Sends a real one-time code by SMS, from the same domain the app is served
 // on.
@@ -35,8 +36,10 @@ async function handle(request) {
   }
 
   const secret = process.env.OTP_SIGNING_SECRET
+  // Which provider carries this is lib/sms.mjs's business now (see
+  // SMS_PROVIDER). Semaphore's key is still what decides whether sending is
+  // configured at all, because it is the one every path falls back to.
   const apiKey = process.env.SEMAPHORE_API_KEY
-  const senderName = process.env.SEMAPHORE_SENDER_NAME ?? ''
 
   if (!secret || !apiKey) {
     // Deliberately explicit: a silent failure here looks to a tester exactly
@@ -55,20 +58,9 @@ async function handle(request) {
   const expiresAt = Date.now() + CODE_TTL_MS
   const message = `Your TodaRide verification code is ${code}. It expires in 5 minutes.`
 
-  const res = await fetch('https://api.semaphore.co/api/v4/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      apikey: apiKey,
-      number: phone,
-      message,
-      ...(senderName ? { sendername: senderName } : {}),
-    }),
-  })
-  const data = await res.json().catch(() => null)
-  if (!res.ok) {
-    const detail = (data && (data.message || JSON.stringify(data))) || res.statusText
-    return Response.json({ error: `Failed to send SMS: ${detail}` }, { status: 502 })
+  const sent = await sendSms({ to: phone, message, purpose: 'otp' })
+  if (!sent.ok) {
+    return Response.json({ error: `Failed to send SMS: ${sent.error}` }, { status: 502 })
   }
 
   return Response.json({

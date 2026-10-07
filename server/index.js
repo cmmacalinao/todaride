@@ -1,16 +1,17 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+// The same module the deployed functions use, so development and production
+// choose a provider the same way rather than drifting apart.
+import { sendSms } from '../netlify/functions/lib/sms.mjs'
 
 const PORT = process.env.PORT ?? 4000
+// Still the test for "is sending configured at all": every provider path
+// falls back to Semaphore, so without this key there is nothing to fall back
+// to and the dev server logs the code instead. The sender name is read
+// inside lib/sms.mjs, which is also where the note about leaving it unset
+// now lives.
 const SEMAPHORE_API_KEY = process.env.SEMAPHORE_API_KEY
-// Left empty on purpose when unset. Semaphore rejects an unregistered
-// sender name outright ("The senderName supplied is not valid"), and every
-// account has its own approved list — so guessing a default sends nothing at
-// all. Omitting the field lets Semaphore use whatever the account is entitled
-// to, which is the only value guaranteed to work before someone registers a
-// name of their own.
-const SEMAPHORE_SENDER_NAME = process.env.SEMAPHORE_SENDER_NAME ?? ''
 
 const app = express()
 app.use(cors({ origin: /^http:\/\/localhost:\d+$/ }))
@@ -26,26 +27,14 @@ function normalizePhone(phone) {
 }
 
 // `code` builds the OTP message as before; passing `rawMessage` instead
-// (used by the SOS route) sends that text verbatim.
-async function sendViaSemaphore(phone, code, rawMessage) {
+// (used by the SOS route) sends that text verbatim. Which provider carries
+// it is decided in lib/sms.mjs from the environment — Semaphore unless the
+// server says otherwise.
+async function sendText(phone, code, rawMessage) {
   const message = rawMessage ?? `Your TodaRide verification code is ${code}. It expires in 5 minutes.`
-  const res = await fetch('https://api.semaphore.co/api/v4/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      apikey: SEMAPHORE_API_KEY,
-      number: phone,
-      message,
-      // Only sent when the account actually has a registered name.
-      ...(SEMAPHORE_SENDER_NAME ? { sendername: SEMAPHORE_SENDER_NAME } : {}),
-    }),
-  })
-  const data = await res.json().catch(() => null)
-  if (!res.ok) {
-    const detail = (data && (data.message || JSON.stringify(data))) || res.statusText
-    throw new Error(`Semaphore rejected the request: ${detail}`)
-  }
-  return data
+  const sent = await sendSms({ to: phone, message, purpose: rawMessage ? 'sos' : 'otp' })
+  if (!sent.ok) throw new Error(sent.error ?? 'SMS send failed.')
+  return sent
 }
 
 app.post('/api/send-otp', async (req, res) => {
@@ -65,7 +54,7 @@ app.post('/api/send-otp', async (req, res) => {
   }
 
   try {
-    await sendViaSemaphore(phone, code)
+    await sendText(phone, code)
     return res.json({ ok: true })
   } catch (err) {
     console.error('[otp] Semaphore send failed:', err.message)
@@ -88,7 +77,7 @@ app.post('/api/send-sos-sms', async (req, res) => {
   }
 
   try {
-    await sendViaSemaphore(phone, null, message)
+    await sendText(phone, null, message)
     return res.json({ ok: true })
   } catch (err) {
     console.error('[sos-sms] Semaphore send failed:', err.message)

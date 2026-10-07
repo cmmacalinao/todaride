@@ -1,4 +1,5 @@
 import { corsHeaders, preflightResponse } from './_cors.mjs'
+import { sendSms } from './lib/sms.mjs'
 
 // Sends one emergency-alert SMS through the same Semaphore account and key
 // as send-otp.mjs. No code, no verify step — the caller (see
@@ -21,8 +22,10 @@ async function handle(request) {
     return Response.json({ error: 'Method not allowed.' }, { status: 405 })
   }
 
+  // See send-otp.mjs: the provider is chosen in lib/sms.mjs, but Semaphore's
+  // key is still the test for "is sending configured", since it is the
+  // fallback of last resort for an emergency text.
   const apiKey = process.env.SEMAPHORE_API_KEY
-  const senderName = process.env.SEMAPHORE_SENDER_NAME ?? ''
 
   if (!apiKey) {
     // Same explicit-failure stance as send-otp.mjs: a silent success here
@@ -42,20 +45,9 @@ async function handle(request) {
     return Response.json({ error: 'Message is too long.' }, { status: 400 })
   }
 
-  const res = await fetch('https://api.semaphore.co/api/v4/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      apikey: apiKey,
-      number: phone,
-      message,
-      ...(senderName ? { sendername: senderName } : {}),
-    }),
-  })
-  const data = await res.json().catch(() => null)
-  if (!res.ok) {
-    const detail = (data && (data.message || JSON.stringify(data))) || res.statusText
-    return Response.json({ error: `Failed to send SMS: ${detail}` }, { status: 502 })
+  const sent = await sendSms({ to: phone, message, purpose: 'sos' })
+  if (!sent.ok) {
+    return Response.json({ error: `Failed to send SMS: ${sent.error}` }, { status: 502 })
   }
 
   return Response.json({ ok: true })

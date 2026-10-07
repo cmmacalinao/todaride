@@ -269,15 +269,22 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
             the form IS the page, and asking somebody to find a fold before
             they can add their first dish is a strange way to begin. */}
         {!editingProduct && (
-          <div className="border-b border-slate-100 pb-3">
+          <div className="pb-3">
+            {/* The brand gold, fading out to the right: enough to mark this
+                as the one thing on the page you do rather than read, without
+                a solid block of colour competing with the dish photos below
+                it. Gold from the palette, not a stray yellow — see
+                tailwind.config.js. */}
             <button
               type="button"
               onClick={() => setAddItemOpen((v) => !v)}
               aria-expanded={addItemOpen}
-              className="flex w-full items-center justify-between text-xs font-semibold text-slate-600 hover:text-slate-800"
+              className="flex w-full items-center justify-between rounded-lg bg-gradient-to-r from-gold-400/60 via-gold-400/25 to-transparent px-3 py-2 text-xs font-bold text-navy-900 transition hover:from-gold-400/80 hover:via-gold-400/40"
             >
               <span>➕ Add a dish / item</span>
-              <span aria-hidden>{addItemOpen ? '▲' : '▼'}</span>
+              <span aria-hidden className="text-navy-900/60">
+                {addItemOpen ? '▲' : '▼'}
+              </span>
             </button>
             {addItemOpen && (
               <div className="mt-2">

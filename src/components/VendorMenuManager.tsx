@@ -40,6 +40,8 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
   } = useRides()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [photoPickerId, setPhotoPickerId] = useState<string | null>(null)
+  // Folded unless the menu is empty — see the strip above the category row.
+  const [addItemOpen, setAddItemOpen] = useState(products.length === 0)
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
   // A removed item stays out of view immediately, but the actual delete (see
   // handleConfirmRemove) is delayed so Undo has something to cancel.
@@ -255,6 +257,36 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
       />
 
       <div className="space-y-3 px-4 pb-4">
+        {/* Adding sits above the menu, folded away.
+            It used to be an open form at the foot of the page: a vendor
+            checking today's prices scrolled past every dish they already had
+            to reach a blank form they were not filling in, and a vendor who
+            did want to add one had to scroll to the bottom to find it. A
+            strip at the top is one tap either way, and gives the menu — the
+            thing the page is actually about — the screen it needs.
+
+            Open by default while the menu is empty: on a store's first visit
+            the form IS the page, and asking somebody to find a fold before
+            they can add their first dish is a strange way to begin. */}
+        {!editingProduct && (
+          <div className="border-b border-slate-100 pb-3">
+            <button
+              type="button"
+              onClick={() => setAddItemOpen((v) => !v)}
+              aria-expanded={addItemOpen}
+              className="flex w-full items-center justify-between text-xs font-semibold text-slate-600 hover:text-slate-800"
+            >
+              <span>➕ Add a dish / item</span>
+              <span aria-hidden>{addItemOpen ? '▲' : '▼'}</span>
+            </button>
+            {addItemOpen && (
+              <div className="mt-2">
+                <MenuItemForm categories={categories} onSubmit={handleAdd} />
+              </div>
+            )}
+          </div>
+        )}
+
         {categories.length > 0 && (
           <div className="flex gap-1.5 overflow-x-auto border-t border-slate-100 pt-3">
             <button
@@ -433,13 +465,6 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
             )
           })}
         </div>
-
-        {!editingProduct && (
-          <div className="space-y-1.5 border-t border-slate-100 pt-3">
-            <p className="text-xs font-medium text-slate-500">Add a dish / item</p>
-            <MenuItemForm categories={categories} onSubmit={handleAdd} />
-          </div>
-        )}
 
         <div className="border-t border-slate-100 pt-3">
           <button

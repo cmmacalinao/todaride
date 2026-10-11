@@ -8,9 +8,13 @@
 export type VendorTab = 'store' | 'menu' | 'orders' | 'book' | 'earnings' | 'trusted'
 
 const VENDOR_TABS: { tab: VendorTab; icon: string; label: string }[] = [
+  // Orders first: it is the tab a merchant opens all day, and the page the
+  // portal already lands on (see VendorPortalPage's activeTab). Store and
+  // Menu are set up once and revisited occasionally — an order is somebody
+  // waiting right now. One array, so the footer and the sidebar agree.
+  { tab: 'orders', icon: '🧾', label: 'Orders' },
   { tab: 'store', icon: '🏪', label: 'Store' },
   { tab: 'menu', icon: '📋', label: 'Menu' },
-  { tab: 'orders', icon: '🧾', label: 'Orders' },
   { tab: 'book', icon: '🛺', label: 'Book Rider' },
   { tab: 'earnings', icon: '💰', label: 'Earnings' },
   { tab: 'trusted', icon: '⭐', label: 'Trusted Rider' },

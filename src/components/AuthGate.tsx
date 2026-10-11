@@ -138,7 +138,22 @@ export function LegacyAuthGate() {
   // Shared between Passenger and Parent so the Log in/Sign up choice is a
   // single row above the Passenger/Parent tabs (not one buried inside each),
   // and switching role tabs doesn't reset which mode was selected.
-  const authMode: 'login' | 'signup' = searchParams.get('auth') === 'signup' ? 'signup' : 'login'
+  // A merchant door with no ?auth= opens on Signup; everyone else opens on
+  // Login.
+  //
+  // The people this app most needs on the merchant door are the ones who
+  // have never been there — every greyed "Coming soon" category is a shop
+  // that has not signed up yet. A returning merchant mostly stays signed in,
+  // and when they do need the form, Login is one obvious tap away.
+  //
+  // The role chooser still says which it wants, since its tiles carry
+  // separate loginTo/signupTo. This decides the case they do not cover: a
+  // link someone was handed, or typed, carrying ?role= but no ?auth= —
+  // which is what a recruiting poster or a Messenger reply looks like.
+  const authParam = searchParams.get('auth')
+  const merchantDoor = allowedRoles.length === 1 && (allowedRoles[0] === 'vendor' || allowedRoles[0] === 'pharmacy')
+  const authMode: 'login' | 'signup' =
+    authParam === 'signup' ? 'signup' : authParam === 'login' ? 'login' : merchantDoor ? 'signup' : 'login'
   // Drivers and TODAs say it with ?mode=register / ?toda=register rather
   // than ?auth= — one answer for the pair of tabs at the top of the page.
   const isTodaAdmin = searchParams.get('mode') === 'toda_admin' || !!searchParams.get('operatorId')
@@ -272,6 +287,17 @@ export function LegacyAuthGate() {
 // LOGIN | SIGNUP, gold on the selected side — the pair at the top of every
 // auth page (and inside the Operator and Franchise forms, which are not
 // reached through the role chooser).
+//
+// Gold for the selected one, because gold means "this is the selected one"
+// everywhere else in the app — the service tabs, the category chips, the
+// footer. Blue on the navy weave would be the weakest pairing available,
+// on a phone held in daylight at a terminal.
+//
+// The unselected side is the part that needed the work. At white/60 on navy
+// it read as disabled rather than as the other option, which is the wrong
+// one to hide: a returning merchant mostly stays signed in, while the
+// first-timer who needs SIGNUP is the one who cannot tell it is a button.
+// It gets a visible track of its own and a readable label.
 export function AuthModeTabs({ mode, setMode }: { mode: 'login' | 'signup'; setMode: (m: 'login' | 'signup') => void }) {
   return (
     <div className="mb-4 flex gap-1 rounded-lg bg-white/5 p-1">
@@ -279,9 +305,12 @@ export function AuthModeTabs({ mode, setMode }: { mode: 'login' | 'signup'; setM
         <button
           key={m}
           type="button"
+          aria-pressed={mode === m}
           onClick={() => setMode(m)}
           className={`flex-1 rounded-md py-2.5 text-base font-extrabold uppercase tracking-wide transition ${
-            mode === m ? 'bg-gold-400 text-navy-900 shadow-sm' : 'text-white/60 hover:bg-white/10'
+            mode === m
+              ? 'bg-gold-400 text-navy-900 shadow-sm'
+              : 'bg-white/10 text-white/90 ring-1 ring-inset ring-white/15 hover:bg-white/20'
           }`}
         >
           {m === 'signup' ? 'Signup' : 'Login'}

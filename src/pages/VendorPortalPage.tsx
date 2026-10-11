@@ -46,6 +46,7 @@ export function VendorPortalPage() {
     medsOrders,
     rides,
     vendorSendQuote,
+    vendorAcceptMenuOrder,
     rejectMedsOrder,
     processMedsOrder,
     vendorMarkDeliveredOther,
@@ -434,6 +435,7 @@ export function VendorPortalPage() {
                     order={order}
                     vendor={vendor}
                     onAccept={(deliveryFee) => vendorSendQuote(order.id, deliveryFee)}
+                    onAcceptAndPrepare={() => vendorAcceptMenuOrder(order.id)}
                     onReject={(reason) => rejectMedsOrder(order.id, reason)}
                     onSendMessage={(text) => sendMedsOrderMessage(order.id, 'pharmacy', text)}
                   />
@@ -858,6 +860,7 @@ function NewVendorOrderCard({
   order,
   vendor,
   onAccept,
+  onAcceptAndPrepare,
   onReject,
   onSendMessage,
 }: {
@@ -865,6 +868,9 @@ function NewVendorOrderCard({
   vendor: Pharmacy
   // Accepting sends the quotation: the goods as ordered plus this rider fee.
   onAccept: (deliveryFee: number) => void
+  // Straight to confirmed, no quotation — only offered when the customer has
+  // already seen this exact total. See the buttons below.
+  onAcceptAndPrepare: () => void
   onReject: (reason: string) => void
   onSendMessage: (text: string) => void
 }) {
@@ -879,8 +885,36 @@ function NewVendorOrderCard({
   const suggested = fare?.todaFare ?? order.deliveryFee
   const bookingFee = fare?.bookingFee ?? order.serviceFee
   const [feeInput, setFeeInput] = useState(String(suggested))
-  const riderFee = Math.max(0, Math.round(Number(feeInput) || 0))
+  // The tariff is the floor, not a suggestion.
+  //
+  // This box sets the RIDER's pay, and it is the shop filling it in. The
+  // honest use is topping up — a third-floor walk-up, a flooded road, a load
+  // that needs a bigger sidecar, none of which a distance tariff knows about.
+  // The dishonest one is shaving the rider's fare to make "Customer pays"
+  // look better, and with a floor of zero a delivery could be dispatched
+  // offering nothing at all.
+  //
+  // A passenger cannot do this: Book a Ride shows the fare as a breakdown and
+  // takes tips upward only. A merchant should not have a power over a
+  // driver's pay that the driver's own customer does not.
+  //
+  // Below-tariff is a conversation with the TODA, not a text box.
+  // Whether the customer has already agreed to this exact number.
+  //
+  // A menu order is priced before it is sent: the customer saw the goods, the
+  // TODA fare for their own address and the booking fee, and the button they
+  // pressed said the total. Asking them to approve the same figure again is a
+  // round-trip that buys nobody anything — and it holds up the cooking.
+  //
+  // The moment the vendor raises the rider's fare, that stops being true.
+  // Then the customer is being asked for more than they agreed to, and the
+  // quotation is the only honest way to ask. So the shortcut is offered only
+  // while the number is untouched.
+  const typedFee = Math.round(Number(feeInput) || 0)
+  const riderFee = Math.max(suggested, typedFee)
+  const belowTariff = feeInput.trim() !== '' && typedFee < suggested
   const quoteTotal = order.subtotal + riderFee + bookingFee
+  const canAcceptDirectly = !!order.pricedFromMenu && riderFee === order.deliveryFee
 
   return (
     <div className="rounded-lg border border-slate-200 p-3">
@@ -933,13 +967,24 @@ function NewVendorOrderCard({
             <input
               type="number"
               inputMode="numeric"
-              min={0}
+              min={suggested}
               value={feeInput}
               onChange={(e) => setFeeInput(e.target.value)}
-              className="w-16 rounded-md border border-slate-300 bg-white px-2 py-1 text-right text-xs"
+              className={`w-16 rounded-md border bg-white px-2 py-1 text-right text-xs ${
+                belowTariff ? 'border-amber-400' : 'border-slate-300'
+              }`}
             />
           </span>
         </div>
+        {/* Said out loud rather than silently corrected: a number that
+            changes itself on submit is worse than one that explains why it
+            will not go lower. */}
+        {belowTariff && (
+          <p className="mt-1 rounded bg-amber-50 px-1.5 py-1 text-[10px] leading-snug text-amber-800">
+            ₱{suggested} is the TODA tariff for {km != null ? `${km} km` : 'this trip'} — the rider will be paid that.
+            You can add to it, not take from it.
+          </p>
+        )}
         <div className="mt-1 flex items-center justify-between text-slate-600">
           <span>Booking fee (platform, set in admin)</span>
           <span>₱{bookingFee}</span>
@@ -950,16 +995,35 @@ function NewVendorOrderCard({
         </div>
       </div>
       <div className="mt-3 space-y-1.5">
-        <button
-          type="button"
-          onClick={() => onAccept(riderFee)}
-          className="w-full rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
-        >
-          Accept & send quotation — ₱{quoteTotal}
-        </button>
-        <p className="text-center text-[10px] text-slate-400">
-          The customer approves it and picks cash on delivery or pays you online first — then you prepare and book the rider.
-        </p>
+        {canAcceptDirectly ? (
+          <>
+            <button
+              type="button"
+              onClick={onAcceptAndPrepare}
+              className="w-full rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
+            >
+              Accept &amp; prepare — ₱{quoteTotal}
+            </button>
+            <p className="text-center text-[10px] text-slate-400">
+              The customer already agreed to ₱{quoteTotal} when they ordered — start cooking, then book the rider.
+            </p>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => onAccept(riderFee)}
+              className="w-full rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
+            >
+              Accept &amp; send quotation — ₱{quoteTotal}
+            </button>
+            <p className="text-center text-[10px] text-slate-400">
+              {order.pricedFromMenu
+                ? `You raised the rider's fare to ₱${riderFee}, so the customer has to agree to the new total first.`
+                : 'The customer approves it and picks cash on delivery or pays you online first — then you prepare and book the rider.'}
+            </p>
+          </>
+        )}
         <div className="flex gap-2">
           <input
             value={rejectReason}

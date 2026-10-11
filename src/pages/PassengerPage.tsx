@@ -875,6 +875,13 @@ export function PassengerPage() {
   // so hiding it for good would strand anyone changing their mind to a
   // different city.
   const settingUpBooking = !hasDestination || openEnd === 'dropoff'
+  // Padala is an errand, and hasDestination counts every errand as answered
+  // (a Pabili's destination is its pickup). True for Pabili, wrong for a
+  // delivery: a parcel is going somewhere, and until that somewhere is
+  // chosen the controls that help choose it should be on screen. Without
+  // this the map's City and the one-tap places never appeared for Padala,
+  // and a City row had to be bolted above the map to make up for it.
+  const choosingDestination = settingUpBooking || (isPadala && !dropoffChosen)
   // The travel/fare row means something only once there is a real trip to
   // price: a pickup the passenger chose and a destination (an errand's
   // destination is the pickup itself).
@@ -2775,7 +2782,7 @@ export function PassengerPage() {
               <div className="flex min-w-0 items-stretch gap-1.5">
                 {/* Narrow and fixed: a city name is short and the destination
                     field is the one that needs the room to show an address. */}
-                {settingUpBooking && (
+                {choosingDestination && (
                   <div className="w-[38%] shrink-0 items-center">{cityRowFor('dropoff')}</div>
                 )}
                 {destinationStripClearable}
@@ -2786,7 +2793,7 @@ export function PassengerPage() {
                   sits directly above the map, where the space is worth more
                   than the shortcut. Changing your mind still works: tap the
                   Where to bar itself. */}
-              {!activeRide && !groupRideOpen && settingUpBooking && savedPlacesRow}
+              {!activeRide && !groupRideOpen && choosingDestination && savedPlacesRow}
             </div>
           ) : undefined
         }
@@ -3211,8 +3218,10 @@ export function PassengerPage() {
                 comes back ahead of the destination: "where are they" is the
                 first question for somebody who isn't you, before "where are
                 they going". */}
-            {/* Book a Delivery: City first, as on Book a Ride. */}
-            {isPadala && <div className="mb-1.5">{cityRowFor('dropoff')}</div>}
+            {/* Padala's City is in the map toolbar now, beside Where to and
+                above the one-tap places — the same head Book a Ride wears.
+                It sat here, a map's width from the field it scopes, only
+                because choosingDestination did not exist yet. */}
             {forOther && !dualEndBox && (
             <>
             {/* Paired with Group Ride on the booking screen, the way the

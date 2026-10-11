@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
-import { categoryForVendor, type MerchantCategory } from '../lib/merchantCategories'
+import { CATEGORY_BY_ID, MERCHANT_CATEGORIES, categoryForVendor, type MerchantCategory } from '../lib/merchantCategories'
 import { DEFAULT_MEDS_DELIVERY_FEE, DEFAULT_MEDS_SERVICE_FEE, PAYMENT_METHODS } from '../mock/data'
 import { DocumentUploadField } from './DocumentUploadField'
 import { createCustomLocation, resolvePhAddress, reverseGeocodeToPhAddress, type PhAddressTags } from '../lib/customLocation'
@@ -164,6 +164,10 @@ export const VendorMenuBooking = forwardRef<
   const initialVendor = initialVendorId ? vendors.find((v) => v.id === initialVendorId) : undefined
   const [step, setStep] = useState<'browse' | 'menu' | 'checkout'>(initialVendor ? 'menu' : 'browse')
   const [vendorSearch, setVendorSearch] = useState('')
+  // Which category chip is pressed. Seeded from the tile the passenger tapped
+  // on the start page, so arriving via Botika lands with Botika already
+  // selected rather than on "All" with the choice silently forgotten.
+  const [chip, setChip] = useState<MerchantCategory | null>(merchantCategory ?? null)
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(initialVendor?.id ?? null)
   const [cart, setCart] = useState<Record<string, number>>({})
   const [contactPhone, setContactPhone] = useState(defaultContactPhone ?? '')
@@ -433,13 +437,26 @@ export const VendorMenuBooking = forwardRef<
             (p.name.toLowerCase().includes(query) || (p.description ?? '').toLowerCase().includes(query)),
         )
       : []
+  // Only the categories with a shop in this catalog get a chip. A chip that
+  // filters to nothing is the same broken promise an empty tile would be —
+  // and here there is no "Coming soon" framing to make it honest, because a
+  // chip reads as a filter over what is in front of you, not a roadmap.
+  const chipCategories = (() => {
+    const present = new Set(vendors.map((v) => categoryForVendor(v)))
+    return MERCHANT_CATEGORIES.filter((c) => present.has(c.id))
+  })()
+  // A chip the catalog no longer offers (switched tabs, or the shop closed)
+  // must not leave the list empty with no visible cause.
+  const activeChip = chip && chipCategories.some((c) => c.id === chip) ? chip : null
+
   const shownVendors = vendors.filter(
     (v) =>
-      !query ||
-      v.name.toLowerCase().includes(query) ||
-      v.barangay.toLowerCase().includes(query) ||
-      v.city.toLowerCase().includes(query) ||
-      matchingDishes(v.id).length > 0,
+      (!activeChip || categoryForVendor(v) === activeChip) &&
+      (!query ||
+        v.name.toLowerCase().includes(query) ||
+        v.barangay.toLowerCase().includes(query) ||
+        v.city.toLowerCase().includes(query) ||
+        matchingDishes(v.id).length > 0),
   )
 
   return (
@@ -470,9 +487,42 @@ export const VendorMenuBooking = forwardRef<
             </button>
           )}
 
-          {/* The Store/Book a Delivery switcher now lives one level up, as a
-              strip under the main ServiceTabs (see PassengerPage's
-              PaDeliverSubTabs) — a one-line pill to match, not a card here. */}
+          {/* Category chips, above the search box because they are the
+              coarser cut: you pick the kind of shop, then search inside it.
+              Only categories with a shop here are offered — see
+              chipCategories. Gold for the pressed one, matching the service
+              tabs overhead so the two read as the same kind of control. */}
+          {chipCategories.length > 1 && (
+            <div className="tab-scroll -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1.5">
+              <button
+                type="button"
+                onClick={() => setChip(null)}
+                aria-pressed={!activeChip}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  !activeChip ? 'bg-gold-400 text-navy-900 shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                All
+              </button>
+              {chipCategories.map((c) => {
+                const on = activeChip === c.id
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setChip(on ? null : c.id)}
+                    aria-pressed={on}
+                    className={`flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      on ? 'bg-gold-400 text-navy-900 shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span aria-hidden>{c.emoji}</span>
+                    {c.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
           <input
             value={vendorSearch}
@@ -488,7 +538,11 @@ export const VendorMenuBooking = forwardRef<
           )}
           {vendors.length > 0 && shownVendors.length === 0 && (
             <p className="rounded-lg bg-slate-50 p-3 text-center text-xs text-slate-400">
-              No vendor matches "{vendorSearch.trim()}".
+              {query
+                ? activeChip
+                  ? `No ${CATEGORY_BY_ID[activeChip].label} store matches "${vendorSearch.trim()}".`
+                  : `No vendor matches "${vendorSearch.trim()}".`
+                : `No ${activeChip ? CATEGORY_BY_ID[activeChip].label : ''} partners yet — check back soon.`}
             </p>
           )}
 

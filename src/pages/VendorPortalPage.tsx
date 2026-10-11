@@ -6,6 +6,8 @@ import { useSession } from '../context/SessionContext'
 import { OrderChat } from '../components/OrderChat'
 import { ContactSheet } from '../components/ContactSheet'
 import { VendorMenuManager } from '../components/VendorMenuManager'
+import { useRoute } from '../lib/routing'
+import { formatKm } from '../lib/geo'
 import { VendorThemePicker } from '../components/VendorBrandingEditor'
 import { VendorDeliveryBooking } from '../components/VendorDeliveryBooking'
 import { ACTIVE_RIDE_STATUSES, VendorDeliveryTracker, deliveryPhaseLabel } from '../components/VendorDeliveryTracker'
@@ -676,6 +678,10 @@ function ReadyOrderCard({
       ? [{ id: 'customer', gps: order.deliveryAddress.gps, color: '#e11d48', label: `Deliver to — ${formatAddressLine(order.deliveryAddress.label)}` }]
       : []),
   ]
+  // The actual road between the two pins, as Book a Ride draws it — not a
+  // straight line, which would understate the trip the rider is being asked
+  // to make and the fare it is priced at.
+  const deliveryRoute = useRoute(storeGps, order.deliveryAddress.gps ?? null)
   const driverCollects = order.paidOnline ? order.deliveryFee + order.serviceFee : order.total
   const tabClass = (active: boolean) =>
     `flex-1 rounded-md px-2 py-1 text-[11px] font-semibold transition ${
@@ -811,9 +817,24 @@ function ReadyOrderCard({
                 : `Cash on delivery — the rider pays you ₱${order.subtotal} at pickup and collects ₱${driverCollects} from the customer.`}
             </p>
           </div>
+          {/* The same map Book a Ride shows once a trip exists: both ends
+              named, the road between them drawn, and room to read it. It was
+              180px with the legend switched off, which left two unlabelled
+              dots — a merchant could not tell which was their own store, and
+              the distance the rider is quoted for was invisible. */}
           <div className="overflow-hidden rounded-lg border border-slate-200">
-            <RealLiveMap points={mapPoints} height="180px" hideLegend />
+            <RealLiveMap
+              points={mapPoints}
+              height="260px"
+              routeLine={deliveryRoute?.points}
+              routeIsReal={!!deliveryRoute}
+            />
           </div>
+          {deliveryRoute && (
+            <p className="text-center text-[11px] text-slate-500">
+              🛺 {formatKm(deliveryRoute.distanceMeters)} by road from your store
+            </p>
+          )}
           <TrustedRiderSelect vendor={vendor} value={preferredDriverId} onChange={setPreferredDriverId} />
           <button
             type="button"

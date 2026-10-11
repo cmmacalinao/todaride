@@ -157,9 +157,18 @@ export function DeliveryMapPicker({
     </div>
   )
 
+  // The two of them as one strip, for the top of the map.
+  const head = (
+    <div className="flex min-w-0 flex-1 items-stretch gap-1.5">
+      {/* Narrow and fixed: a city name is short and the address is what
+          needs the room to show itself. */}
+      <div className="w-[38%] shrink-0 items-center rounded-lg bg-white/95 px-1.5 shadow-sm">{cityRow}</div>
+      {whereTo}
+    </div>
+  )
+
   return (
     <div className="space-y-1">
-      {!fullscreen && cityRow}
       {!fullscreen && addressForm}
       <RealLiveMap
         points={points}
@@ -180,7 +189,7 @@ export function DeliveryMapPicker({
         onFullscreenChange={setFullscreen}
         // One Where to at a time: in the toolbar row normally, along the top
         // in full screen (with the address form under it when open).
-        overlayTop={fullscreen ? undefined : whereTo}
+        overlayTop={fullscreen ? undefined : head}
         overlayTopInline
         fullscreenTop={
           <div className="space-y-1">

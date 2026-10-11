@@ -38,6 +38,11 @@ export function visibleDrivers<T extends SeedHideable>(
 
 // Whether the prototype badge should be drawn.
 //
+// Nothing draws it any more — the badge was removed from AuthGate and NavBar
+// on 2026-10-11 at the owner's request, so the app no longer tells anyone the
+// data is simulated. Kept, with its tests, because putting the badge back is
+// one JSX block and this is the rule it would use.
+//
 // It is the single most damaging thing on the screen at launch — a passenger
 // deciding whether to trust a stranger with a ride, told by the app itself
 // that this is simulated. Off in launch mode, on otherwise.

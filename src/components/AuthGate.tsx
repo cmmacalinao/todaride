@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { CATEGORY_BY_ID, categoryChoicesFor, type MerchantCategory } from '../lib/merchantCategories'
-import { showsPrototypeBadge } from '../lib/launchMode'
 import { useSession } from '../context/SessionContext'
 import {
   APP_ADMIN_CREDENTIALS,
@@ -117,7 +116,7 @@ export function LegacyAuthGate() {
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { medsEnabled, vendorsEnabled, launchModeEnabled } = useRides()
+  const { medsEnabled, vendorsEnabled } = useRides()
   // With MEDS off there's nothing for a pharmacy partner to service, so the
   // login option goes away too — their accounts and products stay stored and
   // reachable again the moment Super Admin switches it back on.
@@ -226,14 +225,6 @@ export function LegacyAuthGate() {
           <p className="mt-3 text-sm font-semibold text-white">
             {isBusinessRole ? `${ROLE_LABELS[role]} account` : 'Log in or sign up to continue'}
           </p>
-          {/* Gone in launch mode. A passenger deciding whether to trust a
-              stranger with a ride should not be told by the app itself that
-              what they are looking at is simulated. */}
-          {showsPrototypeBadge(launchModeEnabled) && (
-            <span className="mt-1 rounded-full bg-white/10 px-2 py-1 text-[11px] text-white/60">
-              Prototype · Simulated data
-            </span>
-          )}
         </div>
 
         {/* The role chooser only asked who they are; LOGIN or SIGNUP is

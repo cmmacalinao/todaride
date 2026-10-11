@@ -388,7 +388,7 @@ export function SuperAdminPage() {
             <FeatureToggleRow
               icon="🚀"
               label="Launch mode — hide demo data"
-              description="Hide the seeded demo drivers and the 'Prototype · Simulated data' badge from everyone. They are hidden, not deleted: your test rides on 5200 and any past trip's driver name still work, and turning this off brings them straight back. Turn it ON before real passengers use the app."
+              description="Hide the seeded demo drivers from everyone. They are hidden, not deleted: your test rides on 5200 and any past trip's driver name still work, and turning this off brings them straight back. Turn it ON before real passengers use the app."
               enabled={launchModeEnabled}
               onChange={setLaunchModeEnabled}
             />

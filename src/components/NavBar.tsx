@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react'
 import { useHeaderHeight } from '../lib/useHeaderHeight'
-import { showsPrototypeBadge } from '../lib/launchMode'
 import { useAdminViewMode } from '../lib/adminViewMode'
 import { AdminViewToggle } from './AdminViewToggle'
 import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
@@ -78,7 +77,6 @@ export function NavBar() {
     updateDriverProfile,
     updateParentProfile,
     updatePharmacyProfile,
-    launchModeEnabled,
   } = useRides()
   const location = useLocation()
   const navigate = useNavigate()
@@ -488,11 +486,6 @@ export function NavBar() {
           </div>
           <div className="flex items-center justify-end gap-1.5">
             <div className="flex items-center gap-1.5">
-              {showsPrototypeBadge(launchModeEnabled) && (
-                <span className="hidden rounded-full bg-white/10 px-2 py-1 text-[11px] text-slate-300 sm:inline">
-                  Prototype · Simulated data
-                </span>
-              )}
               {/* Drivers log out from the ☰ drawer (removed from this strip on
                   request, 2026-09-21). */}
               {!isDriverApp && <button
@@ -700,11 +693,6 @@ export function NavBar() {
                 : 'Admin'}
           </span>
           <div className="flex items-center gap-1.5">
-            {!isSimulatorPage && showsPrototypeBadge(launchModeEnabled) && (
-              <span className="hidden rounded-full bg-white/10 px-2 py-1 text-[11px] text-slate-200 sm:inline">
-                Prototype · Simulated data
-              </span>
-            )}
             <button
               type="button"
               onClick={handleLogOut}

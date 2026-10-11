@@ -1,3 +1,4 @@
+import { WaitingForDriverStrip } from './WaitingForDriverStrip'
 import { useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { ContactSheet } from './ContactSheet'
@@ -97,7 +98,24 @@ export function VendorDeliveryTracker({ order, ride, vendor }: { order: MedsOrde
         🏁 {order.deliveryAddress.label} · ₱{order.total} {order.paidOnline ? '— paid' : '— cash on delivery'}
       </p>
 
-      <p className="mt-2 text-xs font-semibold text-sky-800">{deliveryPhaseLabel(ride)}</p>
+      {/* While nobody has taken it yet, the merchant gets the same strip a
+          passenger gets — the tricycle driving across it, the seconds
+          counting, the name of whoever's phone it is ringing on. A line of
+          static text saying "Finding a driver…" cannot tell you whether the
+          request is alive or stuck, and a shop with food going cold is
+          asking exactly that. It answers in place when somebody accepts
+          rather than vanishing. */}
+      {ride.status === 'requested' ? (
+        <div className="mt-2">
+          <WaitingForDriverStrip
+            requestedAt={ride.requestedAt}
+            offeredTo={drivers.find((d) => d.id === ride.priorityQueueOfferedDriverId)?.name ?? null}
+            acceptedDriver={null}
+          />
+        </div>
+      ) : (
+        <p className="mt-2 text-xs font-semibold text-sky-800">{deliveryPhaseLabel(ride)}</p>
+      )}
 
       {/* No TODA member or official rider has taken this yet — give the
           vendor a way out instead of leaving them stuck watching "Finding a

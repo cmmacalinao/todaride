@@ -54,7 +54,17 @@ export function orderStageDetail(order: MedsOrder, ride: Ride | undefined, viewe
   const breakdown = `goods ₱${order.subtotal} + TODA fare ₱${order.deliveryFee} + booking fee ₱${order.serviceFee}`
   switch (stage) {
     case 'placed':
-      return viewer === 'customer' ? 'Waiting for the vendor to send your quotation' : 'Send the quotation with the TODA fare'
+      // A menu order is priced before it is sent, so the shop accepts it
+      // rather than quoting it (see VENDOR_ACCEPT_MENU_ORDER). Telling a
+      // customer to expect a quotation that never comes is a promise the
+      // app breaks by working correctly.
+      return order.pricedFromMenu
+        ? viewer === 'customer'
+          ? 'Waiting for the store to accept your order'
+          : 'Accept it and start preparing'
+        : viewer === 'customer'
+          ? 'Waiting for the vendor to send your quotation'
+          : 'Send the quotation with the TODA fare'
     case 'quoted':
       return viewer === 'customer'
         ? `Approve ₱${order.total} (${breakdown}) to start — cash on delivery or pay online`

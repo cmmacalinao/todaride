@@ -66,17 +66,6 @@ export const MERCHANT_CATEGORIES: MerchantCategoryDef[] = [
     businessTypes: ['resto_food'],
   },
   {
-    // Second, because medicine is the errand people send a tricycle for when
-    // they cannot go themselves — which is most of the reason they cannot go.
-    id: 'pharmacy',
-    label: 'Botika',
-    sublabel: 'Gamot, vitamins',
-    emoji: '💊',
-    catalog: 'goods',
-    keywords: ['pharmacy', 'botika', 'drug', 'drugstore', 'gamot', 'generics'],
-    businessTypes: ['pharmacy'],
-  },
-  {
     id: 'merienda',
     label: 'Merienda',
     sublabel: 'Kakanin, snacks, milk tea',
@@ -84,6 +73,18 @@ export const MERCHANT_CATEGORIES: MerchantCategoryDef[] = [
     catalog: 'food',
     keywords: ['kakanin', 'merienda', 'snack', 'milk tea', 'milktea', 'kape', 'coffee', 'halo-halo', 'samalamig', 'pastil'],
     businessTypes: ['resto_food'],
+  },
+  {
+    // After the two food tiles: medicine is the errand people send a tricycle
+    // for when they cannot go themselves — which is most of the reason they
+    // cannot go — so it leads everything that is not a meal.
+    id: 'pharmacy',
+    label: 'Botika',
+    sublabel: 'Gamot, vitamins',
+    emoji: '💊',
+    catalog: 'goods',
+    keywords: ['pharmacy', 'botika', 'drug', 'drugstore', 'gamot', 'generics'],
+    businessTypes: ['pharmacy'],
   },
   {
     id: 'bakery',

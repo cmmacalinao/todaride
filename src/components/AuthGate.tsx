@@ -483,7 +483,10 @@ const MOCK_PHARMACY_IDS = new Set(MOCK_PHARMACIES.map((p) => p.id))
 
 // One component serves both partner entry points: /pharmacy and /vendor share
 // the same account type, portal and login, and differ only in which business
-// categories sign-up offers (see SIGNUP_CATEGORIES).
+// types sign-up offers (see SIGNUP_CATEGORIES). /vendor takes every merchant
+// a passenger can order from — food and shops both — because the start page
+// offers a category grid and all of it has to be reachable by somebody who
+// wants to join it.
 // `mode` comes from the role chooser's own Log in / Sign up choice (via
 // ?auth=, held by LegacyAuthGate) — this form used to carry a second toggle
 // for the same question, which read as the page asking twice.
@@ -663,6 +666,13 @@ const SIGNUP_CATEGORIES: Record<'pharmacy' | 'vendor', { value: BusinessType; ic
       label: 'Resto / Food',
       blurb: 'Restaurants, carinderias, bakeries — cooked food and drinks for delivery.',
     },
+    {
+      value: 'other_commodity',
+      icon: '🏬',
+      label: 'Shop',
+      blurb:
+        'Sari-sari, hardware, water refilling, agrivet, school supplies — anything on a shelf, delivered.',
+    },
   ],
 }
 
@@ -795,7 +805,10 @@ function PharmacySignupForm({
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-500">
-          {BUSINESS_TYPE_LABELS[businessType]} name
+          {merchantCategory
+            ? CATEGORY_BY_ID[merchantCategory].label
+            : (categories.find((c) => c.value === businessType)?.label ?? BUSINESS_TYPE_LABELS[businessType])}{' '}
+          name
         </label>
         <input
           value={name}

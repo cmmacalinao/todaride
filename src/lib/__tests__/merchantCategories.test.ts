@@ -25,8 +25,11 @@ describe('the category list itself', () => {
     expect(MERCHANT_CATEGORIES[0].id).toBe('food')
   })
 
-  it('puts Botika second — medicine is the errand people send a tricycle for', () => {
-    expect(MERCHANT_CATEGORIES[1].id).toBe('pharmacy')
+  it('keeps the two food tiles together, then Botika', () => {
+    // Merienda is the other half of the same hunger — somebody scanning for
+    // something to eat should not read past the pharmacy to find it.
+    expect(MERCHANT_CATEGORIES[1].id).toBe('merienda')
+    expect(MERCHANT_CATEGORIES[2].id).toBe('pharmacy')
   })
 
   it('ends with the catch-all, so nothing is stranded before it', () => {
@@ -215,8 +218,11 @@ describe('coming-soon tiles sit below the stocked ones', () => {
     const empty = tiles.filter((t) => t.count === 0).map((t) => t.id)
     // Food comes before Hardware in the list, and so it does here.
     expect(stocked).toEqual(['food', 'hardware'])
-    // Botika is the earliest of the empties in the list, so it leads them.
-    expect(empty[0]).toBe('pharmacy')
+    // The empties keep the list's order too, whatever that order is —
+    // asserting the order itself rather than today's first entry, so moving
+    // a category does not break a test about sorting.
+    const listOrder = MERCHANT_CATEGORIES.map((c) => c.id).filter((id) => empty.includes(id))
+    expect(empty).toEqual(listOrder)
   })
 
   it('changes nothing when empty tiles are hidden', () => {

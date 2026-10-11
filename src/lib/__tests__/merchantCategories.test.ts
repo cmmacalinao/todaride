@@ -204,7 +204,7 @@ describe('coming-soon tiles sit below the stocked ones', () => {
 
   it('puts every stocked category before every empty one', () => {
     const tiles = merchantCategoryTiles(seeded, { includeEmpty: true })
-    const lastStocked = tiles.findLastIndex((t) => t.count > 0)
+    const lastStocked = tiles.map((t) => t.count > 0).lastIndexOf(true)
     const firstEmpty = tiles.findIndex((t) => t.count === 0)
     expect(lastStocked).toBeLessThan(firstEmpty)
   })

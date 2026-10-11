@@ -61,6 +61,9 @@ describe('working out what a shop is', () => {
 
   it('recognises the errands a tricycle actually runs', () => {
     expect(categoryForVendor(goods('Crystal Clear Water Refilling Station'))).toBe('water')
+    // Gasul rides with water: the same errand, often the same corner shop.
+    expect(categoryForVendor(goods('JB Gasul LPG Dealer'))).toBe('water')
+    expect(categoryForVendor(goods('Solane Gas Station'))).toBe('water')
     expect(categoryForVendor(goods('Muñoz Agri & Feeds Center'))).toBe('agri')
     expect(categoryForVendor(goods('Labada Express Laundry'))).toBe('laundry')
     expect(categoryForVendor(goods('Aling Belen Meat Shop'))).toBe('palengke')

@@ -112,12 +112,30 @@ export const MERCHANT_CATEGORIES: MerchantCategoryDef[] = [
     businessTypes: ['other_commodity'],
   },
   {
+    // Water and gasul together, because they are the same errand: the heavy
+    // thing you cannot carry home yourself, refilled and swapped rather than
+    // bought new. Plenty of shops sell both from the same corner, and a
+    // passenger thinking "kailangan ko ng tubig at gasul" should not have to
+    // decide which tile that is.
     id: 'water',
-    label: 'Tubig',
-    sublabel: 'Water refilling',
+    label: 'Tubig-LPG-Gas',
+    sublabel: 'Refill & tank delivery',
     emoji: '💧',
     catalog: 'goods',
-    keywords: ['water', 'tubig', 'refilling', 'refill', 'purified', 'alkaline', 'aqua'],
+    keywords: [
+      'water',
+      'tubig',
+      'refilling',
+      'refill',
+      'purified',
+      'alkaline',
+      'aqua',
+      'lpg',
+      'gasul',
+      'gas',
+      'solane',
+      'propane',
+    ],
     businessTypes: ['other_commodity'],
   },
   {

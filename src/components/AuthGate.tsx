@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
+import { CATEGORY_BY_ID, categoryChoicesFor, type MerchantCategory } from '../lib/merchantCategories'
 import { showsPrototypeBadge } from '../lib/launchMode'
 import { useSession } from '../context/SessionContext'
 import {
@@ -676,6 +677,10 @@ function PharmacySignupForm({
   const categories = SIGNUP_CATEGORIES[variant]
   const [name, setName] = useState('')
   const [businessType, setBusinessType] = useState<BusinessType>(categories[0].value)
+  // Which shelf of the app this shop appears on — see lib/merchantCategories.
+  // Guessed from the name when left alone, so a merchant who skips this is
+  // still findable; picking one here just makes the guess unnecessary.
+  const [merchantCategory, setMerchantCategory] = useState<MerchantCategory | null>(null)
   const [contactPhone, setContactPhone] = useState('')
   const [address, setAddress] = useState<PhAddressValue>(EMPTY_PH_ADDRESS)
   const [pin, setPin] = useState('')
@@ -719,6 +724,7 @@ function PharmacySignupForm({
       coords: location.coords,
       locationGps: location.gps,
       adminPin: pin.trim(),
+      merchantCategory,
     })
     setSubmitting(false)
     onRegistered(id)
@@ -748,6 +754,43 @@ function PharmacySignupForm({
         </div>
         <p className="mt-1.5 text-[11px] text-slate-400">
           {categories.find((c) => c.value === businessType)?.blurb}
+        </p>
+      </div>
+
+      {/* Which category tile on the passenger's start page this shop shows
+          up under. Optional on purpose: left alone it is worked out from the
+          shop's own name, and a merchant halfway through a sign-up should
+          not be stopped by a taxonomy question. Picking one is simply better
+          than a guess — and it is how an empty "Coming soon" tile gets its
+          first shop. */}
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-500">
+          Where should customers find you? <span className="font-normal text-slate-400">(optional)</span>
+        </label>
+        <div className="flex flex-wrap gap-1.5">
+          {categoryChoicesFor(businessType).map((c) => {
+            const picked = merchantCategory === c.id
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setMerchantCategory(picked ? null : c.id)}
+                aria-pressed={picked}
+                className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                  picked
+                    ? 'border-brand-600 bg-brand-600 text-white'
+                    : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {c.emoji} {c.label}
+              </button>
+            )
+          })}
+        </div>
+        <p className="mt-1.5 text-[11px] text-slate-400">
+          {merchantCategory
+            ? `You will appear under ${CATEGORY_BY_ID[merchantCategory].label}.`
+            : 'Leave this and we will work it out from your business name.'}
         </p>
       </div>
       <div>

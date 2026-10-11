@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  categoryChoicesFor,
   categoryForVendor,
   MERCHANT_CATEGORIES,
   businessTypesForCategory,
@@ -177,5 +178,84 @@ describe('pharmacies', () => {
     const byId = Object.fromEntries(tiles.map((t) => [t.id, t.count]))
     expect(byId.pharmacy).toBe(2)
     expect(byId.food).toBe(1)
+  })
+})
+
+describe('Solar Lights', () => {
+  it('finds a solar shop by name', () => {
+    expect(categoryForVendor(goods('Sunbright Solar Lights & Panels'))).toBe('solar')
+    expect(categoryForVendor(goods('NE Off-Grid Solar Supply'))).toBe('solar')
+  })
+
+  it('leaves an ordinary hardware store where it was', () => {
+    expect(categoryForVendor(goods('Mang Tomas Hardware & Construction Supply'))).toBe('hardware')
+  })
+})
+
+describe('tubig and gasul share a tile', () => {
+  it('takes both kinds of shop', () => {
+    expect(categoryForVendor(goods('Crystal Clear Water Refilling'))).toBe('water')
+    expect(categoryForVendor(goods('JB Gasul LPG Dealer'))).toBe('water')
+  })
+})
+
+describe('coming-soon tiles sit below the stocked ones', () => {
+  const seeded = [food("Aling Nena's Carinderia"), goods('Mang Tomas Hardware')]
+
+  it('puts every stocked category before every empty one', () => {
+    const tiles = merchantCategoryTiles(seeded, { includeEmpty: true })
+    const lastStocked = tiles.findLastIndex((t) => t.count > 0)
+    const firstEmpty = tiles.findIndex((t) => t.count === 0)
+    expect(lastStocked).toBeLessThan(firstEmpty)
+  })
+
+  it('keeps the list order within each group', () => {
+    const tiles = merchantCategoryTiles(seeded, { includeEmpty: true })
+    const stocked = tiles.filter((t) => t.count > 0).map((t) => t.id)
+    const empty = tiles.filter((t) => t.count === 0).map((t) => t.id)
+    // Food comes before Hardware in the list, and so it does here.
+    expect(stocked).toEqual(['food', 'hardware'])
+    // Botika is the earliest of the empties in the list, so it leads them.
+    expect(empty[0]).toBe('pharmacy')
+  })
+
+  it('changes nothing when empty tiles are hidden', () => {
+    const ids = merchantCategoryTiles(seeded).map((t) => t.id)
+    expect(ids).toEqual(['food', 'hardware'])
+  })
+})
+
+describe('what registration offers a merchant', () => {
+  it('offers a resto the food categories only', () => {
+    const ids = categoryChoicesFor('resto_food').map((c) => c.id)
+    expect(ids).toEqual(['food', 'merienda', 'bakery'])
+  })
+
+  it('offers a goods store the goods categories only', () => {
+    const ids = categoryChoicesFor('other_commodity').map((c) => c.id)
+    expect(ids).toContain('sari_sari')
+    expect(ids).toContain('solar')
+    expect(ids).not.toContain('food')
+    expect(ids).not.toContain('pharmacy')
+  })
+
+  it('offers a pharmacy exactly one place to be', () => {
+    expect(categoryChoicesFor('pharmacy').map((c) => c.id)).toEqual(['pharmacy'])
+  })
+
+  // "Other Stores" is where an unclassified shop lands, not somewhere a
+  // merchant should put themselves on purpose.
+  it('never offers Other Stores', () => {
+    for (const type of ['resto_food', 'other_commodity', 'pharmacy'] as const) {
+      expect(categoryChoicesFor(type).map((c) => c.id)).not.toContain('other')
+    }
+  })
+
+  it('only offers categories a shop of that type can actually be guessed into', () => {
+    for (const type of ['resto_food', 'other_commodity', 'pharmacy'] as const) {
+      for (const choice of categoryChoicesFor(type)) {
+        expect(choice.businessTypes).toContain(type)
+      }
+    }
   })
 })

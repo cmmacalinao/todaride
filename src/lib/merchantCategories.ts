@@ -28,6 +28,7 @@ export type MerchantCategory =
   | 'palengke'
   | 'bakery'
   | 'hardware'
+  | 'solar'
   | 'school_office'
   | 'agri'
   | 'laundry'
@@ -148,6 +149,18 @@ export const MERCHANT_CATEGORIES: MerchantCategoryDef[] = [
     businessTypes: ['other_commodity'],
   },
   {
+    // Its own tile rather than a shelf inside Hardware: out here a solar
+    // light is not a fitting, it is how a house gets light at all — and the
+    // people who buy one are not the people browsing cement.
+    id: 'solar',
+    label: 'Solar Lights',
+    sublabel: 'Panels, lamps, batteries',
+    emoji: '☀️',
+    catalog: 'goods',
+    keywords: ['solar', 'solar light', 'solar lights', 'solar panel', 'off-grid', 'offgrid', 'renewable'],
+    businessTypes: ['other_commodity'],
+  },
+  {
     id: 'school_office',
     label: 'School & Office',
     sublabel: 'Supplies, printing',
@@ -229,6 +242,13 @@ export interface CategoryTile extends MerchantCategoryDef {
   count: number
 }
 
+// The categories a shop of this kind may put itself in — what registration
+// offers. "Other Stores" is left out: it is where an unclassified shop lands,
+// not something anybody should choose on purpose.
+export function categoryChoicesFor(businessType: BusinessType): MerchantCategoryDef[] {
+  return MERCHANT_CATEGORIES.filter((c) => c.id !== 'other' && c.businessTypes.includes(businessType))
+}
+
 // Which business types the catalog should ask for when this tile is tapped.
 export function businessTypesForCategory(id: MerchantCategory | null | undefined): BusinessType[] | null {
   if (!id) return null
@@ -250,7 +270,13 @@ export function merchantCategoryTiles(
     const id = categoryForVendor(vendor)
     counts.set(id, (counts.get(id) ?? 0) + 1)
   }
-  return MERCHANT_CATEGORIES.map((c) => ({ ...c, count: counts.get(c.id) ?? 0 })).filter(
+  const tiles = MERCHANT_CATEGORIES.map((c) => ({ ...c, count: counts.get(c.id) ?? 0 })).filter(
     (c) => includeEmpty || c.count > 0,
   )
+  // Everything you can actually order from first, in the list's own order,
+  // with the Coming soon ones gathered underneath. Interleaved, the empty
+  // tiles broke the run of real shops into islands and a passenger had to
+  // read all twelve to find the four that work. Array.prototype.sort is
+  // stable (ES2019+), so each group keeps its order from the list above.
+  return tiles.sort((x, y) => Number(y.count > 0) - Number(x.count > 0))
 }

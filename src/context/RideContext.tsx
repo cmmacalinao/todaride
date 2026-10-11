@@ -6,6 +6,7 @@ import { DEFAULT_FAMILY_PROMO_DEADLINE } from '../lib/familyTerms'
 import { DEFAULT_ROTARY_SHARE_SETTINGS, findPartnerByCode, generatePartnerCode, marketingSplit } from '../lib/marketingProgram'
 import { PILOT_ORIGIN } from '../lib/pilotOrigin'
 import { backfillSlugs, slugIndex, slugProblem, suggestAvailableSlug } from '../lib/vendorSlug'
+import type { MerchantCategory } from '../lib/merchantCategories'
 import {
   DEFAULT_DOCUMENT_GRACE_DAYS,
   DEFAULT_REQUIRED_DOCUMENTS,
@@ -1524,6 +1525,9 @@ type RideAction =
   | { type: 'SET_MEDICINE_PRODUCT_STOCK_COUNT'; productId: string; stockCount: number | null }
   | {
       type: 'REGISTER_PHARMACY'
+      // Chosen at sign-up, or null to let the name decide — see
+      // lib/merchantCategories.
+      merchantCategory?: MerchantCategory | null
       id: string
       name: string
       businessType: BusinessType
@@ -6794,6 +6798,7 @@ function reducer(state: RideState, action: RideAction): RideState {
       const pharmacy: Pharmacy = {
         id: action.id,
         name: action.name,
+        merchantCategory: action.merchantCategory ?? null,
         // A link they can hand out from day one, suggested from the store
         // name. Editable in the portal — this only means nobody has to
         // think about it at registration, when they are busy proving who
@@ -8031,6 +8036,7 @@ interface RideContextValue extends RideState {
   toggleMedicineProductVisibility: (productId: string) => void
   setMedicineProductStockCount: (productId: string, stockCount: number | null) => void
   registerPharmacy: (args: {
+    merchantCategory?: MerchantCategory | null
     name: string
     businessType: BusinessType
     contactPhone: string

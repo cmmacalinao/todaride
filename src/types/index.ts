@@ -585,6 +585,10 @@ export interface Pharmacy {
   // lib/merchantCategories. Optional: unset is guessed from the shop's own
   // name, so an existing store is findable without anybody filling a form.
   merchantCategory?: MerchantCategory | null
+  // Typed by a merchant who picked "Other" because nothing fitted. Never
+  // shown to a customer — it exists so that five people typing "flowers" is
+  // how Flowers & Gifts earns a tile. See AuthGate's signup picker.
+  merchantCategoryNote?: string | null
   slug?: string | null
   // Admin has taken the public page down (see HIDE_VENDOR_PAGE). The store
   // itself keeps trading — orders, menu and portal are untouched; only the

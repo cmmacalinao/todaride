@@ -1528,6 +1528,7 @@ type RideAction =
       // Chosen at sign-up, or null to let the name decide — see
       // lib/merchantCategories.
       merchantCategory?: MerchantCategory | null
+      merchantCategoryNote?: string | null
       id: string
       name: string
       businessType: BusinessType
@@ -6799,6 +6800,7 @@ function reducer(state: RideState, action: RideAction): RideState {
         id: action.id,
         name: action.name,
         merchantCategory: action.merchantCategory ?? null,
+        merchantCategoryNote: action.merchantCategoryNote?.trim() || null,
         // A link they can hand out from day one, suggested from the store
         // name. Editable in the portal — this only means nobody has to
         // think about it at registration, when they are busy proving who
@@ -8037,6 +8039,7 @@ interface RideContextValue extends RideState {
   setMedicineProductStockCount: (productId: string, stockCount: number | null) => void
   registerPharmacy: (args: {
     merchantCategory?: MerchantCategory | null
+    merchantCategoryNote?: string | null
     name: string
     businessType: BusinessType
     contactPhone: string

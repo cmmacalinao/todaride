@@ -673,6 +673,16 @@ const SIGNUP_CATEGORIES: Record<'pharmacy' | 'vendor', { value: BusinessType; ic
       blurb:
         'Sari-sari, hardware, water refilling, agrivet, school supplies — anything on a shelf, delivered.',
     },
+    {
+      // A botika reaches customers through the same catalog every other shop
+      // uses, so it signs up through the same door. TODARIDE MEDS — the
+      // prescription flow with its own quote round-trip — is a separate
+      // service behind medsEnabled and is not what this registers.
+      value: 'pharmacy',
+      icon: '💊',
+      label: 'Botika',
+      blurb: 'Drugstores — over-the-counter medicine and vitamins, delivered by a TODA rider.',
+    },
   ],
 }
 
@@ -691,6 +701,10 @@ function PharmacySignupForm({
   // Guessed from the name when left alone, so a merchant who skips this is
   // still findable; picking one here just makes the guess unnecessary.
   const [merchantCategory, setMerchantCategory] = useState<MerchantCategory | null>(null)
+  // What they sell, when none of the categories fitted. "Other" on its own
+  // would file them away and teach us nothing; this is the line that says
+  // which tile to build next.
+  const [categoryNote, setCategoryNote] = useState('')
   const [contactPhone, setContactPhone] = useState('')
   const [address, setAddress] = useState<PhAddressValue>(EMPTY_PH_ADDRESS)
   const [pin, setPin] = useState('')
@@ -735,6 +749,7 @@ function PharmacySignupForm({
       locationGps: location.gps,
       adminPin: pin.trim(),
       merchantCategory,
+      merchantCategoryNote: merchantCategory === 'other' ? categoryNote : null,
     })
     setSubmitting(false)
     onRegistered(id)
@@ -753,7 +768,14 @@ function PharmacySignupForm({
             <button
               key={c.value}
               type="button"
-              onClick={() => setBusinessType(c.value)}
+              onClick={() => {
+                setBusinessType(c.value)
+                setMerchantCategory((current) =>
+                  current === 'other' || (current && categoryChoicesFor(c.value).some((x) => x.id === current))
+                    ? current
+                    : null,
+                )
+              }}
               className={`flex-1 whitespace-nowrap rounded-md py-1.5 text-[11px] font-medium transition ${
                 businessType === c.value ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500'
               }`}
@@ -773,6 +795,7 @@ function PharmacySignupForm({
           not be stopped by a taxonomy question. Picking one is simply better
           than a guess — and it is how an empty "Coming soon" tile gets its
           first shop. */}
+      {categoryChoicesFor(businessType).length > 1 && (
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-500">
           Where should customers find you? <span className="font-normal text-slate-400">(optional)</span>
@@ -796,13 +819,40 @@ function PharmacySignupForm({
               </button>
             )
           })}
+          {/* "Other", not "Add Categories": a merchant cannot create a
+              category here, and a button that sounds like they can is a
+              promise the app breaks the moment they tap it. */}
+          <button
+            type="button"
+            onClick={() => setMerchantCategory(merchantCategory === 'other' ? null : 'other')}
+            aria-pressed={merchantCategory === 'other'}
+            className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+              merchantCategory === 'other'
+                ? 'border-brand-600 bg-brand-600 text-white'
+                : 'border-dashed border-slate-400 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            ➕ Other
+          </button>
         </div>
+        {merchantCategory === 'other' && (
+          <input
+            value={categoryNote}
+            onChange={(e) => setCategoryNote(e.target.value)}
+            maxLength={60}
+            placeholder="What do you sell? e.g. bulaklak, cellphone load, meron"
+            className="mt-1.5 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
+          />
+        )}
         <p className="mt-1.5 text-[11px] text-slate-400">
-          {merchantCategory
-            ? `You will appear under ${CATEGORY_BY_ID[merchantCategory].label}.`
-            : 'Leave this and we will work it out from your business name.'}
+          {merchantCategory === 'other'
+            ? 'You will appear under Other Stores. Tell us what you sell and we will add a proper category once a few of you ask for the same one.'
+            : merchantCategory
+              ? `You will appear under ${CATEGORY_BY_ID[merchantCategory].label}.`
+              : 'Leave this and we will work it out from your business name.'}
         </p>
       </div>
+      )}
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-500">
           {merchantCategory

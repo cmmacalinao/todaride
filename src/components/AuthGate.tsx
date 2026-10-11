@@ -587,11 +587,12 @@ function PharmacyAuth({ variant = 'pharmacy', mode }: { variant?: 'pharmacy' | '
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500">
-              {BUSINESS_TYPE_LABELS[loginType]}
+              {categories.find((c) => c.value === loginType)?.label ?? BUSINESS_TYPE_LABELS[loginType]}
             </label>
             {matching.length === 0 ? (
               <p className="rounded-lg border border-dashed border-slate-300 p-2.5 text-xs text-slate-400">
-                No {BUSINESS_TYPE_LABELS[loginType].toLowerCase()} accounts registered yet —{' '}
+                No {(categories.find((c) => c.value === loginType)?.label ?? BUSINESS_TYPE_LABELS[loginType]).toLowerCase()}{' '}
+                accounts registered yet —{' '}
                 {switchLink('signup', 'sign up')} to create the first one.
               </p>
             ) : (
@@ -903,7 +904,7 @@ function PharmacySignupForm({
           placeholder="••••"
         />
         <p className="mt-1 text-[11px] text-slate-400">
-          Use this to log in to your {BUSINESS_TYPE_LABELS[businessType].toLowerCase()} portal.
+          Use this to log in to your merchant portal.
         </p>
       </div>
       {error && <p className="text-xs font-medium text-amber-700">{error}</p>}
@@ -913,7 +914,9 @@ function PharmacySignupForm({
         disabled={submitting}
         className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {submitting ? 'Registering…' : `Register ${BUSINESS_TYPE_LABELS[businessType].toLowerCase()}`}
+        {submitting
+          ? 'Registering…'
+          : `Register ${categories.find((c) => c.value === businessType)?.label ?? BUSINESS_TYPE_LABELS[businessType]}`}
       </button>
     </div>
   )

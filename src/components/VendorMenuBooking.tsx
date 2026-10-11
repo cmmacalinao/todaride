@@ -4,6 +4,7 @@ import { CATEGORY_BY_ID, MERCHANT_CATEGORIES, categoryForVendor, type MerchantCa
 import { DEFAULT_MEDS_DELIVERY_FEE, DEFAULT_MEDS_SERVICE_FEE, PAYMENT_METHODS } from '../mock/data'
 import { DocumentUploadField } from './DocumentUploadField'
 import { createCustomLocation, resolvePhAddress, reverseGeocodeToPhAddress, type PhAddressTags } from '../lib/customLocation'
+import { distanceKm } from '../lib/vendorOrders'
 import { getCurrentGeoPosition } from '../lib/geo'
 import { BarangayAddressPicker } from './BarangayAddressPicker'
 import { DeliveryMapPicker } from './DeliveryMapPicker'
@@ -281,6 +282,9 @@ export const VendorMenuBooking = forwardRef<
   // numbers the vendor's quotation starts from.
   const fare =
     selectedVendor && deliveryAddress ? quoteVendorDeliveryFare(selectedVendor.id, deliveryAddress) : null
+  // The distance the fare is priced on: the store's pin to the customer's.
+  const deliveryKm =
+    selectedVendor && deliveryAddress ? distanceKm(selectedVendor.locationGps, deliveryAddress.gps) : null
   const todaFare = fare?.todaFare ?? DEFAULT_MEDS_DELIVERY_FEE
   const bookingFee = fare?.bookingFee ?? DEFAULT_MEDS_SERVICE_FEE
   const total = subtotal + todaFare + bookingFee
@@ -795,8 +799,14 @@ export const VendorMenuBooking = forwardRef<
                 <span className="font-medium text-slate-700">₱{l.product.price * l.qty}</span>
               </div>
             ))}
+            {/* What the rider's fare is made of, said before the order goes
+                — the standard tariff over the distance from this store to
+                the address, not a number the app invented. */}
             <div className="flex items-center justify-between border-t border-slate-100 pt-1 text-slate-500">
-              <span>TODA fare (rider{deliveryAddress ? '' : ' — pick the address'} · confirmed in the quotation)</span>
+              <span>
+                TODA fare (rider
+                {deliveryAddress ? (deliveryKm != null ? ` · ${deliveryKm} km from the store` : '') : ' — pick the address'})
+              </span>
               <span>₱{todaFare}</span>
             </div>
             <div className="flex items-center justify-between text-slate-500">
@@ -804,10 +814,22 @@ export const VendorMenuBooking = forwardRef<
               <span>₱{bookingFee}</span>
             </div>
             <div className="flex items-center justify-between border-t border-slate-200 pt-1 font-semibold text-slate-800">
-              <span>Estimated total</span>
+              <span>Starts at</span>
               <span>₱{total}</span>
             </div>
           </div>
+          {/* Starts at, not Total — and the reason stated, because a fare
+              that moves without explanation is the complaint. The tariff is
+              fixed and the distance is known, so the only thing that can
+              raise it is which rider takes the job: one starting outside
+              this TODA's area is paid for the extra distance (see
+              farDriverGap), and the customer agrees to that before it is
+              added. It can never go down, and it can never change quietly. */}
+          <p className="mt-1 text-[11px] leading-snug text-slate-500">
+            Standard TODA tariff for {deliveryKm != null ? `${deliveryKm} km` : 'this distance'} from the store, plus
+            the ₱{bookingFee} booking fee. It can go up only if no tricycle is nearby and one has to come from
+            outside the area — you are asked first.
+          </p>
           {/* Change the order, or drop it: Edit goes back to the store's menu
               with the cart as it is; Cancel empties the cart and leaves the
               store. Nothing has been sent yet, so neither needs asking twice. */}

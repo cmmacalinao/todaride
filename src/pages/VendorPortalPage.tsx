@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { AnnouncementFeed } from '../components/AnnouncementFeed'
@@ -194,6 +194,11 @@ export function VendorPortalPage() {
   // quote to send, only an Accept/Decline (see NewVendorOrderCard) — so
   // there's no "awaiting quote"/"quoted" split here like the Pharmacy/Store
   // portal has; it goes straight from new to ready-to-process.
+  // Accepting an order moves it out of New orders and into Approved, a
+  // section further down the page — so the merchant tapped Accept and the
+  // card vanished from under their thumb. This scrolls the order to where it
+  // went, with Book Rider on it.
+  const approvedSectionRef = useRef<HTMLElement>(null)
   const newOrders = ownOrders.filter((o) => o.status === 'pending_confirmation')
   // Quotation sent, waiting for the customer to approve (and pay, unless
   // cash on delivery). Nothing to cook yet.
@@ -435,7 +440,16 @@ export function VendorPortalPage() {
                     order={order}
                     vendor={vendor}
                     onAccept={(deliveryFee) => vendorSendQuote(order.id, deliveryFee)}
-                    onAcceptAndPrepare={() => vendorAcceptMenuOrder(order.id)}
+                    onAcceptAndPrepare={() => {
+                      vendorAcceptMenuOrder(order.id)
+                      // After the state has re-rendered the card into its new
+                      // section, not before — otherwise there is nothing yet
+                      // to scroll to.
+                      setTimeout(
+                        () => approvedSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+                        80,
+                      )
+                    }}
                     onReject={(reason) => rejectMedsOrder(order.id, reason)}
                     onSendMessage={(text) => sendMedsOrderMessage(order.id, 'pharmacy', text)}
                   />
@@ -475,7 +489,7 @@ export function VendorPortalPage() {
           )}
 
           {readyToProcessOrders.length > 0 && (
-            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <section ref={approvedSectionRef} className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="mb-2 text-sm font-semibold text-slate-700">✅ Approved — prepare & book the rider</h2>
               <p className="mb-2 text-[11px] text-slate-500">
                 Booking lives on the <span className="font-semibold">Book Rider</span> tab below; the order details are here.
@@ -874,7 +888,16 @@ function NewVendorOrderCard({
   onReject: (reason: string) => void
   onSendMessage: (text: string) => void
 }) {
-  const { quoteVendorDeliveryFare } = useRides()
+  const { quoteVendorDeliveryFare, passengers } = useRides()
+  // The order's own contact number when there is one, otherwise the number
+  // on the customer's account.
+  //
+  // contactPhone is optional on the order form, so a customer who left it
+  // blank could not be reached at all — and a food order is exactly when a
+  // shop needs to ask "walang sibuyas?" or "nasaan po kayo?". Chat only
+  // works if they are still looking at their phone; a call works because it
+  // rings.
+  const customerPhone = order.contactPhone || passengers.find((p) => p.id === order.customerId)?.phone || ''
   const [rejectReason, setRejectReason] = useState('')
   const [contactOpen, setContactOpen] = useState(false)
   // The rider's fee is the TODA fare from the store's pin to the customer's,
@@ -922,17 +945,21 @@ function NewVendorOrderCard({
         <span className="text-sm font-medium text-slate-700">{order.customerName}</span>
         <span className="text-xs font-semibold text-slate-800">₱{order.total}</span>
       </div>
-      {order.contactPhone && (
+      {customerPhone ? (
         <button
           type="button"
           onClick={() => setContactOpen(true)}
-          className="mt-0.5 text-[11px] font-medium text-brand-700 hover:underline"
+          className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-brand-300 bg-brand-50 py-1.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-100"
         >
-          ☎ {order.contactPhone} — Call or text
+          ☎ Call or text {order.customerName} — {customerPhone}
         </button>
+      ) : (
+        <p className="mt-0.5 text-[11px] text-slate-400">
+          No contact number on this order — use the chat below.
+        </p>
       )}
-      {contactOpen && order.contactPhone && (
-        <ContactSheet name={order.customerName} phone={order.contactPhone} onClose={() => setContactOpen(false)} />
+      {contactOpen && customerPhone && (
+        <ContactSheet name={order.customerName} phone={customerPhone} onClose={() => setContactOpen(false)} />
       )}
       <div className="mt-2 space-y-1 rounded-lg bg-slate-50 p-2.5 text-xs">
         {order.items.map((item, i) => (

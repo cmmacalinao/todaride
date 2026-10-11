@@ -168,6 +168,10 @@ export const VendorMenuBooking = forwardRef<
   // on the start page, so arriving via Pharmacy lands with Pharmacy already
   // selected rather than on "All" with the choice silently forgotten.
   const [chip, setChip] = useState<MerchantCategory | null>(merchantCategory ?? null)
+  // Which city the list is scoped to. Starts on the customer's own, because
+  // that is where a tricycle can actually reach — and '' means every city,
+  // for somebody ordering ahead for a trip.
+  const [citySelect, setCitySelect] = useState<string>(defaultCity ?? '')
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(initialVendor?.id ?? null)
   const [cart, setCart] = useState<Record<string, number>>({})
   const [contactPhone, setContactPhone] = useState(defaultContactPhone ?? '')
@@ -449,8 +453,17 @@ export const VendorMenuBooking = forwardRef<
   // must not leave the list empty with no visible cause.
   const activeChip = chip && chipCategories.some((c) => c.id === chip) ? chip : null
 
+  // Only cities with a shop in them. A dropdown of every municipality in
+  // Nueva Ecija would be a list of mostly-empty promises, and the two that
+  // matter here are the two the pilot actually covers.
+  const vendorCities = [...new Set(vendors.map((v) => v.city).filter(Boolean))].sort((a, b) => a.localeCompare(b))
+  // A remembered city with nothing in it must not leave the list blank with
+  // no visible cause — fall back to showing everything.
+  const activeCity = citySelect && vendorCities.includes(citySelect) ? citySelect : ''
+
   const shownVendors = vendors.filter(
     (v) =>
+      (!activeCity || v.city === activeCity) &&
       (!activeChip || categoryForVendor(v) === activeChip) &&
       (!query ||
         v.name.toLowerCase().includes(query) ||
@@ -524,12 +537,38 @@ export const VendorMenuBooking = forwardRef<
             </div>
           )}
 
-          <input
-            value={vendorSearch}
-            onChange={(e) => setVendorSearch(e.target.value)}
-            placeholder={isGoods ? 'Search a store or an item' : 'Search a store or a food (e.g. inasal, lugaw)'}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
+          {/* City, then what you are looking for — the same left-to-right
+              sentence the booking screen reads as: which city, then where in
+              it. The city scopes what the search can match, so it has to come
+              before the box it governs rather than sit under the results. */}
+          <div className="flex items-stretch gap-1.5">
+            {vendorCities.length > 1 && (
+              <div className="flex w-[38%] shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 px-2">
+                <label htmlFor="vendor-city" className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  City
+                </label>
+                <select
+                  id="vendor-city"
+                  value={activeCity}
+                  onChange={(e) => setCitySelect(e.target.value)}
+                  className="min-w-0 flex-1 bg-transparent py-2 text-xs outline-none"
+                >
+                  <option value="">All</option>
+                  {vendorCities.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <input
+              value={vendorSearch}
+              onChange={(e) => setVendorSearch(e.target.value)}
+              placeholder={isGoods ? 'Search a store or an item' : 'Search a store or a food (e.g. inasal, lugaw)'}
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+          </div>
 
           {vendors.length === 0 && (
             <p className="rounded-lg bg-slate-50 p-3 text-center text-xs text-slate-400">
@@ -539,10 +578,12 @@ export const VendorMenuBooking = forwardRef<
           {vendors.length > 0 && shownVendors.length === 0 && (
             <p className="rounded-lg bg-slate-50 p-3 text-center text-xs text-slate-400">
               {query
-                ? activeChip
-                  ? `No ${CATEGORY_BY_ID[activeChip].label} store matches "${vendorSearch.trim()}".`
-                  : `No vendor matches "${vendorSearch.trim()}".`
-                : `No ${activeChip ? CATEGORY_BY_ID[activeChip].label : ''} partners yet — check back soon.`}
+                ? `No ${activeChip ? CATEGORY_BY_ID[activeChip].label + ' ' : ''}store matches "${vendorSearch.trim()}"${
+                    activeCity ? ` in ${activeCity}` : ''
+                  }.`
+                : `No ${activeChip ? CATEGORY_BY_ID[activeChip].label + ' ' : ''}partners${
+                    activeCity ? ` in ${activeCity}` : ''
+                  } yet — check back soon.`}
             </p>
           )}
 

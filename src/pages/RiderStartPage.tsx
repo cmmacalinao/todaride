@@ -41,7 +41,7 @@ export function RiderStartPage() {
   // Pharmacies are deliberately not a category here: TODARIDE MEDS is off
   // (medsEnabled defaults false), and a Botika tile that opens a service
   // nobody has turned on is worse than no tile.
-  const categoryTiles = merchantCategoryTiles(stores)
+  const categoryTiles = merchantCategoryTiles(stores, { includeEmpty: true })
   return (
     // Same pattern as the launch and role-chooser screens before it — dark
     // navy, the diagonal weave — so a passenger doesn't land somewhere that
@@ -220,40 +220,74 @@ export function RiderStartPage() {
             fixed, short list that stays the same size as the pilot grows —
             see lib/merchantCategories for why these particular ones.
 
-            Only categories with a shop behind them are drawn. A tile that
-            opens an empty list is a promise the app cannot keep, and
-            somebody who taps "Tubig" and finds nothing learns not to tap
-            anything. */}
+            Every category is drawn, including the ones with no merchant
+            yet — those are marked Coming soon and cannot be tapped. Two
+            reasons. A passenger learns in one glance what this app is for,
+            which an app with four tiles does not tell them. And an empty
+            tile is a recruiting poster: somebody who sees Tubig greyed out
+            and knows a refilling station is exactly how the next merchant
+            gets asked.
+
+            They are not tappable, though. A tile that opens an empty list
+            is a promise the app cannot keep, and somebody who taps and
+            finds nothing learns not to tap anything. Greyed and inert says
+            "not yet" without ever lying. */}
         {categoryTiles.length > 0 && (
           <section>
             <h2 className="mb-2 mt-1 text-sm font-bold text-white">Shop by category</h2>
             <div className="grid grid-cols-3 gap-2">
-              {categoryTiles.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() =>
-                    navigate('/book', {
-                      state: {
-                        section: c.catalog === 'food' ? 'food_order' : 'goods_store',
-                        merchantCategory: c.id,
-                      },
-                    })
-                  }
-                  className="flex flex-col items-center gap-0.5 rounded-xl border border-gold-400 bg-white px-1.5 py-2.5 text-center shadow-sm transition hover:bg-gold-50"
-                >
-                  <span aria-hidden className="text-3xl leading-none">
-                    {c.emoji}
-                  </span>
-                  <span className="mt-0.5 block text-[11px] font-bold leading-tight text-slate-900">{c.label}</span>
-                  <span className="block text-[9px] leading-tight text-slate-500">{c.sublabel}</span>
-                  {/* The count is the honest part: it says how much is
-                      actually behind the tile before anybody taps it. */}
-                  <span className="mt-0.5 block text-[9px] font-semibold text-brand-700">
-                    {c.count} {c.count === 1 ? 'store' : 'stores'}
-                  </span>
-                </button>
-              ))}
+              {categoryTiles.map((c) => {
+                const open = c.count > 0
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    disabled={!open}
+                    aria-label={open ? undefined : `${c.label} — coming soon, no stores yet`}
+                    onClick={() =>
+                      navigate('/book', {
+                        state: {
+                          section: c.catalog === 'food' ? 'food_order' : 'goods_store',
+                          merchantCategory: c.id,
+                        },
+                      })
+                    }
+                    className={`flex flex-col items-center gap-0.5 rounded-xl border px-1.5 py-2.5 text-center transition ${
+                      open
+                        ? 'border-gold-400 bg-white shadow-sm hover:bg-gold-50'
+                        : 'cursor-default border-white/15 bg-white/5'
+                    }`}
+                  >
+                    {/* Drained of colour rather than hidden: the shape of the
+                        category still reads, which is the point of showing it. */}
+                    <span aria-hidden className={`text-3xl leading-none ${open ? '' : 'opacity-40 grayscale'}`}>
+                      {c.emoji}
+                    </span>
+                    <span
+                      className={`mt-0.5 block text-[11px] font-bold leading-tight ${
+                        open ? 'text-slate-900' : 'text-white/50'
+                      }`}
+                    >
+                      {c.label}
+                    </span>
+                    <span className={`block text-[9px] leading-tight ${open ? 'text-slate-500' : 'text-white/30'}`}>
+                      {c.sublabel}
+                    </span>
+                    {/* The count is the honest part: it says how much is
+                        actually behind the tile before anybody taps it, and
+                        says plainly when the answer is nothing. */}
+                    {open ? (
+                      <span className="mt-0.5 block text-[9px] font-semibold text-brand-700">
+                        {c.count} {c.count === 1 ? 'store' : 'stores'}
+                      </span>
+                    ) : (
+                      <span className="mt-0.5 block text-[9px] font-semibold uppercase tracking-wide text-gold-400/70">
+                        Coming soon
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </section>
         )}

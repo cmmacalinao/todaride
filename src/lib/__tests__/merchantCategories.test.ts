@@ -61,7 +61,6 @@ describe('working out what a shop is', () => {
 
   it('recognises the errands a tricycle actually runs', () => {
     expect(categoryForVendor(goods('Crystal Clear Water Refilling Station'))).toBe('water')
-    expect(categoryForVendor(goods('JB Gasul LPG Dealer'))).toBe('lpg')
     expect(categoryForVendor(goods('Muñoz Agri & Feeds Center'))).toBe('agri')
     expect(categoryForVendor(goods('Labada Express Laundry'))).toBe('laundry')
     expect(categoryForVendor(goods('Aling Belen Meat Shop'))).toBe('palengke')
@@ -127,7 +126,6 @@ describe('the tiles drawn on the start page', () => {
   it('leaves out categories with no shops', () => {
     const ids = merchantCategoryTiles(seeded).map((t) => t.id)
     expect(ids).not.toContain('water')
-    expect(ids).not.toContain('lpg')
     expect(ids).not.toContain('laundry')
   })
 

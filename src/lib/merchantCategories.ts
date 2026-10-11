@@ -9,9 +9,9 @@ import type { BusinessType, Pharmacy } from '../types'
 // has nothing to tap.
 //
 // These categories are the provincial errands a tricycle actually runs in
-// San Jose City and Muñoz: food, the palengke, water, gas, the hardware.
-// They are deliberately concrete. A passenger looks for "Tubig" and "LPG",
-// not "Household Services".
+// San Jose City and Muñoz: food, the botika, the palengke, water, hardware.
+// They are deliberately concrete. A passenger looks for "Botika" and
+// "Tubig", not "Health" and "Household Services".
 //
 // A merchant's category can be set on the record (merchantCategory). When it
 // is not, it is guessed from the shop's own name — a carinderia calls itself
@@ -25,7 +25,6 @@ export type MerchantCategory =
   | 'merienda'
   | 'sari_sari'
   | 'water'
-  | 'lpg'
   | 'palengke'
   | 'bakery'
   | 'hardware'
@@ -119,15 +118,6 @@ export const MERCHANT_CATEGORIES: MerchantCategoryDef[] = [
     emoji: '💧',
     catalog: 'goods',
     keywords: ['water', 'tubig', 'refilling', 'refill', 'purified', 'alkaline', 'aqua'],
-    businessTypes: ['other_commodity'],
-  },
-  {
-    id: 'lpg',
-    label: 'LPG & Gas',
-    sublabel: 'Gasul, tank delivery',
-    emoji: '🔥',
-    catalog: 'goods',
-    keywords: ['lpg', 'gasul', 'gas', 'petron gasul', 'solane', 'propane'],
     businessTypes: ['other_commodity'],
   },
   {

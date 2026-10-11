@@ -165,7 +165,7 @@ export const VendorMenuBooking = forwardRef<
   const [step, setStep] = useState<'browse' | 'menu' | 'checkout'>(initialVendor ? 'menu' : 'browse')
   const [vendorSearch, setVendorSearch] = useState('')
   // Which category chip is pressed. Seeded from the tile the passenger tapped
-  // on the start page, so arriving via Botika lands with Botika already
+  // on the start page, so arriving via Pharmacy lands with Pharmacy already
   // selected rather than on "All" with the choice silently forgotten.
   const [chip, setChip] = useState<MerchantCategory | null>(merchantCategory ?? null)
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(initialVendor?.id ?? null)

@@ -18,7 +18,7 @@ import { familyLimitsFor } from '../lib/familyLimits'
 // It used to be Book a Ride / Food Order / PaDeliver, which split buying in
 // two: food merchants were top-level, every other shop was a level down
 // inside PaDeliver. Before categories existed nobody could see that seam.
-// Afterwards it was plain — the Food tile and the Botika tile sit side by
+// Afterwards it was plain — the Food tile and the Pharmacy tile sit side by
 // side on the start page, look identical, and used to land at different
 // depths. Underneath, the two flows were the same code; the only difference
 // the split ever made was a search placeholder.

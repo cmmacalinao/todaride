@@ -681,7 +681,7 @@ const SIGNUP_CATEGORIES: Record<'pharmacy' | 'vendor', { value: BusinessType; ic
       // service behind medsEnabled and is not what this registers.
       value: 'pharmacy',
       icon: '💊',
-      label: 'Botika',
+      label: 'Pharmacy',
       blurb: 'Drugstores — over-the-counter medicine and vitamins, delivered by a TODA rider.',
     },
   ],

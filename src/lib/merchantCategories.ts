@@ -10,7 +10,7 @@ import type { BusinessType, Pharmacy } from '../types'
 //
 // These categories are the provincial errands a tricycle actually runs in
 // San Jose City and Muñoz: food, the botika, the palengke, water, hardware.
-// They are deliberately concrete. A passenger looks for "Botika" and
+// They are deliberately concrete. A passenger looks for "Pharmacy" and
 // "Tubig", not "Health" and "Household Services".
 //
 // A merchant's category can be set on the record (merchantCategory). When it
@@ -48,7 +48,7 @@ export interface MerchantCategoryDef {
   // categoryForVendor.
   keywords: string[]
   // Which kinds of record live in this category. Pharmacies are their own
-  // business type, so a Botika tile has to ask for them by name or the
+  // business type, so the Pharmacy tile has to ask for them by name or the
   // goods catalog filters every one of them out.
   businessTypes: BusinessType[]
 }
@@ -79,7 +79,7 @@ export const MERCHANT_CATEGORIES: MerchantCategoryDef[] = [
     // for when they cannot go themselves — which is most of the reason they
     // cannot go — so it leads everything that is not a meal.
     id: 'pharmacy',
-    label: 'Botika',
+    label: 'Pharmacy',
     sublabel: 'Gamot, vitamins',
     emoji: '💊',
     catalog: 'goods',
@@ -232,7 +232,7 @@ export function categoryForVendor(vendor: CategorizableVendor): MerchantCategory
     // or an "Ihaw-Ihaw sa Hardware St." ends up under Hardware.
     // A shop can only be guessed into a category that accepts its kind of
     // record, so a pharmacy never lands in Hardware and a carinderia never
-    // lands in Botika.
+    // lands in Pharmacy.
     if (!category.businessTypes.includes(vendor.businessType)) continue
     if (category.keywords.some((k) => nameMentions(name, k))) return category.id
   }

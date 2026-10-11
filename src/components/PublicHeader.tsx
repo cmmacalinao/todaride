@@ -44,7 +44,10 @@ export function PublicHeader({ title = 'TODA Ride Mobility' }: { title?: string 
     // picks which portal to sign in to as well as where a new one signs up.
     { label: 'Create an account/Login', icon: '📝', onClick: () => navigate('/welcome?mode=signup') },
     { label: 'Driver login', icon: '🛵', onClick: () => navigate('/drive?mode=login') },
-    { label: 'TODA Admin login', icon: '🏛️', onClick: () => navigate('/drive?mode=toda_admin') },
+    // Says Admin, not login: this is the only door now that the role
+    // chooser has no TODA tile, and the screen it opens registers a new
+    // association as well as signing an officer in.
+    { label: 'TODA Admin', icon: '🏛️', onClick: () => navigate('/drive?mode=toda_admin') },
     { label: 'Operator login', icon: '🏢', onClick: () => navigate('/operator') },
     ...(medsEnabled || vendorsEnabled
       ? [

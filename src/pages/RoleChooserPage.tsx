@@ -52,13 +52,13 @@ export function RoleChooserPage() {
       loginTo: '/drive?mode=login',
       signupTo: '/drive?mode=register',
     },
-    {
-      icon: '🏛️',
-      label: 'TODA',
-      blurb: 'Manage your association, drivers and dues',
-      loginTo: '/drive?mode=toda_admin',
-      signupTo: '/drive?mode=toda_admin&toda=register',
-    },
+    // No TODA tile. This screen is the door a rider, a driver or a shop
+    // comes through, and there are a handful of TODA officers against
+    // thousands of them — a tile of equal size for an audience that size
+    // made every visitor read an option that was not for them. It lives in
+    // the menu instead, where the officer who needs it knows to look.
+    // Registering a new TODA still works: the screen it opens carries its
+    // own LOGIN | SIGNUP pair (see DriverAuthGate's subMode).
     // role= and auth= — AuthGate treats the click as roleScoped and shows the
     // actual Pharmacy/Vendor login-or-signup form; without them this landed
     // on the generic identifier login with no way to register a business.

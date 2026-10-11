@@ -7,7 +7,6 @@ import { streetLinesFor } from '../lib/streetPaths'
 import { formatTripRoute } from '../lib/addressFormat'
 import { isVendorDeliveryRide, rideServiceTag } from '../lib/vendorOrders'
 import { useHeaderTabs } from '../context/HeaderSlotContext'
-import { PaDeliverSubTabs } from '../components/PaDeliverSubTabs'
 import { showInMiddle, showInMiddleWhenSettled } from '../lib/showInMiddle'
 import { NearbyDriversPicker, buildNearbyDrivers } from '../components/NearbyDriversPicker'
 import { RidePaymentForm } from '../components/RidePaymentForm'
@@ -194,7 +193,10 @@ export function PassengerPage() {
   // Which vendor catalog the Food/PaDeliver tile opened — Food Order browses
   // resto_food vendors, PaDeliver's Store browses other_commodity ones (see
   // VendorMenuBooking's catalogTypes). Only meaningful while foodHinted.
-  const [catalogKind, setCatalogKind] = useState<'food' | 'goods'>('food')
+  // 'all' is the Order tab: every merchant in one list. 'food' and 'goods'
+  // remain for the narrower entry points that still exist (a vendor link, a
+  // category tile) — see businessTypesForCategory.
+  const [catalogKind, setCatalogKind] = useState<'food' | 'goods' | 'all'>('all')
   // Favourite-driver search box. Once a TODA has more than a handful of
   // members a dropdown of every approved driver is unusable on a phone —
   // typing a name or a plate is how a passenger actually knows their driver.
@@ -531,11 +533,19 @@ export function PassengerPage() {
         navigate('/book/family')
         scrollTop()
         break
-      case 'goods_store':
-        // PaDeliver's "Store" — same VendorMenuBooking flow as Food Order,
-        // scoped to other_commodity vendors instead of resto_food.
+      case 'order':
+        // One door for buying anything — every kind of merchant in one
+        // catalog, with the category chips doing the sorting. See
+        // ServiceTabs for why this replaced the Food/PaDeliver split.
         if (!vendorsEnabled) break
-        chooseErrand('pabili', { food: true, catalog: 'goods' })
+        chooseErrand('pabili', { food: true, catalog: 'all' })
+        scrollTop()
+        break
+      case 'goods_store':
+        // Kept so older links and any remembered state still land somewhere
+        // sensible: it is the same screen as 'order' now.
+        if (!vendorsEnabled) break
+        chooseErrand('pabili', { food: true, catalog: 'all' })
         scrollTop()
         break
       case 'goods_delivery':
@@ -658,22 +668,22 @@ export function PassengerPage() {
   // while vendorsEnabled is off. Same self-contained-flow shape as Buy
   // Medicine below: none of the shared Ride/Pabili JSX renders for it either.
   const showVendorMenu = isPabili && foodHinted && vendorsEnabled
-  // The Book a Ride / Food Order / PaDeliver strip is drawn in the blue
-  // header (see NavBar), where it is always on screen — this page just says
-  // which one is open. Not for Buy Medicine (self-contained, nothing here
-  // to switch away from) and not on the Rewards/Emergency tabs.
+  // The Book a Ride / Order / Padala strip is drawn in the blue header (see
+  // NavBar), where it is always on screen — this page just says which one is
+  // open. Not for Buy Medicine (self-contained, nothing here to switch away
+  // from) and not on the Rewards/Emergency tabs.
   useHeaderTabs(
     pageTab === 'book' && !isBuyMedicine
       ? {
           active:
             familyHome || familyGroup || (forFamily && !showVendorMenu && !isPadala)
               ? 'family'
-              : showVendorMenu
-                ? catalogKind === 'goods'
-                  ? 'padeliver'
-                  : 'food'
+              : // Any merchant catalog is Order now, whichever kind of shop
+                // it happens to be showing.
+                showVendorMenu
+                ? 'order'
                 : isPadala
-                  ? 'padeliver'
+                  ? 'padala'
                   : 'toda',
         }
       : null,
@@ -795,7 +805,7 @@ export function PassengerPage() {
     }
   }
 
-  function chooseErrand(next: ServiceType, opts?: { food?: boolean; catalog?: 'food' | 'goods' }) {
+  function chooseErrand(next: ServiceType, opts?: { food?: boolean; catalog?: 'food' | 'goods' | 'all' }) {
     setPageTab('book')
     setServiceType(next)
     setFoodHinted(!!opts?.food)
@@ -3593,12 +3603,9 @@ export function PassengerPage() {
           nothing here to switch away from. */}
       {/* The service strip itself is in the header now — see useHeaderTabs
           above. */}
-      {/* PaDeliver's own two doors, one line under the main strip — only
-          while PaDeliver itself is the selected tab there, so it reads as
-          PaDeliver opening up rather than a fourth, unrelated tab. */}
-      {pageTab === 'book' && ((showVendorMenu && catalogKind === 'goods') || isPadala) && (
-        <PaDeliverSubTabs active={isPadala ? 'delivery' : 'store'} />
-      )}
+      {/* PaDeliver's two sub-tabs are gone: Shop and Book a Delivery are
+          Order and Padala in the strip above, so a second row underneath
+          repeating them was one row of navigation too many. */}
       <AnnouncementFeed viewer="passengers" />
       {isAdminOpsView && (
         <section>
@@ -4053,7 +4060,14 @@ export function PassengerPage() {
               defaultContactPhone={isGuestBooking ? null : passenger.phone}
               initialVendorId={searchParams.get('vendor')}
               initialPostId={searchParams.get('post')}
-              catalogTypes={businessTypesForCategory(pickedCategory) ?? (catalogKind === 'goods' ? ['other_commodity'] : ['resto_food'])}
+              catalogTypes={
+                businessTypesForCategory(pickedCategory) ??
+                (catalogKind === 'all'
+                  ? ['resto_food', 'other_commodity', 'pharmacy']
+                  : catalogKind === 'goods'
+                    ? ['other_commodity']
+                    : ['resto_food'])
+              }
               merchantCategory={pickedCategory}
             />
           ) : (

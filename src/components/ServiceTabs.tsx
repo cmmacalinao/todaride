@@ -12,7 +12,20 @@ import { familyLimitsFor } from '../lib/familyLimits'
 // compact: the header-row size — three labels have to share the width left
 // beside the hamburger on a phone, so the type comes down a step and the
 // pills lose some height.
-export function ServiceTabs({ active, tone = 'dark', compact = false }: { active: 'toda' | 'food' | 'padeliver' | 'family'; tone?: 'dark' | 'light'; compact?: boolean }) {
+// Three things a passenger can want, named as three verbs: carry me, buy me
+// something, carry my thing.
+//
+// It used to be Book a Ride / Food Order / PaDeliver, which split buying in
+// two: food merchants were top-level, every other shop was a level down
+// inside PaDeliver. Before categories existed nobody could see that seam.
+// Afterwards it was plain — the Food tile and the Botika tile sit side by
+// side on the start page, look identical, and used to land at different
+// depths. Underneath, the two flows were the same code; the only difference
+// the split ever made was a search placeholder.
+//
+// So buying is one tab and the categories do the sorting, while Padala keeps
+// its own, because sending your own parcel is not shopping.
+export function ServiceTabs({ active, tone = 'dark', compact = false }: { active: 'toda' | 'order' | 'padala' | 'family'; tone?: 'dark' | 'light'; compact?: boolean }) {
   const navigate = useNavigate()
   const { vendorsEnabled, passengers } = useRides()
   const { currentPassengerId } = useSession()
@@ -31,18 +44,22 @@ export function ServiceTabs({ active, tone = 'dark', compact = false }: { active
   const idle = tone === 'dark' ? 'bg-white text-navy-900 shadow-sm hover:bg-slate-100' : 'border border-slate-200 bg-white text-navy-900 hover:bg-slate-100'
   // The same pictures as the start page's three tiles (RiderStartPage), so a
   // tab and the tile it stands for look like the same thing.
-  const icon = (key: 'toda' | 'food' | 'padeliver') => {
+  const icon = (key: 'toda' | 'order' | 'padala') => {
     const box = compact ? 'h-4 w-5' : 'h-5 w-6'
     if (key === 'toda') return <img src="/tricycle-thumb.png" alt="" aria-hidden className={`${box} shrink-0 object-contain`} />
-    if (key === 'food')
-      return <img src="/food-photos/141-tapsilog.jpg" alt="" aria-hidden className={`${compact ? 'h-4 w-4' : 'h-5 w-5'} shrink-0 rounded object-cover`} />
+    if (key === 'order')
+      return (
+        <span aria-hidden className={`shrink-0 leading-none ${compact ? 'text-sm' : 'text-base'}`}>
+          🛍️
+        </span>
+      )
     return (
       <span aria-hidden className={`shrink-0 leading-none ${compact ? 'text-sm' : 'text-base'}`}>
         📦
       </span>
     )
   }
-  const tab = (key: 'toda' | 'food' | 'padeliver', label: string, to: () => void) => {
+  const tab = (key: 'toda' | 'order' | 'padala', label: string, to: () => void) => {
     const isActive = key === active
     return (
       <button
@@ -62,8 +79,12 @@ export function ServiceTabs({ active, tone = 'dark', compact = false }: { active
   return (
     <div className={`flex ${compact ? 'gap-1' : 'gap-1.5'}`}>
       {tab('toda', 'Book a Ride', () => navigate('/book', { state: { section: 'ride' } }))}
-      {(!limits || limits.food) && tab('food', 'Food Order', () => navigate('/book', { state: { section: 'food' } }))}
-      {(!limits || limits.padeliver) && tab('padeliver', 'PaDeliver', () => navigate('/book', { state: { section: 'goods_store' } }))}
+      {/* One shop door. A child allowed either kind of buying keeps it —
+          the categories inside are what their limits actually shape. */}
+      {(!limits || limits.food || limits.padeliver) &&
+        tab('order', 'Order', () => navigate('/book', { state: { section: 'order' } }))}
+      {(!limits || limits.padeliver) &&
+        tab('padala', 'Padala', () => navigate('/book', { state: { section: 'goods_delivery' } }))}
       {/* The parent manages the family; a limited member just rides. */}
       {inFamilyPlan && !limits && (
         <button

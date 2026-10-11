@@ -160,12 +160,13 @@ export function RiderStartPage() {
             icon, name, one line — because a name beside an icon inside half
             a phone's width has no room left for the line that explains it. */}
         <div className={vendorCatalogsAvailable ? 'grid grid-cols-2 items-stretch gap-2' : ''}>
-          {/* Food Order — prepared food from a partner resto's own priced
-              menu (VendorMenuBooking, resto_food catalog). */}
+          {/* Order — buying anything from a partner, food or goods, in one
+              catalog. The categories below are how a passenger narrows it;
+              see ServiceTabs for why this stopped being two doors. */}
           {vendorCatalogsAvailable && (
             <button
               type="button"
-              onClick={() => navigate('/book', { state: { section: 'food' } })}
+              onClick={() => navigate('/book', { state: { section: 'order' } })}
               className="flex h-full w-full flex-col items-start gap-1.5 rounded-xl border border-gold-400 bg-amber-50 p-3 text-left shadow-sm transition hover:bg-amber-100"
             >
               {/* A photograph of food, from the same catalog the menus draw
@@ -178,36 +179,33 @@ export function RiderStartPage() {
                 aria-hidden
                 className="h-12 w-12 shrink-0 rounded-lg object-cover"
               />
-              <span className="block text-base font-bold text-slate-900">FOOD ORDER</span>
+              <span className="block text-base font-bold text-slate-900">ORDER</span>
               <span className="block text-xs text-slate-700">
-                Cooked meals from a partner resto's own menu — delivered by your driver.
+                Food, gamot, groceries — anything a partner sells, brought by your driver.
               </span>
             </button>
           )}
 
-          {/* PaDeliver — goods, not people or meals: a marketplace Store
-              (priced other_commodity catalog, same VendorMenuBooking flow
-              Food Order uses, ending as its own 'vendor_order' ride) for the
-              store-to-door case, and Book a Delivery (its own 'padala' type —
-              no vendor catalog, no shopping list, just pickup -> dropoff) for
-              "I already have the item, just bring it" — see PassengerPage's
-              'goods_store'/'goods_delivery' section cases. Neither depends on
-              Pabili's freeform errand feature or its Super Admin switch;
-              Book a Delivery doesn't depend on any registered vendor either,
-              so it's offered even when Store isn't — and on its own it takes
-              the full width back. */}
+          {/* Padala — carrying something the sender already has: its own
+              'padala' serviceType, no catalog and no shopping list, just
+              pickup -> dropoff. The shop half of what used to be PaDeliver
+              moved into Order; this is the half that was never shopping.
+              Depends on no registered vendor, so it stands even when there
+              is nothing to buy — and alone it takes the full width back. */}
           {padeliverAvailable && (
           <button
             type="button"
-            onClick={() => navigate('/book', { state: { section: 'goods_store' } })}
+            onClick={() => navigate('/book', { state: { section: 'goods_delivery' } })}
             className="flex h-full w-full flex-col items-start gap-1.5 rounded-xl border border-gold-400 bg-amber-50 p-3 text-left shadow-sm transition hover:bg-amber-100"
           >
             {/* Same treatment as Food Order's — see the note there. */}
             <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center text-3xl leading-none">
               📦
             </span>
-            <span className="block text-base font-bold text-slate-900">PaDeliver</span>
-            <span className="block text-xs text-slate-700">Goods — from a store's shelf, or straight from you.</span>
+            <span className="block text-base font-bold text-slate-900">PADALA</span>
+            <span className="block text-xs text-slate-700">
+              Send something you already have — pickup straight to the door.
+            </span>
           </button>
           )}
         </div>
@@ -247,7 +245,7 @@ export function RiderStartPage() {
                     onClick={() =>
                       navigate('/book', {
                         state: {
-                          section: c.catalog === 'food' ? 'food_order' : 'goods_store',
+                          section: 'order',
                           merchantCategory: c.id,
                         },
                       })

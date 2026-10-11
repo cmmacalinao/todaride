@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
+import { merchantCategoryTiles } from '../lib/merchantCategories'
 import { TODA_MEANING } from '../lib/brand'
 import { useRides } from '../context/RideContext'
 import { useSession } from '../context/SessionContext'
@@ -34,9 +35,13 @@ export function RiderStartPage() {
   // them are featured here.
   const stores = vendorCatalogsAvailable
     ? pharmacies
-        .filter((p) => (p.businessType === 'resto_food' || p.businessType === 'other_commodity') && p.verificationStatus === 'approved')
+        .filter((p) => p.verificationStatus === 'approved')
         .sort((a, b) => Number(b.isOpen) - Number(a.isOpen) || a.name.localeCompare(b.name))
     : []
+  // Pharmacies are deliberately not a category here: TODARIDE MEDS is off
+  // (medsEnabled defaults false), and a Botika tile that opens a service
+  // nobody has turned on is worse than no tile.
+  const categoryTiles = merchantCategoryTiles(stores)
   return (
     // Same pattern as the launch and role-chooser screens before it — dark
     // navy, the diagonal weave — so a passenger doesn't land somewhere that
@@ -207,44 +212,48 @@ export function RiderStartPage() {
           )}
         </div>
 
-        {/* Featured merchants & stores: one tile each, straight into that
-            store's menu (/book?vendor=, which picks Food Order or PaDeliver's
-            Store by the store's kind — see PassengerPage). The picture is the
-            store's own logo, else its cover photo, else its kind's emoji. */}
-        {stores.length > 0 && (
+        {/* What kind of shop, not which shop.
+            This was one tile per merchant, which works for eight stores and
+            stops working at thirty: a passenger who wants lunch had to read
+            every hardware store on the way past, and a new merchant made the
+            grid longer rather than the app more useful. Categories are a
+            fixed, short list that stays the same size as the pilot grows —
+            see lib/merchantCategories for why these particular ones.
+
+            Only categories with a shop behind them are drawn. A tile that
+            opens an empty list is a promise the app cannot keep, and
+            somebody who taps "Tubig" and finds nothing learns not to tap
+            anything. */}
+        {categoryTiles.length > 0 && (
           <section>
-            <h2 className="mb-2 mt-1 text-sm font-bold text-white">Featured merchants &amp; stores</h2>
+            <h2 className="mb-2 mt-1 text-sm font-bold text-white">Shop by category</h2>
             <div className="grid grid-cols-3 gap-2">
-              {stores.map((s) => {
-                const picture = s.logoDataUrl || s.coverPhotoDataUrl || s.bannerBackgroundDataUrl || null
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => navigate(`/book?vendor=${encodeURIComponent(s.id)}`)}
-                    className="flex flex-col overflow-hidden rounded-xl border border-gold-400 bg-white text-left shadow-sm transition hover:bg-gold-50"
-                  >
-                    <span className="relative block aspect-square w-full bg-slate-100">
-                      {picture ? (
-                        <img src={picture} alt="" aria-hidden className="h-full w-full object-cover" loading="lazy" />
-                      ) : (
-                        <span aria-hidden className="flex h-full w-full items-center justify-center text-4xl">
-                          {s.businessType === 'resto_food' ? '🍽️' : '📦'}
-                        </span>
-                      )}
-                      {!s.isOpen && (
-                        <span className="absolute left-1 top-1 rounded bg-slate-900/75 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
-                          Closed
-                        </span>
-                      )}
-                    </span>
-                    <span className="block px-1.5 pb-1.5 pt-1">
-                      <span className="line-clamp-2 text-[11px] font-bold leading-tight text-slate-900">{s.name}</span>
-                      <span className="mt-0.5 block truncate text-[10px] text-slate-500">{s.city}</span>
-                    </span>
-                  </button>
-                )
-              })}
+              {categoryTiles.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() =>
+                    navigate('/book', {
+                      state: {
+                        section: c.catalog === 'food' ? 'food_order' : 'goods_store',
+                        merchantCategory: c.id,
+                      },
+                    })
+                  }
+                  className="flex flex-col items-center gap-0.5 rounded-xl border border-gold-400 bg-white px-1.5 py-2.5 text-center shadow-sm transition hover:bg-gold-50"
+                >
+                  <span aria-hidden className="text-3xl leading-none">
+                    {c.emoji}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] font-bold leading-tight text-slate-900">{c.label}</span>
+                  <span className="block text-[9px] leading-tight text-slate-500">{c.sublabel}</span>
+                  {/* The count is the honest part: it says how much is
+                      actually behind the tile before anybody taps it. */}
+                  <span className="mt-0.5 block text-[9px] font-semibold text-brand-700">
+                    {c.count} {c.count === 1 ? 'store' : 'stores'}
+                  </span>
+                </button>
+              ))}
             </div>
           </section>
         )}

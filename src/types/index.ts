@@ -1,3 +1,4 @@
+import type { MerchantCategory } from '../lib/merchantCategories'
 export type Role = 'passenger' | 'driver' | 'parent' | 'admin'
 
 export interface Coords {
@@ -580,6 +581,10 @@ export interface Pharmacy {
   // for the rules and the reserved list. Optional: a store without one is
   // still reachable at /vendor-page/<id>, which keeps working forever
   // because it is already printed on things.
+  // What kind of shop this is, as a passenger would look for it — see
+  // lib/merchantCategories. Optional: unset is guessed from the shop's own
+  // name, so an existing store is findable without anybody filling a form.
+  merchantCategory?: MerchantCategory | null
   slug?: string | null
   // Admin has taken the public page down (see HIDE_VENDOR_PAGE). The store
   // itself keeps trading — orders, menu and portal are untouched; only the

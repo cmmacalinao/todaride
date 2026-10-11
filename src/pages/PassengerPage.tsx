@@ -63,6 +63,7 @@ import type { SheetSnap } from '../components/BottomSheet'
 import type { MapPoint } from '../components/RealLiveMap'
 import { MedsBooking } from '../components/MedsBooking'
 import { VendorMenuBooking, type VendorMenuBookingHandle } from '../components/VendorMenuBooking'
+import { businessTypesForCategory, type MerchantCategory } from '../lib/merchantCategories'
 import { EmergencyHotlines } from '../components/EmergencyHotlines'
 import { EmergencySheet } from '../components/EmergencySheet'
 import { useWatchPosition } from '../lib/liveTracking'
@@ -484,6 +485,10 @@ export function PassengerPage() {
   useEffect(() => {
     const section = (location.state as { section?: string } | null)?.section
     if (!section) return
+    // Taken before the state is cleared below. A navigation without one
+    // clears the filter, so leaving Botika for Food Order does not quietly
+    // keep showing pharmacies.
+    setPickedCategory((location.state as { merchantCategory?: MerchantCategory } | null)?.merchantCategory ?? null)
     // Clear the state right away so back/forward or a later same-route
     // navigation doesn't replay a stale section.
     navigate(location.pathname, { replace: true, state: {} })
@@ -590,6 +595,12 @@ export function PassengerPage() {
   // Set by TerminalScanPage when the passenger got here by scanning the QR
   // inside a tricycle. Read once per booking — it describes how this ride
   // started, not a standing preference.
+  // Which category tile the passenger tapped on the start page, if any.
+  //
+  // Held in state rather than read from location.state on each render: the
+  // section effect below clears that state the moment it has used it, so a
+  // per-render read is null by the time the vendor list draws.
+  const [pickedCategory, setPickedCategory] = useState<MerchantCategory | null>(null)
   const boardedAtTerminal = (location.state as { terminalBoarding?: boolean } | null)?.terminalBoarding === true
   // Coming back from Sakay sa Pila with a driver chosen: the map is what the
   // passenger asked for, so it is put in the middle of the screen rather than
@@ -4042,7 +4053,8 @@ export function PassengerPage() {
               defaultContactPhone={isGuestBooking ? null : passenger.phone}
               initialVendorId={searchParams.get('vendor')}
               initialPostId={searchParams.get('post')}
-              catalogTypes={catalogKind === 'goods' ? ['other_commodity'] : ['resto_food']}
+              catalogTypes={businessTypesForCategory(pickedCategory) ?? (catalogKind === 'goods' ? ['other_commodity'] : ['resto_food'])}
+              merchantCategory={pickedCategory}
             />
           ) : (
           <>

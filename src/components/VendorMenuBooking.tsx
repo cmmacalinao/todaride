@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { useRides } from '../context/RideContext'
+import { categoryForVendor, type MerchantCategory } from '../lib/merchantCategories'
 import { DEFAULT_MEDS_DELIVERY_FEE, DEFAULT_MEDS_SERVICE_FEE, PAYMENT_METHODS } from '../mock/data'
 import { DocumentUploadField } from './DocumentUploadField'
 import { createCustomLocation, resolvePhAddress, reverseGeocodeToPhAddress, type PhAddressTags } from '../lib/customLocation'
@@ -100,6 +101,11 @@ export const VendorMenuBooking = forwardRef<
     // 'other_commodity' for PaDeliver's Store (see RiderStartPage/PassengerPage's
     // catalogKind). Defaults to both, same as before this split existed.
     catalogTypes?: BusinessType[]
+    // Narrows the list further to one kind of shop — set when the passenger
+    // arrived by tapping a category tile on the start page, so "Tubig"
+    // opens water refilling stations rather than every goods store with
+    // the tile's name still on the screen behind them.
+    merchantCategory?: MerchantCategory | null
     // Told on every cart change so the app-wide footer (see PassengerPage)
     // can show a View Cart tile without holding the cart itself — null once
     // the cart is empty or its store's menu isn't the screen showing.
@@ -117,6 +123,7 @@ export const VendorMenuBooking = forwardRef<
     initialVendorId,
     initialPostId,
     catalogTypes,
+    merchantCategory,
     onCartChange,
   },
   ref,
@@ -144,8 +151,14 @@ export const VendorMenuBooking = forwardRef<
   const ratingVendor = ratingVendorId ? pharmacies.find((p) => p.id === ratingVendorId) : undefined
 
   const vendors = useMemo(
-    () => pharmacies.filter((p) => businessTypes.includes(p.businessType) && p.verificationStatus === 'approved'),
-    [pharmacies, businessTypes],
+    () =>
+      pharmacies.filter(
+        (p) =>
+          businessTypes.includes(p.businessType) &&
+          p.verificationStatus === 'approved' &&
+          (!merchantCategory || categoryForVendor(p) === merchantCategory),
+      ),
+    [pharmacies, businessTypes, merchantCategory],
   )
 
   const initialVendor = initialVendorId ? vendors.find((v) => v.id === initialVendorId) : undefined

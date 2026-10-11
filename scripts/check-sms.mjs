@@ -108,8 +108,14 @@ const sendEnv = forced
   : env
 
 // Says what it is so nobody mistakes it for a real code or a real emergency.
-const message =
-  purpose === 'sos'
+// --otp-sample sends the exact text send-otp.mjs builds, with a throwaway
+// code, so you can see on a handset what a real user will receive — line
+// breaks, sender name and all. The code is not valid for anything: nothing
+// has signed it, so nothing will accept it.
+const sampleOtp = args.includes('--otp-sample')
+const message = sampleOtp
+  ? `Your TodaRide verification code is ${Math.floor(1000 + Math.random() * 9000)}. It expires in 5 minutes.`
+  : purpose === 'sos'
     ? 'TODA Ride Mobility test: this is a provider check, not a real emergency. Please ignore.'
     : 'TODA Ride Mobility test: provider check. No action needed.'
 

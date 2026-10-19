@@ -42,6 +42,15 @@ async function handle(request) {
   const apiKey = process.env.SEMAPHORE_API_KEY
 
   if (!secret || !apiKey) {
+    // Which of the two is missing stays out of the response — a stranger
+    // probing this endpoint learns only that it is unconfigured — but it does
+    // reach the function log, which is where whoever sets the site up will be
+    // looking. Saying only "not configured" cost this pilot weeks of signups
+    // that were never going to send a code.
+    const missing = [!secret && 'OTP_SIGNING_SECRET', !apiKey && 'SEMAPHORE_API_KEY'].filter(Boolean)
+    console.error(
+      `[otp] not configured: ${missing.join(' and ')} not set. Add it under Site configuration -> Environment variables, then redeploy.`,
+    )
     // Deliberately explicit: a silent failure here looks to a tester exactly
     // like a phone with no signal.
     return Response.json(

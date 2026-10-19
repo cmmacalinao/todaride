@@ -30,6 +30,12 @@ async function handle(request) {
 
   const secret = process.env.OTP_SIGNING_SECRET
   if (!secret) {
+    // Same reasoning as send-otp: the caller learns nothing, the log names the
+    // variable. Both endpoints read this one secret, so a site with it set on
+    // only one of them hands out codes that can never be redeemed.
+    console.error(
+      '[otp] not configured: OTP_SIGNING_SECRET not set. Add it under Site configuration -> Environment variables, then redeploy.',
+    )
     return Response.json({ error: 'OTP verification is not configured on the server yet.' }, { status: 503 })
   }
 

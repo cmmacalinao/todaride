@@ -52,6 +52,10 @@ export function VendorLocationPicker({ pharmacy, onBack }: { pharmacy: Pharmacy;
   // re-tick anything, and one who never has starts unticked.
   const [listAsLandmark, setListAsLandmark] = useState(!!existingLandmark)
 
+  // Bumped only when the pin is moved for them — their GPS fix — so the
+  // map flies there without fighting a drag in progress.
+  const [refit, setRefit] = useState(0)
+
   function movePin(next: GeoCoords) {
     setGps(next)
     setSaved(false)
@@ -64,6 +68,7 @@ export function VendorLocationPicker({ pharmacy, onBack }: { pharmacy: Pharmacy;
     setGpsStatus('locating')
     try {
       movePin(await getCurrentGeoPosition())
+      setRefit((n) => n + 1)
       setGpsStatus('idle')
     } catch {
       setGpsStatus('error')
@@ -109,15 +114,20 @@ export function VendorLocationPicker({ pharmacy, onBack }: { pharmacy: Pharmacy;
       <div>
         <h2 className="text-sm font-semibold text-slate-700">📍 Pin your store's location</h2>
         <p className="mt-0.5 text-xs text-slate-500">
-          Tap the map or drag the pin to exactly where drivers should pick up orders — this is what actually routes a
+          Drag the map until the pin sits exactly where drivers should pick up orders — this is what actually routes a
           driver to you, not just the address you typed.
         </p>
       </div>
       <RealLiveMap
         points={points}
-        onMapClick={movePin}
-        draggableIds={['store']}
-        onPointDragEnd={(_, next) => movePin(next)}
+        hideLegend
+        centerPin
+        centerPinColor="#ea580c"
+        centerPinLabel={pharmacy.name}
+        onCenterChange={movePin}
+        fitOnce
+        refitSignal={`place:${refit}`}
+        singlePointZoom={17}
         height="320px"
         toolbarAction={
           <button
@@ -131,7 +141,7 @@ export function VendorLocationPicker({ pharmacy, onBack }: { pharmacy: Pharmacy;
         }
       />
       {gpsStatus === 'error' && (
-        <p className="text-[11px] text-amber-700">Couldn't read your GPS — allow location access, or tap the map instead.</p>
+        <p className="text-[11px] text-amber-700">Couldn't read your GPS — allow location access, or drag the map instead.</p>
       )}
       {/* A driver already gets routed to this pin for deliveries — this is
           the separate question of whether a passenger can find the store by

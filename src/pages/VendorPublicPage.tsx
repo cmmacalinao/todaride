@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { VendorHeaderCard, VendorStorefront, resolveVendorAccent } from '../components/VendorStorefront'
 import { useVendorBranding, useVendorRename, VendorBrandingEditor } from '../components/VendorBrandingEditor'
+import { VendorLocationPicker } from '../components/VendorLocationPicker'
 
 // The vendor's own page, on its own route — reached from "🏪 My Vendor Page"
 // in the portal (see PharmacyPortalPage.tsx) instead of an inline
@@ -25,6 +26,7 @@ export function VendorPublicPage() {
   // Above the early return below, as the rules of hooks require.
   const setBranding = useVendorBranding(pharmacy)
   const rename = useVendorRename(pharmacy)
+  const [pinningLocation, setPinningLocation] = useState(false)
 
   if (!pharmacy) {
     return (
@@ -76,7 +78,12 @@ export function VendorPublicPage() {
         </button>
       </div>
 
-      {tab === 'customize' ? (
+      {tab === 'customize' && pinningLocation ? (
+        // The same picker the portal has, reached from the location tile on
+        // the header — where a merchant looking at their own page actually
+        // wonders whether that pin is right.
+        <VendorLocationPicker pharmacy={pharmacy} onBack={() => setPinningLocation(false)} />
+      ) : tab === 'customize' ? (
         <div className="space-y-3">
           {/* The same header a customer will see, live — so a cover
               photo/logo/tagline/theme change shows its actual effect right
@@ -101,6 +108,7 @@ export function VendorPublicPage() {
               onBannerBackgroundPositionChange={(bannerBackgroundPosition) => setBranding({ bannerBackgroundPosition })}
               onNamePositionChange={(namePosition) => setBranding({ namePosition })}
               onNameChange={rename}
+              onPinLocation={() => setPinningLocation(true)}
             />
           </div>
           <VendorBrandingEditor pharmacy={pharmacy} />

@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
-import { CATEGORY_BY_ID, MERCHANT_CATEGORIES, type MerchantCategory } from '../lib/merchantCategories'
+import {
+  businessTypeForCategory,
+  CATEGORY_BY_ID,
+  guessCategoryFromName,
+  MERCHANT_CATEGORIES,
+  type MerchantCategory,
+} from '../lib/merchantCategories'
 import { useSession } from '../context/SessionContext'
 import {
   APP_ADMIN_CREDENTIALS,
@@ -709,19 +715,26 @@ const SIGNUP_CATEGORIES: Record<'pharmacy' | 'vendor', { value: BusinessType; ic
 
 function PharmacySignupForm({
   onRegistered,
-  variant = 'pharmacy',
 }: {
   onRegistered: (pharmacyId: string) => void
+  // Still accepted so the two doors can keep passing it, but no longer read:
+  // the form offers every category whichever door it was opened from, and
+  // the business type is worked out from the one the merchant picks.
   variant?: 'pharmacy' | 'vendor'
 }) {
   const { registerPharmacy } = useRides()
-  const categories = SIGNUP_CATEGORIES[variant]
   const [name, setName] = useState('')
-  const [businessType, setBusinessType] = useState<BusinessType>(categories[0].value)
   // Which shelf of the app this shop appears on — see lib/merchantCategories.
   // Guessed from the name when left alone, so a merchant who skips this is
   // still findable; picking one here just makes the guess unnecessary.
   const [merchantCategory, setMerchantCategory] = useState<MerchantCategory | null>(null)
+  // Worked out from the category rather than asked for. Every category
+  // belongs to exactly one business type, so asking both put the same
+  // question twice and let the answers contradict each other — a shop could
+  // be a Resto/Food filed under Hardware. The merchant answers the one they
+  // can actually answer: which shelf their customers look on. When they skip
+  // it the name is guessed from, exactly as the catalog already does.
+  const businessType: BusinessType = businessTypeForCategory(merchantCategory ?? guessCategoryFromName(name))
   // What they sell, when none of the categories fitted. "Other" on its own
   // would file them away and teach us nothing; this is the line that says
   // which tile to build next.
@@ -782,27 +795,6 @@ function PharmacySignupForm({
         Register your business to start receiving orders — you'll be able to add products/manage orders right after
         signing up.
       </p>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-slate-500">What kind of business is this?</label>
-        <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
-          {categories.map((c) => (
-            <button
-              key={c.value}
-              type="button"
-              onClick={() => setBusinessType(c.value)}
-              className={`flex-1 whitespace-nowrap rounded-md py-1.5 text-[11px] font-medium transition ${
-                businessType === c.value ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500'
-              }`}
-            >
-              {c.icon} {c.label}
-            </button>
-          ))}
-        </div>
-        <p className="mt-1.5 text-[11px] text-slate-400">
-          {categories.find((c) => c.value === businessType)?.blurb}
-        </p>
-      </div>
-
       {/* Which category tile on the passenger's start page this shop shows
           up under. Optional on purpose: left alone it is worked out from the
           shop's own name, and a merchant halfway through a sign-up should

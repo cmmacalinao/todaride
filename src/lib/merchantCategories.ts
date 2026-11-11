@@ -250,6 +250,33 @@ export function categoryChoicesFor(businessType: BusinessType): MerchantCategory
   return MERCHANT_CATEGORIES.filter((c) => c.id !== 'other' && c.businessTypes.includes(businessType))
 }
 
+// The business type a category belongs to. Every category names exactly
+// one, which is what lets registration ask a merchant where their customers
+// should find them instead of which of our four internal record types they
+// are. Falls back to the broadest ("anything on a shelf") when there is no
+// category to go on.
+export function businessTypeForCategory(id: MerchantCategory | null | undefined): BusinessType {
+  const types = id ? CATEGORY_BY_ID[id]?.businessTypes : undefined
+  return types?.[0] ?? 'other_commodity'
+}
+
+// A category guessed from the shop's name alone.
+//
+// categoryForVendor does this too, but only within the categories its
+// businessType already allows — which is no use at registration, where the
+// name is all there is and the business type is the thing being worked out.
+// Unscoped is right here and wrong there: "Ihaw-Ihaw sa Hardware St." is a
+// carinderia, and it is the keyword order (food before hardware) that keeps
+// it one.
+export function guessCategoryFromName(name: string): MerchantCategory | null {
+  const lower = String(name ?? '').toLowerCase()
+  for (const category of MERCHANT_CATEGORIES) {
+    if (category.id === 'other') continue
+    if (category.keywords.some((k) => nameMentions(lower, k))) return category.id
+  }
+  return null
+}
+
 // Which business types the catalog should ask for when this tile is tapped.
 export function businessTypesForCategory(id: MerchantCategory | null | undefined): BusinessType[] | null {
   if (!id) return null

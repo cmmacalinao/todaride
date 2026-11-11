@@ -20,6 +20,7 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
       coverPhotoPosition: { x: number; y: number; scale?: number } | null
       bannerBackgroundDataUrl: string | null
       logoDataUrl: string | null
+      logoScale: number | null
       themeColor: string | null
       tagline: string | null
     }>,
@@ -30,6 +31,7 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
       coverPhotoPosition: pharmacy.coverPhotoPosition ?? null,
       bannerBackgroundDataUrl: pharmacy.bannerBackgroundDataUrl ?? null,
       logoDataUrl: pharmacy.logoDataUrl ?? null,
+      logoScale: pharmacy.logoScale ?? null,
       themeColor: pharmacy.themeColor ?? null,
       tagline: pharmacy.tagline ?? null,
       ...patch,
@@ -61,6 +63,12 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
         onRemove={() => setBranding({ logoDataUrl: null })}
         prepare={(dataUrl) => removeFlatBackground(dataUrl, { onlyIfFlat: true })}
       />
+      {pharmacy.logoDataUrl && (
+        <LogoSizeControl
+          scale={pharmacy.logoScale ?? 1}
+          onChange={(logoScale) => setBranding({ logoScale })}
+        />
+      )}
       <div>
         <p className="mb-1 text-xs font-medium text-slate-700">Tagline (optional)</p>
         <input
@@ -74,6 +82,34 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
       <VendorThemePicker pharmacy={pharmacy} />
     </section>
     </>
+  )
+}
+
+// How big the logo sits on the page. A slider rather than a drag handle:
+// the logo is a fixed square in the header, so size is the only thing there
+// is to change about it, and a slider says that where a handle would invite
+// a drag that does nothing.
+function LogoSizeControl({ scale, onChange }: { scale: number; onChange: (scale: number) => void }) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between">
+        <p className="text-xs font-medium text-slate-700">Logo size</p>
+        <span className="text-[11px] tabular-nums text-slate-400">{Math.round(scale * 100)}%</span>
+      </div>
+      <input
+        type="range"
+        min={0.6}
+        max={2}
+        step={0.05}
+        value={scale}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full accent-brand-600"
+        aria-label="Logo size"
+      />
+      <p className="mt-0.5 text-[11px] text-slate-400">
+        Shows at this size on your page. Drag left for a small mark, right for a big one.
+      </p>
+    </div>
   )
 }
 
@@ -92,6 +128,7 @@ export function VendorThemePicker({ pharmacy }: { pharmacy: Pharmacy }) {
       coverPhotoPosition: pharmacy.coverPhotoPosition ?? null,
       bannerBackgroundDataUrl: pharmacy.bannerBackgroundDataUrl ?? null,
       logoDataUrl: pharmacy.logoDataUrl ?? null,
+      logoScale: pharmacy.logoScale ?? null,
       themeColor: pharmacy.themeColor === key ? null : key,
       tagline: pharmacy.tagline ?? null,
     })

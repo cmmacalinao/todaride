@@ -143,6 +143,7 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
       coverPhotoPosition: { x: number; y: number; scale?: number } | null
       bannerBackgroundDataUrl: string | null
       logoDataUrl: string | null
+      logoScale: number | null
       themeColor: string | null
       tagline: string | null
     }>,
@@ -153,6 +154,7 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
       coverPhotoPosition: pharmacy.coverPhotoPosition ?? null,
       bannerBackgroundDataUrl: pharmacy.bannerBackgroundDataUrl ?? null,
       logoDataUrl: pharmacy.logoDataUrl ?? null,
+      logoScale: pharmacy.logoScale ?? null,
       themeColor: pharmacy.themeColor ?? null,
       tagline: pharmacy.tagline ?? null,
       ...patch,

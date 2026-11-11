@@ -386,6 +386,10 @@ export function VendorHeaderCard({
   // when dragging a shrunken photo around.
   const savedPosition = { x: 75, y: 50, ...(pharmacy.coverPhotoPosition ?? {}) }
   const photoScale = savedPosition.scale ?? 1
+  // The logo's box, in px. Clamped to the same range the size slider offers
+  // (see LogoSizeControl) so a value that arrived from older data or a hand
+  // edit cannot push the logo outside the banner.
+  const logoBox = Math.round(80 * Math.max(0.6, Math.min(2, pharmacy.logoScale ?? 1)))
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null)
 
   // Zoom in steps about the photo's own centre, so it grows and shrinks in
@@ -802,7 +806,7 @@ export function VendorHeaderCard({
             and Change cover buttons underneath. Only the avatar itself
             takes pointer events back. */}
         <div className="pointer-events-none -mt-[104px] flex items-end gap-3">
-          <div className="pointer-events-auto relative h-20 w-20 shrink-0">
+          <div className="pointer-events-auto relative shrink-0" style={{ width: logoBox, height: logoBox }}>
             {/* A real uploaded logo carries its own background/shape (the
                 seed logo, for instance, is already a white circle) — the
                 card's own white border/background/shadow was doubling up on
@@ -811,12 +815,20 @@ export function VendorHeaderCard({
                 still needs that framing, or it would float bare on the
                 gradient. */}
             <div
-              className={`flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl text-4xl ${
+              className={`flex h-full w-full items-center justify-center overflow-hidden rounded-2xl ${
                 pharmacy.logoDataUrl ? '' : 'border-4 border-white bg-white shadow-md'
               }`}
+              style={{ fontSize: logoBox * 0.45 }}
             >
               {pharmacy.logoDataUrl ? (
-                <img src={pharmacy.logoDataUrl} alt={`${pharmacy.name} logo`} className="h-full w-full object-cover" />
+                // contain, not cover: a wordmark or a tall logo was being
+                // cropped to a square by the old fixed box, which is the
+                // other half of why one size never fitted every shop.
+                <img
+                  src={pharmacy.logoDataUrl}
+                  alt={`${pharmacy.name} logo`}
+                  className="h-full w-full object-contain"
+                />
               ) : (
                 accent.icon
               )}

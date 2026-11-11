@@ -534,6 +534,11 @@ export interface Pharmacy {
   // this, like every vendor image, rides inside the shared state blob.
   bannerBackgroundDataUrl?: string | null
   logoDataUrl?: string | null
+  // How big the logo sits on the page, as a multiple of its default 80px
+  // box. A logo is whatever the shop already had — a square JPEG from a
+  // tarpaulin, a wide wordmark, a tiny PNG — so one fixed box flatters some
+  // and strands others. Undefined reads as 1.
+  logoScale?: number | null
   // A named preset from VENDOR_THEME_COLORS (see VendorStorefront.tsx) that
   // overrides the businessType-derived gradient — lets a vendor pick their
   // own accent instead of being stuck with whatever their category defaults

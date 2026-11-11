@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { VendorHeaderCard, VendorStorefront, resolveVendorAccent } from '../components/VendorStorefront'
-import { VendorBrandingEditor } from '../components/VendorBrandingEditor'
+import { useVendorBranding, VendorBrandingEditor } from '../components/VendorBrandingEditor'
 
 // The vendor's own page, on its own route — reached from "🏪 My Vendor Page"
 // in the portal (see PharmacyPortalPage.tsx) instead of an inline
@@ -22,6 +22,8 @@ export function VendorPublicPage() {
   const [tab, setTab] = useState<'preview' | 'customize'>('preview')
 
   const pharmacy = pharmacies.find((p) => p.id === pharmacyId)
+  // Above the early return below, as the rules of hooks require.
+  const setBranding = useVendorBranding(pharmacy)
 
   if (!pharmacy) {
     return (
@@ -77,9 +79,28 @@ export function VendorPublicPage() {
         <div className="space-y-3">
           {/* The same header a customer will see, live — so a cover
               photo/logo/tagline/theme change shows its actual effect right
-              here instead of only after switching to Preview. */}
+              here instead of only after switching to Preview.
+
+              And editable, which it was not: this is the screen called
+              Customize, so the pictures on it have to be the ones you can
+              drag. Leaving them inert here meant the only place a logo could
+              actually be moved was the Menu tab of the portal, which is not
+              where anybody goes to change how their page looks. */}
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <VendorHeaderCard pharmacy={pharmacy} itemCount={items.length} accent={resolveVendorAccent(pharmacy)} />
+            <VendorHeaderCard
+              pharmacy={pharmacy}
+              itemCount={items.length}
+              accent={resolveVendorAccent(pharmacy)}
+              onLogoUpload={(logoDataUrl) => setBranding({ logoDataUrl })}
+              onCoverUpload={(coverPhotoDataUrl) => setBranding({ coverPhotoDataUrl })}
+              onCoverPositionChange={(coverPhotoPosition) => setBranding({ coverPhotoPosition })}
+              onBannerBackgroundUpload={(bannerBackgroundDataUrl) => setBranding({ bannerBackgroundDataUrl })}
+              onBannerBackgroundRemove={() => setBranding({ bannerBackgroundDataUrl: null })}
+              onLogoPositionChange={(logoPosition) => setBranding({ logoPosition })}
+              onBannerBackgroundPositionChange={(bannerBackgroundPosition) => setBranding({ bannerBackgroundPosition })}
+              onNamePositionChange={(namePosition) => setBranding({ namePosition })}
+              onLogoRemove={() => setBranding({ logoDataUrl: null })}
+            />
           </div>
           <VendorBrandingEditor pharmacy={pharmacy} />
         </div>

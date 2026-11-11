@@ -1594,6 +1594,7 @@ type RideAction =
       logoDataUrl: string | null
       logoPosition: { x: number; y: number; scale?: number } | null
       bannerBackgroundPosition: { x: number; y: number; scale?: number } | null
+      namePosition: { x: number; y: number; scale?: number } | null
       themeColor: string | null
       tagline: string | null
     }
@@ -6989,6 +6990,7 @@ function reducer(state: RideState, action: RideAction): RideState {
                 logoDataUrl: action.logoDataUrl,
                 logoPosition: action.logoPosition,
                 bannerBackgroundPosition: action.bannerBackgroundPosition,
+                namePosition: action.namePosition,
                 themeColor: action.themeColor,
                 tagline: action.tagline,
               }
@@ -8222,6 +8224,7 @@ interface RideContextValue extends RideState {
     logoDataUrl: string | null
     logoPosition: { x: number; y: number; scale?: number } | null
     bannerBackgroundPosition: { x: number; y: number; scale?: number } | null
+    namePosition: { x: number; y: number; scale?: number } | null
     themeColor: string | null
     tagline: string | null
   }) => void

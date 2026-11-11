@@ -12,6 +12,7 @@ import {
   type FoodCatalogItem,
 } from '../lib/foodCatalog'
 import { VendorHeaderCard, VendorMenuItemCard, resolveVendorAccent } from './VendorStorefront'
+import { useVendorBranding } from './VendorBrandingEditor'
 import { VendorLocationPicker } from './VendorLocationPicker'
 import { MENU_ITEM_BADGES, type MedicineProduct, type MenuItemBadge, type Pharmacy } from '../types'
 
@@ -36,7 +37,6 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
     toggleMedicineProductStock,
     toggleMedicineProductVisibility,
     setMedicineProductStockCount,
-    updateVendorBranding,
   } = useRides()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [photoPickerId, setPhotoPickerId] = useState<string | null>(null)
@@ -137,31 +137,7 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
     setDragOrder(null)
   }
 
-  function setBranding(
-    patch: Partial<{
-      coverPhotoDataUrl: string | null
-      coverPhotoPosition: { x: number; y: number; scale?: number } | null
-      bannerBackgroundDataUrl: string | null
-      logoDataUrl: string | null
-      logoPosition: { x: number; y: number; scale?: number } | null
-      bannerBackgroundPosition: { x: number; y: number; scale?: number } | null
-      themeColor: string | null
-      tagline: string | null
-    }>,
-  ) {
-    updateVendorBranding({
-      pharmacyId: pharmacy.id,
-      coverPhotoDataUrl: pharmacy.coverPhotoDataUrl ?? null,
-      coverPhotoPosition: pharmacy.coverPhotoPosition ?? null,
-      bannerBackgroundDataUrl: pharmacy.bannerBackgroundDataUrl ?? null,
-      logoDataUrl: pharmacy.logoDataUrl ?? null,
-      logoPosition: pharmacy.logoPosition ?? null,
-      bannerBackgroundPosition: pharmacy.bannerBackgroundPosition ?? null,
-      themeColor: pharmacy.themeColor ?? null,
-      tagline: pharmacy.tagline ?? null,
-      ...patch,
-    })
-  }
+  const setBranding = useVendorBranding(pharmacy)
 
   function handleAdd(fields: MenuItemFields) {
     addMedicineProduct({
@@ -260,6 +236,8 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
         onBannerBackgroundRemove={() => setBranding({ bannerBackgroundDataUrl: null })}
         onLogoPositionChange={(logoPosition) => setBranding({ logoPosition })}
         onBannerBackgroundPositionChange={(bannerBackgroundPosition) => setBranding({ bannerBackgroundPosition })}
+        onNamePositionChange={(namePosition) => setBranding({ namePosition })}
+        onLogoRemove={() => setBranding({ logoDataUrl: null })}
       />
 
       <div className="space-y-3 px-4 pb-4">

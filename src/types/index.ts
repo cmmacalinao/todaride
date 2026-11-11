@@ -554,6 +554,11 @@ export interface Pharmacy {
   // 50/50 being centred) and scale zooms it. Without this a vendor could
   // choose the photo but not which part of it the banner actually showed.
   bannerBackgroundPosition?: { x: number; y: number; scale?: number } | null
+  // Where the shop's name sits on the banner and how big. The name keeps
+  // clear of the logo on its own (the banner pads for whatever size the logo
+  // is), so this is for the shop that wants it somewhere else entirely —
+  // over their own photo's empty corner, say, rather than across the food.
+  namePosition?: { x: number; y: number; scale?: number } | null
   // A named preset from VENDOR_THEME_COLORS (see VendorStorefront.tsx) that
   // overrides the businessType-derived gradient — lets a vendor pick their
   // own accent instead of being stuck with whatever their category defaults

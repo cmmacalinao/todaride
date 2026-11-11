@@ -319,6 +319,72 @@ export function VendorBannerArt({ kind = 'food' }: { kind?: 'food' | 'goods' }) 
   )
 }
 
+// The little − 75% + pill the profile photo has always carried, made
+// available to the logo and the name as well: same gesture, same place, same
+// look, so a vendor learns the control once. The trailing action is Remove
+// where there is a picture to delete and Reset where there is not — a shop
+// cannot delete its own name, but it can certainly want its placement back.
+function ScaleStrip({
+  scale,
+  min,
+  max,
+  step,
+  onScale,
+  onTrailing,
+  trailingLabel,
+  what,
+  className,
+}: {
+  scale: number
+  min: number
+  max: number
+  step: number
+  onScale: (scale: number) => void
+  onTrailing?: () => void
+  trailingLabel?: string
+  what: string
+  className: string
+}) {
+  const clamp = (n: number) => Math.round(Math.max(min, Math.min(max, n)) * 100) / 100
+  return (
+    <div
+      className={`pointer-events-auto absolute z-10 flex items-center gap-0.5 rounded-full bg-black/45 px-1 py-0.5 text-white shadow-sm ${className}`}
+    >
+      <button
+        type="button"
+        onClick={() => onScale(clamp(scale - step))}
+        disabled={scale <= min}
+        aria-label={`Shrink ${what}`}
+        className="h-5 w-5 rounded-full text-sm font-bold leading-none hover:bg-white/20 disabled:opacity-40"
+      >
+        −
+      </button>
+      <span className="min-w-[2rem] text-center text-[9px] font-semibold tabular-nums">{Math.round(scale * 100)}%</span>
+      <button
+        type="button"
+        onClick={() => onScale(clamp(scale + step))}
+        disabled={scale >= max}
+        aria-label={`Enlarge ${what}`}
+        className="h-5 w-5 rounded-full text-sm font-bold leading-none hover:bg-white/20 disabled:opacity-40"
+      >
+        +
+      </button>
+      {onTrailing && (
+        <>
+          <span aria-hidden className="mx-0.5 h-3.5 w-px bg-white/30" />
+          <button
+            type="button"
+            onClick={onTrailing}
+            className="whitespace-nowrap rounded-full px-1.5 text-[9px] font-semibold hover:bg-white/20"
+          >
+            {trailingLabel}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
 // Dragging a picture to place it, in percent.
 //
 // The profile photo below keeps its own copy of this: it was written first,
@@ -393,6 +459,8 @@ export function VendorHeaderCard({
   onBannerBackgroundRemove,
   onLogoPositionChange,
   onBannerBackgroundPositionChange,
+  onNamePositionChange,
+  onLogoRemove,
   onRate,
 }: {
   pharmacy: Pharmacy
@@ -430,6 +498,8 @@ export function VendorHeaderCard({
   // banner's pan its crop (object-position).
   onLogoPositionChange?: (position: { x: number; y: number; scale?: number }) => void
   onBannerBackgroundPositionChange?: (position: { x: number; y: number; scale?: number }) => void
+  onNamePositionChange?: (position: { x: number; y: number; scale?: number }) => void
+  onLogoRemove?: () => void
 }) {
   const [favorited, setFavorited] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
@@ -475,6 +545,14 @@ export function VendorHeaderCard({
     onBannerBackgroundPositionChange && ((p) => onBannerBackgroundPositionChange({ ...p, scale: bannerScale })),
     { invert: true },
   )
+
+  // The shop's name: a nudge and a size, same as the rest.
+  const savedName = { x: 0, y: 0, ...(pharmacy.namePosition ?? {}) }
+  const nameScale = Math.max(0.7, Math.min(1.6, savedName.scale ?? 1))
+  const nameDrag = usePlacementDrag(savedName, onNamePositionChange && ((p) => onNamePositionChange({ ...p, scale: nameScale })), {
+    min: -120,
+    max: 120,
+  })
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null)
 
   // Zoom in steps about the photo's own centre, so it grows and shrinks in
@@ -876,11 +954,43 @@ export function VendorHeaderCard({
             visible text sits only in the upper-middle — without it, the
             empty lower-right part of this box would swallow clicks meant
             for the "Change cover" badge sitting underneath it. */}
-        <div className="pointer-events-none absolute inset-0 flex flex-col justify-center gap-1 py-3 pl-32 pr-24">
+        {/* pl is computed, not pl-32: that constant was the 24px the logo
+            starts at plus its 80px plus a gap, so a logo resized past the
+            default simply covered the name. It now steps aside for whatever
+            size the logo actually is, before anybody has to drag anything. */}
+        <div
+          className="pointer-events-none absolute inset-0 flex flex-col justify-center gap-1 py-3 pr-24"
+          style={{ paddingLeft: 24 + logoBox + 16 }}
+        >
+          <div
+            className={onNamePositionChange ? 'pointer-events-auto cursor-grab touch-none active:cursor-grabbing' : ''}
+            {...(onNamePositionChange ? nameDrag.handlers : {})}
+            style={{
+              transformOrigin: 'left center',
+              transform:
+                nameDrag.position.x || nameDrag.position.y || nameScale !== 1
+                  ? `translate(${nameDrag.position.x}%, ${nameDrag.position.y}%) scale(${nameScale})`
+                  : undefined,
+            }}
+          >
           <h2 className="truncate text-lg font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">{pharmacy.name}</h2>
           {pharmacy.tagline && (
             <p className="truncate text-xs italic text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">{pharmacy.tagline}</p>
           )}
+          {onNamePositionChange && (
+            <ScaleStrip
+              what="name"
+              scale={nameScale}
+              min={0.7}
+              max={1.6}
+              step={0.1}
+              onScale={(scale) => onNamePositionChange({ x: savedName.x, y: savedName.y, scale })}
+              onTrailing={() => onNamePositionChange({ x: 0, y: 0, scale: 1 })}
+              trailingLabel="↺ Reset"
+              className="-bottom-6 left-0"
+            />
+          )}
+          </div>
           <span
             className={`inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm ${accent.soft} ${accent.softText}`}
           >
@@ -952,6 +1062,23 @@ export function VendorHeaderCard({
                 accent.icon
               )}
             </div>
+            {onLogoPositionChange && (
+              <ScaleStrip
+                what="logo"
+                scale={logoScale}
+                min={0.6}
+                max={2}
+                step={0.1}
+                onScale={(scale) => onLogoPositionChange({ x: savedLogo.x, y: savedLogo.y, scale })}
+                onTrailing={
+                  onLogoRemove && pharmacy.logoDataUrl
+                    ? onLogoRemove
+                    : () => onLogoPositionChange({ x: 0, y: 0, scale: 1 })
+                }
+                trailingLabel={onLogoRemove && pharmacy.logoDataUrl ? '✂ Remove' : '↺ Reset'}
+                className="-bottom-7 left-1/2 -translate-x-1/2"
+              />
+            )}
             {onLogoUpload && (
               <>
                 <input
@@ -975,15 +1102,23 @@ export function VendorHeaderCard({
           </div>
         </div>
 
-        {/* The gap is measured, not guessed. The avatar row above is pulled
-            up 104px into a 128px banner, so its bottom sits at
-            24px + the logo's height — and since the logo can now be resized
-            to 160px and nudged downwards, a fixed margin that was correct
-            for an 80px logo let a big one sit right on top of this address.
-            32px stays the floor, which is the old mt-8 for a default logo. */}
+        {/* The gap is measured, not guessed, and measured from the right
+            thing: this margin starts at the avatar row's bottom, which is
+            already below the banner when the logo is large — so adding the
+            overflow again counted it twice and left a hand's width of white.
+
+            The row is pulled 104px up into a 128px banner, so its bottom is
+            at 24px + the logo's height + whatever the nudge adds. The address
+            wants to clear whichever is lower, the row or the banner, by one
+            small constant. A default 80px logo ends above the banner, so that
+            works out to the 32px this used to hardcode; a 160px one ends
+            below it, and the address follows it down instead of leaving a
+            gap sized for a banner that is no longer the lowest thing. */}
         <div
           className="pointer-events-auto flex items-start justify-between gap-3"
-          style={{ marginTop: Math.max(32, logoBox + Math.round((logoDrag.position.y / 100) * logoBox) - 104 + 12) }}
+          style={{
+            marginTop: Math.max(0, 128 - (24 + logoBox + Math.round((logoDrag.position.y / 100) * logoBox))) + 8,
+          }}
         >
           <div className="min-w-0 space-y-0.5 text-xs text-slate-500">
             <p>

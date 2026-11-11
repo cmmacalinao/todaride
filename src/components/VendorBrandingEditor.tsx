@@ -10,22 +10,28 @@ import type { Pharmacy } from '../types'
 // reached from "My Vendor Page" in the portal) can show beyond the generic
 // businessType look: a cover photo, a logo, a tagline, and an accent theme
 // color.
-export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
-  const { updateVendorBranding } = useRides()
-  const [tagline, setTagline] = useState(pharmacy.tagline ?? '')
+// Saving branding means sending the whole record, so a field left out of
+// any one caller is a field wiped the next time that caller runs. There were
+// three copies of this list; this is the one.
+export type VendorBrandingPatch = Partial<{
+  coverPhotoDataUrl: string | null
+  coverPhotoPosition: { x: number; y: number; scale?: number } | null
+  bannerBackgroundDataUrl: string | null
+  logoDataUrl: string | null
+  logoPosition: { x: number; y: number; scale?: number } | null
+  bannerBackgroundPosition: { x: number; y: number; scale?: number } | null
+  namePosition: { x: number; y: number; scale?: number } | null
+  themeColor: string | null
+  tagline: string | null
+}>
 
-  function setBranding(
-    patch: Partial<{
-      coverPhotoDataUrl: string | null
-      coverPhotoPosition: { x: number; y: number; scale?: number } | null
-      bannerBackgroundDataUrl: string | null
-      logoDataUrl: string | null
-      logoPosition: { x: number; y: number; scale?: number } | null
-      bannerBackgroundPosition: { x: number; y: number; scale?: number } | null
-      themeColor: string | null
-      tagline: string | null
-    }>,
-  ) {
+// Takes a possibly-missing pharmacy so a page can call it above its own
+// "no such vendor" early return, which is where the rules of hooks require
+// it to live. With nothing to save to, saving does nothing.
+export function useVendorBranding(pharmacy: Pharmacy | undefined) {
+  const { updateVendorBranding } = useRides()
+  return function setBranding(patch: VendorBrandingPatch) {
+    if (!pharmacy) return
     updateVendorBranding({
       pharmacyId: pharmacy.id,
       coverPhotoDataUrl: pharmacy.coverPhotoDataUrl ?? null,
@@ -34,15 +40,22 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
       logoDataUrl: pharmacy.logoDataUrl ?? null,
       logoPosition: pharmacy.logoPosition ?? null,
       bannerBackgroundPosition: pharmacy.bannerBackgroundPosition ?? null,
+      namePosition: pharmacy.namePosition ?? null,
       themeColor: pharmacy.themeColor ?? null,
       tagline: pharmacy.tagline ?? null,
       ...patch,
     })
   }
+}
+
+export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
+  const { updatePharmacyProfile } = useRides()
+  const setBranding = useVendorBranding(pharmacy)
+  const [tagline, setTagline] = useState(pharmacy.tagline ?? '')
+  const [name, setName] = useState(pharmacy.name)
 
   return (
     <>
-    <VendorSlugEditor pharmacy={pharmacy} />
     <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <h2 className="text-sm font-semibold text-slate-700">🎨 Customize your vendor page</h2>
       <DocumentUploadField
@@ -89,6 +102,43 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
           onReset={() => setBranding({ logoPosition: null })}
         />
       )}
+      {/* The shop's own name, editable here because this is the screen a
+          vendor opens to fix how their page reads — and a typo in the name
+          was the one thing on it they could not touch without going to
+          Account. Saved on blur, like the tagline below it. */}
+      <div>
+        <p className="mb-1 text-xs font-medium text-slate-700">Merchant name</p>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => {
+            const next = name.trim()
+            if (!next || next === pharmacy.name) {
+              setName(pharmacy.name)
+              return
+            }
+            updatePharmacyProfile(pharmacy.id, {
+              name: next,
+              phone: pharmacy.contactPhone,
+              email: pharmacy.email ?? null,
+              pin: pharmacy.adminPin,
+              paymentDetail: pharmacy.paymentDetail ?? null,
+              password: pharmacy.password ?? null,
+              emergencyContact: pharmacy.emergencyContact ?? null,
+            })
+          }}
+          className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
+        />
+      </div>
+      <PlacementControl
+        label="Name size"
+        hint="Drag the name itself on the page above to move it."
+        min={0.7}
+        max={1.6}
+        value={pharmacy.namePosition?.scale ?? 1}
+        onScale={(scale) => setBranding({ namePosition: { x: 0, y: 0, ...(pharmacy.namePosition ?? {}), scale } })}
+        onReset={() => setBranding({ namePosition: null })}
+      />
       <div>
         <p className="mb-1 text-xs font-medium text-slate-700">Tagline (optional)</p>
         <input
@@ -101,6 +151,10 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
       </div>
       <VendorThemePicker pharmacy={pharmacy} />
     </section>
+    {/* Below the look-and-feel, not above it: the link is set once and then
+        almost never touched again, while everything in the panel above is
+        what a vendor came here to fiddle with. */}
+    <VendorSlugEditor pharmacy={pharmacy} />
     </>
   )
 }
@@ -162,20 +216,10 @@ function PlacementControl({
 // does often enough that a trip into the page editor for it is a chore.
 // Saves through the same full-field branding update as everything else.
 export function VendorThemePicker({ pharmacy }: { pharmacy: Pharmacy }) {
-  const { updateVendorBranding } = useRides()
+  const setBranding = useVendorBranding(pharmacy)
 
   function pick(key: string) {
-    updateVendorBranding({
-      pharmacyId: pharmacy.id,
-      coverPhotoDataUrl: pharmacy.coverPhotoDataUrl ?? null,
-      coverPhotoPosition: pharmacy.coverPhotoPosition ?? null,
-      bannerBackgroundDataUrl: pharmacy.bannerBackgroundDataUrl ?? null,
-      logoDataUrl: pharmacy.logoDataUrl ?? null,
-      logoPosition: pharmacy.logoPosition ?? null,
-      bannerBackgroundPosition: pharmacy.bannerBackgroundPosition ?? null,
-      themeColor: pharmacy.themeColor === key ? null : key,
-      tagline: pharmacy.tagline ?? null,
-    })
+    setBranding({ themeColor: pharmacy.themeColor === key ? null : key })
   }
 
   // Collapsed by default: a theme is picked once, so the swatches need not

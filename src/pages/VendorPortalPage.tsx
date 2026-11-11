@@ -260,7 +260,18 @@ export function VendorPortalPage() {
     // shell with normal breathing room; every tab's own content below is
     // shared between both, untouched.
     <div className={isDesktop ? 'mx-auto max-w-6xl px-6 py-6' : 'mx-auto max-w-lg space-y-2.5 px-1.5 py-2.5 pb-20'}>
-      <div className="flex justify-end">
+      {/* The shop's own page, reachable from every tab rather than only
+          from inside Store (mobile) or the sidebar (desktop) — it is the
+          thing a vendor checks most often after changing anything, and
+          hunting for it through a tab was the long way round. */}
+      <div className="flex items-center justify-end gap-1.5">
+        <button
+          type="button"
+          onClick={() => navigate(`/vendor-page/${vendor.id}`)}
+          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-brand-700 shadow-sm transition hover:bg-brand-50"
+        >
+          🏪 View My Page
+        </button>
         <VendorViewModeToggle mode={viewMode} onChange={setViewMode} />
       </div>
       <AnnouncementFeed viewer="partners" />

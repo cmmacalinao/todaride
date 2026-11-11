@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { getCurrentGeoPosition } from '../lib/geo'
+import { getCurrentGeoPosition, haversineDistanceMeters } from '../lib/geo'
 import { resolvePhAddress } from '../lib/customLocation'
 import { RealLiveMap, type MapPoint } from './RealLiveMap'
 import type { GeoCoords } from '../types'
@@ -69,7 +69,7 @@ export function VendorSignupLocation({
           }),
           new Promise<null>((resolve) => setTimeout(() => resolve(null), GEOCODE_TIMEOUT_MS)),
         ])
-        if (!cancelled && location?.gps) onChange(location.gps)
+        if (!cancelled && location?.gps) placeAutomatically(location.gps)
       } catch {
         // A failed lookup just leaves the map empty with its prompt showing;
         // registration never depended on this and still does not.
@@ -94,8 +94,27 @@ export function VendorSignupLocation({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addressKey, ready, pinnedByHand])
 
-  function movePin(next: GeoCoords) {
-    setPinnedByHand(true)
+  // Where the map was last put by something other than the merchant's own
+  // dragging — the geocoded barangay, or their phone's fix. The centre pin
+  // reports a position constantly, including the one the map opens on, so
+  // without this every mount would count as "they placed it themselves" and
+  // the address lookup would never be allowed to move the map again.
+  const autoPlaced = useRef<GeoCoords | null>(null)
+  // Bumped when we move the map ourselves, to make it fly there.
+  const [refit, setRefit] = useState(0)
+
+  function placeAutomatically(next: GeoCoords) {
+    autoPlaced.current = next
+    setRefit((n) => n + 1)
+    onChange(next)
+  }
+
+  // The map moves under a fixed pin, so this fires continuously as it is
+  // dragged. Anything within a few metres of where we put the map ourselves
+  // is that same spot settling, not a choice.
+  function handleCenterChange(next: GeoCoords) {
+    const from = autoPlaced.current
+    if (!from || haversineDistanceMeters(from, next) > 15) setPinnedByHand(true)
     onChange(next)
   }
 
@@ -104,20 +123,27 @@ export function VendorSignupLocation({
   async function pinMyGps() {
     setGpsStatus('locating')
     try {
-      movePin(await getCurrentGeoPosition())
+      const here = await getCurrentGeoPosition()
+      placeAutomatically(here)
+      // Their own fix is a deliberate answer, not a guess to be overwritten
+      // by a later edit to the typed address.
+      setPinnedByHand(true)
       setGpsStatus('idle')
     } catch {
       setGpsStatus('error')
     }
   }
 
-  // RealLiveMap renders nothing at all with an empty points array, so the pin
-  // always exists — on the fallback centre until the address resolves. A map
-  // that appears the moment you have picked a barangay, with a pin to drag,
-  // is the whole prompt; an empty space where a map should be teaches nobody
-  // that there is anything to do here.
+  // RealLiveMap renders nothing at all with an empty points array, so there
+  // is always a point: on the fallback centre until the address resolves. It
+  // is what the map frames itself around — the pin the merchant actually
+  // aims is the fixed one at the centre, drawn by the map itself.
   const shownGps = gps ?? DEFAULT_GPS
-  const points: MapPoint[] = [{ id: 'store', gps: shownGps, color: '#ea580c', label: 'Your store', icon: 'resto' }]
+  // No label and no icon on this one: the centre pin is already saying "your
+  // store", and a second labelled storefront glyph a few pixels under it
+  // read as two different places in a map this small. What is left is a dot
+  // marking the exact spot the pin's tip is on.
+  const points: MapPoint[] = [{ id: 'store', gps: shownGps, color: '#ea580c', label: '' }]
 
   return (
     <div>
@@ -137,12 +163,24 @@ export function VendorSignupLocation({
       {ready ? (
         <>
           <div className="overflow-hidden rounded-lg border border-slate-200">
+            {/* The map is the pointer: the pin stands still in the middle of
+                the frame and the merchant slides their own doorway under it.
+                A pin small enough to grab is smaller than the thumb grabbing
+                it, and the thumb covers the very spot being chosen — moving
+                the map instead leaves the target visible the whole time. */}
             <RealLiveMap
               points={points}
-              onMapClick={movePin}
-              draggableIds={['store']}
-              onPointDragEnd={(_, next) => movePin(next)}
-              height="180px"
+              hideLegend
+              centerPin
+              centerPinColor="#ea580c"
+              centerPinLabel="Your store"
+              onCenterChange={handleCenterChange}
+              // Frame it once, then it is theirs to move; flying only when we
+              // put it somewhere ourselves (the address resolving, or GPS).
+              fitOnce
+              refitSignal={`place:${refit}`}
+              singlePointZoom={17}
+              height="200px"
             />
           </div>
           <p className="mt-1 text-[11px] leading-snug text-slate-500">
@@ -151,11 +189,11 @@ export function VendorSignupLocation({
               : pinnedByHand
                 ? '✓ Pinned. This is where riders will come to pick up orders.'
                 : gps
-                  ? 'Tap the map or drag the pin to your door. Riders are routed here, and your delivery fare is priced from it — the address alone only gets us to the barangay.'
+                  ? 'Drag the map until the pin sits on your door. Riders are routed to it, and your delivery fare is priced from it — the address alone only gets us to the barangay.'
                   : // The pin is sitting on the fallback centre, which is
                     // almost certainly not their street. Say so, rather than
                     // let a pin that means nothing look like an answer.
-                    'We could not place your barangay automatically. Tap the map where your store is — until you do, we will use your typed address.'}
+                    'We could not place your barangay automatically. Drag the map to your store — until you do, we will use your typed address.'}
           </p>
         </>
       ) : (

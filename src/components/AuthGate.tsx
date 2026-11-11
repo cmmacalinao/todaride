@@ -875,10 +875,7 @@ function PharmacySignupForm({
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-500">
-          {merchantCategory
-            ? CATEGORY_BY_ID[merchantCategory].label
-            : (categories.find((c) => c.value === businessType)?.label ?? BUSINESS_TYPE_LABELS[businessType])}{' '}
-          name
+          Merchant Name
         </label>
         <input
           value={name}
@@ -933,9 +930,7 @@ function PharmacySignupForm({
         disabled={submitting}
         className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {submitting
-          ? 'Registering…'
-          : `Register ${categories.find((c) => c.value === businessType)?.label ?? BUSINESS_TYPE_LABELS[businessType]}`}
+        {submitting ? 'Registering…' : 'Register'}
       </button>
     </div>
   )

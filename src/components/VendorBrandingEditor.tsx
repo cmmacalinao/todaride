@@ -48,6 +48,27 @@ export function useVendorBranding(pharmacy: Pharmacy | undefined) {
   }
 }
 
+// Renaming a shop goes through the whole-profile update, so this exists for
+// the same reason useVendorBranding does: every caller would otherwise have
+// to restate the phone, the PIN and the rest, and whichever one forgot a
+// field would quietly erase it.
+export function useVendorRename(pharmacy: Pharmacy | undefined) {
+  const { updatePharmacyProfile } = useRides()
+  return function rename(name: string) {
+    const next = name.trim()
+    if (!pharmacy || !next || next === pharmacy.name) return
+    updatePharmacyProfile(pharmacy.id, {
+      name: next,
+      phone: pharmacy.contactPhone,
+      email: pharmacy.email ?? null,
+      pin: pharmacy.adminPin,
+      paymentDetail: pharmacy.paymentDetail ?? null,
+      password: pharmacy.password ?? null,
+      emergencyContact: pharmacy.emergencyContact ?? null,
+    })
+  }
+}
+
 export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
   const { updatePharmacyProfile } = useRides()
   const setBranding = useVendorBranding(pharmacy)

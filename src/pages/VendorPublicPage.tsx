@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { VendorHeaderCard, VendorStorefront, resolveVendorAccent } from '../components/VendorStorefront'
-import { useVendorBranding, VendorBrandingEditor } from '../components/VendorBrandingEditor'
+import { useVendorBranding, useVendorRename, VendorBrandingEditor } from '../components/VendorBrandingEditor'
 
 // The vendor's own page, on its own route — reached from "🏪 My Vendor Page"
 // in the portal (see PharmacyPortalPage.tsx) instead of an inline
@@ -24,6 +24,7 @@ export function VendorPublicPage() {
   const pharmacy = pharmacies.find((p) => p.id === pharmacyId)
   // Above the early return below, as the rules of hooks require.
   const setBranding = useVendorBranding(pharmacy)
+  const rename = useVendorRename(pharmacy)
 
   if (!pharmacy) {
     return (
@@ -99,7 +100,7 @@ export function VendorPublicPage() {
               onLogoPositionChange={(logoPosition) => setBranding({ logoPosition })}
               onBannerBackgroundPositionChange={(bannerBackgroundPosition) => setBranding({ bannerBackgroundPosition })}
               onNamePositionChange={(namePosition) => setBranding({ namePosition })}
-              onLogoRemove={() => setBranding({ logoDataUrl: null })}
+              onNameChange={rename}
             />
           </div>
           <VendorBrandingEditor pharmacy={pharmacy} />

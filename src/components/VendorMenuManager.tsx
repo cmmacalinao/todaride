@@ -12,7 +12,7 @@ import {
   type FoodCatalogItem,
 } from '../lib/foodCatalog'
 import { VendorHeaderCard, VendorMenuItemCard, resolveVendorAccent } from './VendorStorefront'
-import { useVendorBranding } from './VendorBrandingEditor'
+import { useVendorBranding, useVendorRename } from './VendorBrandingEditor'
 import { VendorLocationPicker } from './VendorLocationPicker'
 import { MENU_ITEM_BADGES, type MedicineProduct, type MenuItemBadge, type Pharmacy } from '../types'
 
@@ -138,6 +138,7 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
   }
 
   const setBranding = useVendorBranding(pharmacy)
+  const rename = useVendorRename(pharmacy)
 
   function handleAdd(fields: MenuItemFields) {
     addMedicineProduct({
@@ -237,7 +238,7 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
         onLogoPositionChange={(logoPosition) => setBranding({ logoPosition })}
         onBannerBackgroundPositionChange={(bannerBackgroundPosition) => setBranding({ bannerBackgroundPosition })}
         onNamePositionChange={(namePosition) => setBranding({ namePosition })}
-        onLogoRemove={() => setBranding({ logoDataUrl: null })}
+        onNameChange={rename}
       />
 
       <div className="space-y-3 px-4 pb-4">

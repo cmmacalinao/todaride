@@ -321,9 +321,17 @@ export function VendorBannerArt({ kind = 'food' }: { kind?: 'food' | 'goods' }) 
 
 // The little − 75% + pill the profile photo has always carried, made
 // available to the logo and the name as well: same gesture, same place, same
-// look, so a vendor learns the control once. The trailing action is Remove
-// where there is a picture to delete and Reset where there is not — a shop
-// cannot delete its own name, but it can certainly want its placement back.
+// look, so a vendor learns the control once.
+//
+// Deliberately small. Three of these live on a 128px banner at the same time,
+// over the picture they are editing, so every pixel they take is a pixel of
+// the thing being judged — and the thing being judged is the whole point of
+// the screen. Hit targets stay at 16px, which a thumb still finds.
+//
+// The trailing action is Change where there is a picture to swap and Reset
+// where there is not: a shop cannot replace its own name from here, but it
+// can want its placement back. Deleting a picture outright lives in the panel
+// below, which has the room to say Replace and Remove in words.
 function ScaleStrip({
   scale,
   min,
@@ -348,34 +356,34 @@ function ScaleStrip({
   const clamp = (n: number) => Math.round(Math.max(min, Math.min(max, n)) * 100) / 100
   return (
     <div
-      className={`pointer-events-auto absolute z-10 flex items-center gap-0.5 rounded-full bg-black/45 px-1 py-0.5 text-white shadow-sm ${className}`}
+      className={`pointer-events-auto absolute z-10 flex items-center rounded-full bg-black/40 px-0.5 text-white shadow-sm ${className}`}
     >
       <button
         type="button"
         onClick={() => onScale(clamp(scale - step))}
         disabled={scale <= min}
         aria-label={`Shrink ${what}`}
-        className="h-5 w-5 rounded-full text-sm font-bold leading-none hover:bg-white/20 disabled:opacity-40"
+        className="h-4 w-4 rounded-full text-[11px] font-bold leading-none hover:bg-white/20 disabled:opacity-40"
       >
         −
       </button>
-      <span className="min-w-[2rem] text-center text-[9px] font-semibold tabular-nums">{Math.round(scale * 100)}%</span>
+      <span className="min-w-[1.6rem] text-center text-[8px] font-semibold tabular-nums">{Math.round(scale * 100)}%</span>
       <button
         type="button"
         onClick={() => onScale(clamp(scale + step))}
         disabled={scale >= max}
         aria-label={`Enlarge ${what}`}
-        className="h-5 w-5 rounded-full text-sm font-bold leading-none hover:bg-white/20 disabled:opacity-40"
+        className="h-4 w-4 rounded-full text-[11px] font-bold leading-none hover:bg-white/20 disabled:opacity-40"
       >
         +
       </button>
       {onTrailing && (
         <>
-          <span aria-hidden className="mx-0.5 h-3.5 w-px bg-white/30" />
+          <span aria-hidden className="mx-0.5 h-3 w-px bg-white/25" />
           <button
             type="button"
             onClick={onTrailing}
-            className="whitespace-nowrap rounded-full px-1.5 text-[9px] font-semibold hover:bg-white/20"
+            className="whitespace-nowrap rounded-full px-1 text-[8px] font-semibold hover:bg-white/20"
           >
             {trailingLabel}
           </button>
@@ -460,7 +468,7 @@ export function VendorHeaderCard({
   onLogoPositionChange,
   onBannerBackgroundPositionChange,
   onNamePositionChange,
-  onLogoRemove,
+  onNameChange,
   onRate,
 }: {
   pharmacy: Pharmacy
@@ -499,7 +507,9 @@ export function VendorHeaderCard({
   onLogoPositionChange?: (position: { x: number; y: number; scale?: number }) => void
   onBannerBackgroundPositionChange?: (position: { x: number; y: number; scale?: number }) => void
   onNamePositionChange?: (position: { x: number; y: number; scale?: number }) => void
-  onLogoRemove?: () => void
+  // Renames the shop from the banner itself. Present only on the vendor's
+  // own edit screens, same as everything else here.
+  onNameChange?: (name: string) => void
 }) {
   const [favorited, setFavorited] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
@@ -553,14 +563,10 @@ export function VendorHeaderCard({
     min: -120,
     max: 120,
   })
+  const [editingName, setEditingName] = useState(false)
+  const [nameDraft, setNameDraft] = useState(pharmacy.name)
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null)
 
-  // Zoom in steps about the photo's own centre, so it grows and shrinks in
-  // place. 0.25 is a small badge; 3 is plenty before it pixelates.
-  function changeScale(delta: number) {
-    const next = Math.round(Math.max(0.25, Math.min(3, photoScale + delta)) * 100) / 100
-    onCoverPositionChange?.({ x: savedPosition.x, y: savedPosition.y, scale: next })
-  }
   const dragStart = useRef<{ pointerX: number; pointerY: number; x: number; y: number; w: number; h: number } | null>(null)
   // The last position the pointer reached, kept outside React state so the
   // release handler commits it even when the move and the release land in
@@ -793,50 +799,17 @@ export function VendorHeaderCard({
                 {/* Zoom sits at the photo's bottom-left corner, clear of the
                     Profile Photo button on the right and the name text to
                     its left. */}
-                <div className="absolute bottom-2 left-[50%] flex items-center gap-0.5 rounded-full bg-black/45 px-1 py-0.5 text-white shadow-sm">
-                  <button
-                    type="button"
-                    onClick={() => changeScale(-0.25)}
-                    disabled={photoScale <= 0.25}
-                    aria-label="Zoom out profile photo"
-                    className="h-5 w-5 rounded-full text-sm font-bold leading-none hover:bg-white/20 disabled:opacity-40"
-                  >
-                    −
-                  </button>
-                  <span className="min-w-[2rem] text-center text-[9px] font-semibold tabular-nums">{Math.round(photoScale * 100)}%</span>
-                  <button
-                    type="button"
-                    onClick={() => changeScale(0.25)}
-                    disabled={photoScale >= 3}
-                    aria-label="Zoom in profile photo"
-                    className="h-5 w-5 rounded-full text-sm font-bold leading-none hover:bg-white/20 disabled:opacity-40"
-                  >
-                    +
-                  </button>
-                  {onCoverUpload && (
-                    <>
-                      <span aria-hidden className="mx-0.5 h-3.5 w-px bg-white/30" />
-                      <button
-                        type="button"
-                        disabled={uploadingCover}
-                        onClick={() => {
-                          if (!pharmacy.coverPhotoDataUrl) return
-                          setUploadingCover(true)
-                          void removeFlatBackground(pharmacy.coverPhotoDataUrl)
-                            .then((png) => onCoverUpload(png))
-                            .catch(() => {
-                              // Couldn't decode it — leave the photo as it is.
-                            })
-                            .finally(() => setUploadingCover(false))
-                        }}
-                        title="Make the plain background around the photo transparent"
-                        className="rounded-full px-1.5 text-[9px] font-semibold hover:bg-white/20 disabled:opacity-40"
-                      >
-                        {uploadingCover ? '…' : '✂ Remove BG'}
-                      </button>
-                    </>
-                  )}
-                </div>
+                <ScaleStrip
+                  what="profile photo"
+                  scale={photoScale}
+                  min={0.25}
+                  max={3}
+                  step={0.25}
+                  onScale={(scale) => onCoverPositionChange({ x: savedPosition.x, y: savedPosition.y, scale })}
+                  onTrailing={onCoverUpload ? () => setPhotoPickerOpen(true) : undefined}
+                  trailingLabel="📷 Change"
+                  className="bottom-2 left-[50%]"
+                />
               </>
             )}
           </>
@@ -973,10 +946,39 @@ export function VendorHeaderCard({
                   : undefined,
             }}
           >
-          <h2 className="truncate text-lg font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">{pharmacy.name}</h2>
+          {editingName && onNameChange ? (
+            // Typed where it is read, so the length and the wrapping are the
+            // ones the shop will actually have.
+            <input
+              autoFocus
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={() => {
+                const next = nameDraft.trim()
+                if (next && next !== pharmacy.name) onNameChange(next)
+                else setNameDraft(pharmacy.name)
+                setEditingName(false)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur()
+                if (e.key === 'Escape') {
+                  setNameDraft(pharmacy.name)
+                  setEditingName(false)
+                }
+              }}
+              className="w-full rounded bg-black/30 px-1 text-lg font-bold text-white outline-none ring-1 ring-white/60"
+            />
+          ) : (
+            <h2 className="truncate text-lg font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">{pharmacy.name}</h2>
+          )}
           {pharmacy.tagline && (
             <p className="truncate text-xs italic text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">{pharmacy.tagline}</p>
           )}
+          </div>
+          {/* Outside the draggable block above, not inside it. In there the
+              drag's own pointerdown — which must preventDefault to stop the
+              browser dragging the text — swallowed the taps meant for these
+              buttons, so − and + did nothing at all. */}
           {onNamePositionChange && (
             <ScaleStrip
               what="name"
@@ -985,12 +987,18 @@ export function VendorHeaderCard({
               max={1.6}
               step={0.1}
               onScale={(scale) => onNamePositionChange({ x: savedName.x, y: savedName.y, scale })}
-              onTrailing={() => onNamePositionChange({ x: 0, y: 0, scale: 1 })}
-              trailingLabel="↺ Reset"
-              className="-bottom-6 left-0"
+              onTrailing={
+                onNameChange
+                  ? () => {
+                      setNameDraft(pharmacy.name)
+                      setEditingName(true)
+                    }
+                  : () => onNamePositionChange({ x: 0, y: 0, scale: 1 })
+              }
+              trailingLabel={onNameChange ? '✏ Edit' : '↺ Reset'}
+              className="bottom-1 left-0"
             />
           )}
-          </div>
           <span
             className={`inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm ${accent.soft} ${accent.softText}`}
           >
@@ -1071,11 +1079,11 @@ export function VendorHeaderCard({
                 step={0.1}
                 onScale={(scale) => onLogoPositionChange({ x: savedLogo.x, y: savedLogo.y, scale })}
                 onTrailing={
-                  onLogoRemove && pharmacy.logoDataUrl
-                    ? onLogoRemove
+                  onLogoUpload
+                    ? () => handleUploadTap(logoInputRef, setUploadingLogo, onLogoUpload)
                     : () => onLogoPositionChange({ x: 0, y: 0, scale: 1 })
                 }
-                trailingLabel={onLogoRemove && pharmacy.logoDataUrl ? '✂ Remove' : '↺ Reset'}
+                trailingLabel={onLogoUpload ? '📷 Change' : '↺ Reset'}
                 className="-bottom-7 left-1/2 -translate-x-1/2"
               />
             )}

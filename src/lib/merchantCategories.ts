@@ -24,6 +24,7 @@ export type MerchantCategory =
   | 'pharmacy'
   | 'merienda'
   | 'sari_sari'
+  | 'grocery'
   | 'water'
   | 'palengke'
   | 'bakery'
@@ -98,10 +99,21 @@ export const MERCHANT_CATEGORIES: MerchantCategoryDef[] = [
   {
     id: 'sari_sari',
     label: 'Sari-Sari',
-    sublabel: 'Grocery, everyday goods',
+    sublabel: 'Tingi, everyday goods',
     emoji: '🏪',
     catalog: 'goods',
-    keywords: ['sari-sari', 'sari sari', 'sarisari', 'grocery', 'mini mart', 'minimart', 'convenience', 'tindahan'],
+    keywords: ['sari-sari', 'sari sari', 'sarisari', 'convenience', 'tindahan'],
+    businessTypes: ['other_commodity'],
+  },
+  {
+    id: 'grocery',
+    label: 'Grocery',
+    sublabel: 'Weekly market, canned, dry goods',
+    emoji: '🛒',
+    catalog: 'goods',
+    // "mart" and "mini mart" come here rather than to Sari-Sari: a shop that
+    // calls itself a mart is selling by the shelf, not by the tingi.
+    keywords: ['grocery', 'groceries', 'grocer', 'supermarket', 'supermart', 'mini mart', 'minimart', 'mart'],
     businessTypes: ['other_commodity'],
   },
   {

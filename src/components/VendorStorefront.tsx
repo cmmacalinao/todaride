@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { nextOpeningLabel, vendorIsOpen } from '../lib/openingHours'
 import { publicVendorUrl } from '../lib/vendorSlug'
 import { getDefaultDishVisual } from '../lib/filipinoDishes'
 import { menuBadgeSortRank, menuCategorySortRank } from '../lib/foodCatalog'
@@ -563,6 +564,10 @@ export function VendorHeaderCard({
     min: -120,
     max: 120,
   })
+  // Recomputed on every render, which is often enough: a storefront that is
+  // open or shut by the hour does not need a ticking clock, and the next
+  // interaction re-reads it anyway.
+  const openNow = vendorIsOpen(pharmacy)
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState(pharmacy.name)
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null)
@@ -888,10 +893,10 @@ export function VendorHeaderCard({
         <div className="pointer-events-none absolute right-3 top-3 flex flex-col items-end gap-1.5">
           <span
             className={`pointer-events-auto rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm ${
-              pharmacy.isOpen ? 'bg-white/90 text-emerald-700' : 'bg-white/80 text-slate-500'
+              openNow ? 'bg-white/90 text-emerald-700' : 'bg-white/80 text-slate-500'
             }`}
           >
-            {pharmacy.isOpen ? '🟢 Open now' : '⚪ Closed'}
+            {openNow ? '🟢 Open now' : `⚪ ${nextOpeningLabel(pharmacy) ?? 'Closed'}`}
           </span>
           <div className="pointer-events-auto flex items-center gap-1.5">
             <button
@@ -1294,7 +1299,7 @@ export function VendorSearchRow({
   const accent = resolveVendorAccent(pharmacy)
   const { average, count } = storeRatingSummary(pharmacy)
   const meta = [
-    pharmacy.isOpen ? 'Open' : 'Closed',
+    vendorIsOpen(pharmacy) ? 'Open' : 'Closed',
     count > 0 ? `★ ${average.toFixed(1)}` : null,
     `${itemCount} item${itemCount === 1 ? '' : 's'}`,
     // Under 50m is not a distance, it is two placeholder pins on the same
@@ -1317,7 +1322,7 @@ export function VendorSearchRow({
           <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-500">
             <span
               aria-hidden
-              className={`h-2 w-2 shrink-0 rounded-full ${pharmacy.isOpen ? 'bg-emerald-500' : 'bg-slate-300'}`}
+              className={`h-2 w-2 shrink-0 rounded-full ${vendorIsOpen(pharmacy) ? 'bg-emerald-500' : 'bg-slate-300'}`}
             />
             <span className="truncate">{meta.join(' · ')}</span>
           </span>

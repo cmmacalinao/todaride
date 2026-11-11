@@ -559,6 +559,10 @@ export interface Pharmacy {
   // is), so this is for the shop that wants it somewhere else entirely —
   // over their own photo's empty corner, say, rather than across the food.
   namePosition?: { x: number; y: number; scale?: number } | null
+  // The week, as seven entries indexed by Date.getDay(). Undefined or all
+  // null means this shop never set hours, and isOpen alone decides — exactly
+  // as it did before hours existed. See lib/openingHours.
+  openingHours?: ({ open: string; close: string } | null)[] | null
   // A named preset from VENDOR_THEME_COLORS (see VendorStorefront.tsx) that
   // overrides the businessType-derived gradient — lets a vendor pick their
   // own accent instead of being stuck with whatever their category defaults

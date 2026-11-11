@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { vendorIsOpen } from '../lib/openingHours'
 import { useRides } from '../context/RideContext'
 import { CATEGORY_BY_ID, MERCHANT_CATEGORIES, categoryForVendor, type MerchantCategory } from '../lib/merchantCategories'
 import { DEFAULT_MEDS_DELIVERY_FEE, DEFAULT_MEDS_SERVICE_FEE, PAYMENT_METHODS } from '../mock/data'
@@ -621,7 +622,7 @@ export const VendorMenuBooking = forwardRef<
           {vendors.length > 0 && (
             <div className="space-y-3">
               {[...shownVendors]
-                .sort((a, b) => Number(b.isOpen) - Number(a.isOpen) || a.name.localeCompare(b.name))
+                .sort((a, b) => Number(vendorIsOpen(b)) - Number(vendorIsOpen(a)) || a.name.localeCompare(b.name))
                 .map((v) => {
                   const allDishes = medicineProducts.filter((p) => p.pharmacyId === v.id && p.visible !== false)
                   const matched = query ? matchingDishes(v.id) : []
@@ -639,7 +640,7 @@ export const VendorMenuBooking = forwardRef<
                         <span className="min-w-0 truncate text-sm font-bold text-slate-800">
                           {VENDOR_TYPE_ICONS[v.businessType] ?? '🏪'} {v.name}
                         </span>
-                        {!v.isOpen && (
+                        {!vendorIsOpen(v) && (
                           <span className="shrink-0 rounded bg-slate-200 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-600">Closed</span>
                         )}
                         <span className="ml-auto shrink-0 text-[11px] font-semibold text-brand-600">See all ›</span>

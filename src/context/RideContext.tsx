@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode, useRef } from 'react'
+import type { OpeningHours } from '../lib/openingHours'
 import { COMPANY_NAME } from '../lib/brand'
 import { BANNER_AD_SLOT_COUNT, MAX_VENDOR_POSTS } from '../types'
 import { mergeById, mergeDriverAccessMessages, mergeIncomingRides, mergeVendorPosts } from '../lib/rideMerge'
@@ -1603,6 +1604,8 @@ type RideAction =
   | { type: 'RESOLVE_VENDOR_PAGE_REPORT'; reportId: string; actorName: string }
   | { type: 'SET_VENDOR_PAGE_HIDDEN'; pharmacyId: string; hidden: boolean; reason: string | null; actorName: string }
   | { type: 'UPDATE_PHARMACY_LOCATION'; pharmacyId: string; locationGps: GeoCoords }
+  | { type: 'SET_VENDOR_OPENING_HOURS'; pharmacyId: string; openingHours: OpeningHours | null }
+  | { type: 'SET_PHARMACY_OPEN'; pharmacyId: string; isOpen: boolean }
   | { type: 'SET_VENDOR_BANNER_THUMB'; pharmacyId: string; dataUrl: string | null; key: string | null }
   | { type: 'TOGGLE_PHARMACY_TRUSTED_DRIVER'; pharmacyId: string; driverId: string }
   | { type: 'RATE_PHARMACY'; pharmacyId: string; customerId: string; customerName: string; rating: number; text: string | null }
@@ -7067,6 +7070,20 @@ function reducer(state: RideState, action: RideAction): RideState {
         activityLog: [entry, ...state.activityLog].slice(0, MAX_ACTIVITY_LOG_ENTRIES),
       }
     }
+    // Nothing has ever set this since registration, which left every shop
+    // reading 'Open now' for ever with no way to say otherwise.
+    case 'SET_PHARMACY_OPEN':
+      return {
+        ...state,
+        pharmacies: state.pharmacies.map((p) => (p.id === action.pharmacyId ? { ...p, isOpen: action.isOpen } : p)),
+      }
+    case 'SET_VENDOR_OPENING_HOURS':
+      return {
+        ...state,
+        pharmacies: state.pharmacies.map((p) =>
+          p.id === action.pharmacyId ? { ...p, openingHours: action.openingHours } : p,
+        ),
+      }
     case 'UPDATE_PHARMACY_LOCATION': {
       return {
         ...state,
@@ -8229,6 +8246,8 @@ interface RideContextValue extends RideState {
     tagline: string | null
   }) => void
   updatePharmacyLocation: (pharmacyId: string, locationGps: GeoCoords) => void
+  setVendorOpeningHours: (pharmacyId: string, openingHours: OpeningHours | null) => void
+  setPharmacyOpen: (pharmacyId: string, isOpen: boolean) => void
   // The store's public address — see lib/vendorSlug.
   setVendorSlug: (pharmacyId: string, slug: string) => void
   reportVendorPage: (args: { pharmacyId: string; reason: VendorReportReason; detail: string | null }) => void
@@ -9303,6 +9322,9 @@ export function RideProvider({ children }: { children: ReactNode }) {
     updatePharmacyPaymentAccount: (pharmacyId, method, details) =>
       dispatch({ type: 'UPDATE_PHARMACY_PAYMENT_ACCOUNT', pharmacyId, method, details }),
     updateVendorBranding: (args) => dispatch({ type: 'UPDATE_VENDOR_BRANDING', ...args }),
+    setPharmacyOpen: (pharmacyId, isOpen) => dispatch({ type: 'SET_PHARMACY_OPEN', pharmacyId, isOpen }),
+    setVendorOpeningHours: (pharmacyId, openingHours) =>
+      dispatch({ type: 'SET_VENDOR_OPENING_HOURS', pharmacyId, openingHours }),
     setVendorBannerThumb: (pharmacyId, dataUrl, key) => dispatch({ type: 'SET_VENDOR_BANNER_THUMB', pharmacyId, dataUrl, key }),
     setVendorSlug: (pharmacyId, slug) => dispatch({ type: 'SET_VENDOR_SLUG', pharmacyId, slug }),
     reportVendorPage: ({ pharmacyId, reason, detail }) =>

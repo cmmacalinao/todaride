@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { VendorHoursEditor } from './VendorHoursEditor'
 import { DocumentUploadField } from './DocumentUploadField'
 import { removeFlatBackground } from '../lib/photo'
 import { VENDOR_THEME_COLORS } from './VendorStorefront'
@@ -172,6 +173,7 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
       </div>
       <VendorThemePicker pharmacy={pharmacy} />
     </section>
+    <VendorHoursEditor pharmacy={pharmacy} />
     {/* Below the look-and-feel, not above it: the link is set once and then
         almost never touched again, while everything in the panel above is
         what a vendor came here to fiddle with. */}

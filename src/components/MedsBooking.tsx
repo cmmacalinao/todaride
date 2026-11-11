@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { nextOpeningLabel, vendorIsOpen } from '../lib/openingHours'
 import { useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { PAYMENT_METHODS } from '../mock/data'
@@ -32,7 +33,7 @@ function PharmacyOptionRow({
       }`}
     >
       <span className="block break-words text-xs font-medium text-slate-700">
-        {pharmacy.isOpen ? '🟢' : '⚪'} {pharmacy.name}
+        {vendorIsOpen(pharmacy) ? '🟢' : '⚪'} {pharmacy.name}
       </span>
       <span className="mt-0.5 block break-words text-[11px] text-slate-400">
         {pharmacy.barangay}, {pharmacy.city}
@@ -779,8 +780,8 @@ function PharmacyList({
     .map((p) => ({
       id: p.id,
       gps: p.locationGps!,
-      color: p.isOpen ? '#10b981' : '#94a3b8',
-      label: `💊 ${p.name}${p.isOpen ? '' : ' (closed)'}`,
+      color: vendorIsOpen(p) ? '#10b981' : '#94a3b8',
+      label: `💊 ${p.name}${vendorIsOpen(p) ? '' : ' (closed)'}`,
       icon: 'pharmacy' as const,
     }))
 
@@ -821,8 +822,8 @@ function PharmacyList({
         >
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-slate-700">{pharmacy.name}</span>
-            <span className={`text-[11px] font-medium ${pharmacy.isOpen ? 'text-emerald-600' : 'text-amber-700'}`}>
-              {pharmacy.isOpen ? '🟢 Open' : '⚪ Closed'}
+            <span className={`text-[11px] font-medium ${vendorIsOpen(pharmacy) ? 'text-emerald-600' : 'text-amber-700'}`}>
+              {vendorIsOpen(pharmacy) ? '🟢 Open' : `⚪ ${nextOpeningLabel(pharmacy) ?? 'Closed'}`}
             </span>
           </div>
           <p className="mt-0.5 text-xs text-slate-400">

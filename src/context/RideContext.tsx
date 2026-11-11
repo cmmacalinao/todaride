@@ -1500,7 +1500,15 @@ type RideAction =
   | { type: 'VENDOR_SWITCH_TO_OTHER_DELIVERY'; orderId: string }
   | { type: 'VENDOR_MARK_DELIVERED_OTHER'; orderId: string }
   | { type: 'SEND_MEDS_ORDER_MESSAGE'; orderId: string; sender: 'customer' | 'pharmacy'; text: string }
-  | { type: 'PHARMACY_PROCESS_MEDS_ORDER'; orderId: string; preferredDriverId?: string | null }
+  | {
+      type: 'PHARMACY_PROCESS_MEDS_ORDER'
+      orderId: string
+      preferredDriverId?: string | null
+      // Added to the rider's fare for this attempt, funded by the store (see
+      // MedsOrder.vendorFareTopUp). Only ever used on a re-dispatch after
+      // nobody accepted — a first dispatch goes out at the tariff.
+      fareTopUp?: number
+    }
   | { type: 'MEDS_ORDER_BOOK_OWN_RIDE'; orderId: string; overrides?: MedsRideOverrides }
   // A vendor books a TODA SafeRide driver for an order that did not come
   // through the app (phone, chat, walk-in). Creates the order already
@@ -2389,6 +2397,23 @@ function findFavoriteDriverId(state: RideState, passengerId: string): string | n
   )
 }
 
+// A line in the order chat that the app itself wrote, not the store.
+//
+// It is attributed to 'pharmacy' because that is the only non-customer
+// sender OrderMessage has, and inventing a 'system' sender would mean
+// teaching every chat view a third bubble for the sake of two sentences.
+// They are worded as the store speaking, which is also true: it is the
+// store's delivery either way, and a customer reading "the store is
+// arranging your delivery" does not care which line of code typed it.
+function autoOrderMessage(text: string): OrderMessage {
+  return {
+    id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    sender: 'pharmacy',
+    text,
+    sentAt: new Date().toISOString(),
+  }
+}
+
 // TODARIDE MEDS — builds the actual delivery Ride for a confirmed order,
 // shared by both dispatch paths: PHARMACY_PROCESS_MEDS_ORDER (deliveryMode
 // 'pharmacy_books', dispatches immediately) and MEDS_ORDER_BOOK_OWN_RIDE
@@ -2469,6 +2494,11 @@ function buildMedsDeliveryRide(
     dispatchCtx(state, pickup.gps),
   )
   const itemsSummary = order.items.map((item) => `${item.quantity}x ${item.name}`).join(', ')
+  // What the store added on top of the tariff to get this one taken. It has
+  // to reach fareEstimate or the top-up is a promise with nothing behind it:
+  // fareEstimate is the number on the driver's offer card, so this is the
+  // only place a raised fare becomes visible to the rider deciding.
+  const fareTopUp = order.vendorFareTopUp ?? 0
   return {
     id: `ride-${Date.now()}`,
     passengerId: order.customerId,
@@ -2488,7 +2518,15 @@ function buildMedsDeliveryRide(
     // was ever paid to the pharmacy — the driver fronts the medicine cost at
     // pickup, so their fare must include it to be reimbursed in full on
     // delivery, same as Pabili's driver-fronts-the-goods model.
-    fareEstimate: order.paymentMethod === 'cash' ? order.total : order.deliveryFee + order.serviceFee,
+    // A store top-up (MedsOrder.vendorFareTopUp) does not change the cash a
+    // driver holds on a COD order: they still collect the order total at the
+    // door, and the top-up is settled by handing the store that much less of
+    // the goods money at pickup (see codBreakdown, which splits it). On a
+    // prepaid order there is no goods money to net it out of, so it is added
+    // here and handed over at pickup. The customer's total is untouched in
+    // both.
+    fareEstimate:
+      order.paymentMethod === 'cash' ? order.total : order.deliveryFee + order.serviceFee + fareTopUp,
     status: 'requested',
     requestedAt: new Date().toISOString(),
     acceptedAt: null,
@@ -3566,7 +3604,9 @@ function reducer(state: RideState, action: RideAction): RideState {
         ride.paymentMethod === 'cash'
           ? state.medsOrders.find((o) => o.linkedRideId === ride.id && o.paymentMethod === 'cash')
           : undefined
-      const earnedFare = codOrder ? codOrder.deliveryFee + codOrder.serviceFee : ride.fareEstimate
+      const earnedFare = codOrder
+        ? codOrder.deliveryFee + codOrder.serviceFee + (codOrder.vendorFareTopUp ?? 0)
+        : ride.fareEstimate
       const platformFee =
         (ride.bookedAtTerminal || ride.safetyRecord) && state.terminalQrFeeWaived
           ? 0
@@ -6551,7 +6591,20 @@ function reducer(state: RideState, action: RideAction): RideState {
           r.id === ride.id ? { ...r, status: 'cancelled', cancelledBy: 'vendor', cancelledAt: new Date().toISOString() } : r,
         ),
         medsOrders: state.medsOrders.map((o) =>
-          o.id === action.orderId ? { ...o, status: 'confirmed', linkedRideId: null, deliveryMode: 'vendor_other' } : o,
+          o.id === action.orderId
+            ? {
+                ...o,
+                status: 'confirmed',
+                linkedRideId: null,
+                deliveryMode: 'vendor_other',
+                // Somebody is waiting on an order that just stopped moving,
+                // and until now only the store knew. Posted by the reducer
+                // rather than left to the shop to remember, because the one
+                // time it is forgotten is the time a person waits an hour
+                // for a delivery that was never coming.
+                messages: [...o.messages, autoOrderMessage('No rider accepted the booking yet. The store is arranging your delivery another way — your order and your total are unchanged.')],
+              }
+            : o,
         ),
       }
     }
@@ -6648,11 +6701,41 @@ function reducer(state: RideState, action: RideAction): RideState {
           medsOrders: state.medsOrders.map((o) => (o.id === action.orderId ? { ...o, status: 'ready_for_pickup' } : o)),
         }
       }
-      const ride = buildMedsDeliveryRide(state, order, pharmacy, { preferredDriverId: action.preferredDriverId ?? null })
+      // A re-dispatch after nobody accepted can go out at a higher fare,
+      // funded by the store. Added to whatever earlier attempts already put
+      // on (two ₱10 bumps are ₱20), and floored at 0 so a stray negative
+      // cannot quietly cut the tariff the rider was promised.
+      const addedTopUp = Math.max(0, Math.round(action.fareTopUp ?? 0))
+      const vendorFareTopUp = (order.vendorFareTopUp ?? 0) + addedTopUp
+      // Built from the order WITH the top-up already on it, since
+      // buildMedsDeliveryRide reads it to set the fare the rider is offered.
+      const ride = buildMedsDeliveryRide(
+        state,
+        vendorFareTopUp > 0 ? { ...order, vendorFareTopUp } : order,
+        pharmacy,
+        { preferredDriverId: action.preferredDriverId ?? null },
+      )
       return {
         ...state,
         rides: [ride, ...state.rides],
-        medsOrders: state.medsOrders.map((o) => (o.id === action.orderId ? { ...o, status: 'dispatched', linkedRideId: ride.id } : o)),
+        medsOrders: state.medsOrders.map((o) =>
+          o.id === action.orderId
+            ? {
+                ...o,
+                status: 'dispatched',
+                linkedRideId: ride.id,
+                ...(vendorFareTopUp > 0 ? { vendorFareTopUp } : {}),
+                deliveryMode: 'pharmacy_books' as const,
+                // Said out loud when the store pays more to get it moving:
+                // the customer sees the retry, and sees that the extra is
+                // not theirs to pay.
+                messages:
+                  addedTopUp > 0
+                    ? [...o.messages, autoOrderMessage(`Looking for a rider again — the store added ₱${addedTopUp} to the rider's fare to get it taken. Your total stays ₱${o.total}.`)]
+                    : o.messages,
+              }
+            : o,
+        ),
       }
     }
     case 'MEDS_ORDER_BOOK_OWN_RIDE': {
@@ -8022,7 +8105,7 @@ interface RideContextValue extends RideState {
   vendorSwitchToOtherDelivery: (orderId: string) => void
   vendorMarkDeliveredOther: (orderId: string) => void
   sendMedsOrderMessage: (orderId: string, sender: 'customer' | 'pharmacy', text: string) => void
-  processMedsOrder: (orderId: string, preferredDriverId?: string | null) => void
+  processMedsOrder: (orderId: string, preferredDriverId?: string | null, fareTopUp?: number) => void
   bookOwnMedsRide: (orderId: string, overrides?: MedsRideOverrides) => void
   vendorBookDelivery: (args: {
     pharmacyId: string
@@ -9134,8 +9217,13 @@ export function RideProvider({ children }: { children: ReactNode }) {
     vendorSwitchToOtherDelivery: (orderId) => dispatch({ type: 'VENDOR_SWITCH_TO_OTHER_DELIVERY', orderId }),
     vendorMarkDeliveredOther: (orderId) => dispatch({ type: 'VENDOR_MARK_DELIVERED_OTHER', orderId }),
     sendMedsOrderMessage: (orderId, sender, text) => dispatch({ type: 'SEND_MEDS_ORDER_MESSAGE', orderId, sender, text }),
-    processMedsOrder: (orderId, preferredDriverId) =>
-      dispatch({ type: 'PHARMACY_PROCESS_MEDS_ORDER', orderId, preferredDriverId: preferredDriverId ?? null }),
+    processMedsOrder: (orderId, preferredDriverId, fareTopUp) =>
+      dispatch({
+        type: 'PHARMACY_PROCESS_MEDS_ORDER',
+        orderId,
+        preferredDriverId: preferredDriverId ?? null,
+        fareTopUp: fareTopUp ?? 0,
+      }),
     bookOwnMedsRide: (orderId, overrides) => dispatch({ type: 'MEDS_ORDER_BOOK_OWN_RIDE', orderId, overrides }),
     vendorBookDelivery: (args) => dispatch({ type: 'VENDOR_BOOK_DELIVERY', ...args }),
     toggleMedicineProductStock: (productId) => dispatch({ type: 'TOGGLE_MEDICINE_PRODUCT_STOCK', productId }),

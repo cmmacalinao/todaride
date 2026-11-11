@@ -783,6 +783,14 @@ export interface MedsOrder {
   // it first (see VENDOR_ACCEPT_MENU_ORDER). Optional/undefined reads as
   // false, same as every pre-existing pharmacy quote order.
   pricedFromMenu?: boolean
+  // Extra the STORE adds to the rider's fare to get a delivery taken after
+  // nobody accepted it at the tariff (see VENDOR_SWITCH_TO_OTHER_DELIVERY,
+  // then PHARMACY_PROCESS_MEDS_ORDER's fareTopUp). Deliberately NOT part of
+  // `total`: the customer already approved a price, and being charged more
+  // because the first dispatch found nobody is a bill for the app's own
+  // failure. So it comes out of the store's share and is handed to the rider
+  // at pickup. Accumulates across retries. Undefined reads as 0.
+  vendorFareTopUp?: number
   // True when the vendor booked this delivery themselves — an order that
   // came by phone, chat or walk-in rather than through the app (see
   // VENDOR_BOOK_DELIVERY). There is no customer account behind it, so the

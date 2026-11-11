@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { isVendorDeliveryRide, rideServiceTag } from '../vendorOrders'
-import type { Ride } from '../../types'
+import { codBreakdown, isVendorDeliveryRide, rideServiceTag } from '../vendorOrders'
+import type { MedsOrder, Ride } from '../../types'
 
 // Covers the Pabili/PaDeliver split this session made: Food Order and
 // PaDeliver's Store now build their own 'vendor_order' rides
@@ -51,5 +51,49 @@ describe('rideServiceTag', () => {
 
   it('leaves padala labelled on its own, unaffected by the vendor_order split', () => {
     expect(rideServiceTag(ride({ serviceType: 'padala' }))).toEqual({ icon: '📦', label: 'Padala' })
+  })
+})
+
+// A store that could not get its delivery taken at the tariff can add to the
+// rider's fare to get it moving (MedsOrder.vendorFareTopUp). The money has to
+// come out of the store's own share and not the customer's bill, and it has
+// to be visible to the rider deciding — these pin both, because getting it
+// wrong means either a customer billed for the app failing to find a rider,
+// or a rider promised money that never arrives.
+describe('codBreakdown with a store-funded fare top-up', () => {
+  function codOrder(overrides: Partial<MedsOrder> = {}): MedsOrder {
+    // goods 200 + fare 50 + booking 10 = 260 collected at the door.
+    return {
+      id: 'order-1',
+      linkedRideId: 'ride-1',
+      paymentMethod: 'cash',
+      subtotal: 200,
+      deliveryFee: 50,
+      serviceFee: 10,
+      total: 260,
+      ...overrides,
+    } as MedsOrder
+  }
+  const cashRide = { id: 'ride-1', paymentMethod: 'cash' } as Ride
+
+  it('leaves an untopped-up order exactly as before', () => {
+    expect(codBreakdown(cashRide, [codOrder()])).toEqual({ fee: 60, goods: 200, collect: 260 })
+  })
+
+  it('pays the top-up to the rider out of the goods money, not the customer', () => {
+    const split = codBreakdown(cashRide, [codOrder({ vendorFareTopUp: 20 })])
+    // The rider's own money went up by the top-up...
+    expect(split?.fee).toBe(80)
+    // ...the store receives that much less of the goods money...
+    expect(split?.goods).toBe(180)
+    // ...and the customer still pays what they approved.
+    expect(split?.collect).toBe(260)
+  })
+
+  it('keeps fee + goods === collect, so the cash at the door always balances', () => {
+    for (const topUp of [0, 5, 20, 60]) {
+      const split = codBreakdown(cashRide, [codOrder({ vendorFareTopUp: topUp })])
+      expect(split!.fee + split!.goods).toBe(split!.collect)
+    }
   })
 })

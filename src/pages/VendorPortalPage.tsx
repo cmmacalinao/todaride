@@ -246,7 +246,7 @@ export function VendorPortalPage() {
         order={order}
         vendor={vendor}
         initialTab={initialTab}
-        onProcess={(preferredDriverId) => processMedsOrder(order.id, preferredDriverId)}
+        onProcess={(preferredDriverId, fareTopUp) => processMedsOrder(order.id, preferredDriverId, fareTopUp)}
         onMarkDeliveredOther={() => vendorMarkDeliveredOther(order.id)}
         onSendMessage={(text) => sendMedsOrderMessage(order.id, 'pharmacy', text)}
       />
@@ -672,7 +672,7 @@ function ReadyOrderCard({
 }: {
   order: MedsOrder
   vendor: Pharmacy
-  onProcess: (preferredDriverId: string | null) => void
+  onProcess: (preferredDriverId: string | null, fareTopUp?: number) => void
   onSendMessage: (text: string) => void
   // No TODA rider accepted the last dispatch, and the vendor switched to
   // delivering it some other way (see VENDOR_SWITCH_TO_OTHER_DELIVERY) —
@@ -683,6 +683,11 @@ function ReadyOrderCard({
   initialTab?: 'order' | 'book'
 }) {
   const [preferredDriverId, setPreferredDriverId] = useState<string | null>(null)
+  // What the store is willing to add to the rider's fare on this retry, and
+  // what earlier retries already added (see MedsOrder.vendorFareTopUp).
+  const [fareTopUp, setFareTopUp] = useState(0)
+  const alreadyToppedUp = order.vendorFareTopUp ?? 0
+  const riderWouldGet = order.deliveryFee + alreadyToppedUp + fareTopUp
   const dispatches = order.deliveryMode !== 'self_book' && order.deliveryMode !== 'vendor_other'
   // Two tabs on an accepted order: what was ordered, and booking the rider.
   const [tab, setTab] = useState<'order' | 'book'>(dispatches ? (initialTab ?? 'book') : 'order')
@@ -770,27 +775,74 @@ function ReadyOrderCard({
             </button>
           )}
           {order.deliveryMode === 'vendor_other' && (
-            <div className="mt-2 space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+            <div className="mt-2 space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
               <p className="text-[11px] text-amber-800">
-                No TODA rider accepted the last request. Deliver it yourself (or through another courier), or try
-                dispatching a rider again.
+                No TODA rider accepted at ₱{order.deliveryFee}
+                {alreadyToppedUp > 0 ? ` + ₱${alreadyToppedUp} you added` : ''}.{' '}
+                {/* Said here so the store does not also message the customer
+                    and tell them twice — the app already did it, the moment
+                    the dispatch was given up on. */}
+                <span className="font-semibold">The customer has been told automatically.</span>
               </p>
-              <div className="flex gap-1.5">
-                <button
-                  type="button"
-                  onClick={onMarkDeliveredOther}
-                  className="flex-1 rounded-lg bg-emerald-600 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
-                >
-                  ✓ Mark as delivered
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onProcess(null)}
-                  className="flex-1 rounded-lg border border-brand-300 bg-white py-2 text-xs font-semibold text-brand-700 hover:bg-brand-50"
-                >
-                  🛺 Try another rider
-                </button>
+
+              {/* Re-sending the same offer to the same riders who already
+                  passed on it is the one retry that cannot work. Almost
+                  always the fare is short for the distance, or it is raining,
+                  or it is lunchtime — so the retry leads with the money, in
+                  fixed steps, and states who pays it. Zero is still allowed
+                  (sometimes a shift just changed), it just isn't the default
+                  shape of the control. */}
+              <div>
+                <p className="text-[11px] font-semibold text-amber-900">Add to the rider's fare to get it taken</p>
+                <div className="mt-1 flex gap-1">
+                  {[0, 10, 20, 30].map((amount) => (
+                    <button
+                      key={amount}
+                      type="button"
+                      onClick={() => setFareTopUp(amount)}
+                      aria-pressed={fareTopUp === amount}
+                      className={`flex-1 rounded-md border py-1.5 text-[11px] font-semibold transition ${
+                        fareTopUp === amount
+                          ? 'border-amber-500 bg-amber-500 text-white'
+                          : 'border-amber-300 bg-white text-amber-800 hover:bg-amber-100'
+                      }`}
+                    >
+                      {amount === 0 ? 'Same fare' : `+₱${amount}`}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1 text-[11px] leading-snug text-amber-700">
+                  {fareTopUp > 0
+                    ? `The rider is offered ₱${riderWouldGet}. ${
+                        order.paidOnline
+                          ? `You hand them the extra ₱${fareTopUp} at pickup`
+                          : `They keep ₱${fareTopUp} from the goods money, so you receive ₱${order.subtotal - alreadyToppedUp - fareTopUp} instead of ₱${order.subtotal}`
+                      } — ${order.customerName}'s total stays ₱${order.total}.`
+                    : `The rider is offered ₱${riderWouldGet} — the same fare nobody took.`}
+                </p>
               </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onProcess(null, fareTopUp)
+                  setFareTopUp(0)
+                }}
+                className="w-full rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
+              >
+                🛺 Look for a rider again{fareTopUp > 0 ? ` at ₱${riderWouldGet}` : ''}
+              </button>
+              {/* Delivering it yourself stays available, but below the retry
+                  and in outline: it ends the order, and a store that taps it
+                  before trying a real fare has lost the rider's income and
+                  taken on the trip. */}
+              <button
+                type="button"
+                onClick={onMarkDeliveredOther}
+                className="w-full rounded-lg border border-emerald-300 bg-white py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+              >
+                ✓ I delivered it myself — mark delivered
+              </button>
             </div>
           )}
           <div className="mt-2">
@@ -830,7 +882,9 @@ function ReadyOrderCard({
             <p className="mt-1 text-[11px] text-amber-800">
               {order.paidOnline
                 ? `Paid online — the rider collects only the ₱${driverCollects} delivery & service fee.`
-                : `Cash on delivery — the rider pays you ₱${order.subtotal} at pickup and collects ₱${driverCollects} from the customer.`}
+                : `Cash on delivery — the rider pays you ₱${order.subtotal - alreadyToppedUp} at pickup${
+                    alreadyToppedUp > 0 ? ` (₱${order.subtotal} less the ₱${alreadyToppedUp} you added to their fare)` : ''
+                  } and collects ₱${driverCollects} from the customer.`}
             </p>
           </div>
           {/* The same map Book a Ride shows once a trip exists: both ends

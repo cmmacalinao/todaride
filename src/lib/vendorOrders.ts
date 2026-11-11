@@ -13,7 +13,19 @@ export function codBreakdown(
   if (ride.paymentMethod !== 'cash') return null
   const order = orders.find((o) => o.linkedRideId === ride.id)
   if (!order || order.paymentMethod !== 'cash') return null
-  return { fee: order.deliveryFee + order.serviceFee, goods: order.subtotal, collect: order.total }
+  // A store top-up to get the delivery taken (MedsOrder.vendorFareTopUp)
+  // is the rider's money, so it belongs in `fee` — this split is what the
+  // offer board shows a rider deciding whether to take the job, and a raised
+  // fare that does not show up there buys nothing. It is settled out of the
+  // goods the rider hands back at pickup rather than collected from the
+  // customer, whose total never moved. So `fee` + `goods` still equals
+  // `collect`: the same cash at the door, split one notch differently.
+  const topUp = order.vendorFareTopUp ?? 0
+  return {
+    fee: order.deliveryFee + order.serviceFee + topUp,
+    goods: order.subtotal - topUp,
+    collect: order.total,
+  }
 }
 
 export function distanceKm(a: GeoCoords | null, b: GeoCoords | null | undefined): number | null {

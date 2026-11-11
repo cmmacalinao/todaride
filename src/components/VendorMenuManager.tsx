@@ -139,13 +139,15 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
 
   const setBranding = useVendorBranding(pharmacy)
   const rename = useVendorRename(pharmacy)
+  // Prescription questions are a pharmacy matter only.
+  const isPharmacy = pharmacy.businessType === 'pharmacy'
 
   function handleAdd(fields: MenuItemFields) {
     addMedicineProduct({
       pharmacyId: pharmacy.id,
       name: fields.name,
       genericName: null,
-      category: 'otc',
+      category: fields.needsPrescription ? 'rx' : 'otc',
       price: fields.price,
       menuCategory: fields.menuCategory,
       photoDataUrl: fields.photoDataUrl,
@@ -162,7 +164,10 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
       productId,
       name: fields.name,
       genericName: existing.genericName,
-      category: existing.category,
+      // 'restricted' is set by Admin and is not this form's to overwrite —
+      // only the plain otc/rx pair is a merchant's own decision.
+      category:
+        existing.category === 'restricted' ? existing.category : fields.needsPrescription ? 'rx' : 'otc',
       price: fields.price,
       menuCategory: fields.menuCategory,
       photoDataUrl: fields.photoDataUrl,
@@ -273,7 +278,7 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
             </button>
             {addItemOpen && (
               <div className="mt-2">
-                <MenuItemForm categories={categories} onSubmit={handleAdd} />
+                <MenuItemForm categories={categories} onSubmit={handleAdd} isPharmacy={isPharmacy} />
               </div>
             )}
           </div>
@@ -337,6 +342,7 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
                     submitLabel="Save changes"
                     onSubmit={(fields) => handleUpdate(product.id, fields)}
                     onCancel={() => setEditingId(null)}
+                    isPharmacy={isPharmacy}
                   />
                 </div>
               )
@@ -547,6 +553,11 @@ function ServingsField({
 export interface MenuItemFields {
   name: string
   price: number
+  // Prescription-only. Stored as MedicineProduct.category 'rx', which is
+  // what CREATE_MEDS_ORDER reads to decide an order needs a prescription
+  // reviewed before anybody starts preparing it. Only a pharmacy is ever
+  // asked; a carinderia has no use for it.
+  needsPrescription?: boolean
   menuCategory: string | null
   photoDataUrl: string | null
   description: string | null
@@ -563,12 +574,17 @@ function MenuItemForm({
   submitLabel = '+ Add item',
   onSubmit,
   onCancel,
+  isPharmacy = false,
 }: {
   categories: string[]
   initial?: MedicineProduct
   submitLabel?: string
   onSubmit: (fields: MenuItemFields) => void
   onCancel?: () => void
+  // Only a pharmacy is asked whether an item needs a prescription. Everybody
+  // else is selling food or goods, and a checkbox about prescriptions on a
+  // carinderia's dish form is noise at best.
+  isPharmacy?: boolean
 }) {
   const [name, setName] = useState(initial?.name ?? '')
   const [price, setPrice] = useState(initial ? String(initial.price) : '')
@@ -576,6 +592,7 @@ function MenuItemForm({
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(initial?.photoDataUrl ?? null)
   const [description, setDescription] = useState(initial?.description ?? '')
   const [badge, setBadge] = useState<MenuItemBadge | null>(initial?.badge ?? null)
+  const [needsPrescription, setNeedsPrescription] = useState(initial?.category === 'rx')
   const [error, setError] = useState('')
   // A native <input list=/<datalist> looked right on desktop Chrome but its
   // popup position is entirely up to the browser/OS — inside the Android
@@ -658,6 +675,24 @@ function MenuItemForm({
     }
   }
 
+  // Rendered by the caller below, next to the rest of the fields.
+  const prescriptionField = isPharmacy ? (
+    <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2">
+      <input
+        type="checkbox"
+        checked={needsPrescription}
+        onChange={(e) => setNeedsPrescription(e.target.checked)}
+        className="mt-0.5 h-4 w-4 shrink-0 accent-amber-600"
+      />
+      <span className="text-[11px] leading-snug text-amber-900">
+        <span className="font-semibold">Needs a prescription</span>
+        <span className="block text-amber-700">
+          Customers must attach one before they can order it, and you review it before preparing anything.
+        </span>
+      </span>
+    </label>
+  ) : null
+
   function handleSubmit() {
     const priceNum = Number(price)
     if (!name.trim() || !Number.isFinite(priceNum) || priceNum <= 0) {
@@ -671,6 +706,7 @@ function MenuItemForm({
       photoDataUrl,
       description: description.trim() || null,
       badge,
+      needsPrescription,
     })
     if (!initial) {
       setName('')
@@ -815,6 +851,7 @@ function MenuItemForm({
         onUpload={setPhotoDataUrl}
         onRemove={() => setPhotoDataUrl(null)}
       />
+      {prescriptionField}
       {error && <p className="text-[11px] font-medium text-amber-700">{error}</p>}
       <div className="flex gap-2">
         <button

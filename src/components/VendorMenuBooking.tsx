@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { MultiImageUploadField } from './MultiImageUploadField'
 import { deliveryRangeMessage, deliveryRangeState } from '../lib/deliveryRange'
 import { customerCancelState, overdueAfterMinutes } from '../lib/orderTiming'
 
@@ -246,6 +247,9 @@ export const VendorMenuBooking = forwardRef<
   const selectedVendor = vendors.find((v) => v.id === selectedVendorId)
   const menu = selectedVendor ? medicineProducts.filter((p) => p.pharmacyId === selectedVendor.id) : []
 
+  // Photos of the prescription, when the cart needs one.
+  const [prescriptionDataUrls, setPrescriptionDataUrls] = useState<string[]>([])
+
   const cartLines = Object.entries(cart)
     .filter(([, qty]) => qty > 0)
     .map(([productId, qty]) => ({ product: menu.find((m) => m.id === productId), qty }))
@@ -343,9 +347,16 @@ export const VendorMenuBooking = forwardRef<
   // a customer who has built a cart and typed an address deserves to be told
   // before they send it, and a merchant should not have to turn away an
   // order the app should never have offered them.
+  // Prescription items in the cart, by the same rule CREATE_MEDS_ORDER uses
+  // to decide the order needs reviewing (MedicineProduct.category 'rx').
+  const rxLines = cartLines.filter((l) => l.product.category === 'rx')
+  const needsPrescription = rxLines.length > 0
+  const prescriptionReady = !needsPrescription || prescriptionDataUrls.length > 0
+
   const range = deliveryRangeState(selectedVendor?.deliveryRadiusKm, deliveryKm)
   const outOfRange = selectedVendor ? deliveryRangeMessage(range, selectedVendor.name) : null
-  const canPlaceOrder = cartLines.length > 0 && !!deliveryAddress && !!selectedVendor && range.withinRange
+  const canPlaceOrder =
+    cartLines.length > 0 && !!deliveryAddress && !!selectedVendor && range.withinRange && prescriptionReady
 
   function handlePlaceOrder() {
     if (!canPlaceOrder || !deliveryAddress || !selectedVendor) return
@@ -361,7 +372,7 @@ export const VendorMenuBooking = forwardRef<
         note: null,
       })),
       deliveryAddress,
-      prescriptionDataUrls: [],
+      prescriptionDataUrls,
       // Decided when the customer approves the vendor's quotation (cash on
       // delivery, or paid online first) — see ActiveVendorOrderCard and
       // CUSTOMER_ACCEPT_QUOTE. 'cash' here only means "not paid yet".
@@ -766,10 +777,36 @@ export const VendorMenuBooking = forwardRef<
                     ? 'Add a dish to order'
                     : !range.withinRange
                       ? `Too far — ${selectedVendor?.name ?? 'this store'} delivers within ${range.limitKm} km`
-                      : `Send order — about ₱${total}`}
+                      : !prescriptionReady
+                        ? 'Attach the prescription to order'
+                        : `Send order — about ₱${total}`}
               </button>
             }
           />
+
+          {/* Asked for only when the cart actually contains one. A
+              pharmacy marks an item as prescription-only on its own menu
+              (see VendorMenuManager), and until now nothing anywhere in this
+              flow asked the customer for the prescription or let the shop
+              look at it — the machinery existed, reachable only from the old
+              MEDS screens that merchants no longer use. */}
+          {needsPrescription && (
+            <div className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <p className="text-[11px] font-semibold text-amber-900">
+                💊 {rxLines.length === 1 ? 'One item needs' : `${rxLines.length} items need`} a prescription
+              </p>
+              <p className="text-[11px] leading-snug text-amber-800">
+                {rxLines.map((l) => l.product.name).join(', ')} can only be sold with one. Attach a photo — the
+                pharmacist checks it before anything is prepared.
+              </p>
+              <MultiImageUploadField
+                label=""
+                dataUrls={prescriptionDataUrls}
+                onChange={setPrescriptionDataUrls}
+                addLabel="📷 Add prescription photo"
+              />
+            </div>
+          )}
 
           {/* The full sentence under the button, since the button has room
               for a verdict but not for the distance that explains it. */}

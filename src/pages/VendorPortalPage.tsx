@@ -48,6 +48,7 @@ export function VendorPortalPage() {
     vendorSendQuote,
     vendorAcceptMenuOrder,
     rejectMedsOrder,
+    reviewMedsPrescription,
     processMedsOrder,
     vendorMarkDeliveredOther,
     updatePharmacyPaymentAccount,
@@ -462,6 +463,7 @@ export function VendorPortalPage() {
                       )
                     }}
                     onReject={(reason) => rejectMedsOrder(order.id, reason)}
+                    onReviewPrescription={(approved, reason) => reviewMedsPrescription(order.id, approved, reason)}
                     onSendMessage={(text) => sendMedsOrderMessage(order.id, 'pharmacy', text)}
                   />
                 ))}
@@ -941,6 +943,7 @@ function NewVendorOrderCard({
   onAccept,
   onAcceptAndPrepare,
   onReject,
+  onReviewPrescription,
   onSendMessage,
 }: {
   order: MedsOrder
@@ -951,6 +954,7 @@ function NewVendorOrderCard({
   // already seen this exact total. See the buttons below.
   onAcceptAndPrepare: () => void
   onReject: (reason: string) => void
+  onReviewPrescription: (approved: boolean, reason: string | null) => void
   onSendMessage: (text: string) => void
 }) {
   const { quoteVendorDeliveryFare, passengers } = useRides()
@@ -1086,8 +1090,67 @@ function NewVendorOrderCard({
           <span>₱{quoteTotal}</span>
         </div>
       </div>
+      {/* A prescription waiting to be looked at. The reducer refuses to
+          accept or quote the order while this is pending (see
+          VENDOR_ACCEPT_MENU_ORDER and PHARMACY_SEND_QUOTE), so this is not
+          advice — it is the thing standing in the way, placed where the
+          person who has to act on it is already looking. */}
+      {order.prescriptionStatus === 'pending' && (
+        <div className="mt-3 space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-2.5">
+          <p className="text-[11px] font-semibold text-amber-900">
+            💊 Prescription to check before this can be accepted
+          </p>
+          {order.prescriptionDataUrls.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {order.prescriptionDataUrls.map((url, i) => (
+                <a key={url.slice(0, 32) + i} href={url} target="_blank" rel="noreferrer" title="Open full size">
+                  <img
+                    src={url}
+                    alt={`Prescription page ${i + 1}`}
+                    className="h-20 w-20 rounded-md border border-amber-300 object-cover"
+                  />
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px] text-amber-800">
+              No photo was attached. Ask the customer in the chat below, or decline the order.
+            </p>
+          )}
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => onReviewPrescription(true, null)}
+              disabled={order.prescriptionDataUrls.length === 0}
+              className="flex-1 rounded-lg bg-emerald-600 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+            >
+              ✓ Prescription is valid
+            </button>
+            <button
+              type="button"
+              onClick={() => onReviewPrescription(false, 'The prescription was not accepted')}
+              className="flex-1 rounded-lg border border-rose-300 bg-white py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+            >
+              ✕ Not valid
+            </button>
+          </div>
+        </div>
+      )}
+      {order.prescriptionStatus === 'approved' && (
+        <p className="mt-2 text-[11px] font-medium text-emerald-700">💊 Prescription checked and approved</p>
+      )}
+      {order.prescriptionStatus === 'rejected' && (
+        <p className="mt-2 text-[11px] font-medium text-rose-700">
+          💊 Prescription not accepted — decline the order, or ask for another photo in the chat.
+        </p>
+      )}
+
       <div className="mt-3 space-y-1.5">
-        {canAcceptDirectly ? (
+        {order.prescriptionStatus === 'pending' ? (
+          <p className="rounded-lg bg-slate-100 py-2 text-center text-[11px] font-medium text-slate-500">
+            Check the prescription above first
+          </p>
+        ) : canAcceptDirectly ? (
           <>
             <button
               type="button"

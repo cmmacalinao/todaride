@@ -6570,7 +6570,18 @@ function reducer(state: RideState, action: RideAction): RideState {
     // exactly as it would a quoted-and-accepted pharmacy order.
     case 'VENDOR_ACCEPT_MENU_ORDER': {
       const order = state.medsOrders.find((o) => o.id === action.orderId)
-      if (!order || order.status !== 'pending_confirmation' || !order.pricedFromMenu) return state
+      // The same prescription gate PHARMACY_SEND_QUOTE has always had. This
+      // path was added later for menu-priced orders and never got it, so a
+      // pharmacy accepting through the new portal could start preparing a
+      // prescription medicine nobody had looked at.
+      if (
+        !order ||
+        order.status !== 'pending_confirmation' ||
+        !order.pricedFromMenu ||
+        order.prescriptionStatus === 'pending'
+      ) {
+        return state
+      }
       // Draw down today's stock count (see MedicineProduct.stockCount) by
       // what was just accepted — a vendor tracking servings this way never
       // has to remember to close an item by hand once it runs out.

@@ -30,7 +30,9 @@ import { ParentRegisterForm } from './ParentRegisterForm'
 import { DriverAuthGate } from './DriverAuthGate'
 import { SimpleOtpStep } from './SimpleOtpStep'
 import { EMPTY_PH_ADDRESS, PhAddressFields, type PhAddressValue } from './PhAddressFields'
-import { BUSINESS_TYPE_LABELS, type BusinessType } from '../types'
+import { VendorSignupLocation } from './VendorSignupLocation'
+import { landmarkCategoryFor, vendorLandmarkId } from './VendorLocationPicker'
+import { BUSINESS_TYPE_LABELS, type BusinessType, type GeoCoords } from '../types'
 
 type GateRole = 'passenger' | 'parent' | 'driver' | 'admin' | 'pharmacy' | 'vendor' | 'operator' | 'franchise'
 
@@ -724,7 +726,7 @@ function PharmacySignupForm({
   // the business type is worked out from the one the merchant picks.
   variant?: 'pharmacy' | 'vendor'
 }) {
-  const { registerPharmacy } = useRides()
+  const { registerPharmacy, addLandmark } = useRides()
   const [name, setName] = useState('')
   // Which shelf of the app this shop appears on — see lib/merchantCategories.
   // Guessed from the name when left alone, so a merchant who skips this is
@@ -743,6 +745,14 @@ function PharmacySignupForm({
   const [categoryNote, setCategoryNote] = useState('')
   const [contactPhone, setContactPhone] = useState('')
   const [address, setAddress] = useState<PhAddressValue>(EMPTY_PH_ADDRESS)
+  // The storefront pin: seeded from the typed address, then the merchant's
+  // own if they move it. See VendorSignupLocation.
+  const [pinnedGps, setPinnedGps] = useState<GeoCoords | null>(null)
+  // Who runs the shop. Required, because "who is responsible for this
+  // business" is the one thing a business name never answers.
+  const [ownerName, setOwnerName] = useState('')
+  const [ownerPhone, setOwnerPhone] = useState('')
+  const [email, setEmail] = useState('')
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -754,10 +764,13 @@ function PharmacySignupForm({
       !address.province ||
       !address.city ||
       !address.barangay ||
+      !ownerName.trim() ||
       !address.addressDetail.trim() ||
       pin.trim().length !== 4
     ) {
-      setError('Fill in your pharmacy name, contact number, full address (province/city/barangay/detail), and a 4-digit PIN.')
+      setError(
+        "Fill in your business name, the owner's name, a contact number, the full address (province/city/barangay/detail), and a 4-digit PIN.",
+      )
       return
     }
     setError('')
@@ -776,17 +789,40 @@ function PharmacySignupForm({
     const id = registerPharmacy({
       name: name.trim(),
       businessType,
+      ownerName: ownerName.trim(),
+      ownerPhone: ownerPhone.trim() || null,
+      email: email.trim() || null,
       contactPhone: contactPhone.trim(),
       province: address.province,
       city: address.city,
       barangay: address.barangay,
       addressDetail: address.addressDetail.trim(),
       coords: location.coords,
-      locationGps: location.gps,
+      // The dropped pin wins over the geocoded barangay centre: one is where
+      // the shop is, the other is where its barangay roughly is.
+      locationGps: pinnedGps ?? location.gps,
       adminPin: pin.trim(),
       merchantCategory,
       merchantCategoryNote: merchantCategory === 'other' ? categoryNote : null,
     })
+    // Put the shop on the map for everybody, now rather than if and when
+    // the owner finds "View on Map" in their portal. This is the same record
+    // under the same id that VendorLocationPicker writes, so a later visit
+    // there moves this one instead of creating a second — and it is what
+    // makes a store findable by name in a passenger's destination search,
+    // and visible on every map in the app.
+    const storeGps = pinnedGps ?? location.gps
+    if (storeGps) {
+      addLandmark({
+        id: vendorLandmarkId(id),
+        name: name.trim(),
+        aliases: [],
+        category: landmarkCategoryFor(businessType),
+        city: address.city,
+        gps: storeGps,
+        todaOrgId: null,
+      })
+    }
     setSubmitting(false)
     onRegistered(id)
   }
@@ -896,12 +932,55 @@ function PharmacySignupForm({
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
       </div>
+      {/* Who runs it, asked once at sign-up. Kept to three lines: a name
+          that is required, and two optional ways to reach the person rather
+          than the counter. Anything more belongs in the portal, where a
+          merchant is not standing in the middle of registering. */}
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+        <p className="mb-1.5 text-xs font-semibold text-slate-600">Owner / manager</p>
+        <div className="space-y-2">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-500">Owner's full name</label>
+            <input
+              value={ownerName}
+              onChange={(e) => setOwnerName(e.target.value)}
+              placeholder="e.g. Nena Dela Cruz"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-500">
+              Owner's mobile <span className="font-normal text-slate-400">(optional)</span>
+            </label>
+            <input
+              value={ownerPhone}
+              onChange={(e) => setOwnerPhone(e.target.value)}
+              inputMode="tel"
+              placeholder="If different from the store number"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-500">
+              Email <span className="font-normal text-slate-400">(optional)</span>
+            </label>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              inputMode="email"
+              placeholder="e.g. alingnena@gmail.com"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+      </div>
       <PhAddressFields
         value={address}
         onChange={setAddress}
         addressDetailLabel="Store address (street, landmark, notes)"
         addressDetailPlaceholder="e.g. Unit 2, near the public market entrance"
       />
+      <VendorSignupLocation address={address} gps={pinnedGps} onChange={setPinnedGps} />
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-500">Create a 4-digit PIN</label>
         <input

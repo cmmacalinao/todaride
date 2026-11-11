@@ -511,6 +511,14 @@ export interface Pharmacy {
   // existed at all; paymentDetail here is deliberately separate from the
   // real gcashAccount/mayaAccount above (those are what customers actually
   // pay into — this is just a free-text note on the profile panel).
+  // Who actually runs this shop. The store's own name is not a person,
+  // and until now nothing recorded one: an App Admin reviewing a merchant,
+  // or anybody needing to reach whoever is responsible for an order, had
+  // only a business name and a counter phone that may be answered by
+  // whoever is nearest. Optional so every existing record stays valid.
+  ownerName?: string | null
+  // The owner's own number, when it is not the one on the counter.
+  ownerPhone?: string | null
   email?: string | null
   paymentDetail?: string | null
   password?: string | null

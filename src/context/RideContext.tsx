@@ -1540,6 +1540,9 @@ type RideAction =
       id: string
       name: string
       businessType: BusinessType
+      ownerName?: string | null
+      ownerPhone?: string | null
+      email?: string | null
       contactPhone: string
       province: string
       city: string
@@ -6936,6 +6939,9 @@ function reducer(state: RideState, action: RideAction): RideState {
         }),
         businessType: action.businessType,
         adminPin: action.adminPin,
+        ownerName: action.ownerName?.trim() || null,
+        ownerPhone: action.ownerPhone?.trim() || null,
+        email: action.email?.trim() || null,
         contactPhone: action.contactPhone,
         province: action.province,
         city: action.city,
@@ -8163,6 +8169,9 @@ interface RideContextValue extends RideState {
   toggleMedicineProductVisibility: (productId: string) => void
   setMedicineProductStockCount: (productId: string, stockCount: number | null) => void
   registerPharmacy: (args: {
+    ownerName?: string | null
+    ownerPhone?: string | null
+    email?: string | null
     merchantCategory?: MerchantCategory | null
     merchantCategoryNote?: string | null
     name: string

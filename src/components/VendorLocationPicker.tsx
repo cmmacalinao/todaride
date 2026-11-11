@@ -14,7 +14,7 @@ const DEFAULT_GPS: GeoCoords = { lat: 15.7940977, lng: 120.9905849 }
 // id, so re-saving updates the same entry instead of piling up duplicates —
 // and so this can tell whether one already exists without keeping its own
 // separate flag anywhere.
-function vendorLandmarkId(pharmacyId: string) {
+export function vendorLandmarkId(pharmacyId: string) {
   return `landmark-vendor-${pharmacyId}`
 }
 
@@ -23,7 +23,7 @@ function vendorLandmarkId(pharmacyId: string) {
 // "resto" category exists there, so this maps to whichever existing one
 // reads closest, the same mapping the OSM seed sweep used for real pharmacy
 // chains (see mock/data.ts).
-function landmarkCategoryFor(businessType: Pharmacy['businessType']): LandmarkCategory {
+export function landmarkCategoryFor(businessType: Pharmacy['businessType']): LandmarkCategory {
   switch (businessType) {
     case 'pharmacy':
       return 'hospital'

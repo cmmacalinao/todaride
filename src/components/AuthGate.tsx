@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
-import { CATEGORY_BY_ID, categoryChoicesFor, type MerchantCategory } from '../lib/merchantCategories'
+import { CATEGORY_BY_ID, MERCHANT_CATEGORIES, type MerchantCategory } from '../lib/merchantCategories'
 import { useSession } from '../context/SessionContext'
 import {
   APP_ADMIN_CREDENTIALS,
@@ -789,14 +789,7 @@ function PharmacySignupForm({
             <button
               key={c.value}
               type="button"
-              onClick={() => {
-                setBusinessType(c.value)
-                setMerchantCategory((current) =>
-                  current === 'other' || (current && categoryChoicesFor(c.value).some((x) => x.id === current))
-                    ? current
-                    : null,
-                )
-              }}
+              onClick={() => setBusinessType(c.value)}
               className={`flex-1 whitespace-nowrap rounded-md py-1.5 text-[11px] font-medium transition ${
                 businessType === c.value ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500'
               }`}
@@ -815,14 +808,21 @@ function PharmacySignupForm({
           shop's own name, and a merchant halfway through a sign-up should
           not be stopped by a taxonomy question. Picking one is simply better
           than a guess — and it is how an empty "Coming soon" tile gets its
-          first shop. */}
-      {categoryChoicesFor(businessType).length > 1 && (
+          first shop.
+
+          Every tile on the start page is offered here, not just the ones
+          that match the business type above. Scoping them sounded tidy and
+          read as a missing feature: a sari-sari store that also sells gas,
+          or a carinderia that bakes, saw three chips and no way to say where
+          they actually belong. The merchant knows which aisle their
+          customers look down better than the type dropdown does, and the
+          explicit choice is what categoryForVendor honours anyway. */}
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-500">
           Where should customers find you? <span className="font-normal text-slate-400">(optional)</span>
         </label>
         <div className="flex flex-wrap gap-1.5">
-          {categoryChoicesFor(businessType).map((c) => {
+          {MERCHANT_CATEGORIES.filter((c) => c.id !== 'other').map((c) => {
             const picked = merchantCategory === c.id
             return (
               <button
@@ -873,7 +873,6 @@ function PharmacySignupForm({
               : 'Leave this and we will work it out from your business name.'}
         </p>
       </div>
-      )}
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-500">
           {merchantCategory

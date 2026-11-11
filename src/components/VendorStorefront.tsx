@@ -975,13 +975,16 @@ export function VendorHeaderCard({
           </div>
         </div>
 
-        {/* mt-8, not mt-4: the avatar row above ends at 104px (banner height
-            128px minus its own 104px negative margin, plus its 80px
-            height), so anything less than a 24px gap here still starts
-            before the banner's own bottom edge — this address/map row was
-            overlapping the banner's tail end and its diagonal stripe
-            pattern showed through the text. */}
-        <div className="pointer-events-auto mt-8 flex items-start justify-between gap-3">
+        {/* The gap is measured, not guessed. The avatar row above is pulled
+            up 104px into a 128px banner, so its bottom sits at
+            24px + the logo's height — and since the logo can now be resized
+            to 160px and nudged downwards, a fixed margin that was correct
+            for an 80px logo let a big one sit right on top of this address.
+            32px stays the floor, which is the old mt-8 for a default logo. */}
+        <div
+          className="pointer-events-auto flex items-start justify-between gap-3"
+          style={{ marginTop: Math.max(32, logoBox + Math.round((logoDrag.position.y / 100) * logoBox) - 104 + 12) }}
+        >
           <div className="min-w-0 space-y-0.5 text-xs text-slate-500">
             <p>
               📍 {pharmacy.addressDetail}, {pharmacy.barangay}, {pharmacy.city}

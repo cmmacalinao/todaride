@@ -1797,7 +1797,20 @@ function fromStored(parsed: StoredState): RideState {
     rides: migrateRecordedPickupLabel(parsed.rides ?? []),
     alerts: parsed.alerts ?? [],
     drivers: ((): Driver[] => {
-      const stored = (parsed.drivers ?? []).map((d) => ({ ...d, email: d.email ?? null, facebook: d.facebook ?? null }))
+      const stored = (parsed.drivers ?? []).map((d) => ({
+        ...d,
+        email: d.email ?? null,
+        facebook: d.facebook ?? null,
+        // The seeded roster's PINs were its plate numbers — UTS-2001 opened
+        // with 2001, straight down the list — and those plates are printed
+        // on the booking screen of every passenger who rides with them. An
+        // install that already saved the old PIN keeps it until here.
+        //
+        // Only a PIN still sitting at the guessable default is touched: a
+        // driver who changed theirs keeps what they chose, and a real driver
+        // who registered is not in this map at all.
+        pin: SEEDED_DRIVER_PIN_RESET[d.id]?.was === d.pin ? SEEDED_DRIVER_PIN_RESET[d.id].now : d.pin,
+      }))
       // Seeded drivers added after an install already exists would never
       // appear otherwise — the same merge-by-id the seeded TODAs needed.
       const missing = MOCK_DRIVERS.filter((seed) => !stored.some((d) => d.id === seed.id))
@@ -2412,6 +2425,33 @@ function autoOrderMessage(text: string): OrderMessage {
     text,
     sentAt: new Date().toISOString(),
   }
+}
+
+// The seeded drivers shipped with their plate number as their PIN. A plate
+// is public — it is painted on the sidecar and shown to every passenger who
+// books that driver — so the PIN was effectively published alongside it.
+// These are the replacements, keyed by driver id, with the old value so an
+// install that already saved one can be moved across exactly once without
+// ever overwriting a PIN its driver chose themselves (see the drivers parse
+// below).
+const SEEDED_DRIVER_PIN_RESET: Record<string, { was: string; now: string }> = {
+  'drv-uts-01': { was: '2001', now: '9070' },
+  'drv-uts-02': { was: '2002', now: '8123' },
+  'drv-uts-03': { was: '2003', now: '3603' },
+  'drv-uts-04': { was: '2004', now: '8942' },
+  'drv-uts-05': { was: '2005', now: '6854' },
+  'drv-uts-06': { was: '2006', now: '1570' },
+  'drv-uts-07': { was: '2007', now: '9831' },
+  'drv-uts-08': { was: '2008', now: '3693' },
+  'drv-uts-09': { was: '2009', now: '7498' },
+  'drv-uts-10': { was: '2010', now: '7116' },
+  'drv-uts-11': { was: '2011', now: '6841' },
+  'drv-uts-12': { was: '2012', now: '3988' },
+  'drv-1': { was: '1111', now: '1500' },
+  'drv-2': { was: '2222', now: '2940' },
+  'drv-3': { was: '3333', now: '8963' },
+  'drv-4': { was: '4444', now: '8083' },
+  'drv-5': { was: '5555', now: '6286' },
 }
 
 // TODARIDE MEDS — builds the actual delivery Ride for a confirmed order,

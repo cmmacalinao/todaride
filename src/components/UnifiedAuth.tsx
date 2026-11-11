@@ -63,7 +63,13 @@ export function UnifiedAuth() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
 
-  function findMatch(): Matched | 'wrong-secret' | null {
+  // 'no-login' is an account that exists but was never given a PIN: a child
+  // registered by their parent, or a parent placeholder a student created.
+  // Both are deliberate (see REGISTER_* in RideContext) and both mean the
+  // same thing — this person does not sign in here. It is kept apart from
+  // 'wrong-secret' because "that password does not match" would be a lie,
+  // and the right answer is to say who can get in and how.
+  function findMatch(): Matched | 'wrong-secret' | 'no-login' | null {
     const id = identifier.trim()
     if (!id) return null
 
@@ -82,25 +88,32 @@ export function UnifiedAuth() {
     const byPlate = drivers.find((d) => norm(d.plateNumber) === norm(id))
     const driver = byPlate ?? drivers.find((d) => matchesAccount(d, id))
     if (driver) {
-      if (driver.pin && secret !== driver.pin) return 'wrong-secret'
+      // An unset PIN used to skip this check entirely, which turned "no
+      // login of their own" into "no password required" — knowing the phone
+      // number was the whole login. Fail closed instead.
+      if (!driver.pin) return 'no-login'
+      if (secret !== driver.pin) return 'wrong-secret'
       return { kind: 'driver', id: driver.id, name: driver.name }
     }
 
     const toda = todaOrganizations.find((o) => norm(o.name) === norm(id))
     if (toda) {
-      if (toda.adminPin && secret !== toda.adminPin) return 'wrong-secret'
+      if (!toda.adminPin) return 'no-login'
+      if (secret !== toda.adminPin) return 'wrong-secret'
       return { kind: 'toda_admin', id: toda.id, name: toda.name }
     }
 
     const passenger = passengers.find((p) => matchesAccount(p, id))
     if (passenger) {
-      if (passenger.pin && secret !== passenger.pin) return 'wrong-secret'
+      if (!passenger.pin) return 'no-login'
+      if (secret !== passenger.pin) return 'wrong-secret'
       return { kind: 'passenger', id: passenger.id, name: passenger.name }
     }
 
     const parent = parents.find((p) => matchesAccount(p, id))
     if (parent) {
-      if (parent.pin && secret !== parent.pin) return 'wrong-secret'
+      if (!parent.pin) return 'no-login'
+      if (secret !== parent.pin) return 'wrong-secret'
       return { kind: 'parent', id: parent.id, name: parent.name }
     }
 
@@ -115,6 +128,12 @@ export function UnifiedAuth() {
     }
     if (match === 'wrong-secret') {
       setError('That password does not match the account.')
+      return
+    }
+    if (match === 'no-login') {
+      setError(
+        'This account has no password of its own — it is managed by a parent or guardian. Ask them to sign in, or register your own account.',
+      )
       return
     }
     // The installed app does not serve the two staff tiers (see

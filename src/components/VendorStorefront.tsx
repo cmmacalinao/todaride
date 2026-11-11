@@ -1153,6 +1153,12 @@ export function VendorHeaderCard({
             <p>
               {accent.icon} {itemCount} item{itemCount === 1 ? '' : 's'} on the menu
             </p>
+            {/* Said before they order rather than discovered while waiting.
+                A shop that has not set one says nothing, which is honest —
+                an invented number is worse than no number. */}
+            {typeof pharmacy.prepMinutes === 'number' && pharmacy.prepMinutes > 0 && (
+              <p>⏱️ Usually ready in about {pharmacy.prepMinutes} min</p>
+            )}
             {(() => {
               const { average, count } = storeRatingSummary(pharmacy)
               return (

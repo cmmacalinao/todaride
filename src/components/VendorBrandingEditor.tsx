@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { TITLE_COLORS, TITLE_FONTS } from '../lib/vendorTitleStyle'
-import { VendorHoursEditor, VendorMenuLayoutPicker } from './VendorHoursEditor'
+import { VendorHoursEditor, VendorMenuLayoutPicker, VendorPrepTimePicker } from './VendorHoursEditor'
 import { DocumentUploadField } from './DocumentUploadField'
 import { removeFlatBackground } from '../lib/photo'
 import { VENDOR_THEME_COLORS } from './VendorStorefront'
@@ -226,6 +226,7 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
       <VendorThemePicker pharmacy={pharmacy} />
     </section>
     <VendorHoursEditor pharmacy={pharmacy} />
+    <VendorPrepTimePicker pharmacy={pharmacy} />
     <VendorMenuLayoutPicker pharmacy={pharmacy} itemCount={menuCount} />
     {/* Below the look-and-feel, not above it: the link is set once and then
         almost never touched again, while everything in the panel above is

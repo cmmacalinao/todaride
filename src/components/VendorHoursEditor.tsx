@@ -1,4 +1,5 @@
 import { useRides } from '../context/RideContext'
+import { DEFAULT_PREP_MINUTES } from './VendorMenuBooking'
 import {
   DAY_SHORT,
   emptyOpeningHours,
@@ -56,6 +57,62 @@ export function VendorMenuLayoutPicker({ pharmacy, itemCount }: { pharmacy: Phar
         ))}
       </div>
       <p className="text-[11px] text-slate-400">{options.find((o) => o.value === chosen)?.hint}</p>
+    </section>
+  )
+}
+
+// How long the shop takes, said by the shop.
+//
+// Nothing told a customer how long food would take, and nothing told the
+// merchant when to book a rider — so a rider was either called the moment an
+// order was accepted and left waiting at the counter, or remembered twenty
+// minutes after the food went cold. The same number answers both, and it is
+// what decides when an order counts as late (see overdueAfterMinutes): one
+// flat hour judged a lechon house and a milk tea counter by the same clock.
+export function VendorPrepTimePicker({ pharmacy }: { pharmacy: Pharmacy }) {
+  const { setVendorPrepMinutes } = useRides()
+  const current = pharmacy.prepMinutes ?? null
+  const choices = [10, 15, 20, 30, 45, 60, 90]
+  return (
+    <section className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div>
+        <h2 className="text-sm font-semibold text-slate-700">⏱️ Preparation time</h2>
+        <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
+          How long from accepting an order to having it ready for the rider. Customers see it before they order, and we
+          use it to tell you when to book.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {choices.map((minutes) => (
+          <button
+            key={minutes}
+            type="button"
+            onClick={() => setVendorPrepMinutes(pharmacy.id, minutes)}
+            aria-pressed={current === minutes}
+            className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition ${
+              current === minutes
+                ? 'border-brand-600 bg-brand-600 text-white'
+                : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            {minutes} min
+          </button>
+        ))}
+        {current !== null && (
+          <button
+            type="button"
+            onClick={() => setVendorPrepMinutes(pharmacy.id, null)}
+            className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-500 hover:bg-slate-50"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      <p className="text-[11px] text-slate-400">
+        {current === null
+          ? `Not set — your page says nothing about timing, and an order counts as late after ${DEFAULT_PREP_MINUTES + 30} min.`
+          : `Your page says "usually ready in about ${current} min", and an order counts as late after ${current + 30} min with no rider booked.`}
+      </p>
     </section>
   )
 }

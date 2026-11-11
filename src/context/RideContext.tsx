@@ -1609,6 +1609,7 @@ type RideAction =
   | { type: 'SET_VENDOR_OPENING_HOURS'; pharmacyId: string; openingHours: OpeningHours | null }
   | { type: 'SET_PHARMACY_OPEN'; pharmacyId: string; isOpen: boolean }
   | { type: 'SET_VENDOR_MENU_LAYOUT'; pharmacyId: string; menuLayout: 'auto' | 'list' | 'shelves' }
+  | { type: 'SET_VENDOR_PREP_MINUTES'; pharmacyId: string; prepMinutes: number | null }
   | { type: 'SET_VENDOR_BANNER_THUMB'; pharmacyId: string; dataUrl: string | null; key: string | null }
   | { type: 'TOGGLE_PHARMACY_TRUSTED_DRIVER'; pharmacyId: string; driverId: string }
   | { type: 'RATE_PHARMACY'; pharmacyId: string; customerId: string; customerName: string; rating: number; text: string | null }
@@ -7082,6 +7083,13 @@ function reducer(state: RideState, action: RideAction): RideState {
         ...state,
         pharmacies: state.pharmacies.map((p) => (p.id === action.pharmacyId ? { ...p, isOpen: action.isOpen } : p)),
       }
+    case 'SET_VENDOR_PREP_MINUTES':
+      return {
+        ...state,
+        pharmacies: state.pharmacies.map((p) =>
+          p.id === action.pharmacyId ? { ...p, prepMinutes: action.prepMinutes } : p,
+        ),
+      }
     case 'SET_VENDOR_MENU_LAYOUT':
       return {
         ...state,
@@ -8263,6 +8271,7 @@ interface RideContextValue extends RideState {
   setVendorOpeningHours: (pharmacyId: string, openingHours: OpeningHours | null) => void
   setPharmacyOpen: (pharmacyId: string, isOpen: boolean) => void
   setVendorMenuLayout: (pharmacyId: string, menuLayout: 'auto' | 'list' | 'shelves') => void
+  setVendorPrepMinutes: (pharmacyId: string, prepMinutes: number | null) => void
   // The store's public address — see lib/vendorSlug.
   setVendorSlug: (pharmacyId: string, slug: string) => void
   reportVendorPage: (args: { pharmacyId: string; reason: VendorReportReason; detail: string | null }) => void
@@ -9339,6 +9348,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     updateVendorBranding: (args) => dispatch({ type: 'UPDATE_VENDOR_BRANDING', ...args }),
     setPharmacyOpen: (pharmacyId, isOpen) => dispatch({ type: 'SET_PHARMACY_OPEN', pharmacyId, isOpen }),
     setVendorMenuLayout: (pharmacyId, menuLayout) => dispatch({ type: 'SET_VENDOR_MENU_LAYOUT', pharmacyId, menuLayout }),
+    setVendorPrepMinutes: (pharmacyId, prepMinutes) => dispatch({ type: 'SET_VENDOR_PREP_MINUTES', pharmacyId, prepMinutes }),
     setVendorOpeningHours: (pharmacyId, openingHours) =>
       dispatch({ type: 'SET_VENDOR_OPENING_HOURS', pharmacyId, openingHours }),
     setVendorBannerThumb: (pharmacyId, dataUrl, key) => dispatch({ type: 'SET_VENDOR_BANNER_THUMB', pharmacyId, dataUrl, key }),

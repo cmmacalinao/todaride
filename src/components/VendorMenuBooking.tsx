@@ -1,4 +1,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { customerCancelState, overdueAfterMinutes } from '../lib/orderTiming'
+
+// Re-exported: these moved to lib/orderTiming so they could be tested
+// without loading a map, and the screens that already imported them from
+// here should not have to care.
+export { customerCancelState, overdueAfterMinutes, DEFAULT_PREP_MINUTES } from '../lib/orderTiming'
 import { vendorIsOpen } from '../lib/openingHours'
 import { useRides } from '../context/RideContext'
 import { CATEGORY_BY_ID, MERCHANT_CATEGORIES, categoryForVendor, type MerchantCategory } from '../lib/merchantCategories'
@@ -23,40 +29,6 @@ const VENDOR_TYPE_ICONS: Record<string, string> = {
   other_commodity: '📦',
 }
 
-// How long a customer waits before an order counts as overdue: a vendor who
-// has not answered at all (no quotation) after this many minutes, or one
-// who accepted but still has no rider booked after this many.
-const UNANSWERED_OVERDUE_MIN = 15
-const PREPARING_OVERDUE_MIN = 60
-
-// Whether a customer can pull this order back, and the line that says why.
-// Unanswered orders (no quotation yet) can always be cancelled — nothing
-// has been cooked. A quoted one is a quotation they may still turn down.
-// An accepted order being prepared can be cancelled only once it is long
-// overdue with no rider booked. Nothing with a rider on the road.
-export function customerCancelState(order: MedsOrder): { canCancel: boolean; note: string | null; overdue: boolean } {
-  const minutesSince = (iso: string | null) => (iso ? Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)) : 0)
-  if (order.status === 'pending_confirmation') {
-    const waited = minutesSince(order.requestedAt)
-    const overdue = waited >= UNANSWERED_OVERDUE_MIN
-    return {
-      canCancel: true,
-      overdue,
-      note: overdue ? `No reply from the vendor for ${waited} min — long overdue` : `No reply from the vendor yet (${waited} min)`,
-    }
-  }
-  if (order.status === 'quoted') return { canCancel: true, overdue: false, note: null }
-  if (order.status === 'confirmed') {
-    const waited = minutesSince(order.confirmedAt ?? order.quotedAt ?? order.requestedAt)
-    const overdue = waited >= PREPARING_OVERDUE_MIN
-    return {
-      canCancel: overdue,
-      overdue,
-      note: overdue ? `Accepted ${waited} min ago and still no rider booked — long overdue` : null,
-    }
-  }
-  return { canCancel: false, overdue: false, note: null }
-}
 
 // An order still counts as "in flight" at any pre-terminal status — same
 // rule MedsBooking's activeOrder uses.
@@ -874,7 +846,7 @@ export const VendorMenuBooking = forwardRef<
 
         const renderOrder = (order: MedsOrder, inProcess: boolean) => {
           const ride = rides.find((r) => r.id === order.linkedRideId)
-          const cancel = customerCancelState(order)
+          const cancel = customerCancelState(order, pharmacies.find((p) => p.id === order.pharmacyId)?.prepMinutes)
           const finishedLabel =
             order.status === 'cancelled' ? 'Cancelled' : order.status === 'rejected' ? 'Declined by the vendor' : 'Completed'
           return (
@@ -997,7 +969,7 @@ function ActiveVendorOrderCard({
     const id = setInterval(() => setClockTick((n) => n + 1), 60_000)
     return () => clearInterval(id)
   }, [])
-  const cancelState = customerCancelState(order)
+  const cancelState = customerCancelState(order, vendor?.prepMinutes)
 
   if (linkedRide) {
     return (
@@ -1208,7 +1180,8 @@ function ActiveVendorOrderCard({
         </div>
       ) : (
         <p className="text-[11px] text-slate-400">
-          Being prepared — you can cancel if no rider is booked within {PREPARING_OVERDUE_MIN} min of acceptance.
+          Being prepared — you can cancel if no rider is booked within {overdueAfterMinutes(vendor?.prepMinutes)} min of
+          acceptance.
         </p>
       )}
       <OrderChat

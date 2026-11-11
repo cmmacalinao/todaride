@@ -571,6 +571,11 @@ export interface Pharmacy {
   // shelves per category, or left to the catalogue to decide. See
   // lib/menuLayout.
   menuLayout?: 'auto' | 'list' | 'shelves' | null
+  // Typical minutes between accepting an order and having it ready to hand
+  // to a rider. Shown to customers before they order, and it is what decides
+  // when an order counts as overdue — see customerCancelState. Undefined
+  // reads as DEFAULT_PREP_MINUTES.
+  prepMinutes?: number | null
   nameFont?: string | null
   nameColor?: string | null
   // A named preset from VENDOR_THEME_COLORS (see VendorStorefront.tsx) that

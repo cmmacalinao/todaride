@@ -23,6 +23,7 @@ import {
 import { resolvePhAddress } from '../lib/customLocation'
 import { desktopOnlyMessage, isNativeApp } from '../lib/platform'
 import { IdentifierLoginForm } from './IdentifierLoginForm'
+import { ForgotPinLink } from './ForgotPasswordFlow'
 import { UnifiedAuth } from './UnifiedAuth'
 import { PassengerRegisterForm } from './PassengerRegisterForm'
 import { ParentRegisterForm } from './ParentRegisterForm'
@@ -657,6 +658,7 @@ function PharmacyAuth({ variant = 'pharmacy', mode }: { variant?: 'pharmacy' | '
           >
             Log in
           </button>
+          <ForgotPinLink />
         </div>
       )}
     </div>
@@ -1033,6 +1035,7 @@ function OperatorAuth() {
           >
             Log in
           </button>
+          <ForgotPinLink />
         </div>
       )}
     </div>
@@ -1276,6 +1279,7 @@ function FranchiseAuth() {
           >
             Log in
           </button>
+          <ForgotPinLink />
         </div>
       )}
     </div>

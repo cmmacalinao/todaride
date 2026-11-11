@@ -1,4 +1,5 @@
 import { BuildLabel } from './BuildLabel'
+import { ForgotPinLink } from './ForgotPasswordFlow'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRides, usePublicOrigin } from '../context/RideContext'
@@ -225,14 +226,11 @@ export function UnifiedAuth() {
           Login / Register
         </button>
 
+        {/* This used to say "ask your TODA or the app admin to reset it for
+            you" — advice nobody could act on, since a real account's PIN is
+            not visible to either of them. It opens the actual reset now. */}
         <div className="pt-1 text-center">
-          <button
-            type="button"
-            onClick={() => setNotice('Ask your TODA or the app admin to reset it for you.')}
-            className="text-sm font-bold text-brand-700 underline"
-          >
-            Forgot password?
-          </button>
+          <ForgotPinLink className="text-sm font-bold text-brand-700 underline" />
         </div>
 
         <div className="grid grid-cols-2 gap-3 pt-2">

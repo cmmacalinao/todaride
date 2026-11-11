@@ -543,7 +543,7 @@ export function AppLoginForm() {
         onClick={() => setShowForgot(true)}
         className="mt-5 w-full text-center text-[11px] font-bold text-gold-400 underline hover:text-gold-500"
       >
-        Forgot password?
+        Forgot PIN?
       </button>
 
       <p className="mt-3 px-1 text-center text-[11px] leading-relaxed text-white/50">

@@ -25,6 +25,29 @@ function maskPhone(phone: string): string {
   })
 }
 
+// The way in to the reset, for any screen that asks for a PIN.
+//
+// The flow below already recovers every kind of PIN account, but it was
+// reachable from one login out of five — so a merchant, an operator or a
+// TODA officer who forgot theirs had no way back in except asking somebody
+// to look it up, which for a real account nobody can do. This is the link,
+// with its own open state so a screen can drop it in without wiring a modal.
+export function ForgotPinLink({ className }: { className?: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={className ?? 'w-full text-center text-[11px] font-semibold text-brand-700 hover:underline'}
+      >
+        Forgot PIN?
+      </button>
+      {open && <ForgotPasswordFlow onClose={() => setOpen(false)} />}
+    </>
+  )
+}
+
 // Recovery for anyone who signs in with a PIN. Ownership is proved by the
 // one-time code sent to the account's own registered number — the flow never
 // asks for the secret it is about to replace, which is the whole point.
@@ -104,7 +127,7 @@ export function ForgotPasswordFlow({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Shell onClose={onClose} title="Forgot password">
+    <Shell onClose={onClose} title="Forgot PIN">
       {!chosen ? (
         <>
           <p className="text-xs text-slate-600">

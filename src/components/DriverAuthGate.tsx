@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ForgotPinLink } from './ForgotPasswordFlow'
 import { useSearchParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { autoDetectTodaOrgId, DOCUMENT_LABELS, DOCUMENT_TYPES, MOCK_DRIVERS, MOCK_TODA_ORGANIZATIONS } from '../mock/data'
@@ -228,6 +229,7 @@ function TodaAdminLoginForm({
       >
         Log in
       </button>
+      <ForgotPinLink />
     </section>
   )
 }

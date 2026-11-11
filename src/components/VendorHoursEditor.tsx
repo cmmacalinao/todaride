@@ -14,6 +14,52 @@ const WEEK = [1, 2, 3, 4, 5, 6, 0]
 
 const DEFAULT_DAY = { open: '07:00', close: '19:00' }
 
+// How the menu is arranged, chosen by the shop.
+//
+// Offered to everybody rather than hidden below a size threshold: a setting
+// you cannot see is a thing you do not own, and a vendor told they can
+// choose their layout who finds no such control concludes the app is broken,
+// not that their shop is small. Automatic is the default so nobody has to
+// answer a question they have no basis for — a threshold makes a poor gate
+// and a perfectly good default, and the preview right above shows instantly
+// what the choice did.
+export function VendorMenuLayoutPicker({ pharmacy, itemCount }: { pharmacy: Pharmacy; itemCount: number }) {
+  const { setVendorMenuLayout } = useRides()
+  const chosen = pharmacy.menuLayout ?? 'auto'
+  const options: { value: 'auto' | 'list' | 'shelves'; label: string; hint: string }[] = [
+    { value: 'auto', label: 'Automatic', hint: 'We pick as your menu grows.' },
+    { value: 'list', label: 'List', hint: 'One after another, top to bottom.' },
+    { value: 'shelves', label: 'Shelves', hint: 'A row per category, swiped sideways.' },
+  ]
+  return (
+    <section className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div>
+        <h2 className="text-sm font-semibold text-slate-700">🍽️ Menu layout</h2>
+        <p className="mt-0.5 text-[11px] text-slate-500">
+          How customers browse your {itemCount} item{itemCount === 1 ? '' : 's'}. Look at the preview above after
+          changing it.
+        </p>
+      </div>
+      <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => setVendorMenuLayout(pharmacy.id, o.value)}
+            aria-pressed={chosen === o.value}
+            className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
+              chosen === o.value ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500 hover:bg-white'
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-[11px] text-slate-400">{options.find((o) => o.value === chosen)?.hint}</p>
+    </section>
+  )
+}
+
 // When a shop is open, set by the shop.
 //
 // The "Open now" badge on every storefront used to come from one manual

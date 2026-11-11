@@ -567,6 +567,10 @@ export interface Pharmacy {
   // lib/vendorTitleStyle, not raw CSS, so a vendor cannot pick something
   // unreadable or something that has to be downloaded before their own name
   // appears. Undefined is the default white sans.
+  // How the menu is arranged for customers: a vertical list, horizontal
+  // shelves per category, or left to the catalogue to decide. See
+  // lib/menuLayout.
+  menuLayout?: 'auto' | 'list' | 'shelves' | null
   nameFont?: string | null
   nameColor?: string | null
   // A named preset from VENDOR_THEME_COLORS (see VendorStorefront.tsx) that

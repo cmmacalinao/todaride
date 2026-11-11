@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { TITLE_COLORS, TITLE_FONTS } from '../lib/vendorTitleStyle'
-import { VendorHoursEditor } from './VendorHoursEditor'
+import { VendorHoursEditor, VendorMenuLayoutPicker } from './VendorHoursEditor'
 import { DocumentUploadField } from './DocumentUploadField'
 import { removeFlatBackground } from '../lib/photo'
 import { VENDOR_THEME_COLORS } from './VendorStorefront'
@@ -77,6 +77,8 @@ export function useVendorRename(pharmacy: Pharmacy | undefined) {
 
 export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
   const { updatePharmacyProfile } = useRides()
+  const { medicineProducts } = useRides()
+  const menuCount = medicineProducts.filter((i) => i.pharmacyId === pharmacy.id && i.visible !== false).length
   const setBranding = useVendorBranding(pharmacy)
   const [tagline, setTagline] = useState(pharmacy.tagline ?? '')
   const [name, setName] = useState(pharmacy.name)
@@ -224,6 +226,7 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
       <VendorThemePicker pharmacy={pharmacy} />
     </section>
     <VendorHoursEditor pharmacy={pharmacy} />
+    <VendorMenuLayoutPicker pharmacy={pharmacy} itemCount={menuCount} />
     {/* Below the look-and-feel, not above it: the link is set once and then
         almost never touched again, while everything in the panel above is
         what a vendor came here to fiddle with. */}

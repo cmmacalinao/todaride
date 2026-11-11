@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { buildShelves, resolveMenuLayout, type MenuLayout } from '../lib/menuLayout'
 import { titleColorValue, titleFontStack } from '../lib/vendorTitleStyle'
 import { nextOpeningLabel, vendorIsOpen } from '../lib/openingHours'
 import { publicVendorUrl } from '../lib/vendorSlug'
@@ -1425,6 +1426,8 @@ export function VendorStorefront({
     [items],
   )
 
+  // Automatic unless the shop said otherwise — see lib/menuLayout.
+  const layout = resolveMenuLayout(pharmacy.menuLayout as MenuLayout | null | undefined, items)
   const query = search.trim().toLowerCase()
   const shownItems = items
     .filter((item) => {
@@ -1459,6 +1462,57 @@ export function VendorStorefront({
 
   const cartCount = cart ? Object.values(cart).reduce((sum, qty) => sum + qty, 0) : 0
   const cartTotal = cart ? items.reduce((sum, item) => sum + (cart[item.id] ?? 0) * item.price, 0) : 0
+
+  // One item, drawn the same whether it is a row in a list or a card on a
+  // shelf — the two layouts differ in arrangement, not in what a product
+  // looks like or what you can do to it.
+  const renderItem = (item: MedicineProduct) => (
+          <VendorMenuItemCard
+            key={item.id}
+            item={item}
+            accent={accent}
+            dimmed={!item.inStock}
+            right={
+              interactive && item.inStock ? (
+                cart![item.id] ? (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => onQtyChange!(item.id, (cart![item.id] ?? 0) - 1)}
+                      className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-300 text-sm font-semibold text-slate-600"
+                    >
+                      −
+                    </button>
+                    <span className="w-5 text-center text-sm font-medium text-slate-700">{cart![item.id]}</span>
+                    <button
+                      type="button"
+                      onClick={() => onQtyChange!(item.id, (cart![item.id] ?? 0) + 1)}
+                      className={`flex h-7 w-7 items-center justify-center rounded-md text-sm font-semibold text-white ${accent.solid} ${accent.solidHover}`}
+                    >
+                      +
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onQtyChange!(item.id, 1)}
+                    className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold text-white ${accent.solid} ${accent.solidHover}`}
+                  >
+                    🛒 Add
+                  </button>
+                )
+              ) : (
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                    item.inStock ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  {item.inStock ? 'In stock' : 'Out of stock'}
+                </span>
+              )
+            }
+          />
+  )
 
   return (
     <div ref={cardRef} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -1591,55 +1645,37 @@ export function VendorStorefront({
             to push checkout and everything else on the page far below the
             fold; swiping inside this box instead keeps the rest of the page
             put. */}
-        <div className="max-h-[440px] space-y-2 overflow-y-auto pr-0.5">
-          {shownItems.map((item) => (
-            <VendorMenuItemCard
-              key={item.id}
-              item={item}
-              accent={accent}
-              dimmed={!item.inStock}
-              right={
-                interactive && item.inStock ? (
-                  cart![item.id] ? (
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => onQtyChange!(item.id, (cart![item.id] ?? 0) - 1)}
-                        className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-300 text-sm font-semibold text-slate-600"
-                      >
-                        −
-                      </button>
-                      <span className="w-5 text-center text-sm font-medium text-slate-700">{cart![item.id]}</span>
-                      <button
-                        type="button"
-                        onClick={() => onQtyChange!(item.id, (cart![item.id] ?? 0) + 1)}
-                        className={`flex h-7 w-7 items-center justify-center rounded-md text-sm font-semibold text-white ${accent.solid} ${accent.solidHover}`}
-                      >
-                        +
-                      </button>
+        {/* Shelves, when this shop's catalogue is wide enough to want them
+            and the customer is not already narrowing it. A search or a
+            category chip has produced one specific set of results, and
+            scattering those across horizontal rows would hide the very
+            things that were just asked for — so filtering always falls back
+            to the list. */}
+        {layout === 'shelves' && !query && activeCategory === 'all' ? (
+          <div className="max-h-[440px] space-y-3 overflow-y-auto pr-0.5">
+            {buildShelves(shownItems).map((shelf) => (
+              <div key={shelf.category}>
+                <div className="mb-1 flex items-baseline justify-between gap-2">
+                  <p className="truncate text-xs font-semibold text-slate-700">{shelf.category}</p>
+                  <span className="shrink-0 text-[10px] text-slate-400">{shelf.items.length}</span>
+                </div>
+                {/* snap points so a swipe lands on a card rather than
+                    halfway through one. */}
+                <div className="-mx-0.5 flex snap-x snap-mandatory gap-2 overflow-x-auto px-0.5 pb-1">
+                  {shelf.items.map((item) => (
+                    <div key={item.id} className="w-[68%] shrink-0 snap-start sm:w-[42%]">
+                      {renderItem(item)}
                     </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => onQtyChange!(item.id, 1)}
-                      className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold text-white ${accent.solid} ${accent.solidHover}`}
-                    >
-                      🛒 Add
-                    </button>
-                  )
-                ) : (
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                      item.inStock ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                    }`}
-                  >
-                    {item.inStock ? 'In stock' : 'Out of stock'}
-                  </span>
-                )
-              }
-            />
-          ))}
-        </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="max-h-[440px] space-y-2 overflow-y-auto pr-0.5">
+            {shownItems.map(renderItem)}
+          </div>
+        )}
       </div>
 
     </div>

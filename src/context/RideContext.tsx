@@ -1592,7 +1592,8 @@ type RideAction =
       coverPhotoPosition: { x: number; y: number; scale?: number } | null
       bannerBackgroundDataUrl: string | null
       logoDataUrl: string | null
-      logoScale: number | null
+      logoPosition: { x: number; y: number; scale?: number } | null
+      bannerBackgroundPosition: { x: number; y: number; scale?: number } | null
       themeColor: string | null
       tagline: string | null
     }
@@ -6986,7 +6987,8 @@ function reducer(state: RideState, action: RideAction): RideState {
                 coverPhotoPosition: action.coverPhotoPosition,
                 bannerBackgroundDataUrl: action.bannerBackgroundDataUrl,
                 logoDataUrl: action.logoDataUrl,
-                logoScale: action.logoScale,
+                logoPosition: action.logoPosition,
+                bannerBackgroundPosition: action.bannerBackgroundPosition,
                 themeColor: action.themeColor,
                 tagline: action.tagline,
               }
@@ -8218,7 +8220,8 @@ interface RideContextValue extends RideState {
     coverPhotoPosition: { x: number; y: number; scale?: number } | null
     bannerBackgroundDataUrl: string | null
     logoDataUrl: string | null
-    logoScale: number | null
+    logoPosition: { x: number; y: number; scale?: number } | null
+    bannerBackgroundPosition: { x: number; y: number; scale?: number } | null
     themeColor: string | null
     tagline: string | null
   }) => void

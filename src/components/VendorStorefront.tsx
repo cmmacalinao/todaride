@@ -319,6 +319,68 @@ export function VendorBannerArt({ kind = 'food' }: { kind?: 'food' | 'goods' }) 
   )
 }
 
+// Dragging a picture to place it, in percent.
+//
+// The profile photo below keeps its own copy of this: it was written first,
+// it is load-bearing, and prising it out to share four lines was not worth
+// the chance of breaking the one of the three that already worked. These are
+// the other two.
+//
+// `invert` is for panning a crop rather than moving an object: dragging right
+// should reveal more of the picture's left, which means object-position goes
+// down as the pointer goes up.
+function usePlacementDrag(
+  saved: { x: number; y: number },
+  onChange: ((position: { x: number; y: number }) => void) | undefined,
+  { invert = false, min = 0, max = 100 }: { invert?: boolean; min?: number; max?: number } = {},
+) {
+  const [dragging, setDragging] = useState<{ x: number; y: number } | null>(null)
+  const start = useRef<{ pointerX: number; pointerY: number; x: number; y: number; w: number; h: number } | null>(null)
+  // Kept outside state so a quick flick commits the position the pointer
+  // actually reached, even when move and release land in the same frame.
+  const latest = useRef<{ x: number; y: number } | null>(null)
+
+  function onPointerDown(e: React.PointerEvent<HTMLElement>) {
+    if (!onChange) return
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    // The frame, not the picture: the picture's own box is whatever the zoom
+    // made it, and the position is a share of the frame.
+    const rect = (e.currentTarget.parentElement ?? e.currentTarget).getBoundingClientRect()
+    start.current = { pointerX: e.clientX, pointerY: e.clientY, x: saved.x, y: saved.y, w: rect.width, h: rect.height }
+    latest.current = saved
+    setDragging(saved)
+  }
+
+  function onPointerMove(e: React.PointerEvent<HTMLElement>) {
+    const from = start.current
+    if (!from) return
+    const sign = invert ? -1 : 1
+    const clamp = (n: number) => Math.max(min, Math.min(max, n))
+    const next = {
+      x: clamp(from.x + sign * ((e.clientX - from.pointerX) / from.w) * 100),
+      y: clamp(from.y + sign * ((e.clientY - from.pointerY) / from.h) * 100),
+    }
+    latest.current = next
+    setDragging(next)
+  }
+
+  function onPointerUp() {
+    if (!start.current) return
+    start.current = null
+    const final = latest.current
+    latest.current = null
+    if (final) onChange?.({ x: Math.round(final.x), y: Math.round(final.y) })
+    setDragging(null)
+  }
+
+  return {
+    position: dragging ?? saved,
+    isDragging: !!dragging,
+    handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp },
+  }
+}
+
 export function VendorHeaderCard({
   pharmacy,
   itemCount,
@@ -329,6 +391,8 @@ export function VendorHeaderCard({
   onCoverPositionChange,
   onBannerBackgroundUpload,
   onBannerBackgroundRemove,
+  onLogoPositionChange,
+  onBannerBackgroundPositionChange,
   onRate,
 }: {
   pharmacy: Pharmacy
@@ -360,6 +424,12 @@ export function VendorHeaderCard({
   // whatever background is showing.
   onBannerBackgroundUpload?: (dataUrl: string) => void
   onBannerBackgroundRemove?: () => void
+  // Present only on the vendor's own edit screen — the same place-it-yourself
+  // treatment the profile photo has always had, for the other two pictures a
+  // shop can upload. The logo's x/y are nudges in percent of its own box; the
+  // banner's pan its crop (object-position).
+  onLogoPositionChange?: (position: { x: number; y: number; scale?: number }) => void
+  onBannerBackgroundPositionChange?: (position: { x: number; y: number; scale?: number }) => void
 }) {
   const [favorited, setFavorited] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
@@ -386,10 +456,25 @@ export function VendorHeaderCard({
   // when dragging a shrunken photo around.
   const savedPosition = { x: 75, y: 50, ...(pharmacy.coverPhotoPosition ?? {}) }
   const photoScale = savedPosition.scale ?? 1
-  // The logo's box, in px. Clamped to the same range the size slider offers
-  // (see LogoSizeControl) so a value that arrived from older data or a hand
-  // edit cannot push the logo outside the banner.
-  const logoBox = Math.round(80 * Math.max(0.6, Math.min(2, pharmacy.logoScale ?? 1)))
+  // The logo: a nudge from where it would sit, and a size. Both clamped to
+  // the range the controls offer, so a value from older data or a hand edit
+  // cannot push the logo out of the banner.
+  const savedLogo = { x: 0, y: 0, ...(pharmacy.logoPosition ?? {}) }
+  const logoScale = Math.max(0.6, Math.min(2, savedLogo.scale ?? 1))
+  const logoBox = Math.round(80 * logoScale)
+  const logoDrag = usePlacementDrag(savedLogo, onLogoPositionChange && ((p) => onLogoPositionChange({ ...p, scale: logoScale })), {
+    min: -150,
+    max: 150,
+  })
+
+  // The banner photo: which part of it the strip shows, and how far in.
+  const savedBanner = { x: 50, y: 50, ...(pharmacy.bannerBackgroundPosition ?? {}) }
+  const bannerScale = Math.max(1, Math.min(3, savedBanner.scale ?? 1))
+  const bannerDrag = usePlacementDrag(
+    savedBanner,
+    onBannerBackgroundPositionChange && ((p) => onBannerBackgroundPositionChange({ ...p, scale: bannerScale })),
+    { invert: true },
+  )
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null)
 
   // Zoom in steps about the photo's own centre, so it grows and shrinks in
@@ -557,8 +642,25 @@ export function VendorHeaderCard({
                 coverPhotoDataUrl seats on top of whatever's behind it. A
                 dark wash keeps the name/tagline text readable over
                 whatever the photo actually looks like. */}
-            <img src={pharmacy.bannerBackgroundDataUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-            <div className="absolute inset-0 bg-black/25" />
+            <img
+              src={pharmacy.bannerBackgroundDataUrl}
+              alt=""
+              draggable={false}
+              {...bannerDrag.handlers}
+              className={`absolute inset-0 h-full w-full select-none object-cover ${
+                onBannerBackgroundPositionChange ? 'cursor-grab touch-none active:cursor-grabbing' : ''
+              }`}
+              style={{
+                objectPosition: `${bannerDrag.position.x}% ${bannerDrag.position.y}%`,
+                transform: bannerScale === 1 ? undefined : `scale(${bannerScale})`,
+              }}
+            />
+            <div className="pointer-events-none absolute inset-0 bg-black/25" />
+            {onBannerBackgroundPositionChange && !bannerDrag.isDragging && (
+              <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/40 px-1.5 py-0.5 text-[9px] font-medium text-white">
+                ↔ drag the background
+              </span>
+            )}
           </>
         ) : (
           // The themed banner art is the background when there's no custom
@@ -806,7 +908,20 @@ export function VendorHeaderCard({
             and Change cover buttons underneath. Only the avatar itself
             takes pointer events back. */}
         <div className="pointer-events-none -mt-[104px] flex items-end gap-3">
-          <div className="pointer-events-auto relative shrink-0" style={{ width: logoBox, height: logoBox }}>
+          <div
+            className="pointer-events-auto relative shrink-0"
+            style={{
+              width: logoBox,
+              height: logoBox,
+              // A nudge from where it would otherwise sit, so the logo can be
+              // moved off whatever it collides with (a long shop name, the
+              // photo behind it) without changing the row's layout.
+              transform:
+                logoDrag.position.x || logoDrag.position.y
+                  ? `translate(${logoDrag.position.x}%, ${logoDrag.position.y}%)`
+                  : undefined,
+            }}
+          >
             {/* A real uploaded logo carries its own background/shape (the
                 seed logo, for instance, is already a white circle) — the
                 card's own white border/background/shadow was doubling up on
@@ -827,7 +942,11 @@ export function VendorHeaderCard({
                 <img
                   src={pharmacy.logoDataUrl}
                   alt={`${pharmacy.name} logo`}
-                  className="h-full w-full object-contain"
+                  draggable={false}
+                  {...logoDrag.handlers}
+                  className={`h-full w-full select-none object-contain ${
+                    onLogoPositionChange ? 'cursor-grab touch-none active:cursor-grabbing' : ''
+                  }`}
                 />
               ) : (
                 accent.icon

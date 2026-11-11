@@ -20,7 +20,8 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
       coverPhotoPosition: { x: number; y: number; scale?: number } | null
       bannerBackgroundDataUrl: string | null
       logoDataUrl: string | null
-      logoScale: number | null
+      logoPosition: { x: number; y: number; scale?: number } | null
+      bannerBackgroundPosition: { x: number; y: number; scale?: number } | null
       themeColor: string | null
       tagline: string | null
     }>,
@@ -31,7 +32,8 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
       coverPhotoPosition: pharmacy.coverPhotoPosition ?? null,
       bannerBackgroundDataUrl: pharmacy.bannerBackgroundDataUrl ?? null,
       logoDataUrl: pharmacy.logoDataUrl ?? null,
-      logoScale: pharmacy.logoScale ?? null,
+      logoPosition: pharmacy.logoPosition ?? null,
+      bannerBackgroundPosition: pharmacy.bannerBackgroundPosition ?? null,
       themeColor: pharmacy.themeColor ?? null,
       tagline: pharmacy.tagline ?? null,
       ...patch,
@@ -49,6 +51,19 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
         onUpload={(dataUrl) => setBranding({ bannerBackgroundDataUrl: dataUrl })}
         onRemove={() => setBranding({ bannerBackgroundDataUrl: null })}
       />
+      {pharmacy.bannerBackgroundDataUrl && (
+        <PlacementControl
+          label="Banner zoom"
+          hint="Drag the banner itself on the page above to choose which part shows."
+          min={1}
+          max={3}
+          value={pharmacy.bannerBackgroundPosition?.scale ?? 1}
+          onScale={(scale) =>
+            setBranding({ bannerBackgroundPosition: { x: 50, y: 50, ...(pharmacy.bannerBackgroundPosition ?? {}), scale } })
+          }
+          onReset={() => setBranding({ bannerBackgroundPosition: null })}
+        />
+      )}
       <DocumentUploadField
         label="Profile photo (optional)"
         dataUrl={pharmacy.coverPhotoDataUrl ?? null}
@@ -64,9 +79,14 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
         prepare={(dataUrl) => removeFlatBackground(dataUrl, { onlyIfFlat: true })}
       />
       {pharmacy.logoDataUrl && (
-        <LogoSizeControl
-          scale={pharmacy.logoScale ?? 1}
-          onChange={(logoScale) => setBranding({ logoScale })}
+        <PlacementControl
+          label="Logo size"
+          hint="Drag the logo itself on the page above to move it."
+          min={0.6}
+          max={2}
+          value={pharmacy.logoPosition?.scale ?? 1}
+          onScale={(scale) => setBranding({ logoPosition: { x: 0, y: 0, ...(pharmacy.logoPosition ?? {}), scale } })}
+          onReset={() => setBranding({ logoPosition: null })}
         />
       )}
       <div>
@@ -85,30 +105,53 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
   )
 }
 
-// How big the logo sits on the page. A slider rather than a drag handle:
-// the logo is a fixed square in the header, so size is the only thing there
-// is to change about it, and a slider says that where a handle would invite
-// a drag that does nothing.
-function LogoSizeControl({ scale, onChange }: { scale: number; onChange: (scale: number) => void }) {
+// Size here, position on the picture itself.
+//
+// Splitting it that way is deliberate: dragging the real thing in the real
+// header shows exactly what a customer will see, which a second miniature
+// preview inside a form never quite does. The slider is here because size is
+// awkward to drag on a picture that is already being dragged to move it, and
+// Reset is here because it is the one control somebody reaches for after
+// making a mess, when the picture is halfway off the screen.
+function PlacementControl({
+  label,
+  hint,
+  min,
+  max,
+  value,
+  onScale,
+  onReset,
+}: {
+  label: string
+  hint: string
+  min: number
+  max: number
+  value: number
+  onScale: (scale: number) => void
+  onReset: () => void
+}) {
   return (
     <div>
       <div className="mb-1 flex items-center justify-between">
-        <p className="text-xs font-medium text-slate-700">Logo size</p>
-        <span className="text-[11px] tabular-nums text-slate-400">{Math.round(scale * 100)}%</span>
+        <p className="text-xs font-medium text-slate-700">{label}</p>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] tabular-nums text-slate-400">{Math.round(value * 100)}%</span>
+          <button type="button" onClick={onReset} className="text-[11px] font-semibold text-brand-700 hover:underline">
+            Reset
+          </button>
+        </div>
       </div>
       <input
         type="range"
-        min={0.6}
-        max={2}
+        min={min}
+        max={max}
         step={0.05}
-        value={scale}
-        onChange={(e) => onChange(Number(e.target.value))}
+        value={value}
+        onChange={(e) => onScale(Number(e.target.value))}
         className="w-full accent-brand-600"
-        aria-label="Logo size"
+        aria-label={label}
       />
-      <p className="mt-0.5 text-[11px] text-slate-400">
-        Shows at this size on your page. Drag left for a small mark, right for a big one.
-      </p>
+      <p className="mt-0.5 text-[11px] text-slate-400">{hint}</p>
     </div>
   )
 }
@@ -128,7 +171,8 @@ export function VendorThemePicker({ pharmacy }: { pharmacy: Pharmacy }) {
       coverPhotoPosition: pharmacy.coverPhotoPosition ?? null,
       bannerBackgroundDataUrl: pharmacy.bannerBackgroundDataUrl ?? null,
       logoDataUrl: pharmacy.logoDataUrl ?? null,
-      logoScale: pharmacy.logoScale ?? null,
+      logoPosition: pharmacy.logoPosition ?? null,
+      bannerBackgroundPosition: pharmacy.bannerBackgroundPosition ?? null,
       themeColor: pharmacy.themeColor === key ? null : key,
       tagline: pharmacy.tagline ?? null,
     })

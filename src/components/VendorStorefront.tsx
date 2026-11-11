@@ -1159,6 +1159,12 @@ export function VendorHeaderCard({
             {typeof pharmacy.prepMinutes === 'number' && pharmacy.prepMinutes > 0 && (
               <p>⏱️ Usually ready in about {pharmacy.prepMinutes} min</p>
             )}
+            {/* Said on the page rather than discovered at the order button.
+                Somebody too far away should find that out before they pick
+                out a meal, not after. */}
+            {typeof pharmacy.deliveryRadiusKm === 'number' && pharmacy.deliveryRadiusKm > 0 && (
+              <p>🛵 Delivers within {pharmacy.deliveryRadiusKm} km</p>
+            )}
             {(() => {
               const { average, count } = storeRatingSummary(pharmacy)
               return (

@@ -576,6 +576,10 @@ export interface Pharmacy {
   // when an order counts as overdue — see customerCancelState. Undefined
   // reads as DEFAULT_PREP_MINUTES.
   prepMinutes?: number | null
+  // How far this shop will deliver, in km from its own pin. Undefined or
+  // zero means no limit — which is how every shop behaved before this
+  // existed. See lib/deliveryRange.
+  deliveryRadiusKm?: number | null
   nameFont?: string | null
   nameColor?: string | null
   // A named preset from VENDOR_THEME_COLORS (see VendorStorefront.tsx) that

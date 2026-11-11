@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { deliveryRangeMessage, deliveryRangeState } from '../lib/deliveryRange'
 import { customerCancelState, overdueAfterMinutes } from '../lib/orderTiming'
 
 // Re-exported: these moved to lib/orderTiming so they could be tested
@@ -338,7 +339,13 @@ export const VendorMenuBooking = forwardRef<
 
   // No Contact number box any more (2026-09-22): the customer's own saved
   // number goes with the order, so only the cart and the address are needed.
-  const canPlaceOrder = cartLines.length > 0 && !!deliveryAddress && !!selectedVendor
+  // Too far is decided here rather than left for the shop to reject later:
+  // a customer who has built a cart and typed an address deserves to be told
+  // before they send it, and a merchant should not have to turn away an
+  // order the app should never have offered them.
+  const range = deliveryRangeState(selectedVendor?.deliveryRadiusKm, deliveryKm)
+  const outOfRange = selectedVendor ? deliveryRangeMessage(range, selectedVendor.name) : null
+  const canPlaceOrder = cartLines.length > 0 && !!deliveryAddress && !!selectedVendor && range.withinRange
 
   function handlePlaceOrder() {
     if (!canPlaceOrder || !deliveryAddress || !selectedVendor) return
@@ -749,6 +756,7 @@ export const VendorMenuBooking = forwardRef<
                 type="button"
                 onClick={handlePlaceOrder}
                 disabled={!canPlaceOrder}
+                title={outOfRange ?? undefined}
                 className="w-full rounded-lg bg-[#ffe066] px-2.5 py-1.5 text-xs font-bold text-navy-900 transition hover:bg-[#ffd633] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
               >
                 {/* Says what is missing instead of just greying out (2026-09-22). */}
@@ -756,10 +764,20 @@ export const VendorMenuBooking = forwardRef<
                   ? 'Set where to deliver to order'
                   : cartLines.length === 0
                     ? 'Add a dish to order'
-                    : `Send order — about ₱${total}`}
+                    : !range.withinRange
+                      ? `Too far — ${selectedVendor?.name ?? 'this store'} delivers within ${range.limitKm} km`
+                      : `Send order — about ₱${total}`}
               </button>
             }
           />
+
+          {/* The full sentence under the button, since the button has room
+              for a verdict but not for the distance that explains it. */}
+          {outOfRange && (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-snug text-amber-800">
+              📍 {outOfRange} Pick an address closer to the store, or order from somewhere nearer to you.
+            </p>
+          )}
 
           {/* What is being ordered and what it comes to, under the map and the
               order button (2026-09-22) — the map and Send order come first. */}

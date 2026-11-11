@@ -61,6 +61,64 @@ export function VendorMenuLayoutPicker({ pharmacy, itemCount }: { pharmacy: Phar
   )
 }
 
+// How far the shop will go.
+//
+// Any distance used to be quotable: a 9km order priced fine, the customer
+// approved it, the shop accepted it, and then no rider would take a tariff
+// fare for a trip that long — or one did, and spent an hour on a single
+// delivery. Set here, it is refused at the order button instead, before
+// anybody has cooked or waited.
+export function VendorDeliveryRadiusPicker({ pharmacy }: { pharmacy: Pharmacy }) {
+  const { setVendorDeliveryRadius } = useRides()
+  const current = pharmacy.deliveryRadiusKm ?? null
+  const choices = [1, 2, 3, 5, 7, 10]
+  return (
+    <section className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div>
+        <h2 className="text-sm font-semibold text-slate-700">🛵 Delivery range</h2>
+        <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
+          How far from your store you are willing to deliver. Addresses beyond it cannot order from you, so you are
+          never handed a trip you would have to turn down.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {choices.map((km) => (
+          <button
+            key={km}
+            type="button"
+            onClick={() => setVendorDeliveryRadius(pharmacy.id, km)}
+            aria-pressed={current === km}
+            className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition ${
+              current === km
+                ? 'border-brand-600 bg-brand-600 text-white'
+                : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            {km} km
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => setVendorDeliveryRadius(pharmacy.id, null)}
+          aria-pressed={current === null}
+          className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition ${
+            current === null
+              ? 'border-brand-600 bg-brand-600 text-white'
+              : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          No limit
+        </button>
+      </div>
+      <p className="text-[11px] text-slate-400">
+        {current === null
+          ? 'No limit — anybody can order, however far away they are.'
+          : `Your page says "delivers within ${current} km", measured from your pin.`}
+      </p>
+    </section>
+  )
+}
+
 // How long the shop takes, said by the shop.
 //
 // Nothing told a customer how long food would take, and nothing told the

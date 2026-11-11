@@ -357,7 +357,7 @@ function ScaleStrip({
   const clamp = (n: number) => Math.round(Math.max(min, Math.min(max, n)) * 100) / 100
   return (
     <div
-      className={`pointer-events-auto absolute z-10 flex items-center rounded-full bg-black/40 px-0.5 text-white shadow-sm ${className}`}
+      className={`pointer-events-auto z-10 flex w-fit items-center rounded-full bg-black/40 px-0.5 text-white shadow-sm ${className}`}
     >
       <button
         type="button"
@@ -813,7 +813,7 @@ export function VendorHeaderCard({
                   onScale={(scale) => onCoverPositionChange({ x: savedPosition.x, y: savedPosition.y, scale })}
                   onTrailing={onCoverUpload ? () => setPhotoPickerOpen(true) : undefined}
                   trailingLabel="📷 Change"
-                  className="bottom-2 left-[50%]"
+                  className="absolute bottom-2 left-[50%]"
                 />
               </>
             )}
@@ -1001,7 +1001,7 @@ export function VendorHeaderCard({
                   : () => onNamePositionChange({ x: 0, y: 0, scale: 1 })
               }
               trailingLabel={onNameChange ? '✏ Edit' : '↺ Reset'}
-              className="bottom-1 left-0"
+              className="mt-0.5"
             />
           )}
           <span
@@ -1089,7 +1089,7 @@ export function VendorHeaderCard({
                     : () => onLogoPositionChange({ x: 0, y: 0, scale: 1 })
                 }
                 trailingLabel={onLogoUpload ? '📷 Change' : '↺ Reset'}
-                className="-bottom-7 left-1/2 -translate-x-1/2"
+                className="absolute -bottom-7 left-1/2 -translate-x-1/2"
               />
             )}
             {onLogoUpload && (

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { titleColorValue, titleFontStack } from '../lib/vendorTitleStyle'
 import { nextOpeningLabel, vendorIsOpen } from '../lib/openingHours'
 import { publicVendorUrl } from '../lib/vendorSlug'
 import { getDefaultDishVisual } from '../lib/filipinoDishes'
@@ -974,10 +975,20 @@ export function VendorHeaderCard({
               className="w-full rounded bg-black/30 px-1 text-lg font-bold text-white outline-none ring-1 ring-white/60"
             />
           ) : (
-            <h2 className="truncate text-lg font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">{pharmacy.name}</h2>
+            <h2
+              className="truncate text-lg font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
+              style={{ fontFamily: titleFontStack(pharmacy.nameFont), color: titleColorValue(pharmacy.nameColor) }}
+            >
+              {pharmacy.name}
+            </h2>
           )}
           {pharmacy.tagline && (
-            <p className="truncate text-xs italic text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">{pharmacy.tagline}</p>
+            <p
+              className="truncate text-xs italic text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
+              style={{ fontFamily: titleFontStack(pharmacy.nameFont), color: titleColorValue(pharmacy.nameColor) }}
+            >
+              {pharmacy.tagline}
+            </p>
           )}
           </div>
           {/* Outside the draggable block above, not inside it. In there the

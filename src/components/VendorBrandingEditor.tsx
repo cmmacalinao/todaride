@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { TITLE_COLORS, TITLE_FONTS } from '../lib/vendorTitleStyle'
 import { VendorHoursEditor } from './VendorHoursEditor'
 import { DocumentUploadField } from './DocumentUploadField'
 import { removeFlatBackground } from '../lib/photo'
@@ -22,6 +23,8 @@ export type VendorBrandingPatch = Partial<{
   logoPosition: { x: number; y: number; scale?: number } | null
   bannerBackgroundPosition: { x: number; y: number; scale?: number } | null
   namePosition: { x: number; y: number; scale?: number } | null
+  nameFont: string | null
+  nameColor: string | null
   themeColor: string | null
   tagline: string | null
 }>
@@ -42,6 +45,8 @@ export function useVendorBranding(pharmacy: Pharmacy | undefined) {
       logoPosition: pharmacy.logoPosition ?? null,
       bannerBackgroundPosition: pharmacy.bannerBackgroundPosition ?? null,
       namePosition: pharmacy.namePosition ?? null,
+      nameFont: pharmacy.nameFont ?? null,
+      nameColor: pharmacy.nameColor ?? null,
       themeColor: pharmacy.themeColor ?? null,
       tagline: pharmacy.tagline ?? null,
       ...patch,
@@ -151,6 +156,51 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
           }}
           className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
         />
+      </div>
+      <div>
+        <p className="mb-1 text-xs font-medium text-slate-700">Name style</p>
+        <div className="flex flex-wrap gap-1">
+          {TITLE_FONTS.map((font) => {
+            const picked = (pharmacy.nameFont ?? 'classic') === font.id
+            return (
+              <button
+                key={font.id}
+                type="button"
+                onClick={() => setBranding({ nameFont: font.id === 'classic' ? null : font.id })}
+                aria-pressed={picked}
+                style={{ fontFamily: font.stack || undefined }}
+                className={`rounded-lg border px-2 py-1 text-xs font-semibold transition ${
+                  picked ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {font.label}
+              </button>
+            )
+          })}
+        </div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          {TITLE_COLORS.map((colour) => {
+            const picked = (pharmacy.nameColor ?? 'white') === colour.id
+            return (
+              <button
+                key={colour.id}
+                type="button"
+                onClick={() => setBranding({ nameColor: colour.id === 'white' ? null : colour.id })}
+                aria-pressed={picked}
+                aria-label={colour.label}
+                title={colour.label}
+                className={`h-6 w-6 rounded-full border-2 transition ${
+                  picked ? 'border-brand-600 ring-2 ring-brand-200' : 'border-slate-300 hover:border-slate-400'
+                }`}
+                style={{ backgroundColor: colour.value }}
+              />
+            )
+          })}
+        </div>
+        <p className="mt-1 text-[11px] text-slate-400">
+          Light colours only — your banner is a photo, and dark text on a dark photo is the one thing a shadow cannot
+          rescue.
+        </p>
       </div>
       <PlacementControl
         label="Name size"

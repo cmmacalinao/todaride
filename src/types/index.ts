@@ -563,6 +563,12 @@ export interface Pharmacy {
   // null means this shop never set hours, and isOpen alone decides — exactly
   // as it did before hours existed. See lib/openingHours.
   openingHours?: ({ open: string; close: string } | null)[] | null
+  // Which of the curated looks the shop's name and tagline wear — ids from
+  // lib/vendorTitleStyle, not raw CSS, so a vendor cannot pick something
+  // unreadable or something that has to be downloaded before their own name
+  // appears. Undefined is the default white sans.
+  nameFont?: string | null
+  nameColor?: string | null
   // A named preset from VENDOR_THEME_COLORS (see VendorStorefront.tsx) that
   // overrides the businessType-derived gradient — lets a vendor pick their
   // own accent instead of being stuck with whatever their category defaults

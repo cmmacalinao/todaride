@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { MerchantSearchField } from './MerchantSearchField'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import {
@@ -32,7 +33,7 @@ import { SimpleOtpStep } from './SimpleOtpStep'
 import { EMPTY_PH_ADDRESS, PhAddressFields, type PhAddressValue } from './PhAddressFields'
 import { VendorSignupLocation } from './VendorSignupLocation'
 import { landmarkCategoryFor, vendorLandmarkId } from './VendorLocationPicker'
-import { BUSINESS_TYPE_LABELS, type BusinessType, type GeoCoords } from '../types'
+import { type BusinessType, type GeoCoords, type Pharmacy } from '../types'
 
 type GateRole = 'passenger' | 'parent' | 'driver' | 'admin' | 'pharmacy' | 'vendor' | 'operator' | 'franchise'
 
@@ -523,29 +524,27 @@ function PharmacyAuth({ variant = 'pharmacy', mode }: { variant?: 'pharmacy' | '
   const navigate = useNavigate()
   const { pharmacies } = useRides()
   const { setLoggedInPharmacyId, setAuthedAccount } = useSession()
-  // Login is filtered by the same categories sign-up offers, so a resto owner
-  // doesn't scroll a dropdown full of pharmacies to find themselves.
-  const categories = SIGNUP_CATEGORIES[variant]
-  const [loginType, setLoginType] = useState<BusinessType>(categories[0].value)
-  const matching = pharmacies.filter((p) => p.businessType === loginType)
-  const [pharmacyId, setPharmacyId] = useState(matching[0]?.id ?? '')
-  const [pin, setPin] = useState(() => matching[0]?.id && MOCK_PHARMACY_IDS.has(matching[0].id) ? matching[0].adminPin : '')
+  // One field, every merchant, nothing listed until it is typed for — see
+  // MerchantSearchField. The tab row that used to stand here asked a
+  // merchant which of three words the app had filed them under before it
+  // would let them look for themselves, and the dropdown under it handed
+  // the pilot's whole roster of businesses to anybody who opened the page.
+  //
+  // Not filtered by `variant` either: both partner doors reach the same
+  // accounts, and whichever portal a merchant belongs in is decided after
+  // login by their own businessType (see VendorPortalPage/PharmacyPortalPage),
+  // not by which link they happened to tap.
+  const [pharmacyId, setPharmacyId] = useState('')
+  const [pin, setPin] = useState('')
   const [error, setError] = useState('')
 
-  function handleSelectPharmacy(id: string) {
-    setPharmacyId(id)
-    const seed = MOCK_PHARMACY_IDS.has(id) ? pharmacies.find((p) => p.id === id) : undefined
-    setPin(seed?.adminPin ?? '')
-  }
-
-  // Switching category re-points the selection at that category's first
-  // account, so the dropdown and the PIN never disagree with the active tab.
-  function handleSelectLoginType(type: BusinessType) {
-    setLoginType(type)
+  function handleSelectPharmacy(merchant: Pharmacy | null) {
+    setPharmacyId(merchant?.id ?? '')
     setError('')
-    const first = pharmacies.find((p) => p.businessType === type)
-    setPharmacyId(first?.id ?? '')
-    setPin(first && MOCK_PHARMACY_IDS.has(first.id) ? first.adminPin : '')
+    // A seeded demo account fills its own PIN in, so demos need nobody to
+    // look one up in mock/data.ts. A self-registered merchant's PIN is a
+    // real secret and is never guessed, shown, or filled.
+    setPin(merchant && MOCK_PHARMACY_IDS.has(merchant.id) ? merchant.adminPin : '')
   }
 
   function logIntoPharmacy(id: string) {
@@ -556,7 +555,7 @@ function PharmacyAuth({ variant = 'pharmacy', mode }: { variant?: 'pharmacy' | '
   function handleLogin() {
     const pharmacy = pharmacies.find((p) => p.id === pharmacyId)
     if (!pharmacy) {
-      setError('Select a pharmacy.')
+      setError('Type your store name and pick it from the list.')
       return
     }
     if (pharmacy.adminPin !== pin) {
@@ -586,10 +585,8 @@ function PharmacyAuth({ variant = 'pharmacy', mode }: { variant?: 'pharmacy' | '
         </>
       ) : (
         // Same card/label/helper-text shape as IdentifierLoginForm (the
-        // passenger/driver/TODA login) — a name/PIN pair works there because
-        // every account is unique by name; a pharmacy/vendor's login instead
-        // needs to name a business type first, so this row of tabs plus a
-        // select stands in for that one identifier field.
+        // passenger/driver/TODA login): one identifier, then a PIN. The
+        // identifier here is the shop's own name, typed.
         <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
           <p className="text-xs text-slate-500">
             {variant === 'vendor'
@@ -597,48 +594,30 @@ function PharmacyAuth({ variant = 'pharmacy', mode }: { variant?: 'pharmacy' | '
               : 'For partner pharmacies and stores. No account yet? '}
             {switchLink('signup', 'Sign up')}
           </p>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">What kind of business is this?</label>
-            <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
-              {categories.map((c) => (
-                <button
-                  key={c.value}
-                  type="button"
-                  onClick={() => handleSelectLoginType(c.value)}
-                  className={`flex-1 whitespace-nowrap rounded-md py-1.5 text-[11px] font-medium transition ${
-                    loginType === c.value ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500'
-                  }`}
-                >
-                  {c.icon} {c.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">
-              {categories.find((c) => c.value === loginType)?.label ?? BUSINESS_TYPE_LABELS[loginType]}
-            </label>
-            {matching.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-slate-300 p-2.5 text-xs text-slate-400">
-                No {(categories.find((c) => c.value === loginType)?.label ?? BUSINESS_TYPE_LABELS[loginType]).toLowerCase()}{' '}
-                accounts registered yet —{' '}
-                {switchLink('signup', 'sign up')} to create the first one.
-              </p>
-            ) : (
-              <select
-                value={pharmacyId}
-                onChange={(e) => handleSelectPharmacy(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              >
-                {matching.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                    {MOCK_PHARMACY_IDS.has(p.id) ? ` (demo, PIN ${p.adminPin})` : ''}
-                  </option>
-                ))}
-              </select>
+          <MerchantSearchField
+            merchants={pharmacies}
+            selectedId={pharmacyId}
+            onSelect={handleSelectPharmacy}
+            label="Merchant"
+            placeholder="Type your store name"
+            emptyHint={() => (
+              <>
+                No store found by that name — check the spelling, or {switchLink('signup', 'sign up')} to register it.
+              </>
             )}
-          </div>
+            // "demo" and not the PIN itself: the four digits used to be
+            // printed beside every seeded name in the old dropdown, which
+            // is a published password list for anyone who looks. The PIN is
+            // still filled in automatically for these, so demos are no
+            // slower than they were.
+            renderTag={(merchant) =>
+              MOCK_PHARMACY_IDS.has(merchant.id) ? (
+                <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                  demo
+                </span>
+              ) : null
+            }
+          />
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500">PIN</label>
             <input
@@ -655,7 +634,7 @@ function PharmacyAuth({ variant = 'pharmacy', mode }: { variant?: 'pharmacy' | '
           <button
             type="button"
             onClick={handleLogin}
-            disabled={matching.length === 0}
+            disabled={!pharmacyId}
             className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Log in
@@ -671,51 +650,6 @@ function PharmacyAuth({ variant = 'pharmacy', mode }: { variant?: 'pharmacy' | '
 // (see Pharmacy.verificationStatus's comment), so registering goes live and
 // logs straight in, same as Passenger/Parent signup rather than Driver/TODA's
 // submit-and-wait pattern.
-// The two sign-up entry points share this whole form — only which pair of
-// business categories is offered differs, so a Resto signing up never has to
-// scroll past pharmacy/prescription options that don't apply to them.
-// Pharmacy and Other Commodity are pulled from both signup panels for this
-// version — a scope call, not a technical one: TODARIDE MEDS (see
-// medsEnabled in Super Admin) and the "sell anything else" catch-all stay
-// fully working underneath, just not offered as something new to sign up
-// for right now. Re-add the two removed entries here (and flip medsEnabled
-// back on) to bring them back — nothing about the underlying flows was
-// touched.
-const SIGNUP_CATEGORIES: Record<'pharmacy' | 'vendor', { value: BusinessType; icon: string; label: string; blurb: string }[]> = {
-  pharmacy: [
-    {
-      value: 'store',
-      icon: '🏪',
-      label: 'Store',
-      blurb: 'Connects to Food Express — customers can pick you by name for a delivery.',
-    },
-  ],
-  vendor: [
-    {
-      value: 'resto_food',
-      icon: '🍽️',
-      label: 'Resto / Food',
-      blurb: 'Restaurants, carinderias, bakeries — cooked food and drinks for delivery.',
-    },
-    {
-      value: 'other_commodity',
-      icon: '🏬',
-      label: 'Shop',
-      blurb:
-        'Sari-sari, hardware, water refilling, agrivet, school supplies — anything on a shelf, delivered.',
-    },
-    {
-      // A botika reaches customers through the same catalog every other shop
-      // uses, so it signs up through the same door. TODARIDE MEDS — the
-      // prescription flow with its own quote round-trip — is a separate
-      // service behind medsEnabled and is not what this registers.
-      value: 'pharmacy',
-      icon: '💊',
-      label: 'Pharmacy',
-      blurb: 'Drugstores — over-the-counter medicine and vitamins, delivered by a TODA rider.',
-    },
-  ],
-}
 
 function PharmacySignupForm({
   onRegistered,

@@ -427,12 +427,26 @@ interface RideState {
   // RideState/StoredState shape and every existing reader of it don't
   // need touching.
   vendorsEnabled: boolean
-  // The Rotary Club partnership card on the sign-in screen — see
-  // LandingPage.tsx. Off by default: the asset (public/partner-banner-
-  // rotary.png, the card cropped free of the old TODA SafeRide logo it used
-  // to carry) stays reserved rather than deleted, so Super Admin can switch
-  // it back on without anyone re-uploading anything.
+  // The Rotary Club partnership card — on the sign-in screen (see
+  // LandingPage.tsx) and on the home page a signed-in rider lands on (see
+  // RiderStartPage.tsx). The asset is public/partner-banner-rotary.png, the
+  // card cropped free of the old TODA SafeRide logo it used to carry.
+  //
+  // On by default again as of 2026-11-12, asked for directly. It was
+  // switched off while the artwork still carried the retired logo; it does
+  // not any more, and the partnership is worth showing. Super Admin can
+  // still turn it off.
   partnerBannerEnabled: boolean
+  // One-shot: whether the 2026-11-12 restore of the partner banner has
+  // already run on this device.
+  //
+  // Flipping the default was not enough on its own. Every existing install
+  // has partnerBannerEnabled: false written into its saved state from when
+  // the banner was switched off, and a stored value beats a default — so
+  // the people who already have the app would never have seen it come
+  // back. This marks the restore as done, after which Super Admin's switch
+  // is in charge again and an off stays off.
+  partnerBannerRestored: boolean
   // Prototype shortcut: show the one-time code on screen instead of texting
   // it. Off means OTP screens must get a real code from the SMS server
   // (see server/index.js) and surface an error if it isn't reachable,
@@ -1741,6 +1755,7 @@ interface StoredState {
   medsEnabled?: boolean
   vendorsEnabled?: boolean
   partnerBannerEnabled?: boolean
+  partnerBannerRestored?: boolean
   simulatedOtpEnabled?: boolean
   showDeveloperCredit?: boolean
   launchModeEnabled?: boolean
@@ -2045,7 +2060,9 @@ function fromStored(parsed: StoredState): RideState {
     // this is the one field that must never come back false no matter
     // what's sitting in the blob.
     vendorsEnabled: true,
-    partnerBannerEnabled: parsed.partnerBannerEnabled ?? false,
+    // The restore runs once per device and then gets out of the way.
+    partnerBannerEnabled: parsed.partnerBannerRestored === true ? (parsed.partnerBannerEnabled ?? true) : true,
+    partnerBannerRestored: true,
     // Real codes unless somebody has said otherwise. The endpoint is live
     // and the account has credits, so a pilot with real testers should be
     // proving the real path. An install that has already chosen keeps its
@@ -2384,7 +2401,8 @@ function loadInitialState(): RideState {
     pilaQueueEnabled: false,
     medsEnabled: false,
     vendorsEnabled: true,
-    partnerBannerEnabled: false,
+    partnerBannerEnabled: true,
+    partnerBannerRestored: true,
     simulatedOtpEnabled: false,
     showDeveloperCredit: false,
     launchModeEnabled: false,
@@ -8514,6 +8532,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           medsEnabled: state.medsEnabled,
           vendorsEnabled: state.vendorsEnabled,
           partnerBannerEnabled: state.partnerBannerEnabled,
+          partnerBannerRestored: state.partnerBannerRestored,
           simulatedOtpEnabled: state.simulatedOtpEnabled,
           showDeveloperCredit: state.showDeveloperCredit,
           launchModeEnabled: state.launchModeEnabled,

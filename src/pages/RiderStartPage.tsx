@@ -15,7 +15,7 @@ import { TricycleIcon } from '../components/TricycleIcon'
 // the terminal path discoverable at all.
 export function RiderStartPage() {
   const navigate = useNavigate()
-  const { vendorsEnabled, pharmacies, passengers } = useRides()
+  const { vendorsEnabled, pharmacies, passengers, partnerBannerEnabled } = useRides()
   const { currentPassengerId } = useSession()
   // A child sees Food Order and PaDeliver only if their parent allows them.
   const me = passengers.find((p) => p.id === currentPassengerId)
@@ -288,6 +288,19 @@ export function RiderStartPage() {
               })}
             </div>
           </section>
+        )}
+
+        {/* The Rotary Community Economic Development Initiative card, the
+            same one the sign-in screen carries. At the foot of the page
+            rather than the top: it is who stands behind the app, not a
+            thing to tap, and nobody opens this screen to read it. Off if
+            Super Admin has switched the partner banner off. */}
+        {partnerBannerEnabled && (
+          <img
+            src="/partner-banner-rotary.png"
+            alt="Rotary Club partnership"
+            className="mx-auto mt-6 w-full max-w-sm"
+          />
         )}
       </div>
     </div>

@@ -65,9 +65,20 @@ export function VendorGuestPage() {
   const items = medicineProducts.filter((p) => p.pharmacyId === pharmacy.id)
   const orderPath = `/book?vendor=${encodeURIComponent(pharmacy.id)}${focusPostId ? `&post=${encodeURIComponent(focusPostId)}` : ''}`
 
-  function goRegister() {
+  // Straight to the passenger login, not to the role chooser (2026-11-12).
+  //
+  // Somebody who tapped a shop's link wants that shop's food. Landing them
+  // on "Who are you?" asks a stranger to classify themselves — passenger,
+  // parent, driver, TODA officer, partner — before they can order a meal,
+  // and every one of those answers except the first is wrong for them.
+  //
+  // Log in rather than sign up, because the people most likely to tap this
+  // are the ones who already have an account; the login screen carries its
+  // own Sign up link for the rest, so neither has to go looking. The order
+  // path is remembered either way, so both land back on this shop's menu.
+  function goOrder() {
     rememberReturnTo(orderPath)
-    navigate('/welcome')
+    navigate('/book?role=passenger&auth=login')
   }
 
   return (
@@ -91,7 +102,7 @@ export function VendorGuestPage() {
             <>
               <button
                 type="button"
-                onClick={goRegister}
+                onClick={goOrder}
                 className="w-full rounded-xl bg-brand-600 py-3 text-sm font-bold text-white shadow-sm hover:bg-brand-700"
               >
                 🛵 Order from {pharmacy.name} — register or log in

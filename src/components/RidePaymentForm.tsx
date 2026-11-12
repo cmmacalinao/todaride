@@ -1,8 +1,14 @@
 import { useState } from 'react'
 import { useRides } from '../context/RideContext'
 import { createMayaCheckout } from '../lib/mayaApi'
-import { canCollectGcash, formatGcashNumber, gcashSendLink, isPlausibleGcashReference } from '../lib/manualGcash'
-import type { PaymentMethod } from '../types'
+import {
+  fareDestination,
+  formatGcashNumber,
+  gcashSendLink,
+  isPlausibleGcashReference,
+  normaliseGcashNumber,
+} from '../lib/manualGcash'
+import type { FareCollector, PaymentMethod } from '../types'
 
 // What the passenger is asked at the end of a trip.
 //
@@ -49,7 +55,10 @@ interface RidePaymentFormProps {
   // A food/goods delivery settles the whole order here — goods plus the
   // delivery fee — so the bill says "order", not "trip" and "fare".
   kind?: 'ride' | 'delivery'
-  onConfirm: (method: PaymentMethod, referenceNo: string | null) => void
+  // Whose wallet a GCash fare should go to first. Null for a trip with no
+  // driver on it yet, which falls back to the platform's account.
+  driverId?: string | null
+  onConfirm: (method: PaymentMethod, referenceNo: string | null, collectedBy?: FareCollector) => void
 }
 
 export function RidePaymentForm({
@@ -61,19 +70,21 @@ export function RidePaymentForm({
   total,
   initialMethod,
   rideId,
+  driverId = null,
   onConfirm,
   kind = 'ride',
 }: RidePaymentFormProps) {
-  // Where a manual GCash fare is sent. One account for the whole pilot, set
-  // in Super Admin — not the driver's own wallet, which most drivers have not
-  // filled in and which would make every fare a different number to check.
-  // The platform holds it and the driver draws it down (see DriverWithdrawal).
-  const { platformGcashAccount } = useRides()
-  // Strict: a well-formed number is not enough, because the sample number the
-  // app ships with is well formed and belongs to a stranger. See
-  // canCollectGcash — a pilot that has not set its own account gets cash and
-  // card, and Super Admin says why.
-  const gcashReady = canCollectGcash(platformGcashAccount)
+  // Where a manual GCash fare is sent: the driver's own wallet when they
+  // have saved one, the pilot's account otherwise. See fareDestination for
+  // why that order — a fare in the driver's GCash is theirs on arrival and
+  // nobody is left holding it. Either way the account must be a real one;
+  // the sample number the app ships with is well formed and belongs to a
+  // stranger, so a pilot that has set nothing up gets cash and card only.
+  const { platformGcashAccount, drivers } = useRides()
+  const driverAccount = driverId ? (drivers.find((d) => d.id === driverId)?.gcashAccount ?? null) : null
+  const destination = fareDestination(driverAccount, platformGcashAccount)
+  const gcashReady = destination !== null
+  const paysDriver = destination?.collectedBy === 'driver'
 
   // What the passenger actually chooses between. The stored PaymentMethod
   // behind a card payment is settled when the payment is made, not here.
@@ -85,6 +96,7 @@ export function RidePaymentForm({
   const [handed, setHanded] = useState('')
   const [reference, setReference] = useState('')
   const [showQr, setShowQr] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [paying, setPaying] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
 
@@ -119,7 +131,7 @@ export function RidePaymentForm({
   const isGcash = choice === 'gcash'
   const handedAmount = Number(handed) || 0
   const change = handedAmount - total
-  const walletLink = gcashSendLink(platformGcashAccount, total)
+  const walletLink = gcashSendLink(destination?.account, total)
   const referenceOk = isPlausibleGcashReference(reference)
 
   return (
@@ -228,9 +240,17 @@ export function RidePaymentForm({
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-[#0b5f59]">
                   Send ₱{total} via GCash to
                 </p>
-                <p className="mt-0.5 text-sm font-bold text-slate-800">{platformGcashAccount.accountName}</p>
+                <p className="mt-0.5 text-sm font-bold text-slate-800">{destination?.account.accountName}</p>
                 <p className="text-sm font-semibold tracking-wide text-slate-700">
-                  {formatGcashNumber(platformGcashAccount.accountNumber)}
+                  {destination && formatGcashNumber(destination.account.accountNumber)}
+                </p>
+                {/* Said plainly, because it changes what the passenger is
+                    doing: paying the person in front of them, or paying a
+                    company that will pay them later. */}
+                <p className="mt-1 text-[10px] font-medium text-[#0b5f59]">
+                  {paysDriver
+                    ? `This is ${driverName}'s own GCash — it reaches them straight away.`
+                    : 'This is the TODA Ride Mobility account. Your driver is paid from it.'}
                 </p>
               </div>
 
@@ -243,6 +263,31 @@ export function RidePaymentForm({
                     Open GCash · ₱{total}
                   </a>
                 )}
+                {/* The way out that always works. gcash:// is not a
+                    documented scheme — it is a guess at GCash's own app
+                    links — so the button above may open the wallet on its
+                    home screen, or do nothing at all. Copying the number
+                    costs one tap and cannot fail, and a passenger standing
+                    at a kerb needs the second option in front of them, not
+                    after they have discovered the first one did nothing. */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!destination) return
+                    try {
+                      await navigator.clipboard.writeText(normaliseGcashNumber(destination.account.accountNumber))
+                      setCopied(true)
+                      window.setTimeout(() => setCopied(false), 2500)
+                    } catch {
+                      // Clipboard refused (an insecure origin, or the
+                      // passenger said no). The number is printed above them
+                      // either way, so there is nothing to recover from.
+                    }
+                  }}
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  {copied ? '✓ Copied' : '⧉ Copy'}
+                </button>
                 <button
                   type="button"
                   onClick={() => setShowQr((v) => !v)}
@@ -252,24 +297,29 @@ export function RidePaymentForm({
                       : 'border-slate-300 text-slate-700 hover:bg-slate-50'
                   }`}
                 >
-                  ⬛ {showQr ? 'Hide QR' : 'Scan QR'}
+                  ⬛ {showQr ? 'Hide QR' : 'QR'}
                 </button>
               </div>
+              <p className="text-[10px] leading-snug text-slate-400">
+                If GCash does not open, copy the number and send it from the app yourself.
+              </p>
 
               {showQr && (
                 <div className="rounded-lg border border-slate-200 bg-white p-2 text-center">
-                  {platformGcashAccount.qrDataUrl ? (
+                  {destination?.account.qrDataUrl ? (
                     <>
                       <img
-                        src={platformGcashAccount.qrDataUrl}
-                        alt={`${platformGcashAccount.accountName} GCash QR code`}
+                        src={destination.account.qrDataUrl}
+                        alt={`${destination.account.accountName} GCash QR code`}
                         className="mx-auto aspect-square w-full max-w-[200px] rounded-lg border border-slate-200 object-contain"
                       />
                       <p className="mt-1 text-[10px] text-slate-500">Scan this in your GCash app.</p>
                     </>
                   ) : (
-                    <p className="px-2 py-6 text-[11px] text-slate-400">
-                      No QR saved yet. Send to the number above instead.
+                    <p className="px-2 py-6 text-[11px] leading-snug text-slate-400">
+                      {paysDriver
+                        ? `${driverName} has no QR saved — look for the printed one in the tricycle, or send to the number above.`
+                        : 'No QR saved yet. Send to the number above instead.'}
                     </p>
                   )}
                 </div>
@@ -297,9 +347,10 @@ export function RidePaymentForm({
                 </p>
               )}
               <p className="text-[10px] leading-snug text-slate-400">
-                Send it in GCash first, then type the reference here. Recording it does not move money — your
-                payment is matched against the account by hand, so keep your receipt until the trip shows as
-                settled.
+                Send it in GCash first, then type the reference here. Recording it does not move money —{' '}
+                {paysDriver
+                  ? 'your driver checks their own GCash for it, so keep your receipt until they confirm.'
+                  : 'your payment is matched against the account by hand, so keep your receipt until the trip shows as settled.'}
               </p>
             </div>
           ) : (
@@ -328,7 +379,7 @@ export function RidePaymentForm({
             // confirms it, and the app reads that back on the way home.
             onClick={() => {
               if (isCash) return onConfirm('cash', null)
-              if (isGcash) return onConfirm('gcash', reference.trim())
+              if (isGcash) return onConfirm('gcash', reference.trim(), destination?.collectedBy)
               void payOnline()
             }}
             className={`w-full rounded-lg py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 ${

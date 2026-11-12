@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   SAMPLE_GCASH_NUMBER,
   canCollectGcash,
+  fareDestination,
   formatGcashNumber,
   gcashSendLink,
   isGcashAccountReady,
@@ -103,5 +104,26 @@ describe('whether fares may be collected into it', () => {
     expect(canCollectGcash(account(SAMPLE_GCASH_NUMBER))).toBe(false)
     expect(canCollectGcash(account('0917'))).toBe(false)
     expect(canCollectGcash(null)).toBe(false)
+  })
+})
+
+describe('who the fare is sent to', () => {
+  const driver = account('09171112222', 'Kuya Boyet')
+  const platform = account('09298052527', 'TODA Ride Mobility')
+
+  it('pays the driver when the driver has a wallet', () => {
+    // The money is theirs on arrival; nobody holds it for them.
+    expect(fareDestination(driver, platform)).toEqual({ account: driver, collectedBy: 'driver' })
+  })
+
+  it('falls back to the platform when the driver has not saved one', () => {
+    expect(fareDestination(null, platform)).toEqual({ account: platform, collectedBy: 'platform' })
+    expect(fareDestination(account('0917', 'Half typed'), platform)?.collectedBy).toBe('platform')
+  })
+
+  it('offers nothing when neither can collect', () => {
+    expect(fareDestination(null, null)).toBeNull()
+    // The sample number is nobody's, on either side.
+    expect(fareDestination(account(SAMPLE_GCASH_NUMBER), account(SAMPLE_GCASH_NUMBER))).toBeNull()
   })
 })

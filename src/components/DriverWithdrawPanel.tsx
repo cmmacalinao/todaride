@@ -6,10 +6,19 @@ const WALLET_LABEL: Record<Wallet, string> = { gcash: 'GCash', maya: 'Maya' }
 
 // What the platform is holding for this driver.
 //
-// Only the fares somebody paid online. Cash was handed over at the kerb and
-// is already in the driver's pocket — counting it here would offer to send
-// them money they have had since Tuesday, and the first driver to try it
-// would find the balance impossible to reconcile with what is in their hand.
+// Only the fares the platform actually collected. Cash was handed over at
+// the kerb and is already in the driver's pocket — counting it here would
+// offer to send them money they have had since Tuesday, and the first driver
+// to try it would find the balance impossible to reconcile with what is in
+// their hand.
+//
+// A GCash fare sent straight to the driver's own wallet is cash by another
+// name and is excluded for exactly the same reason. The method alone does
+// not say: the same 'gcash' fare is withdrawable when it went to the
+// platform's account and is not when it went to the driver's, so this reads
+// payment.collectedBy rather than guessing from the method. Fares recorded
+// before that field existed were all collected centrally, which is what
+// undefined means here.
 //
 // Exported because the same sum is the honest answer to "how much can I take
 // out", and a second definition of it elsewhere would drift.
@@ -24,7 +33,8 @@ export function withdrawableBalance(
         r.driverId === driverId &&
         r.status === 'completed' &&
         r.payment != null &&
-        r.payment.method !== 'cash',
+        r.payment.method !== 'cash' &&
+        r.payment.collectedBy !== 'driver',
     )
     .reduce((sum, r) => sum + (r.payment?.driverPayout ?? 0), 0)
 

@@ -4322,9 +4322,10 @@ export function PassengerPage() {
           tip={unpaidRide.pabiliTip + (unpaidRide.tipOffer || 0)}
           total={unpaidRide.fareEstimate + unpaidRide.pabiliTip + (unpaidRide.tipOffer || 0)}
           initialMethod={unpaidRide.paymentMethod}
+          driverId={unpaidRide.driverId}
           kind={isVendorDeliveryRide(unpaidRide) ? 'delivery' : 'ride'}
-          onConfirm={(method, referenceNo) => {
-            acknowledgeRidePayment(unpaidRide.id, method, referenceNo)
+          onConfirm={(method, referenceNo, collectedBy) => {
+            acknowledgeRidePayment(unpaidRide.id, method, referenceNo, collectedBy)
             setShowPayment(false)
           }}
         />
@@ -4776,9 +4777,10 @@ function FamilyTrips({ bookerId }: { bookerId: string }) {
           tip={paying.pabiliTip + (paying.tipOffer || 0)}
           total={paying.fareEstimate + paying.pabiliTip + (paying.tipOffer || 0)}
           initialMethod={paying.paymentMethod}
+          driverId={paying.driverId}
           kind="ride"
-          onConfirm={(method, referenceNo) => {
-            acknowledgeRidePayment(paying.id, method, referenceNo)
+          onConfirm={(method, referenceNo, collectedBy) => {
+            acknowledgeRidePayment(paying.id, method, referenceNo, collectedBy)
             setPayingId(null)
           }}
         />

@@ -99,6 +99,7 @@ import type {
   Passenger,
   FamilyMember,
   PaymentAccountDetails,
+  FareCollector,
   PaymentMethod,
   Pharmacy,
   StoreReview,
@@ -631,7 +632,13 @@ type RideAction =
     }
   | { type: 'ADD_TIP_OFFER'; rideId: string; amount: number }
   | { type: 'OFFER_RIDE_TO_FAVORITE'; rideId: string; driverId?: string }
-  | { type: 'ACKNOWLEDGE_RIDE_PAYMENT'; rideId: string; method: PaymentMethod; referenceNo?: string | null }
+  | {
+      type: 'ACKNOWLEDGE_RIDE_PAYMENT'
+      rideId: string
+      method: PaymentMethod
+      referenceNo?: string | null
+      collectedBy?: FareCollector
+    }
   | { type: 'TICK_POSITIONS' }
   | { type: 'UPDATE_DRIVER_LIVE_GPS'; rideId: string; gps: GeoCoords | null }
   | { type: 'UPDATE_PASSENGER_LIVE_GPS'; rideId: string; gps: GeoCoords | null }
@@ -3867,6 +3874,11 @@ function reducer(state: RideState, action: RideAction): RideState {
                       // driver reconciles against, so it is kept rather
                       // than overwritten with null on a later re-tap.
                       referenceNo: action.referenceNo ?? r.payment.referenceNo,
+                      // Cash is the driver's the moment it is handed over.
+                      // Anything else is wherever the passenger was told to
+                      // send it, which the payment screen states outright.
+                      collectedBy:
+                        action.method === 'cash' ? 'driver' : (action.collectedBy ?? r.payment.collectedBy),
                     }
                   : r.payment,
                 paymentAcknowledged: true,
@@ -7493,7 +7505,12 @@ interface RideContextValue extends RideState {
   driverCancelRide: (rideId: string, reason: RideCancellationReason, note: string | null) => void
   addTipOffer: (rideId: string, amount: number) => void
   offerRideToFavorite: (rideId: string, driverId?: string) => void
-  acknowledgeRidePayment: (rideId: string, method: PaymentMethod, referenceNo?: string | null) => void
+  acknowledgeRidePayment: (
+    rideId: string,
+    method: PaymentMethod,
+    referenceNo?: string | null,
+    collectedBy?: FareCollector,
+  ) => void
   updateDriverLiveGps: (rideId: string, gps: GeoCoords | null) => void
   // Said once by the phone that knows — see Ride.rerouteFromGps.
   driverRerouted: (rideId: string, gps: GeoCoords, metersOff: number) => void
@@ -8878,8 +8895,8 @@ export function RideProvider({ children }: { children: ReactNode }) {
     driverCancelRide: (rideId, reason, note) => dispatch({ type: 'DRIVER_CANCEL_RIDE', rideId, reason, note }),
     addTipOffer: (rideId, amount) => dispatch({ type: 'ADD_TIP_OFFER', rideId, amount }),
     offerRideToFavorite: (rideId, driverId) => dispatch({ type: 'OFFER_RIDE_TO_FAVORITE', rideId, driverId }),
-    acknowledgeRidePayment: (rideId, method, referenceNo) =>
-      dispatch({ type: 'ACKNOWLEDGE_RIDE_PAYMENT', rideId, method, referenceNo }),
+    acknowledgeRidePayment: (rideId, method, referenceNo, collectedBy) =>
+      dispatch({ type: 'ACKNOWLEDGE_RIDE_PAYMENT', rideId, method, referenceNo, collectedBy }),
     updateDriverLiveGps: (rideId, gps) => dispatch({ type: 'UPDATE_DRIVER_LIVE_GPS', rideId, gps }),
     driverRerouted: (rideId, gps, metersOff) => dispatch({ type: 'DRIVER_REROUTED', rideId, gps, metersOff }),
     setRouteChangeReason: (rideId, reason) => dispatch({ type: 'SET_ROUTE_CHANGE_REASON', rideId, reason }),

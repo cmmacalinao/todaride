@@ -91,3 +91,33 @@ export function isPlausibleGcashReference(text: string): boolean {
 export function canCollectGcash(account: PaymentAccountDetails | null | undefined): boolean {
   return isGcashAccountReady(account) && !isSampleGcashAccount(account)
 }
+
+// Who the passenger actually sends the fare to.
+//
+// The driver's own wallet first, and the pilot's account only when the driver
+// has not saved one. That order is the whole point: a fare that lands in the
+// driver's GCash is theirs the moment it arrives — no float held by anybody,
+// nothing to pay out later, and no reconciliation beyond the driver glancing
+// at their own phone. The platform's ₱1 commission is collected separately on
+// the Statement of Account, which is where it was always collected from cash
+// fares anyway.
+//
+// Collecting the fare centrally is the exception, not the rule: it makes the
+// platform hold money it owes the driver, and a personal GCash account caps
+// out at ₱100,000 a month of incoming transfers.
+export type FareCollector = 'driver' | 'platform'
+
+export interface FareDestination {
+  account: PaymentAccountDetails
+  collectedBy: FareCollector
+}
+
+export function fareDestination(
+  driverAccount: PaymentAccountDetails | null | undefined,
+  platformAccount: PaymentAccountDetails | null | undefined,
+): FareDestination | null {
+  if (canCollectGcash(driverAccount)) return { account: driverAccount as PaymentAccountDetails, collectedBy: 'driver' }
+  if (canCollectGcash(platformAccount))
+    return { account: platformAccount as PaymentAccountDetails, collectedBy: 'platform' }
+  return null
+}

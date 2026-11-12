@@ -1466,12 +1466,27 @@ export interface RidePhoto {
 }
 
 export type PaymentMethod = 'cash' | 'gcash' | 'maya' | 'card'
+// Re-exported from lib/manualGcash, where the rule that picks between them
+// lives. Here so Payment below can name it without the types file importing
+// from lib.
+export type FareCollector = 'driver' | 'platform'
 export type PaymentStatus = 'pending' | 'paid'
 
 export interface Payment {
   method: PaymentMethod
   status: PaymentStatus
   referenceNo: string | null
+  // Whose pocket the money actually landed in.
+  //
+  // It is not implied by the method. A GCash fare sent to the driver's own
+  // wallet is already theirs, exactly like cash; the same fare sent to the
+  // platform's account is money somebody else is holding for them. Only the
+  // second can be withdrawn (see withdrawableBalance), and getting this
+  // wrong pays a driver twice for one trip.
+  //
+  // Optional: fares recorded before this existed were all collected
+  // centrally, which is what undefined is read as.
+  collectedBy?: FareCollector
   // Total collected from the passenger, i.e. fareEstimate + tip.
   amount: number
   driverPayout: number

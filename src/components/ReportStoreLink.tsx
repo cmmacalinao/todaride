@@ -26,7 +26,7 @@ export function ReportStoreLink({ pharmacy }: { pharmacy: Pharmacy }) {
   if (sent) {
     return (
       <p className="rounded-lg bg-slate-50 px-3 py-2 text-center text-[11px] leading-snug text-slate-500">
-        Salamat — naipadala na sa Admin ang report mo. Titingnan nila ito.
+        Thank you — your report has been sent to Admin. They will look into it.
       </p>
     )
   }

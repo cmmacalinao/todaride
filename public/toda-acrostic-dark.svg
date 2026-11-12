@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 344" role="img" aria-label="TODA — Transport and Opportunity Digital Access">
+  <defs>
+    <linearGradient id="rule" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22c55e" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#22c55e" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <g>
+    <polygon points="16,6 120,6 104,76 0,76" fill="#f5c518"/>
+    <text x="60" y="58" text-anchor="middle" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="52" font-weight="800" fill="#17317f">T</text>
+    <text x="138" y="49" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="42" font-weight="600" fill="#17317f">Transport &amp;</text>
+    <rect x="138" y="68" width="398" height="4" rx="2" fill="url(#rule)"/>
+  </g>
+  <g>
+    <polygon points="16,92 120,92 104,162 0,162" fill="#f5c518"/>
+    <text x="60" y="144" text-anchor="middle" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="52" font-weight="800" fill="#17317f">O</text>
+    <text x="138" y="135" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="42" font-weight="600" fill="#17317f">Opportunity</text>
+    <rect x="138" y="154" width="398" height="4" rx="2" fill="url(#rule)"/>
+  </g>
+  <g>
+    <polygon points="16,178 120,178 104,248 0,248" fill="#f5c518"/>
+    <text x="60" y="230" text-anchor="middle" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="52" font-weight="800" fill="#17317f">D</text>
+    <text x="138" y="221" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="42" font-weight="600" fill="#17317f">Digital</text>
+    <rect x="138" y="240" width="398" height="4" rx="2" fill="url(#rule)"/>
+  </g>
+  <g>
+    <polygon points="16,264 120,264 104,334 0,334" fill="#f5c518"/>
+    <text x="60" y="316" text-anchor="middle" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="52" font-weight="800" fill="#17317f">A</text>
+    <text x="138" y="307" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="42" font-weight="600" fill="#17317f">Access</text>
+    <rect x="138" y="326" width="398" height="4" rx="2" fill="url(#rule)"/>
+  </g>
+</svg>

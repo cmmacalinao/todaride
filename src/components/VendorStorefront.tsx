@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { isEstimatedPrice } from '../lib/medicineCatalog'
 import { buildShelves, resolveMenuLayout, type MenuLayout } from '../lib/menuLayout'
 import { titleColorValue, titleFontStack } from '../lib/vendorTitleStyle'
 import { nextOpeningLabel, vendorIsOpen } from '../lib/openingHours'
@@ -1277,7 +1278,21 @@ export function VendorMenuItemCard({
         {/* Wraps to a second line rather than truncating — "Adobong Manok"
             was showing as "Ado…" beside the row's controls on a phone. */}
         <p className="line-clamp-2 text-sm font-semibold leading-snug text-slate-800">{item.name}</p>
-        <p className={`text-sm font-bold ${accent.softText}`}>₱{item.price}</p>
+        {/* Grey means the store has not set this price yet — it came from
+            the basic medicine list and is an estimate (see
+            lib/medicineCatalog.ts). The pharmacy's quotation is still what
+            anybody pays, so this never misleads about the amount due; it
+            just stops a guess from wearing the same clothes as a real
+            price. */}
+        <p
+          className={`text-sm font-bold ${isEstimatedPrice(item) ? 'text-slate-400' : accent.softText}`}
+          title={isEstimatedPrice(item) ? 'Estimated price — the store confirms it in your quotation' : undefined}
+        >
+          ₱{item.price}
+          {isEstimatedPrice(item) && (
+            <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide">est.</span>
+          )}
+        </p>
         {item.description && <p className="mt-0.5 truncate text-[11px] text-slate-500">{item.description}</p>}
         <div className="mt-1 flex flex-wrap items-center gap-1">
           {badge && (

@@ -8,7 +8,15 @@ import { OrderChat } from '../components/OrderChat'
 import { ContactSheet } from '../components/ContactSheet'
 import { ClearHistoryControl, isClearedFromHistory } from '../components/ClearHistoryControl'
 import { isWithinRetentionDays } from '../lib/tracking'
-import type { MedicineCategory, MedsOrder, MedsOrderItem, MedsOrderStatus, PaymentAccountDetails } from '../types'
+import { isEstimatedPrice, missingBasicMedicines } from '../lib/medicineCatalog'
+import type {
+  MedicineCategory,
+  MedicineProduct,
+  MedsOrder,
+  MedsOrderItem,
+  MedsOrderStatus,
+  PaymentAccountDetails,
+} from '../types'
 
 const CATEGORY_LABELS: Record<MedicineCategory, string> = {
   otc: 'OTC',
@@ -60,6 +68,8 @@ export function PharmacyPortalPage() {
     processMedsOrder,
     toggleMedicineProductStock,
     addMedicineProduct,
+    setMedicinePrice,
+    addBasicMedicines,
     updatePharmacyPaymentAccount,
     sendMedsOrderMessage,
     tripHistoryRetentionDays,
@@ -163,6 +173,11 @@ export function PharmacyPortalPage() {
       ),
   )
   const ownProducts = medicineProducts.filter((p) => p.pharmacyId === pharmacy.id)
+  // Only a pharmacy is offered the basic medicine list. This same portal
+  // serves a Store (hardware, sari-sari), and there is no such thing as a
+  // basic shelf for one of those.
+  const missingBasics =
+    pharmacy.businessType === 'pharmacy' ? missingBasicMedicines(ownProducts) : []
 
   return (
     <div className="mx-auto max-w-lg space-y-6 px-4 py-6">
@@ -299,15 +314,23 @@ export function PharmacyPortalPage() {
 
       <section ref={productsSectionRef} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="mb-2 text-sm font-semibold text-slate-700">Products</h2>
+        {/* What the two colours mean, said once, where the prices are. */}
+        <p className="mb-2 text-[11px] leading-snug text-slate-500">
+          A <span className="font-semibold text-slate-400">grey price</span> is our estimate, not yours — tap it to
+          set your own. Yours shows in <span className="font-semibold text-slate-800">black</span>, and that is what
+          customers see.
+        </p>
         <div className="space-y-1.5">
           {ownProducts.length === 0 && <p className="text-sm text-slate-400">No products yet — add your first one below.</p>}
           {ownProducts.map((product) => (
             <div key={product.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 p-2 text-sm">
               <div className="min-w-0">
                 <p className="truncate font-medium text-slate-700">{product.name}</p>
-                <p className="text-[11px] text-slate-400">
-                  {product.genericName ?? '—'} · ₱{product.price}
+                <p className="truncate text-[11px] text-slate-400">
+                  {product.genericName ?? '—'}
+                  {product.description ? ` · ${product.description}` : ''}
                 </p>
+                <PriceControl product={product} onSave={(price) => setMedicinePrice(product.id, price)} />
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${CATEGORY_STYLES[product.category]}`}>
@@ -326,6 +349,19 @@ export function PharmacyPortalPage() {
             </div>
           ))}
         </div>
+        {/* Offered, never applied behind their back: a store that has
+            deliberately taken an item off its shelf would otherwise find it
+            back there tomorrow. The count says exactly what the tap does. */}
+        {missingBasics.length > 0 && (
+          <button
+            type="button"
+            onClick={() => addBasicMedicines(pharmacy.id)}
+            className="mt-2 w-full rounded-lg border border-brand-200 bg-brand-50 py-2 text-xs font-semibold text-brand-700 hover:bg-brand-100"
+          >
+            + Add {missingBasics.length} basic {missingBasics.length === 1 ? 'medicine' : 'medicines'} at estimated
+            prices
+          </button>
+        )}
         <AddProductForm onAdd={(args) => addMedicineProduct({ pharmacyId: pharmacy.id, ...args })} />
       </section>
 
@@ -805,6 +841,83 @@ function QuoteOrderCard({
         </div>
         <OrderChat messages={order.messages} viewerRole="pharmacy" otherPartyLabel={order.customerName} onSend={onSendMessage} />
       </div>
+    </div>
+  )
+}
+
+// A price that says whose it is. Grey with "est." is the figure the app
+// suggested when the shelf was stocked from the basic list; black is a
+// price somebody at this counter set. Tapping it is the whole edit — the
+// full form below is for everything else about an item.
+function PriceControl({ product, onSave }: { product: MedicineProduct; onSave: (price: number) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(String(product.price))
+  const estimated = isEstimatedPrice(product)
+
+  function save() {
+    const next = Number(value)
+    // A blank or nonsense entry leaves the price alone rather than zeroing
+    // it: a ₱0 medicine on a public page is worse than an unedited one.
+    if (!Number.isFinite(next) || next <= 0) {
+      setEditing(false)
+      return
+    }
+    onSave(Math.round(next * 100) / 100)
+    setEditing(false)
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setValue(String(product.price))
+          setEditing(true)
+        }}
+        title={estimated ? 'Our estimate — tap to set your price' : 'Your price — tap to change'}
+        className={`-ml-1 mt-0.5 inline-flex items-center gap-1 rounded-md px-1 py-0.5 text-sm font-bold hover:bg-slate-100 ${
+          estimated ? 'text-slate-400' : 'text-slate-800'
+        }`}
+      >
+        ₱{product.price}
+        {estimated && <span className="text-[10px] font-semibold uppercase tracking-wide">est.</span>}
+        <span aria-hidden className="text-[10px] font-normal text-slate-400">
+          ✎
+        </span>
+      </button>
+    )
+  }
+
+  return (
+    <div className="mt-0.5 flex items-center gap-1">
+      <span className="text-sm text-slate-500">₱</span>
+      <input
+        autoFocus
+        inputMode="decimal"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save()
+          if (e.key === 'Escape') setEditing(false)
+        }}
+        aria-label={`Price for ${product.name}`}
+        className="w-20 rounded-md border border-slate-300 px-1.5 py-0.5 text-sm"
+      />
+      <button
+        type="button"
+        onClick={save}
+        className="rounded-md bg-brand-600 px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-brand-700"
+      >
+        Save
+      </button>
+      <button
+        type="button"
+        onClick={() => setEditing(false)}
+        aria-label="Cancel"
+        className="rounded-md px-1.5 py-0.5 text-[11px] text-slate-500 hover:bg-slate-100"
+      >
+        ✕
+      </button>
     </div>
   )
 }

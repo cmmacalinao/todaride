@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { isEstimatedPrice } from '../lib/medicineCatalog'
 import { MultiImageUploadField } from './MultiImageUploadField'
 import { deliveryRangeMessage, deliveryRangeState } from '../lib/deliveryRange'
 import { customerCancelState, overdueAfterMinutes } from '../lib/orderTiming'
@@ -347,6 +348,12 @@ export const VendorMenuBooking = forwardRef<
   // a customer who has built a cart and typed an address deserves to be told
   // before they send it, and a merchant should not have to turn away an
   // order the app should never have offered them.
+  // Lines whose price nobody at the store has confirmed yet — stocked from
+  // the basic medicine list (see lib/medicineCatalog.ts). Worth saying out
+  // loud at the moment money is on screen, even though the quotation that
+  // follows is what anybody actually pays.
+  const estimatedLines = cartLines.filter((l) => isEstimatedPrice(l.product))
+
   // Prescription items in the cart, by the same rule CREATE_MEDS_ORDER uses
   // to decide the order needs reviewing (MedicineProduct.category 'rx').
   const rxLines = cartLines.filter((l) => l.product.category === 'rx')
@@ -824,7 +831,14 @@ export const VendorMenuBooking = forwardRef<
                 <span className="text-slate-600">
                   {l.qty}x {l.product.name}
                 </span>
-                <span className="font-medium text-slate-700">₱{l.product.price * l.qty}</span>
+                <span
+                  className={`font-medium ${isEstimatedPrice(l.product) ? 'text-slate-400' : 'text-slate-700'}`}
+                >
+                  ₱{l.product.price * l.qty}
+                  {isEstimatedPrice(l.product) && (
+                    <span className="ml-1 text-[9px] font-semibold uppercase tracking-wide">est.</span>
+                  )}
+                </span>
               </div>
             ))}
             {/* What the rider's fare is made of, said before the order goes
@@ -853,6 +867,13 @@ export const VendorMenuBooking = forwardRef<
               this TODA's area is paid for the extra distance (see
               farDriverGap), and the customer agrees to that before it is
               added. It can never go down, and it can never change quietly. */}
+          {estimatedLines.length > 0 && (
+            <p className="mt-1 text-[11px] leading-snug text-slate-500">
+              The grey prices are estimates — {selectedVendor?.name ?? 'the store'} has not set its own price for{' '}
+              {estimatedLines.length === 1 ? estimatedLines[0].product.name : `${estimatedLines.length} of these items`}
+              . The exact amount comes back in their quotation, before anything is prepared.
+            </p>
+          )}
           <p className="mt-1 text-[11px] leading-snug text-slate-500">
             Standard TODA tariff for {deliveryKm != null ? `${deliveryKm} km` : 'this distance'} from the store, plus
             the ₱{bookingFee} booking fee. It can go up only if no tricycle is nearby and one has to come from

@@ -1,4 +1,5 @@
 import terminalSeed from './terminals.seed.json'
+import { basicMedicineProducts } from '../lib/medicineCatalog'
 import type {
   PaymentAccountDetails,
   Terminal,
@@ -13207,7 +13208,10 @@ export const MOCK_PHARMACIES: Pharmacy[] = [
 // A handful of products per pharmacy spanning all three MedicineCategory
 // values, so the customer-facing catalog can demonstrate every badge
 // (OTC / Rx required / Restricted) without needing a real inventory feed.
-export const MOCK_MEDICINE_PRODUCTS: MedicineProduct[] = [
+// The prices somebody actually set for these stores — kept apart from the
+// basic list below so the two are never confused: these are the store's own
+// (black), the generated ones are estimates (grey).
+const PRICED_BY_THE_STORE: MedicineProduct[] = [
   { id: 'med-1', pharmacyId: 'pharm-1', name: 'Biogesic 500mg', genericName: 'Paracetamol', category: 'otc', price: 5, inStock: true },
   { id: 'med-2', pharmacyId: 'pharm-1', name: 'Cecon 500mg', genericName: 'Vitamin C (Ascorbic Acid)', category: 'otc', price: 8, inStock: true },
   { id: 'med-3', pharmacyId: 'pharm-1', name: 'Amoxil 500mg', genericName: 'Amoxicillin', category: 'rx', price: 12, inStock: true },
@@ -13242,6 +13246,25 @@ export const MOCK_MEDICINE_PRODUCTS: MedicineProduct[] = [
   { id: 'med-32', pharmacyId: 'pharm-9', name: 'Biogesic 500mg', genericName: 'Paracetamol', category: 'otc', price: 5, inStock: true },
   { id: 'med-33', pharmacyId: 'pharm-9', name: 'Cecon 500mg', genericName: 'Vitamin C (Ascorbic Acid)', category: 'otc', price: 8, inStock: true },
   { id: 'med-34', pharmacyId: 'pharm-9', name: 'Amoxil 500mg', genericName: 'Amoxicillin', category: 'rx', price: 12, inStock: false },
+]
+
+// Every pharmacy opens with the basic medicines a botika is expected to
+// carry, at estimated prices (see lib/medicineCatalog.ts). Before this, a
+// pharmacy's whole shelf was the three or four items above, so a customer
+// searching for cetirizine found nothing and a newly registered botika had
+// to type its entire stock before it could sell anything.
+//
+// Nothing here overwrites a price: an item the store already carries is
+// skipped, matched by name or by what it is made of, so Biogesic above
+// stays the store's own ₱5 and no "Paracetamol 500mg" appears beside it.
+export const MOCK_MEDICINE_PRODUCTS: MedicineProduct[] = [
+  ...PRICED_BY_THE_STORE,
+  ...MOCK_PHARMACIES.filter((p) => p.businessType === 'pharmacy').flatMap((p) =>
+    basicMedicineProducts(
+      p.id,
+      PRICED_BY_THE_STORE.filter((m) => m.pharmacyId === p.id),
+    ),
+  ),
 ]
 
 // Registered Vendor demo menus — `category` is unused for a vendor item

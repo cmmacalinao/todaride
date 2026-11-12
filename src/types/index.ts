@@ -328,6 +328,13 @@ export interface MedicineProduct {
   genericName: string | null
   category: MedicineCategory
   price: number
+  // Whether `price` is ours or theirs. True only on an item that arrived
+  // from the basic medicine list (see lib/medicineCatalog.ts), where the
+  // price is a plausible counter price nobody at this store has confirmed —
+  // shown grey, and turned black the moment the pharmacy sets its own.
+  // Undefined/false means a person typed it: every price in the app
+  // predates this field, so the default has to be "theirs".
+  priceIsEstimate?: boolean
   inStock: boolean
   // Registered Vendor menu items only (businessType 'resto_food' /
   // 'other_commodity') — groups a vendor's own menu the way `category`

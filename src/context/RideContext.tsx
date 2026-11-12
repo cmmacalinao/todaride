@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode, useRef } from 'react'
+import { basicMedicineProducts } from '../lib/medicineCatalog'
 import type { OpeningHours } from '../lib/openingHours'
 import { COMPANY_NAME } from '../lib/brand'
 import { BANNER_AD_SLOT_COUNT, MAX_VENDOR_POSTS } from '../types'
@@ -1566,6 +1567,20 @@ type RideAction =
       description?: string | null
       badge?: MenuItemBadge | null
       stockCount?: number | null
+    }
+  | {
+      // Just the price, from the pharmacy's own shelf list — the one edit a
+      // store makes over and over, and the only one that settles whether a
+      // price is ours (an estimate) or theirs.
+      type: 'SET_MEDICINE_PRICE'
+      productId: string
+      price: number
+    }
+  | {
+      // Puts the basic medicines a botika is expected to carry on a shelf
+      // that does not have them yet, at estimated prices.
+      type: 'ADD_BASIC_MEDICINES'
+      pharmacyId: string
     }
   | {
       type: 'UPDATE_MEDICINE_PRODUCT'
@@ -6977,7 +6992,19 @@ function reducer(state: RideState, action: RideAction): RideState {
         gcashAccount: null,
         mayaAccount: null,
       }
-      return { ...state, pharmacies: [...state.pharmacies, pharmacy] }
+      // A botika that has just registered sells nothing until it has typed
+      // its stock in. The basic list gives it a shelf on day one at
+      // estimated prices it can correct one tap at a time; a food or goods
+      // vendor gets nothing here, since there is no such thing as a basic
+      // menu for a carinderia.
+      const starterShelf =
+        pharmacy.businessType === 'pharmacy' ? basicMedicineProducts(pharmacy.id) : []
+      return {
+        ...state,
+        pharmacies: [...state.pharmacies, pharmacy],
+        medicineProducts:
+          starterShelf.length > 0 ? [...state.medicineProducts, ...starterShelf] : state.medicineProducts,
+      }
     }
     case 'UPDATE_PHARMACY_PAYMENT_ACCOUNT': {
       return {
@@ -7286,6 +7313,21 @@ function reducer(state: RideState, action: RideAction): RideState {
       }
       return { ...state, medicineProducts: [...state.medicineProducts, product] }
     }
+    case 'SET_MEDICINE_PRICE':
+      return {
+        ...state,
+        medicineProducts: state.medicineProducts.map((p) =>
+          // Setting the price is what makes it the store's own, even when
+          // they land on the same number we guessed: somebody at the counter
+          // has now looked at it and said yes.
+          p.id === action.productId ? { ...p, price: action.price, priceIsEstimate: false } : p,
+        ),
+      }
+    case 'ADD_BASIC_MEDICINES': {
+      const mine = state.medicineProducts.filter((p) => p.pharmacyId === action.pharmacyId)
+      const add = basicMedicineProducts(action.pharmacyId, mine)
+      return add.length > 0 ? { ...state, medicineProducts: [...state.medicineProducts, ...add] } : state
+    }
     case 'UPDATE_MEDICINE_PRODUCT':
       return {
         ...state,
@@ -7297,6 +7339,11 @@ function reducer(state: RideState, action: RideAction): RideState {
                 genericName: action.genericName,
                 category: action.category,
                 price: action.price,
+                // Same rule as SET_MEDICINE_PRICE above, for the full edit
+                // form: a price that came back different is a price somebody
+                // decided. One left untouched stays an estimate, so editing
+                // a name does not quietly claim the price as the store's.
+                priceIsEstimate: action.price === p.price ? p.priceIsEstimate : false,
                 menuCategory: action.menuCategory,
                 photoDataUrl: action.photoDataUrl,
                 description: action.description,
@@ -8257,6 +8304,8 @@ interface RideContextValue extends RideState {
     badge?: MenuItemBadge | null
     stockCount?: number | null
   }) => void
+  setMedicinePrice: (productId: string, price: number) => void
+  addBasicMedicines: (pharmacyId: string) => void
   updateMedicineProduct: (args: {
     productId: string
     name: string
@@ -9360,6 +9409,8 @@ export function RideProvider({ children }: { children: ReactNode }) {
       const id = `med-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
       dispatch({ type: 'ADD_MEDICINE_PRODUCT', id, ...args })
     },
+    setMedicinePrice: (productId, price) => dispatch({ type: 'SET_MEDICINE_PRICE', productId, price }),
+    addBasicMedicines: (pharmacyId) => dispatch({ type: 'ADD_BASIC_MEDICINES', pharmacyId }),
     updateMedicineProduct: (args) => dispatch({ type: 'UPDATE_MEDICINE_PRODUCT', ...args }),
     removeMedicineProduct: (productId) => dispatch({ type: 'REMOVE_MEDICINE_PRODUCT', productId }),
     reorderMedicineProducts: (orderedIds) => dispatch({ type: 'REORDER_MEDICINE_PRODUCTS', orderedIds }),

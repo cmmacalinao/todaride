@@ -6,7 +6,9 @@ import {
   canAddToHomeScreen,
   installGuideDismissed,
   rememberInstallGuideDismissed,
+  shareButtonPlacement,
   shouldOfferInstallGuide,
+  type SharePlacement,
 } from '../lib/installTarget'
 
 // How to put TODARide on an iPhone's home screen.
@@ -58,11 +60,16 @@ function AddButtonGlyph() {
   )
 }
 
-const STEPS = [
+// Cannot be a constant: step one is the only instruction in the app whose
+// truth depends on which Apple device is holding it.
+const steps = (placement: SharePlacement) => [
   {
     glyph: <ShareGlyph />,
     title: 'Tap Share',
-    detail: 'The square with an arrow, at the bottom of Safari.',
+    detail:
+      placement === 'top-right'
+        ? 'The square with an arrow, at the top right of Safari.'
+        : 'The square with an arrow, at the bottom of Safari.',
   },
   {
     glyph: <AddToHomeGlyph />,
@@ -78,7 +85,13 @@ const STEPS = [
 
 // The guide as a panel, with no opinion about when it is shown. The menu row
 // and the one-time offer below both render this.
-export function InstallGuidePanel({ onClose }: { onClose: () => void }) {
+export function InstallGuidePanel({
+  onClose,
+  placement = shareButtonPlacement(),
+}: {
+  onClose: () => void
+  placement?: SharePlacement
+}) {
   // Add to Home Screen exists only in Safari. Somebody who opened a shared
   // link inside Messenger or Facebook is in Meta's browser, where the menu
   // item they are about to be told to find is simply not there — so they get
@@ -109,7 +122,7 @@ export function InstallGuidePanel({ onClose }: { onClose: () => void }) {
       )}
 
       <ol className="mt-3 space-y-2">
-        {STEPS.map((step, i) => (
+        {steps(placement).map((step, i) => (
           <li key={step.title} className="flex items-start gap-3 rounded-lg bg-slate-50 p-2.5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-brand-700 shadow-sm">
               {step.glyph}
@@ -135,6 +148,39 @@ export function InstallGuidePanel({ onClose }: { onClose: () => void }) {
       >
         Maybe later
       </button>
+    </div>
+  )
+}
+
+// An arrow at the edge of the screen the Share button is actually on.
+//
+// It cannot press anything — no page can reach Safari's own toolbar — but
+// "the square with an arrow" is a hard thing to find if you have never gone
+// looking for it, and the hunt is where people give up. Hidden inside an
+// in-app browser, where that toolbar is not there at all and the panel is
+// telling them to go to Safari first.
+function SharePointer({ placement }: { placement: SharePlacement }) {
+  if (isInAppBrowser()) return null
+  if (placement === 'top-right') {
+    return (
+      <div className="pointer-events-none fixed right-4 top-2 flex flex-col items-center gap-0.5 text-white">
+        <span aria-hidden className="animate-bounce text-2xl leading-none">
+          ⌃
+        </span>
+        <span className="rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-semibold shadow-sm">
+          Share is up here
+        </span>
+      </div>
+    )
+  }
+  return (
+    <div className="pointer-events-none mt-2 flex flex-col items-center gap-0.5 text-white">
+      <span className="rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-semibold shadow-sm">
+        Share is down here
+      </span>
+      <span aria-hidden className="animate-bounce text-2xl leading-none">
+        ⌄
+      </span>
     </div>
   )
 }
@@ -190,9 +236,12 @@ export function InstallGuideOffer() {
 
   if (!open) return null
 
+  const placement = shareButtonPlacement()
+
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 p-3 sm:items-center">
+    <div className="fixed inset-0 z-[70] flex flex-col items-center justify-end bg-black/50 p-3 sm:justify-center">
       <InstallGuidePanel
+        placement={placement}
         onClose={() => {
           // Only an offer that was made can be dismissed.
           if (!askedFor) rememberInstallGuideDismissed()
@@ -200,6 +249,9 @@ export function InstallGuideOffer() {
           setOpen(false)
         }}
       />
+      {/* Under the sheet on a phone, which is the gap between it and
+          Safari's toolbar; pinned to the top corner on an iPad. */}
+      <SharePointer placement={placement} />
     </div>
   )
 }

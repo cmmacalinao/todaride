@@ -59,6 +59,25 @@ export function canUseApk(device: DeviceFacts = currentDevice()): boolean {
   return /Android/i.test(device.userAgent)
 }
 
+// An iPad, including the ones that claim to be a Mac. iPadOS 13 and later
+// report a Macintosh user agent, and the only thing separating them from a
+// real Mac in that string is that they answer to touch.
+export function isIpad(device: DeviceFacts = currentDevice()): boolean {
+  if (/iPad/.test(device.userAgent)) return true
+  return /Macintosh/.test(device.userAgent) && device.maxTouchPoints > 1
+}
+
+// Which end of Safari the Share button sits at, which is not the same on
+// both devices: the iPhone keeps its toolbar at the bottom of the screen,
+// the iPad puts it along the top. Telling an iPad owner to look at the
+// bottom sends them hunting in the wrong half of the screen — and the
+// install check has always counted iPads, so that was half this audience.
+export type SharePlacement = 'bottom' | 'top-right'
+
+export function shareButtonPlacement(device: DeviceFacts = currentDevice()): SharePlacement {
+  return isIpad(device) ? 'top-right' : 'bottom'
+}
+
 // ── whether to put the iPhone guide in front of somebody ─────────────────
 //
 // Apple does not let a website install itself. The three taps have to be

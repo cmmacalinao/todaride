@@ -9,6 +9,8 @@ import { alreadyInstalled,
   shouldOfferInstallGuide,
   installGuideDismissed,
   rememberInstallGuideDismissed,
+  isIpad,
+  shareButtonPlacement,
 } from '../installTarget'
 
 const ANDROID =
@@ -137,5 +139,29 @@ describe('remembering that it was closed', () => {
     }
     expect(installGuideDismissed(throwing)).toBe(true)
     expect(installGuideDismissed(undefined)).toBe(true)
+  })
+})
+
+describe('which end of Safari the Share button is on', () => {
+  const iphone = { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) Safari/604.1', maxTouchPoints: 5, displayModeStandalone: false, native: false }
+  const ipad = { userAgent: 'Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) Safari/604.1', maxTouchPoints: 5, displayModeStandalone: false, native: false }
+  // iPadOS 13 and later report themselves as a Mac; touch is what gives it away.
+  const ipadPretendingToBeAMac = { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15', maxTouchPoints: 5, displayModeStandalone: false, native: false }
+  const realMac = { ...ipadPretendingToBeAMac, maxTouchPoints: 0 }
+
+  it('is the bottom toolbar on an iPhone', () => {
+    expect(shareButtonPlacement(iphone)).toBe('bottom')
+    expect(isIpad(iphone)).toBe(false)
+  })
+
+  it('is the top of the screen on an iPad', () => {
+    // Telling an iPad owner to look at the bottom sends them hunting in the
+    // wrong half of the screen, and the install guide counts iPads.
+    expect(shareButtonPlacement(ipad)).toBe('top-right')
+    expect(shareButtonPlacement(ipadPretendingToBeAMac)).toBe('top-right')
+  })
+
+  it('does not mistake a real Mac for an iPad', () => {
+    expect(isIpad(realMac)).toBe(false)
   })
 })

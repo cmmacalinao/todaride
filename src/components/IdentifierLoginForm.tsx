@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react'
 import { OtpVerify } from './OtpVerify'
 import { matchesNameExact, matchesNameQuery } from '../lib/fuzzyName'
 import { isSeedAccountId } from '../lib/unifiedLogin'
+import {
+  forgetLogin,
+  matchingRememberedLogins,
+  readRememberedLogins,
+  rememberLogin,
+  type RememberedLogin,
+} from '../lib/rememberedLogins'
 
 interface LoginAccount {
   id: string
@@ -75,6 +82,9 @@ export function IdentifierLoginForm<T extends LoginAccount>({
   const [resolvedAccount, setResolvedAccount] = useState<T | null>(null)
   const [otpVerified, setOtpVerified] = useState(false)
   const [error, setError] = useState('')
+  // Only ever the identifiers typed on this device — see lib/rememberedLogins
+  // for why this is not a search of the account list.
+  const [remembered, setRemembered] = useState<RememberedLogin[]>(() => readRememberedLogins())
 
   // Auto-fills the PIN once the typed name/email/number resolves to exactly
   // one *demo* account (see seedIds's comment on IdentifierLoginFormProps) —
@@ -149,6 +159,7 @@ export function IdentifierLoginForm<T extends LoginAccount>({
         return
       }
       setError('')
+      rememberLogin(identifier)
       onFound(match.id)
       return
     }
@@ -161,6 +172,7 @@ export function IdentifierLoginForm<T extends LoginAccount>({
       return
     }
     setError('')
+    rememberLogin(identifier)
     onFound(resolvedAccount.id)
   }
 
@@ -172,8 +184,47 @@ export function IdentifierLoginForm<T extends LoginAccount>({
           value={identifier}
           onChange={(e) => handleIdentifierChange(e.target.value)}
           placeholder="Juan Dela Cruz, juan@email.com, or 09XX-XXX-XXXX"
+          // What lets the phone's own password manager offer the saved
+          // identifier and PIN. Without these Safari and Chrome never
+          // suggest anything, which is most of the typing on a handset.
+          name="identifier"
+          autoComplete="username"
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
+        {/* Who has signed in on this phone before, narrowing as they type.
+            Nothing here comes from the account list: a box that completed
+            strangers' names would hand out the pilot's roster of private
+            people to anybody who opened this screen. */}
+        {matchingRememberedLogins(remembered, identifier).length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {matchingRememberedLogins(remembered, identifier).map((entry) => (
+              <span
+                key={entry.identifier}
+                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 py-1 pl-2.5 pr-1 text-[11px] text-slate-600"
+              >
+                <button
+                  type="button"
+                  onClick={() => handleIdentifierChange(entry.identifier)}
+                  className="font-medium hover:text-brand-700"
+                >
+                  {entry.identifier}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    forgetLogin(entry.identifier)
+                    setRemembered(readRememberedLogins())
+                  }}
+                  aria-label={`Forget ${entry.identifier} on this device`}
+                  title="Forget on this device"
+                  className="flex h-4 w-4 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-600"
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         <p className="mt-1 text-[11px] text-slate-400">
           Type your registered name in full. An email or mobile number works too — use Forgot password if you are
           not sure how your name was spelled.
@@ -210,6 +261,8 @@ export function IdentifierLoginForm<T extends LoginAccount>({
             type="password"
             inputMode="numeric"
             maxLength={4}
+            name="pin"
+            autoComplete="current-password"
             value={pin}
             onChange={(e) => {
               setPin(e.target.value)

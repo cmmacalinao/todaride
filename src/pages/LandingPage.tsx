@@ -81,6 +81,19 @@ export function LandingPage() {
               the screen rather than sitting on a patch cut out of it. The
               ring is what still separates it from the stripe texture behind
               it. */}
+          {/* The partnership, split in two (2026-11-12). Who it is and what
+              it is for goes at the top, above our own brand — a partner's
+              name read first is a partner credited, and the strip is a
+              header's height rather than a card's. The four pillars it used
+              to carry underneath stay at the foot of the screen, where
+              somebody who has read everything else arrives. */}
+          {partnerBannerEnabled && (
+            <img
+              src="/partner-banner-rotary-top.png"
+              alt="Rotary Club — Community Economic Development Initiative"
+              className="mb-3 w-full"
+            />
+          )}
           {/* What TODA stands for sits inside the logo's own frame, right
               under the mark that says TODA; the frame widens to fit it. */}
           <BrandFrame />
@@ -113,13 +126,17 @@ export function LandingPage() {
           <div className="mt-6 flex w-full flex-col items-center">
             <AppLoginForm />
           </div>
-          {/* The Rotary Community Economic Development Initiative card — off
-              unless Super Admin has switched it on. Below the login form's
-              "Prototype · simulated data" line rather than under the logo,
-              so it does not push the form down. Its navy field is cut away so
-              it sits on the cover gradient itself. */}
+          {/* The partnership's four pillars — the bottom half of the card,
+              below the login form's "Prototype · simulated data" line rather
+              than under the logo, so it does not push the form down. Its
+              navy field is cut away so it sits on the cover gradient itself.
+              Off unless Super Admin has switched the partner banner on. */}
           {partnerBannerEnabled && (
-            <img src="/partner-banner-rotary.png" alt="Rotary Club partnership" className="mx-auto mt-4 w-full max-w-sm" />
+            <img
+              src="/partner-banner-rotary-pillars.png"
+              alt="Safe, accessible, sustainable, community"
+              className="mx-auto mt-4 w-full max-w-sm"
+            />
           )}
         </div>
 

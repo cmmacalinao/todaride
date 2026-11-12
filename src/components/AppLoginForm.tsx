@@ -378,9 +378,16 @@ export function AppLoginForm() {
             // Mobile first, spelled out as the eleven digits people actually
             // type: it is the identifier nearly every rider and driver here
             // knows by heart, and the one they can't misspell.
-            placeholder="09XXXXXXXXX, email, or TRC no."
+            //
+            // Name, not TRC no., as the third option (2026-11-12). A TRC
+            // number is something a driver has and a passenger has never
+            // heard of, so it spoke to a tenth of the people reading it;
+            // everyone has a name. A TRC number still logs a driver in —
+            // identifierMatchesPerson checks plateNumber as well — it is
+            // simply not advertised any more.
+            placeholder="09XXXXXXXXX, email, or Name"
             autoComplete="username"
-            aria-label="Mobile number, email, user name, or TRC number"
+            aria-label="Mobile number, email, or name"
             className={INPUT_CLASS}
           />
         </div>

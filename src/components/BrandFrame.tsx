@@ -7,10 +7,11 @@
 // background of its own — the blue card the artwork was handed over on is
 // not reproduced, so this sits on whatever is behind it.
 //
-// Two layouts, one component. Side by side from `sm` up, which is the lockup
-// itself: acrostic, divider, mark. Stacked below that, because at 375px a
-// side-by-side version puts the four words at 9px and the mark at the size
-// of a thumbnail. The order stays acrostic-then-mark either way.
+// Two layouts, one component. Side by side from `sm` up: mark, white rule,
+// acrostic on the right. Stacked below that, because at 375px a side-by-side
+// version puts the four words at 9px and the mark at the size of a
+// thumbnail. The order stays mark-then-acrostic either way, and the rule
+// turns with it — vertical beside them, horizontal between them.
 //
 // 2026-09-22: the frame hugs the artwork. logo.png carries transparent
 // margins — the artwork is 89% of its width and rows 182-803 of 941 — so the
@@ -30,14 +31,6 @@ export function BrandFrame() {
     <span className="inline-flex w-fit flex-col items-center rounded-2xl border-2 border-white/25 px-4 pb-3 pt-3">
       <span className="flex flex-col items-center gap-2 sm:flex-row sm:gap-4">
         <img
-          src="/toda-acrostic.svg"
-          alt="TODA — Transport and Opportunity Digital Access"
-          className="h-auto w-[196px] shrink-0 sm:w-[210px]"
-        />
-        {/* The lockup's own divider, on the wide layout only — stacked, the
-            two pieces already read as two things. */}
-        <span aria-hidden className="hidden w-px self-stretch bg-white/30 sm:block" />
-        <img
           src="/logo.png"
           alt="TODA Ride Mobility"
           className="w-auto max-w-none object-contain"
@@ -48,6 +41,18 @@ export function BrandFrame() {
             marginLeft: -TRIM_LEFT,
             marginRight: -TRIM_RIGHT,
           }}
+        />
+        {/* A white line between the two, turning with the layout: a vertical
+            rule beside them when they sit side by side, a horizontal one
+            under the mark when they stack. */}
+        <span
+          aria-hidden
+          className="h-px w-full bg-white/80 sm:h-auto sm:w-px sm:self-stretch"
+        />
+        <img
+          src="/toda-acrostic.svg"
+          alt="TODA — Transport and Opportunity Digital Access"
+          className="h-auto w-[196px] shrink-0 sm:w-[210px]"
         />
       </span>
     </span>

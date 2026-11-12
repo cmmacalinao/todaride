@@ -1,6 +1,8 @@
 import { ArchitectureOverview } from '../components/ArchitectureOverview'
 import { DEVELOPER_CREDIT } from '../lib/brand'
 import { launchModeLeavesNoDrivers } from '../lib/launchMode'
+import { formatGcashNumber, isGcashNumber, isSampleGcashAccount } from '../lib/manualGcash'
+import { compressImageFile } from '../lib/photo'
 import { DOCUMENT_LABEL, driversNeedingNewDocument, requiredDocumentsOrDefault } from '../lib/requiredDocuments'
 import { DOCUMENT_TYPES } from '../mock/data'
 import type { DocumentType } from '../types'
@@ -244,39 +246,109 @@ export function SuperAdminPage() {
             <div className="border-t border-slate-100 pt-3">
               <h3 className="text-xs font-semibold text-slate-700">Platform GCash account</h3>
               <p className="mb-2 mt-0.5 text-[11px] text-slate-500">
-                Where drivers and TODAs settle what they owe. This is the name and number their Statement of
-                Account tells them to send to, so it has to be the real one.
+                The one account the pilot collects into. Drivers and TODAs settle what they owe here, and a
+                passenger who pays a fare with GCash sends it here too — so this has to be the real number,
+                and whoever owns it is holding other people's money until it is paid out.
               </p>
+              {isSampleGcashAccount(platformGcashAccount) && (
+                <p className="mb-2 rounded-lg bg-rose-50 px-2.5 py-2 text-[11px] font-semibold leading-snug text-rose-800">
+                  ⚠ This is still the sample number the app ships with. GCash is hidden from the fare screen
+                  until a real account is saved here — real money sent to a number nobody owns goes to a
+                  stranger.
+                </p>
+              )}
               <div className="space-y-1.5">
                 <input
                   value={gcashName}
                   onChange={(e) => setGcashName(e.target.value)}
-                  placeholder="Account name"
+                  placeholder="Account name, as GCash shows it"
                   className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                 />
                 <input
                   value={gcashNumber}
                   onChange={(e) => setGcashNumber(e.target.value)}
+                  inputMode="numeric"
                   placeholder="09XXXXXXXXX"
                   className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                 />
+                {/* Said before it is saved, not after a passenger has sent a
+                    fare into it: eleven digits starting 09 is the whole rule,
+                    and a number that fails it cannot receive anything. */}
+                {gcashNumber.trim().length > 0 && !isGcashNumber(gcashNumber) && (
+                  <p className="text-[11px] font-medium text-amber-700">
+                    That is not a mobile number — a GCash account is eleven digits starting 09.
+                  </p>
+                )}
                 <button
                   type="button"
+                  disabled={!gcashName.trim() || !isGcashNumber(gcashNumber)}
                   onClick={() => {
-                    if (!gcashName.trim() || !gcashNumber.trim()) return
                     setPlatformGcashAccount({
                       accountName: gcashName.trim(),
                       accountNumber: gcashNumber.trim(),
                       qrDataUrl: platformGcashAccount.qrDataUrl,
                     })
                   }}
-                  className="w-full rounded-lg bg-brand-600 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+                  className="w-full rounded-lg bg-brand-600 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
                 >
                   Save GCash account
                 </button>
               </div>
+
+              {/* The QR has to be the picture out of the GCash app: it encodes
+                  the account, not the number, so it cannot be generated from
+                  anything typed above. Until now nothing could set it at all,
+                  while two screens were already offering to show it. */}
+              <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                <p className="text-[11px] font-semibold text-slate-600">Receiving QR code</p>
+                <p className="mt-0.5 text-[10px] leading-snug text-slate-500">
+                  Save your own QR from GCash (Profile → QR → Download) and upload the picture here. Scanning
+                  beats typing a number at a kerb, and it cannot be mistyped.
+                </p>
+                <div className="mt-1.5 flex items-start gap-2">
+                  {platformGcashAccount.qrDataUrl ? (
+                    <img
+                      src={platformGcashAccount.qrDataUrl}
+                      alt="Platform GCash QR code"
+                      className="h-20 w-20 shrink-0 rounded-lg border border-slate-200 bg-white object-contain"
+                    />
+                  ) : (
+                    <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white text-[10px] text-slate-400">
+                      No QR
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <label className="block cursor-pointer rounded-lg border border-slate-300 bg-white py-1.5 text-center text-[11px] font-semibold text-slate-700 hover:bg-slate-50">
+                      {platformGcashAccount.qrDataUrl ? 'Replace QR' : 'Upload QR'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0]
+                          if (!file) return
+                          const dataUrl = await compressImageFile(file)
+                          setPlatformGcashAccount({ ...platformGcashAccount, qrDataUrl: dataUrl })
+                          e.target.value = ''
+                        }}
+                      />
+                    </label>
+                    {platformGcashAccount.qrDataUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setPlatformGcashAccount({ ...platformGcashAccount, qrDataUrl: null })}
+                        className="w-full rounded-lg py-1 text-[11px] font-medium text-slate-500 hover:bg-white"
+                      >
+                        ✕ Remove QR
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <p className="mt-1.5 text-xs text-slate-400">
-                Current: {platformGcashAccount.accountName} · {platformGcashAccount.accountNumber}
+                Current: {platformGcashAccount.accountName} ·{' '}
+                {formatGcashNumber(platformGcashAccount.accountNumber)}
               </p>
             </div>
           </section>

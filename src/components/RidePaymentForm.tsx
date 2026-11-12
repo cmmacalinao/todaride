@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { useRides } from '../context/RideContext'
 import { createMayaCheckout } from '../lib/mayaApi'
+import { canCollectGcash, formatGcashNumber, gcashSendLink, isPlausibleGcashReference } from '../lib/manualGcash'
 import type { PaymentMethod } from '../types'
 
 // What the passenger is asked at the end of a trip.
@@ -11,15 +13,26 @@ import type { PaymentMethod } from '../types'
 // at night, and the whole chain rested on a passenger correctly copying a
 // twelve-digit number.
 //
-// E-Wallet now hands off to Maya's own checkout page, which is what a payment
+// E-Wallet hands off to Maya's own checkout page, which is what a payment
 // processor is for: it offers whatever channels the merchant account has
 // enabled, it takes the card details on its own page so no card number ever
 // touches this app, and it tells us whether the money arrived instead of
 // asking the passenger to swear to it.
-const METHODS: { id: 'cash' | 'wallet'; label: string; icon: string; blurb: string }[] = [
+//
+// GCash is back alongside it, and the reasoning above is exactly why it is
+// worth being plain about what it is: a manual transfer into the pilot's own
+// GCash account, with the reference typed back by the passenger. During the
+// pilot there is no merchant account and no API, so the choice is this or
+// cash only — and a fare somebody can pay from their wallet is worth a
+// reference number somebody has to check by hand. It goes when a processor
+// arrives.
+const METHODS: { id: Choice; label: string; icon: string; blurb: string }[] = [
   { id: 'cash', label: 'Cash', icon: '💵', blurb: 'Hand it to your driver' },
-  { id: 'wallet', label: 'E-Wallet', icon: '📱', blurb: 'Wallet or card, in the app' },
+  { id: 'gcash', label: 'GCash', icon: '🟦', blurb: 'Send from your wallet' },
+  { id: 'wallet', label: 'Card', icon: '💳', blurb: 'Card or wallet, via Maya' },
 ]
+
+type Choice = 'cash' | 'gcash' | 'wallet'
 
 interface RidePaymentFormProps {
   open: boolean
@@ -51,11 +64,27 @@ export function RidePaymentForm({
   onConfirm,
   kind = 'ride',
 }: RidePaymentFormProps) {
-  // 'cash' or 'wallet' — the two the passenger actually chooses between. The
-  // stored PaymentMethod behind a wallet is settled when the payment is made,
-  // not here.
-  const [choice, setChoice] = useState<'cash' | 'wallet'>(initialMethod === 'cash' ? 'cash' : 'wallet')
+  // Where a manual GCash fare is sent. One account for the whole pilot, set
+  // in Super Admin — not the driver's own wallet, which most drivers have not
+  // filled in and which would make every fare a different number to check.
+  // The platform holds it and the driver draws it down (see DriverWithdrawal).
+  const { platformGcashAccount } = useRides()
+  // Strict: a well-formed number is not enough, because the sample number the
+  // app ships with is well formed and belongs to a stranger. See
+  // canCollectGcash — a pilot that has not set its own account gets cash and
+  // card, and Super Admin says why.
+  const gcashReady = canCollectGcash(platformGcashAccount)
+
+  // What the passenger actually chooses between. The stored PaymentMethod
+  // behind a card payment is settled when the payment is made, not here.
+  const [choice, setChoice] = useState<Choice>(() => {
+    if (initialMethod === 'cash') return 'cash'
+    if (initialMethod === 'gcash') return gcashReady ? 'gcash' : 'cash'
+    return 'wallet'
+  })
   const [handed, setHanded] = useState('')
+  const [reference, setReference] = useState('')
+  const [showQr, setShowQr] = useState(false)
   const [paying, setPaying] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
 
@@ -74,18 +103,24 @@ export function RidePaymentForm({
       window.location.assign(result.data.redirectUrl)
       return
     }
+    const otherWay = gcashReady
+      ? 'Pay with GCash, or hand the fare to your driver in cash.'
+      : 'Pay your driver in cash instead.'
     setPayError(
       result.unavailable
-        ? 'Online payment is not available right now. Pay your driver in cash instead.'
-        : (result.error ?? 'That payment could not be started. Try again, or pay in cash.'),
+        ? `Card payment is not available yet. ${otherWay}`
+        : (result.error ?? `That payment could not be started. ${otherWay}`),
     )
   }
 
   if (!open) return null
 
   const isCash = choice === 'cash'
+  const isGcash = choice === 'gcash'
   const handedAmount = Number(handed) || 0
   const change = handedAmount - total
+  const walletLink = gcashSendLink(platformGcashAccount, total)
+  const referenceOk = isPlausibleGcashReference(reference)
 
   return (
     <div
@@ -125,8 +160,11 @@ export function RidePaymentForm({
           <p className="mb-1 mt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             How are you paying?
           </p>
-          <div className="grid grid-cols-2 gap-1.5">
-            {METHODS.map((m) => (
+          <div className="grid grid-cols-3 gap-1.5">
+            {/* GCash disappears rather than greys out when no account is
+                saved: a payment option that cannot be completed is worse
+                than one that was never offered. */}
+            {METHODS.filter((m) => m.id !== 'gcash' || gcashReady).map((m) => (
               <button
                 key={m.id}
                 type="button"
@@ -180,6 +218,90 @@ export function RidePaymentForm({
                 </p>
               )}
             </div>
+          ) : isGcash ? (
+            <div className="mt-3 space-y-2">
+              {/* The account to send to, then the reference to type back — in
+                  that order, because that is the order the passenger does it
+                  in on their own phone. Same shape as the Statement of
+                  Account settlement in PlatformFeeSoa. */}
+              <div className="rounded-lg border border-[#0f766e]/30 bg-[#0f766e]/5 px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#0b5f59]">
+                  Send ₱{total} via GCash to
+                </p>
+                <p className="mt-0.5 text-sm font-bold text-slate-800">{platformGcashAccount.accountName}</p>
+                <p className="text-sm font-semibold tracking-wide text-slate-700">
+                  {formatGcashNumber(platformGcashAccount.accountNumber)}
+                </p>
+              </div>
+
+              <div className="flex gap-1.5">
+                {walletLink && (
+                  <a
+                    href={walletLink}
+                    className="flex-1 rounded-lg bg-[#0f766e] py-2 text-center text-xs font-semibold text-white hover:bg-[#0b5f59]"
+                  >
+                    Open GCash · ₱{total}
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowQr((v) => !v)}
+                  className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                    showQr
+                      ? 'border-[#0f766e] bg-[#0f766e]/10 text-[#0b5f59]'
+                      : 'border-slate-300 text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  ⬛ {showQr ? 'Hide QR' : 'Scan QR'}
+                </button>
+              </div>
+
+              {showQr && (
+                <div className="rounded-lg border border-slate-200 bg-white p-2 text-center">
+                  {platformGcashAccount.qrDataUrl ? (
+                    <>
+                      <img
+                        src={platformGcashAccount.qrDataUrl}
+                        alt={`${platformGcashAccount.accountName} GCash QR code`}
+                        className="mx-auto aspect-square w-full max-w-[200px] rounded-lg border border-slate-200 object-contain"
+                      />
+                      <p className="mt-1 text-[10px] text-slate-500">Scan this in your GCash app.</p>
+                    </>
+                  ) : (
+                    <p className="px-2 py-6 text-[11px] text-slate-400">
+                      No QR saved yet. Send to the number above instead.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <label className="block">
+                <span className="mb-0.5 block text-[11px] font-medium text-slate-600">
+                  GCash reference number from your receipt
+                </span>
+                <input
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  inputMode="numeric"
+                  placeholder="e.g. 1029 383 827 362"
+                  className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                />
+              </label>
+              {/* Said while they are typing, not after a disabled button has
+                  already refused them: a passenger who has sent the money and
+                  cannot work out why the app will not take it is the worst
+                  moment this screen has. */}
+              {reference.trim().length > 0 && !referenceOk && (
+                <p className="text-[11px] font-medium text-amber-700">
+                  That looks too short — copy the whole reference number from your GCash receipt.
+                </p>
+              )}
+              <p className="text-[10px] leading-snug text-slate-400">
+                Send it in GCash first, then type the reference here. Recording it does not move money — your
+                payment is matched against the account by hand, so keep your receipt until the trip shows as
+                settled.
+              </p>
+            </div>
           ) : (
             <div className="mt-3 space-y-2">
               <p className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] leading-snug text-slate-600">
@@ -198,15 +320,28 @@ export function RidePaymentForm({
         <div className="space-y-1.5 border-t border-slate-200 px-4 py-3">
           <button
             type="button"
-            disabled={paying}
+            disabled={paying || (isGcash && !referenceOk)}
             // Cash is confirmed here because the driver is standing there and
-            // saw it. A wallet payment is not confirmed here at all — it is
-            // confirmed by Maya, and the app reads that back when the
-            // passenger returns. Nothing on this screen can mark it paid.
-            onClick={() => (isCash ? onConfirm('cash', null) : void payOnline())}
-            className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-bold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+            // saw it. GCash records what the passenger says they sent, with
+            // their reference — a person matches it against the account
+            // afterwards. A card payment is not confirmed here at all: Maya
+            // confirms it, and the app reads that back on the way home.
+            onClick={() => {
+              if (isCash) return onConfirm('cash', null)
+              if (isGcash) return onConfirm('gcash', reference.trim())
+              void payOnline()
+            }}
+            className={`w-full rounded-lg py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 ${
+              isGcash ? 'bg-[#0f766e] hover:bg-[#0b5f59]' : 'bg-brand-600 hover:bg-brand-700'
+            }`}
           >
-            {isCash ? `Paid ₱${total} in cash` : paying ? 'Opening Maya…' : `Pay ₱${total} with Maya`}
+            {isCash
+              ? `Paid ₱${total} in cash`
+              : isGcash
+                ? `I've sent ₱${total} via GCash`
+                : paying
+                  ? 'Opening Maya…'
+                  : `Pay ₱${total} with Maya`}
           </button>
           <button
             type="button"

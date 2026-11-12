@@ -4,9 +4,25 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
+    <!-- 180 is the size iOS actually wants for a home-screen icon; it was
+         being handed the 192 and resampling it every time. The 192 stays
+         below as the fallback for anything asking for the generic one. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180.png" />
     <link rel="apple-touch-icon" href="/pwa-192x192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#1e3a8a" />
+    <!-- What an iPhone reads to treat a home-screen icon as an app rather
+         than a bookmark: open without Safari's chrome, and a name short
+         enough to fit under the icon. The manifest already says standalone,
+         which iOS 16.4 and later honour; these are what older iPhones read,
+         and plenty of the pilot's phones are older iPhones.
+
+         status-bar-style is "default" on purpose, not "black-translucent":
+         translucent lets the page slide up under the clock and battery,
+         which would put the top of every screen behind them. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="TODARide" />
     <title>TODA Ride Mobility</title>
     <!-- Default link preview for any shared page. A vendor's own page gets
          its name, tagline and photo instead — see netlify/edge-functions/vendor-og.ts. -->

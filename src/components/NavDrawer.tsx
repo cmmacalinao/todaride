@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ShareAppPanel } from './ShareAppPanel'
 import { AndroidAppMenuRow } from './InstallOffer'
+import { InstallGuideMenuRow } from './InstallGuide'
 import type { AccountPanelKind } from './AccountPanels'
 import { useRides } from '../context/RideContext'
 
@@ -304,6 +305,7 @@ export function NavDrawer({
             that moment needs a code to point a camera at. */}
         <div className="space-y-1.5 px-2 pt-2">
           <AndroidAppMenuRow onNavigate={onClose} />
+          <InstallGuideMenuRow onNavigate={onClose} />
           <button
             type="button"
             onClick={() => { onClose(); setShowShare(true) }}

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useRides } from '../context/RideContext'
 import { ShareAppPanel } from './ShareAppPanel'
 import { AndroidAppMenuRow } from './InstallOffer'
+import { InstallGuideMenuRow } from './InstallGuide'
 import { EmergencyNumbersPanel } from './EmergencyNumbersPanel'
 import { ContactUsForm } from './ContactUsForm'
 import { THEME_OPTIONS, useTheme } from '../context/ThemeContext'
@@ -150,6 +151,7 @@ export function PublicHeader({ title = 'TODA Ride Mobility' }: { title?: string 
                 code, and that person may not have an account either. */}
             <div className="space-y-1.5 px-2 pt-2">
               <AndroidAppMenuRow onNavigate={() => setMenuOpen(false)} />
+              <InstallGuideMenuRow onNavigate={() => setMenuOpen(false)} />
               <button
                 type="button"
                 onClick={() => { setMenuOpen(false); setShowShare(true) }}

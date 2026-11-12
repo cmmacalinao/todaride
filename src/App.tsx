@@ -18,6 +18,7 @@ import { AppUpdateWatcher } from './components/AppUpdateWatcher'
 import { AppUpdateBanner } from './components/AppUpdateBanner'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { ScanArrivalChoice } from './components/ScanArrivalChoice'
+import { InstallGuideOffer } from './components/InstallGuide'
 import { RideProvider } from './context/RideContext'
 import { HeaderSlotProvider } from './context/HeaderSlotContext'
 import { SessionProvider, useSession } from './context/SessionContext'
@@ -462,6 +463,11 @@ export default function App() {
               exists, and waits for the same quiet moment before saying so. */}
           <AppUpdateBanner />
           <ScanArrivalChoice />
+          {/* The iPhone's own way of keeping the app, offered once. The
+              sheet above covers somebody who arrived by scanning a terminal
+              code; this covers everybody else, which on a shared merchant
+              link is nearly everybody. */}
+          <InstallGuideOffer />
           <AppShell />
         </HeaderSlotProvider>
         </RideProvider>

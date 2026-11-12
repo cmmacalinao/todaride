@@ -1,5 +1,15 @@
-import { describe, expect, it } from 'vitest'
-import { alreadyInstalled, canAddToHomeScreen, canUseApk, type DeviceFacts } from '../installTarget'
+import {
+  describe,
+  expect,
+  it } from 'vitest'
+import { alreadyInstalled,
+  canAddToHomeScreen,
+  canUseApk,
+  type DeviceFacts,
+  shouldOfferInstallGuide,
+  installGuideDismissed,
+  rememberInstallGuideDismissed,
+} from '../installTarget'
 
 const ANDROID =
   'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Mobile Safari/537.36'
@@ -60,5 +70,72 @@ describe('which install this device can take', () => {
   it('offers nothing when there is no device to read', () => {
     expect(canUseApk(device())).toBe(false)
     expect(canAddToHomeScreen(device())).toBe(false)
+  })
+})
+
+describe('whether to put the iPhone guide in front of somebody', () => {
+  const iphone = {
+    canAddToHomeScreen: true,
+    dismissed: false,
+    tripInFlight: false,
+    isDriver: false,
+  }
+
+  it('offers it to an iPhone that has not got the app', () => {
+    expect(shouldOfferInstallGuide(iphone)).toBe(true)
+  })
+
+  it('never offers it on a device that cannot add to a home screen', () => {
+    expect(shouldOfferInstallGuide({ ...iphone, canAddToHomeScreen: false })).toBe(false)
+  })
+
+  it('asks once, not every visit', () => {
+    expect(shouldOfferInstallGuide({ ...iphone, dismissed: true })).toBe(false)
+  })
+
+  it('does not cover the screen while a trip is in flight', () => {
+    // Somebody waiting for a rider is watching the map, not shopping for an
+    // app. Same rule the update sheet follows.
+    expect(shouldOfferInstallGuide({ ...iphone, tripInFlight: true })).toBe(false)
+  })
+
+  it('never offers it to a driver', () => {
+    // An iPhone home-screen app gets no background location, so a driver who
+    // took this instead of the real app would lose trip tracking the moment
+    // the screen locked.
+    expect(shouldOfferInstallGuide({ ...iphone, isDriver: true })).toBe(false)
+  })
+})
+
+describe('remembering that it was closed', () => {
+  function fakeStorage(initial: Record<string, string> = {}) {
+    const map = new Map(Object.entries(initial))
+    return {
+      getItem: (k: string) => map.get(k) ?? null,
+      setItem: (k: string, v: string) => void map.set(k, v),
+      read: () => Object.fromEntries(map),
+    }
+  }
+
+  it('is not dismissed before anybody has closed it', () => {
+    expect(installGuideDismissed(fakeStorage())).toBe(false)
+  })
+
+  it('is dismissed once closed', () => {
+    const storage = fakeStorage()
+    rememberInstallGuideDismissed(storage)
+    expect(installGuideDismissed(storage)).toBe(true)
+  })
+
+  it('treats a storage that throws as dismissed, rather than asking forever', () => {
+    // Private browsing on older iOS — the exact browser this is for. Never
+    // offering beats offering on every single visit.
+    const throwing = {
+      getItem() {
+        throw new Error('denied')
+      },
+    }
+    expect(installGuideDismissed(throwing)).toBe(true)
+    expect(installGuideDismissed(undefined)).toBe(true)
   })
 })

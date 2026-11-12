@@ -59,4 +59,72 @@ export function canUseApk(device: DeviceFacts = currentDevice()): boolean {
   return /Android/i.test(device.userAgent)
 }
 
+// ── whether to put the iPhone guide in front of somebody ─────────────────
+//
+// Apple does not let a website install itself. The three taps have to be
+// made by hand, which means the only thing this app can do is show them
+// clearly and at a moment the person can act on — and then stop asking.
+//
+// The guide itself has been in the app for a while (see ScanArrivalChoice)
+// but only ever appeared for somebody who arrived by scanning a terminal QR
+// code. A customer who tapped a merchant's shared link on an iPhone — which
+// is most of them — never learned the app could live on their home screen.
+// This is the rule that opens it up, with the four reasons not to.
+export const INSTALL_GUIDE_DISMISSED_KEY = 'toda-install-guide-dismissed'
+
+export interface InstallGuideContext {
+  // iPhone or iPad, and not already running from the home screen.
+  canAddToHomeScreen: boolean
+  // They have closed it before. Asked once is an offer; asked twice is
+  // nagging, and nagging on a booking screen is worse than nagging.
+  dismissed: boolean
+  // A ride or order this device is in the middle of. Nothing covers the
+  // screen while somebody is waiting for a rider — same rule the update
+  // sheet follows (see useHasMyOwnTripInFlight).
+  tripInFlight: boolean
+  // A driver's phone. An iPhone home-screen app gets no background
+  // location, so a driver who installed it instead of the real app would
+  // lose trip tracking the moment the screen locked. Drivers are pointed at
+  // the APK and are never shown this.
+  isDriver: boolean
+}
+
+export function shouldOfferInstallGuide(context: InstallGuideContext): boolean {
+  if (!context.canAddToHomeScreen) return false
+  if (context.dismissed) return false
+  if (context.tripInFlight) return false
+  if (context.isDriver) return false
+  return true
+}
+
+// Reading the flag is its own function because storage throws in private
+// mode on older iOS — the exact browser this feature is for. A phone that
+// cannot remember the dismissal is treated as having dismissed it: better a
+// passenger who is never offered the guide than one offered it every visit.
+export function installGuideDismissed(storage: Pick<Storage, 'getItem'> | undefined = safeStorage()): boolean {
+  if (!storage) return true
+  try {
+    return storage.getItem(INSTALL_GUIDE_DISMISSED_KEY) === '1'
+  } catch {
+    return true
+  }
+}
+
+export function rememberInstallGuideDismissed(storage: Pick<Storage, 'setItem'> | undefined = safeStorage()): void {
+  try {
+    storage?.setItem(INSTALL_GUIDE_DISMISSED_KEY, '1')
+  } catch {
+    // Nothing to do: the guide simply offers itself again next visit, which
+    // is the lesser failure.
+  }
+}
+
+function safeStorage(): Storage | undefined {
+  try {
+    return typeof window === 'undefined' ? undefined : window.localStorage
+  } catch {
+    return undefined
+  }
+}
+
 export type { DeviceFacts }

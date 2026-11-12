@@ -1078,11 +1078,14 @@ export function VendorHeaderCard({
               className="mt-0.5"
             />
           )}
-          <span
-            className={`inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm ${accent.soft} ${accent.softText}`}
-          >
-            {accent.icon} {accent.label}
-          </span>
+          {/* The business-type pill that sat here — "Resto / Food",
+              "Pharmacy", "Other Commodity" — is gone (2026-11-12, asked for
+              on all of them, not just the one that reads worst). It labelled
+              a shop with the app's own filing category, and "Other
+              Commodity" is a phrase no customer has ever said out loud. What
+              a shop sells is already on the page: its name, its photo, its
+              menu. The theme's icon and colours stay, which is the part of
+              VENDOR_THEME that was doing real work. */}
         </div>
       </div>
 

@@ -232,20 +232,20 @@ export default async function handler(request: Request, context: Context) {
   if (post) {
     // The post is the card: the store's name as the title, the post's own
     // words (and the dish it features) as the text, its photo as the picture.
-    title = `${name} — TODA SafeRide Food Express`
+    title = `${name} — TODA Ride Mobility Food Express`
     const words = (post.text ?? '').trim().replace(/\s+/g, ' ').slice(0, 200)
     const dish = featured?.name ? `${featured.name}${featured.price != null ? ` ₱${featured.price}` : ''}` : null
-    description = [words, dish, 'Order on TODA SafeRide Food Express — delivered by a TODA rider.'].filter(Boolean).join(' · ')
+    description = [words, dish, 'Order on TODA Ride Mobility Food Express — delivered by a TODA rider.'].filter(Boolean).join(' · ')
     pageUrl = `${pageUrl}?post=${encodeURIComponent(post.id)}`
     imageUrl = `${imageUrl}?post=${encodeURIComponent(post.id)}`
     ogType = 'article'
   } else {
-    title = `${name} — TODA SafeRide Food Express`
+    title = `${name} — TODA Ride Mobility Food Express`
     description = [
       vendor.tagline,
       `${kind}${items ? ` · ${items} item${items === 1 ? '' : 's'} on the menu` : ''}${rating ? ` · ★ ${rating}` : ''}`,
       where,
-      'Order on TODA SafeRide Food Express — delivered by a TODA rider.',
+      'Order on TODA Ride Mobility Food Express — delivered by a TODA rider.',
     ]
       .filter(Boolean)
       .join(' · ')

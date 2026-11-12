@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { isEstimatedPrice } from '../lib/medicineCatalog'
+import { formatPeso, isEstimatedPrice } from '../lib/medicineCatalog'
 import { buildShelves, resolveMenuLayout, type MenuLayout } from '../lib/menuLayout'
 import { titleColorValue, titleFontStack } from '../lib/vendorTitleStyle'
 import { nextOpeningLabel, vendorIsOpen } from '../lib/openingHours'
@@ -1288,7 +1288,7 @@ export function VendorMenuItemCard({
           className={`text-sm font-bold ${isEstimatedPrice(item) ? 'text-slate-400' : accent.softText}`}
           title={isEstimatedPrice(item) ? 'Estimated price — the store confirms it in your quotation' : undefined}
         >
-          ₱{item.price}
+          ₱{formatPeso(item.price)}
           {isEstimatedPrice(item) && (
             <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide">est.</span>
           )}
@@ -1298,6 +1298,20 @@ export function VendorMenuItemCard({
           {badge && (
             <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${badge.className}`}>
               {badge.icon} {badge.label}
+            </span>
+          )}
+          {/* Said on the item itself, not only at checkout. A customer
+              putting Amoxicillin in the cart should know a prescription is
+              coming before they have chosen a delivery address — the app
+              asks for one further down (see VendorMenuBooking), and a
+              surprise there is a cart abandoned at the last step. Pharmacy
+              items only: a dish is always 'otc'. */}
+          {(item.category === 'rx' || item.category === 'restricted') && (
+            <span
+              className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+              title="A prescription is needed for this item"
+            >
+              ℞ {item.category === 'restricted' ? 'Restricted' : 'Prescription needed'}
             </span>
           )}
           {item.menuCategory?.trim() && (

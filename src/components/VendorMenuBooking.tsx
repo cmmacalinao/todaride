@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
-import { isEstimatedPrice } from '../lib/medicineCatalog'
+import { formatPeso, isEstimatedPrice } from '../lib/medicineCatalog'
 import { MultiImageUploadField } from './MultiImageUploadField'
 import { deliveryRangeMessage, deliveryRangeState } from '../lib/deliveryRange'
 import { customerCancelState, overdueAfterMinutes } from '../lib/orderTiming'
@@ -834,7 +834,7 @@ export const VendorMenuBooking = forwardRef<
                 <span
                   className={`font-medium ${isEstimatedPrice(l.product) ? 'text-slate-400' : 'text-slate-700'}`}
                 >
-                  ₱{l.product.price * l.qty}
+                  ₱{formatPeso(Math.round(l.product.price * l.qty * 100) / 100)}
                   {isEstimatedPrice(l.product) && (
                     <span className="ml-1 text-[9px] font-semibold uppercase tracking-wide">est.</span>
                   )}

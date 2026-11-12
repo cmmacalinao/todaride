@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { MedicineProduct } from '../../types'
 import {
   BASIC_MEDICINES,
+  SURVEYED_ON,
+  formatPeso,
   basicMedicineId,
   basicMedicineProducts,
   isEstimatedPrice,
@@ -33,6 +35,24 @@ describe('the basic medicine list itself', () => {
     const rxGroups = BASIC_MEDICINES.filter((m) => m.group === 'Antibiotics' || m.group === 'Maintenance')
     expect(rxGroups.length).toBeGreaterThan(0)
     expect(rxGroups.every((m) => m.category === 'rx')).toBe(true)
+  })
+})
+
+describe('surveyed prices', () => {
+  it('reads back the way a price is written, not the way a float is', () => {
+    expect(formatPeso(5)).toBe('5')
+    expect(formatPeso(3.5)).toBe('3.50')
+    expect(formatPeso(11.65)).toBe('11.65')
+    expect(formatPeso(140.75)).toBe('140.75')
+  })
+
+  it('says when it was surveyed, so a stale list can be spotted', () => {
+    expect(SURVEYED_ON).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  it('leaves most of the list surveyed, not guessed', () => {
+    const guessed = BASIC_MEDICINES.filter((m) => m.unsurveyed)
+    expect(guessed.length).toBeLessThan(BASIC_MEDICINES.length / 4)
   })
 })
 

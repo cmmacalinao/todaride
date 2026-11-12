@@ -8,7 +8,7 @@ import { OrderChat } from '../components/OrderChat'
 import { ContactSheet } from '../components/ContactSheet'
 import { ClearHistoryControl, isClearedFromHistory } from '../components/ClearHistoryControl'
 import { isWithinRetentionDays } from '../lib/tracking'
-import { isEstimatedPrice, missingBasicMedicines } from '../lib/medicineCatalog'
+import { formatPeso, isEstimatedPrice, missingBasicMedicines } from '../lib/medicineCatalog'
 import type {
   MedicineCategory,
   MedicineProduct,
@@ -879,7 +879,7 @@ function PriceControl({ product, onSave }: { product: MedicineProduct; onSave: (
           estimated ? 'text-slate-400' : 'text-slate-800'
         }`}
       >
-        ₱{product.price}
+        ₱{formatPeso(product.price)}
         {estimated && <span className="text-[10px] font-semibold uppercase tracking-wide">est.</span>}
         <span aria-hidden className="text-[10px] font-normal text-slate-400">
           ✎

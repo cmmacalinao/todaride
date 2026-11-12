@@ -88,11 +88,30 @@ export function LandingPage() {
               to carry underneath stay at the foot of the screen, where
               somebody who has read everything else arrives. */}
           {partnerBannerEnabled && (
-            <img
-              src="/partner-banner-rotary-top.png"
-              alt="Rotary Club — Community Economic Development Initiative"
-              className="mb-3 w-full"
-            />
+            <div className="mb-3 w-full">
+              <img
+                src="/partner-banner-rotary-top.png"
+                alt="Rotary Club — Community Economic Development Initiative"
+                className="w-full"
+              />
+              {/* Set as text rather than cropped out of the artwork, which is
+                  what lets it sit this close under the wheel and lets the
+                  three words be recoloured. In the original they are the
+                  Rotary palette's own blues, and on this navy screen "Safe"
+                  and "Accessible" disappeared into the background — the
+                  colours below are the app's, chosen to be seen. The gold
+                  rule and dot that separated the two rows is gone with the
+                  crop; there is nothing between them now but space. */}
+              <p className="-mt-1 flex items-center justify-center gap-1 whitespace-nowrap text-center text-[9.5px] font-semibold leading-snug text-white sm:gap-1.5 sm:text-xs">
+                <span aria-hidden>🛡️</span>
+                <span>
+                  Promoting <span className="text-sky-300">Safe</span>,{' '}
+                  <span className="text-gold-400">Accessible</span> &{' '}
+                  <span className="text-emerald-400">Sustainable</span> Transportation
+                </span>
+                <span aria-hidden>🌿</span>
+              </p>
+            </div>
           )}
           {/* What TODA stands for sits inside the logo's own frame, right
               under the mark that says TODA; the frame widens to fit it. */}

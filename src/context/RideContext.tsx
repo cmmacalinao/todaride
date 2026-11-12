@@ -453,6 +453,11 @@ interface RideState {
   // (see server/index.js) and surface an error if it isn't reachable,
   // rather than silently falling back to an on-screen code.
   simulatedOtpEnabled: boolean
+  // Whether the fare screen's GCash hand-off goes to a pretend wallet
+  // instead of out to the real one — see components/SimulatedWalletSheet.
+  // Off by default and App Admin only, for the same reason as the OTP
+  // above: a pilot taking real fares must never be running on pretend ones.
+  simulatedWalletEnabled: boolean
   // Whether the operating company is credited on screen. Off for now — see
   // lib/brand. The privacy and terms text names it regardless of this.
   showDeveloperCredit: boolean
@@ -695,6 +700,7 @@ type RideAction =
   | { type: 'SET_MEDS_ENABLED'; enabled: boolean }
   | { type: 'SET_PARTNER_BANNER_ENABLED'; enabled: boolean }
   | { type: 'SET_SIMULATED_OTP_ENABLED'; enabled: boolean }
+  | { type: 'SET_SIMULATED_WALLET_ENABLED'; enabled: boolean }
   | { type: 'SET_SHOW_DEVELOPER_CREDIT'; enabled: boolean; actorName: string }
   | { type: 'SET_LAUNCH_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_REQUIRED_DOCUMENTS'; documents: DocumentType[]; actorName: string }
@@ -1764,6 +1770,7 @@ interface StoredState {
   partnerBannerEnabled?: boolean
   partnerBannerRestored?: boolean
   simulatedOtpEnabled?: boolean
+  simulatedWalletEnabled?: boolean
   showDeveloperCredit?: boolean
   launchModeEnabled?: boolean
   rotaryShareSettings?: RotaryShareSettings
@@ -2075,6 +2082,7 @@ function fromStored(parsed: StoredState): RideState {
     // proving the real path. An install that has already chosen keeps its
     // choice — this only changes what a fresh one starts with.
     simulatedOtpEnabled: parsed.simulatedOtpEnabled ?? false,
+    simulatedWalletEnabled: parsed.simulatedWalletEnabled ?? false,
     showDeveloperCredit: parsed.showDeveloperCredit ?? false,
     launchModeEnabled: parsed.launchModeEnabled ?? false,
     rotaryShareSettings: parsed.rotaryShareSettings ?? DEFAULT_ROTARY_SHARE_SETTINGS,
@@ -2411,6 +2419,7 @@ function loadInitialState(): RideState {
     partnerBannerEnabled: true,
     partnerBannerRestored: true,
     simulatedOtpEnabled: false,
+    simulatedWalletEnabled: false,
     showDeveloperCredit: false,
     launchModeEnabled: false,
     rotaryShareSettings: DEFAULT_ROTARY_SHARE_SETTINGS,
@@ -4508,6 +4517,8 @@ function reducer(state: RideState, action: RideAction): RideState {
     }
     case 'SET_SIMULATED_OTP_ENABLED':
       return { ...state, simulatedOtpEnabled: action.enabled }
+    case 'SET_SIMULATED_WALLET_ENABLED':
+      return { ...state, simulatedWalletEnabled: action.enabled }
     case 'SET_LAUNCH_MODE_ENABLED':
       return { ...state, launchModeEnabled: action.enabled }
     case 'SET_REQUIRED_DOCUMENTS': {
@@ -7572,6 +7583,7 @@ interface RideContextValue extends RideState {
   setMedsEnabled: (enabled: boolean) => void
   setPartnerBannerEnabled: (enabled: boolean) => void
   setSimulatedOtpEnabled: (enabled: boolean) => void
+  setSimulatedWalletEnabled: (enabled: boolean) => void
   setShowDeveloperCredit: (enabled: boolean, actorName: string) => void
   setLaunchModeEnabled: (enabled: boolean) => void
   setRequiredDocuments: (documents: DocumentType[], actorName: string) => void
@@ -8551,6 +8563,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
           partnerBannerEnabled: state.partnerBannerEnabled,
           partnerBannerRestored: state.partnerBannerRestored,
           simulatedOtpEnabled: state.simulatedOtpEnabled,
+          simulatedWalletEnabled: state.simulatedWalletEnabled,
           showDeveloperCredit: state.showDeveloperCredit,
           launchModeEnabled: state.launchModeEnabled,
           requiredDocuments: state.requiredDocuments,
@@ -8666,6 +8679,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     state.vendorsEnabled,
     state.partnerBannerEnabled,
     state.simulatedOtpEnabled,
+    state.simulatedWalletEnabled,
     state.showDeveloperCredit,
     state.launchModeEnabled,
     state.requiredDocuments,
@@ -9018,6 +9032,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
     setMedsEnabled: (enabled) => dispatch({ type: 'SET_MEDS_ENABLED', enabled }),
     setPartnerBannerEnabled: (enabled) => dispatch({ type: 'SET_PARTNER_BANNER_ENABLED', enabled }),
     setSimulatedOtpEnabled: (enabled) => dispatch({ type: 'SET_SIMULATED_OTP_ENABLED', enabled }),
+    setSimulatedWalletEnabled: (enabled) => dispatch({ type: 'SET_SIMULATED_WALLET_ENABLED', enabled }),
     setShowDeveloperCredit: (enabled, actorName) => dispatch({ type: 'SET_SHOW_DEVELOPER_CREDIT', enabled, actorName }),
     setLaunchModeEnabled: (enabled) => dispatch({ type: 'SET_LAUNCH_MODE_ENABLED', enabled }),
     setRequiredDocuments: (documents, actorName) =>

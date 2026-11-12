@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useRides } from '../context/RideContext'
+import { SimulatedWalletSheet } from './SimulatedWalletSheet'
 import { createMayaCheckout } from '../lib/mayaApi'
 import {
   fareDestination,
@@ -80,7 +81,7 @@ export function RidePaymentForm({
   // nobody is left holding it. Either way the account must be a real one;
   // the sample number the app ships with is well formed and belongs to a
   // stranger, so a pilot that has set nothing up gets cash and card only.
-  const { platformGcashAccount, drivers } = useRides()
+  const { platformGcashAccount, drivers, simulatedWalletEnabled } = useRides()
   const driverAccount = driverId ? (drivers.find((d) => d.id === driverId)?.gcashAccount ?? null) : null
   const destination = fareDestination(driverAccount, platformGcashAccount)
   const gcashReady = destination !== null
@@ -97,6 +98,7 @@ export function RidePaymentForm({
   const [reference, setReference] = useState('')
   const [showQr, setShowQr] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [simulating, setSimulating] = useState(false)
   const [paying, setPaying] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
 
@@ -141,6 +143,16 @@ export function RidePaymentForm({
       aria-modal="true"
       aria-label="Pay for your ride"
     >
+      {destination && (
+        <SimulatedWalletSheet
+          open={simulating}
+          account={destination.account}
+          payeeLabel={paysDriver ? driverName : 'TODA Ride Mobility'}
+          amount={total}
+          onClose={() => setSimulating(false)}
+          onSent={setReference}
+        />
+      )}
       {/* No click-through close: this is the last step of a trip and a stray
           tap on the backdrop should not dismiss the bill. */}
       <div className="flex max-h-[85vh] w-full max-w-sm flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
@@ -255,13 +267,27 @@ export function RidePaymentForm({
               </div>
 
               <div className="flex gap-1.5">
-                {walletLink && (
-                  <a
-                    href={walletLink}
-                    className="flex-1 rounded-lg bg-[#0f766e] py-2 text-center text-xs font-semibold text-white hover:bg-[#0b5f59]"
+                {/* With the simulation on, the hand-off stays inside the app:
+                    the pretend wallet does what GCash would have done and
+                    hands back a reference, so the whole fare can be shown
+                    without money or a second phone. */}
+                {simulatedWalletEnabled ? (
+                  <button
+                    type="button"
+                    onClick={() => setSimulating(true)}
+                    className="flex-1 rounded-lg border-2 border-dashed border-amber-400 bg-amber-50 py-2 text-center text-xs font-bold text-amber-900 hover:bg-amber-100"
                   >
-                    Open GCash · ₱{total}
-                  </a>
+                    🧪 Simulate sending ₱{total}
+                  </button>
+                ) : (
+                  walletLink && (
+                    <a
+                      href={walletLink}
+                      className="flex-1 rounded-lg bg-[#0f766e] py-2 text-center text-xs font-semibold text-white hover:bg-[#0b5f59]"
+                    >
+                      Open GCash · ₱{total}
+                    </a>
+                  )
                 )}
                 {/* The way out that always works. gcash:// is not a
                     documented scheme — it is a guess at GCash's own app
@@ -301,7 +327,9 @@ export function RidePaymentForm({
                 </button>
               </div>
               <p className="text-[10px] leading-snug text-slate-400">
-                If GCash does not open, copy the number and send it from the app yourself.
+                {simulatedWalletEnabled
+                  ? 'Simulated wallet payment is on, so no real money moves. An App Admin turns it off in Super Admin.'
+                  : 'If GCash does not open, copy the number and send it from the app yourself.'}
               </p>
 
               {showQr && (

@@ -62,6 +62,7 @@ export function SuperAdminPage() {
     terminalQrFeeWaived,
     setTerminalQrFeeWaived,
     simulatedOtpEnabled,
+    simulatedWalletEnabled,
     showDeveloperCredit,
     setShowDeveloperCredit,
     launchModeEnabled,
@@ -84,6 +85,7 @@ export function SuperAdminPage() {
     setPilotTodaName,
     setMedsEnabled,
     setSimulatedOtpEnabled,
+    setSimulatedWalletEnabled,
     setSimulateMovementEnabled,
     setPublicBaseUrl,
     activityLog,
@@ -609,6 +611,13 @@ export function SuperAdminPage() {
               description="Show the one-time code on screen instead of texting it. Off means a real code must come from the SMS server, and login fails if it isn't running."
               enabled={simulatedOtpEnabled}
               onChange={setSimulatedOtpEnabled}
+            />
+            <FeatureToggleRow
+              icon="🧪"
+              label="Simulated wallet payment"
+              description="Let a passenger pay a GCash fare from a pretend wallet instead of leaving for their real one — the whole payment can then be demonstrated without money or a second phone. The sheet is labelled a simulation throughout and never asks for a PIN. Turn it off before the pilot takes a real fare."
+              enabled={simulatedWalletEnabled}
+              onChange={setSimulatedWalletEnabled}
             />
             <FeatureToggleRow
               icon="📝"

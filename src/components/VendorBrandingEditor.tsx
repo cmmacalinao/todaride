@@ -205,8 +205,8 @@ export function VendorBrandingEditor({ pharmacy }: { pharmacy: Pharmacy }) {
           })}
         </div>
         <p className="mt-1 text-[11px] text-slate-400">
-          Light colours only — your banner is a photo, and dark text on a dark photo is the one thing a shadow cannot
-          rescue.
+          A dark name is drawn with a white glow behind it, a light one with a dark shadow — so any of these stays
+          readable on a photo. Check the preview above: a busy banner is still a busy banner.
         </p>
       </div>
       <PlacementControl

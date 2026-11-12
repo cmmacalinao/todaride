@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatPeso, isEstimatedPrice } from '../lib/medicineCatalog'
 import { buildShelves, resolveMenuLayout, type MenuLayout } from '../lib/menuLayout'
-import { titleColorValue, titleFontStack } from '../lib/vendorTitleStyle'
+import { titleColorValue, titleFontStack, titleTextShadow } from '../lib/vendorTitleStyle'
 import { nextOpeningLabel, vendorIsOpen } from '../lib/openingHours'
 import { publicVendorUrl } from '../lib/vendorSlug'
 import { getDefaultDishVisual } from '../lib/filipinoDishes'
@@ -334,8 +334,14 @@ export function VendorBannerArt({ kind = 'food' }: { kind?: 'food' | 'goods' }) 
 //
 // The trailing action is Change where there is a picture to swap and Reset
 // where there is not: a shop cannot replace its own name from here, but it
-// can want its placement back. Deleting a picture outright lives in the panel
-// below, which has the room to say Replace and Remove in words.
+// can want its placement back.
+//
+// Remove sits beside it when there is something to remove (2026-11-12, asked
+// for on the live page). It used to live only in the panel further down,
+// which meant a vendor looking straight at the photo they wanted rid of had
+// to scroll away to find the word. It takes two taps: the control is 16px,
+// it sits on top of the picture, and a thumb that slips should not delete
+// the shop's photo.
 function ScaleStrip({
   scale,
   min,
@@ -344,6 +350,7 @@ function ScaleStrip({
   onScale,
   onTrailing,
   trailingLabel,
+  onRemove,
   what,
   className,
 }: {
@@ -354,9 +361,22 @@ function ScaleStrip({
   onScale: (scale: number) => void
   onTrailing?: () => void
   trailingLabel?: string
+  // Absent when there is no picture to remove — the strip then shows only
+  // the size controls and Change/Reset, exactly as before.
+  onRemove?: () => void
   what: string
   className: string
 }) {
+  const [confirming, setConfirming] = useState(false)
+
+  // The armed state disarms itself. A vendor who taps Remove, thinks better
+  // of it and walks away must not come back to a button that still deletes
+  // on one touch.
+  useEffect(() => {
+    if (!confirming) return
+    const timer = window.setTimeout(() => setConfirming(false), 4000)
+    return () => window.clearTimeout(timer)
+  }, [confirming])
   const clamp = (n: number) => Math.round(Math.max(min, Math.min(max, n)) * 100) / 100
   return (
     <div
@@ -390,6 +410,29 @@ function ScaleStrip({
             className="whitespace-nowrap rounded-full px-1 text-[8px] font-semibold hover:bg-white/20"
           >
             {trailingLabel}
+          </button>
+        </>
+      )}
+      {onRemove && (
+        <>
+          <span aria-hidden className="mx-0.5 h-3 w-px bg-white/25" />
+          <button
+            type="button"
+            onClick={() => {
+              if (!confirming) {
+                setConfirming(true)
+                return
+              }
+              setConfirming(false)
+              onRemove()
+            }}
+            aria-label={confirming ? `Confirm removing the ${what}` : `Remove the ${what}`}
+            title={confirming ? 'Tap again to remove' : `Remove the ${what}`}
+            className={`whitespace-nowrap rounded-full px-1 text-[8px] font-semibold hover:bg-white/20 ${
+              confirming ? 'bg-rose-500/90 text-white' : ''
+            }`}
+          >
+            {confirming ? 'Sure?' : '✕ Remove'}
           </button>
         </>
       )}
@@ -464,7 +507,9 @@ export function VendorHeaderCard({
   itemCount,
   accent,
   onLogoUpload,
+  onLogoRemove,
   onCoverUpload,
+  onCoverRemove,
   onPinLocation,
   onCoverPositionChange,
   onBannerBackgroundUpload,
@@ -487,6 +532,10 @@ export function VendorHeaderCard({
   // neither ever shows an upload affordance a customer could tap.
   onLogoUpload?: (dataUrl: string) => void
   onCoverUpload?: (dataUrl: string) => void
+  // Clearing a picture from the banner itself. Same screens as the uploads
+  // above — a customer's view passes neither, so neither can be shown there.
+  onLogoRemove?: () => void
+  onCoverRemove?: () => void
   // Present only on the vendor's own edit screen — swaps the "View on Map"
   // tile from a plain link-out to Google Maps into a button that opens
   // VendorLocationPicker, so the owner can actually pin the spot drivers get
@@ -816,6 +865,7 @@ export function VendorHeaderCard({
                   onScale={(scale) => onCoverPositionChange({ x: savedPosition.x, y: savedPosition.y, scale })}
                   onTrailing={onCoverUpload ? () => setPhotoPickerOpen(true) : undefined}
                   trailingLabel="📷 Change"
+                  onRemove={onCoverRemove && pharmacy.coverPhotoDataUrl ? onCoverRemove : undefined}
                   className="absolute bottom-2 left-[50%]"
                 />
               </>
@@ -978,16 +1028,27 @@ export function VendorHeaderCard({
             />
           ) : (
             <h2
-              className="truncate text-lg font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
-              style={{ fontFamily: titleFontStack(pharmacy.nameFont), color: titleColorValue(pharmacy.nameColor) }}
+              className="truncate text-lg font-bold text-white"
+              style={{
+                fontFamily: titleFontStack(pharmacy.nameFont),
+                color: titleColorValue(pharmacy.nameColor),
+                // Follows the colour: a white halo under a dark name, the
+                // old dark shadow under a light one. Fixed in the class, a
+                // black name on a dark banner was invisible.
+                textShadow: titleTextShadow(pharmacy.nameColor),
+              }}
             >
               {pharmacy.name}
             </h2>
           )}
           {pharmacy.tagline && (
             <p
-              className="truncate text-xs italic text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
-              style={{ fontFamily: titleFontStack(pharmacy.nameFont), color: titleColorValue(pharmacy.nameColor) }}
+              className="truncate text-xs italic text-white/90"
+              style={{
+                fontFamily: titleFontStack(pharmacy.nameFont),
+                color: titleColorValue(pharmacy.nameColor),
+                textShadow: titleTextShadow(pharmacy.nameColor),
+              }}
             >
               {pharmacy.tagline}
             </p>
@@ -1102,6 +1163,7 @@ export function VendorHeaderCard({
                     : () => onLogoPositionChange({ x: 0, y: 0, scale: 1 })
                 }
                 trailingLabel={onLogoUpload ? '📷 Change' : '↺ Reset'}
+                onRemove={onLogoRemove && pharmacy.logoDataUrl ? onLogoRemove : undefined}
                 className="absolute -bottom-7 left-1/2 -translate-x-1/2"
               />
             )}

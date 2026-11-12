@@ -235,7 +235,9 @@ export function VendorMenuManager({ pharmacy, products }: { pharmacy: Pharmacy; 
         itemCount={visibleProducts.length}
         accent={accent}
         onLogoUpload={(dataUrl) => setBranding({ logoDataUrl: dataUrl })}
+        onLogoRemove={() => setBranding({ logoDataUrl: null })}
         onCoverUpload={(dataUrl) => setBranding({ coverPhotoDataUrl: dataUrl })}
+        onCoverRemove={() => setBranding({ coverPhotoDataUrl: null })}
         onPinLocation={() => setShowLocationPicker(true)}
         onCoverPositionChange={(position) => setBranding({ coverPhotoPosition: position })}
         onBannerBackgroundUpload={(dataUrl) => setBranding({ bannerBackgroundDataUrl: dataUrl })}

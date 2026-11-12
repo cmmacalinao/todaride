@@ -100,7 +100,9 @@ export function VendorPublicPage() {
               itemCount={items.length}
               accent={resolveVendorAccent(pharmacy)}
               onLogoUpload={(logoDataUrl) => setBranding({ logoDataUrl })}
+              onLogoRemove={() => setBranding({ logoDataUrl: null })}
               onCoverUpload={(coverPhotoDataUrl) => setBranding({ coverPhotoDataUrl })}
+              onCoverRemove={() => setBranding({ coverPhotoDataUrl: null })}
               onCoverPositionChange={(coverPhotoPosition) => setBranding({ coverPhotoPosition })}
               onBannerBackgroundUpload={(bannerBackgroundDataUrl) => setBranding({ bannerBackgroundDataUrl })}
               onBannerBackgroundRemove={() => setBranding({ bannerBackgroundDataUrl: null })}

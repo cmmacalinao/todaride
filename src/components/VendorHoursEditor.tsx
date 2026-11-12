@@ -13,7 +13,13 @@ import type { Pharmacy } from '../types'
 // Date.getDay() indexes, so Sunday stays 0 wherever it is drawn.
 const WEEK = [1, 2, 3, 4, 5, 6, 0]
 
-const DEFAULT_DAY = { open: '07:00', close: '19:00' }
+// What a day is filled with when a merchant ticks it, and what the two
+// presets write. 8 to 5 on the user's instruction (2026-11-12) — an
+// ordinary working day, and a shorter one than the 7-to-7 that was here
+// before. A shop open later changes it; a shop that forgets now reads as
+// closed in the evening instead of claiming to be open at 6:45pm with the
+// lights already off.
+const DEFAULT_DAY = { open: '08:00', close: '17:00' }
 
 // How the menu is arranged, chosen by the shop.
 //
